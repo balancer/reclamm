@@ -13,7 +13,8 @@ fs_permissions = [
 remappings = [
     'forge-std/=node_modules/forge-std/src/',
     '@openzeppelin/=node_modules/@openzeppelin/',
-    'permit2/=node_modules/permit2/'
+    'permit2/=node_modules/permit2/',
+    '@balancer-deployments/=lib/balancer-deployments/v3/'
 ]
 optimizer = true
 optimizer_runs = 999
