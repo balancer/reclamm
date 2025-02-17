@@ -1,3 +1,6 @@
 [submodule "lib/balancer-deployments"]
 	path = lib/balancer-deployments
 	url = https://github.com/balancer/balancer-deployments
+[submodule "lib/balancer-v3-monorepo"]
+	path = lib/balancer-v3-monorepo
+	url = https://github.com/balancer/balancer-v3-monorepo
