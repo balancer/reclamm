@@ -1,6 +1,5 @@
 {
   "name": "@balancer-labs/v3-custom-pool",
-  "private": true,
   "description": "Balancer V3 Custom Pool",
   "license": "GPL-3.0-only",
   "homepage": "https://github.com/balancer-labs/custom-pool-v3#readme",
@@ -18,7 +17,7 @@
     "Elshan Dzhafarov <elshan@balancerlabs.dev>"
   ],
   "scripts": {
-    "build": "rm -rf node_modules/@balancer-labs && cd lib/balancer-v3-monorepo && yarn && yarn workspaces foreach --parallel --jobs unlimited --verbose run build && cd ../.. && cp -r lib/balancer-v3-monorepo/node_modules/@balancer-labs node_modules/@balancer-labs && yarn compile && rm -rf artifacts/build-info",
+    "build": "yarn workspaces foreach --parallel --jobs unlimited --verbose run build && yarn compile && rm -rf artifacts/build-info",
     "compile": "hardhat compile",
     "compile:watch": "nodemon --ext sol --exec yarn compile",
     "lint": "yarn lint:solidity && yarn lint:typescript",
