@@ -15,10 +15,10 @@ import { Version } from "@balancer-labs/v3-solidity-utils/contracts/helpers/Vers
 import { PoolInfo } from "@balancer-labs/v3-pool-utils/contracts/PoolInfo.sol";
 
 contract CustomPool is BalancerPoolToken, PoolInfo, Version, IBasePool {
-    uint256 public constant MAX_INVARIANT_RATIO = 1000e16; // 1000%
-    uint256 public constant MIN_INVARIANT_RATIO = 10e16; // 10%
-    uint256 public constant MAX_SWAP_FEE_PERCENTAGE = 50e16; // 50%
-    uint256 public constant MIN_SWAP_FEE_PERCENTAGE = 1e12; // 0.0001%
+    uint256 private constant _MAX_INVARIANT_RATIO = 1000e16; // 1000%
+    uint256 private constant _MIN_INVARIANT_RATIO = 10e16; // 10%
+    uint256 private constant _MAX_SWAP_FEE_PERCENTAGE = 50e16; // 50%
+    uint256 private constant _MIN_SWAP_FEE_PERCENTAGE = 1e12; // 0.0001%
 
     error NotImplemented();
 
@@ -27,7 +27,9 @@ contract CustomPool is BalancerPoolToken, PoolInfo, Version, IBasePool {
         string memory name,
         string memory symbol,
         string memory poolVersion
-    ) BalancerPoolToken(vault, name, symbol) PoolInfo(vault) Version(poolVersion) {}
+    ) BalancerPoolToken(vault, name, symbol) PoolInfo(vault) Version(poolVersion) {
+        // solhint-disable-previous-line no-empty-blocks
+    }
 
     /// @inheritdoc IBasePool
     function onSwap(PoolSwapParams memory params) external pure returns (uint256 amountCalculatedScaled18) {
@@ -53,21 +55,21 @@ contract CustomPool is BalancerPoolToken, PoolInfo, Version, IBasePool {
 
     /// @inheritdoc IUnbalancedLiquidityInvariantRatioBounds
     function getMinimumInvariantRatio() external pure returns (uint256 minimumInvariantRatio) {
-        return MIN_INVARIANT_RATIO;
+        return _MIN_INVARIANT_RATIO;
     }
 
     /// @inheritdoc IUnbalancedLiquidityInvariantRatioBounds
     function getMaximumInvariantRatio() external pure returns (uint256 maximumInvariantRatio) {
-        return MAX_INVARIANT_RATIO;
+        return _MAX_INVARIANT_RATIO;
     }
 
     /// @inheritdoc ISwapFeePercentageBounds
     function getMinimumSwapFeePercentage() external pure returns (uint256 minimumSwapFeePercentage) {
-        return MIN_SWAP_FEE_PERCENTAGE;
+        return _MIN_SWAP_FEE_PERCENTAGE;
     }
 
     /// @inheritdoc ISwapFeePercentageBounds
     function getMaximumSwapFeePercentage() external pure returns (uint256 maximumSwapFeePercentage) {
-        return MAX_SWAP_FEE_PERCENTAGE;
+        return _MAX_SWAP_FEE_PERCENTAGE;
     }
 }

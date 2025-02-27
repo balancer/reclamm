@@ -23,7 +23,7 @@ contract CustomPoolFactory is BasePoolFactory, Version, IPoolVersion {
         uint32 pauseWindowDuration,
         string memory factoryVersion,
         string memory poolVersion
-    ) BasePoolFactory(vault, pauseWindowDuration, abi.encode(type(CustomPool).creationCode)) Version(factoryVersion) {
+    ) BasePoolFactory(vault, pauseWindowDuration, type(CustomPool).creationCode) Version(factoryVersion) {
         _poolVersion = poolVersion;
     }
 
@@ -55,7 +55,9 @@ contract CustomPoolFactory is BasePoolFactory, Version, IPoolVersion {
         bool disableUnbalancedLiquidity,
         bytes32 salt
     ) external returns (address pool) {
-        require(roleAccounts.poolCreator == address(0), StandardPoolWithCreator());
+        if (roleAccounts.poolCreator != address(0)) {
+            revert StandardPoolWithCreator();
+        }
 
         pool = _create(abi.encode(getVault(), name, symbol, _poolVersion), salt);
 

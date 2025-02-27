@@ -28,10 +28,6 @@ contract CustomPoolTest is BaseVaultTest {
 
     CustomPoolFactory private _factory;
 
-    function setUp() public override {
-        super.setUp();
-    }
-
     function createPoolFactory() internal override returns (address) {
         _factory = new CustomPoolFactory(vault, 365 days, _FACTORY_VERSION, _POOL_VERSION);
         vm.label(address(_factory), "Custom Pool Factory");
@@ -56,6 +52,7 @@ contract CustomPoolTest is BaseVaultTest {
             false, // Unbalanced liquidity disabled
             bytes32(0)
         );
+        vm.label(newPool, label);
 
         poolArgs = abi.encode(vault, "Custom Pool", "CP", _POOL_VERSION);
     }
@@ -66,7 +63,7 @@ contract CustomPoolTest is BaseVaultTest {
         uint256 tokenInIndex,
         uint256 tokenOutIndex,
         uint256 numTokens
-    ) public {
+    ) public view {
         numTokens = bound(numTokens, _MIN_NUM_TOKENS, _MAX_NUM_TOKENS);
         tokenInIndex = bound(tokenInIndex, 0, numTokens - 1);
         tokenOutIndex = bound(tokenOutIndex, 0, numTokens - 1);
