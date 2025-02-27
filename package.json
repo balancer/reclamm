@@ -18,7 +18,7 @@
     "Elshan Dzhafarov <elshan@balancerlabs.dev>"
   ],
   "scripts": {
-    "build": "yarn compile && rm -rf artifacts/build-info",
+    "build": "forge install && cd lib/balancer-v3-monorepo && yarn && yarn workspaces foreach --parallel --jobs unlimited --verbose run build && cd ../.. && cp -r lib/balancer-v3-monorepo/node_modules/ node_modules/ && yarn && yarn compile && rm -rf artifacts/build-info",
     "compile": "hardhat compile",
     "compile:watch": "nodemon --ext sol --exec yarn compile",
     "lint": "yarn lint:solidity && yarn lint:typescript",
@@ -32,7 +32,8 @@
   "packageManager": "yarn@4.0.0-rc.42",
   "dependencies": {
     "@balancer-labs/v3-interfaces": "workspace:*",
-    "@balancer-labs/v3-vault": "workspace:*"
+    "@balancer-labs/v3-vault": "workspace:*",
+    "hardhat": "^2.14.0"
   },
   "devDependencies": {
     "@ethersproject/abi": "^5.7.0",
@@ -60,7 +61,6 @@
     "eslint-plugin-prettier": "^4.2.1",
     "ethers": "^6.13.5",
     "forge-std": "https://github.com/foundry-rs/forge-std.git#v1.8.1",
-    "hardhat": "^2.14.0",
     "hardhat-contract-sizer": "^2.10.0",
     "hardhat-gas-reporter": "^1.0.9",
     "hardhat-ignore-warnings": "^0.2.11",
