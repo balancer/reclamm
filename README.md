@@ -10,7 +10,7 @@ Example of external custom pool for Balancer V3. Extend it to create new pool ty
 
 # Installation
 
-If it's the first time running the project, run `yarn install-fresh` to install the dependencies and build the project. It'll download and compile V3 monorepo, creating node_modules folders in the library (these folders will be needed to use monorepo as a submodule of the custom pool, so tests can use the base test files).
+If it's the first time running the project, run `sh ./scripts/install-fresh.sh` to install the dependencies and build the project. It'll download and compile V3 monorepo, creating node_modules folders in the library (these folders will be needed to use monorepo as a submodule of the custom pool, so tests can use the base test files).
 
 # Testing
 
