@@ -23,12 +23,13 @@ const defaultPriceShiftDailyRate = 100;
 const defaultSwapAmountIn = 100;
 const timeFix = 12464935.015039;
 
-const tickMilliseconds = 20;
+const tickMilliseconds = 10;
 const secondsPerBlock = 12;
 
 export default function Research() {
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [counter, setCounter] = useState<number>(0);
+  const [counterLastTick, setCounterLastTick] = useState<number>(1);
   const [blockNumber, setBlockNumber] = useState<number>(0);
   const [lastSwapCounter, setLastSwapCounter] = useState<number>(0);
   const [speedMultiplier, setSpeedMultiplier] = useState<number>(1);
@@ -208,7 +209,11 @@ export default function Research() {
 
   useEffect(() => {
     // Update values once every block.
-    if (counter % secondsPerBlock > 0.001 * (tickMilliseconds * speedMultiplier) || !isPlaying) return;
+    if (counterLastTick % secondsPerBlock < counter % secondsPerBlock || !isPlaying) {
+      setCounterLastTick(counter);
+      return;
+    }
+    setCounterLastTick(counter);
     setBlockNumber((prev) => prev + 1);
 
     let newPriceRange = priceRange;
@@ -242,7 +247,7 @@ export default function Research() {
       currentBalanceB === 0 ||
       currentBalanceA / currentBalanceB > virtualBalances.virtualBalanceA / virtualBalances.virtualBalanceB
     ) {
-      const newVirtualBalanceB = virtualBalances.virtualBalanceB * Math.pow(1 - tau, counter - lastSwapCounter + 1);
+      const newVirtualBalanceB = virtualBalances.virtualBalanceB * Math.pow(1 - tau, secondsPerBlock);
       const newVirtualBalanceA =
         (currentBalanceA * (newVirtualBalanceB + currentBalanceB)) /
         (newVirtualBalanceB * (Math.sqrt(newPriceRange) - 1) - currentBalanceB);
@@ -252,7 +257,7 @@ export default function Research() {
         virtualBalanceB: newVirtualBalanceB,
       });
     } else {
-      const newVirtualBalanceA = virtualBalances.virtualBalanceA * Math.pow(1 - tau, counter - lastSwapCounter + 1);
+      const newVirtualBalanceA = virtualBalances.virtualBalanceA * Math.pow(1 - tau, secondsPerBlock);
       const newVirtualBalanceB =
         (currentBalanceB * (newVirtualBalanceA + currentBalanceA)) /
         (newVirtualBalanceA * (Math.sqrt(newPriceRange) - 1) - currentBalanceA);
@@ -510,7 +515,7 @@ export default function Research() {
               </Typography>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {[1, 10, 100, 1000, 10000].map((speed) => (
+              {[1, 10, 100, 1000].map((speed) => (
                 <Button
                   key={speed}
                   variant="contained"
