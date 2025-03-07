@@ -4,31 +4,41 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
 import { D3Chart } from './Chart';
 
+const defaultInitialBalanceA = 1000;
+const defaultInitialBalanceB = 2000;
+const defaultPriceRange = 16;
+const defaultMargin = 10;
+const defaultPriceShiftDailyRate = 100;
+const defaultSwapAmountIn = 100;
+
+const tickMilliseconds = 20;
+
 export default function Research() {
-  const tickMilliseconds = 20;
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [counter, setCounter] = useState<number>(0);
+  const [lastSwapCounter, setLastSwapCounter] = useState<number>(0);
+  const [speedMultiplier, setSpeedMultiplier] = useState<number>(1);
+  const [isPoolInRange, setIsPoolInRange] = useState<boolean>(true);
+  const [outOfRangeTime, setOutOfRangeTime] = useState<number>(0);
+  const [lastRangeCheckTime, setLastRangeCheckTime] = useState<number>(0);
 
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [counter, setCounter] = useState(0);
-  const [lastSwapCounter, setLastSwapCounter] = useState(0);
-  const [speedMultiplier, setSpeedMultiplier] = useState(1);
+  const [initialBalanceA, setInitialBalanceA] = useState<number>(defaultInitialBalanceA);
+  const [initialBalanceB, setInitialBalanceB] = useState<number>(defaultInitialBalanceB);
+  const [priceRange, setPriceRange] = useState<number>(defaultPriceRange);
+  const [margin, setMargin] = useState<number>(defaultMargin);
+  const [priceShiftDailyRate, setPriceShiftDailyRate] = useState<number>(defaultPriceShiftDailyRate);
 
-  const [initialBalanceA, setInitialBalanceA] = useState(0);
-  const [initialBalanceB, setInitialBalanceB] = useState(0);
-  const [priceRange, setPriceRange] = useState(0);
-  const [margin, setMargin] = useState(0);
-  const [priceShiftDailyRate, setPriceShiftDailyRate] = useState(0);
+  const [inputBalanceA, setInputBalanceA] = useState<number>(defaultInitialBalanceA);
+  const [inputBalanceB, setInputBalanceB] = useState<number>(defaultInitialBalanceB);
+  const [inputPriceRange, setInputPriceRange] = useState<number>(defaultPriceRange);
+  const [inputMargin, setInputMargin] = useState<number>(defaultMargin);
 
-  const [inputBalanceA, setInputBalanceA] = useState('0');
-  const [inputBalanceB, setInputBalanceB] = useState('0');
-  const [inputPriceRange, setInputPriceRange] = useState('0');
-  const [inputMargin, setInputMargin] = useState('0');
-
-  const [currentBalanceA, setCurrentBalanceA] = useState(0);
-  const [currentBalanceB, setCurrentBalanceB] = useState(0);
+  const [currentBalanceA, setCurrentBalanceA] = useState<number>(defaultInitialBalanceA);
+  const [currentBalanceB, setCurrentBalanceB] = useState<number>(defaultInitialBalanceB);
   const [virtualBalances, setVirtualBalances] = useState({ virtualBalanceA: 0, virtualBalanceB: 0 });
 
   const [swapTokenIn, setSwapTokenIn] = useState('Token A');
-  const [swapAmountIn, setSwapAmountIn] = useState('0');
+  const [swapAmountIn, setSwapAmountIn] = useState<number>(defaultSwapAmountIn);
 
   const invariant = useMemo(() => {
     return (currentBalanceA + virtualBalances.virtualBalanceA) * (currentBalanceB + virtualBalances.virtualBalanceB);
@@ -50,7 +60,7 @@ export default function Research() {
       (Math.pow(virtualBalances.virtualBalanceA, 2) -
         (invariant * virtualBalances.virtualBalanceA) / virtualBalances.virtualBalanceB);
     return virtualBalances.virtualBalanceA + (-b + Math.sqrt(Math.pow(b, 2) - 4 * c)) / 2;
-  }, [currentBalanceA, currentBalanceB, margin, virtualBalances]);
+  }, [currentBalanceA, currentBalanceB, margin, virtualBalances, invariant]);
 
   const higherMargin = useMemo(() => {
     const marginPercentage = margin / 100;
@@ -61,7 +71,7 @@ export default function Research() {
       marginPercentage;
 
     return virtualBalances.virtualBalanceA + (-b + Math.sqrt(Math.pow(b, 2) - 4 * c)) / 2;
-  }, [currentBalanceA, currentBalanceB, margin, virtualBalances]);
+  }, [currentBalanceA, currentBalanceB, margin, virtualBalances, invariant]);
 
   const chartData = useMemo(() => {
     if (priceRange <= 1) return [];
@@ -78,7 +88,7 @@ export default function Research() {
     });
 
     return curvePoints;
-  }, [currentBalanceA, currentBalanceB, priceRange, virtualBalances]);
+  }, [currentBalanceA, currentBalanceB, priceRange, virtualBalances, invariant]);
 
   const specialPoints = useMemo(() => {
     // Add special points
@@ -113,7 +123,13 @@ export default function Research() {
     };
 
     return [pointA, pointB, currentPoint, lowerMarginPoint, higherMarginPoint];
-  }, [currentBalanceA, currentBalanceB, priceRange, margin, virtualBalances]);
+  }, [currentBalanceA, currentBalanceB, priceRange, margin, virtualBalances, invariant]);
+
+  useEffect(() => {
+    setTimeout(() => {
+      initializeVirtualBalances();
+    }, 1);
+  }, []);
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
@@ -171,6 +187,20 @@ export default function Research() {
     }
   }, [counter]);
 
+  useEffect(() => {
+    if (poolCenteredness <= margin / 100) {
+      if (isPoolInRange) {
+        setIsPoolInRange(false);
+        setOutOfRangeTime(0);
+      } else {
+        setOutOfRangeTime((prev) => prev + (counter - lastRangeCheckTime));
+      }
+    } else {
+      setIsPoolInRange(true);
+    }
+    setLastRangeCheckTime(counter);
+  }, [counter, poolCenteredness, margin]);
+
   const handleUpdate = () => {
     setInitialBalanceA(Number(inputBalanceA));
     setInitialBalanceB(Number(inputBalanceB));
@@ -227,6 +257,13 @@ export default function Research() {
     setCurrentBalanceB(newBalanceB);
   };
 
+  const formatTime = (totalSeconds: number) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toFixed(0).toString().padStart(2, '0')}`;
+  };
+
   return (
     <Container>
       <Grid container spacing={2}>
@@ -239,7 +276,7 @@ export default function Research() {
               fullWidth
               margin="normal"
               value={inputBalanceA}
-              onChange={(e) => setInputBalanceA(e.target.value)}
+              onChange={(e) => setInputBalanceA(Number(e.target.value))}
             />
             <TextField
               label="Real Initial Balance B"
@@ -247,7 +284,7 @@ export default function Research() {
               fullWidth
               margin="normal"
               value={inputBalanceB}
-              onChange={(e) => setInputBalanceB(e.target.value)}
+              onChange={(e) => setInputBalanceB(Number(e.target.value))}
             />
             <TextField
               label="Price Range"
@@ -255,7 +292,7 @@ export default function Research() {
               fullWidth
               margin="normal"
               value={inputPriceRange}
-              onChange={(e) => setInputPriceRange(e.target.value)}
+              onChange={(e) => setInputPriceRange(Number(e.target.value))}
             />
             <TextField
               label="Margin (%)"
@@ -263,7 +300,7 @@ export default function Research() {
               fullWidth
               margin="normal"
               value={inputMargin}
-              onChange={(e) => setInputMargin(e.target.value)}
+              onChange={(e) => setInputMargin(Number(e.target.value))}
             />
             <TextField
               label="Price Shift Daily Rate (%)"
@@ -301,7 +338,7 @@ export default function Research() {
               fullWidth
               margin="normal"
               value={swapAmountIn}
-              onChange={(e) => setSwapAmountIn(e.target.value)}
+              onChange={(e) => setSwapAmountIn(Number(e.target.value))}
             />
             <Button variant="contained" fullWidth onClick={handleSwap} style={{ marginTop: 16 }}>
               Swap
@@ -330,7 +367,7 @@ export default function Research() {
                   color: isPlaying ? 'green' : 'red',
                 }}
               >
-                {isPlaying ? 'Running' : 'Paused'} ({counter.toFixed(0)})
+                {isPlaying ? 'Running' : 'Paused'} - Simulation time: {formatTime(counter)}
               </Typography>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -393,6 +430,7 @@ export default function Research() {
                 {poolCenteredness > margin / 100 ? 'IN RANGE' : 'OUT OF RANGE'}
               </span>
             </Typography>
+            <Typography>Out of Range time: {formatTime(outOfRangeTime)}</Typography>
 
             <Typography variant="h6" style={{ marginTop: 16 }}>
               Balances
