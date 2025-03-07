@@ -24,10 +24,12 @@ const defaultSwapAmountIn = 100;
 const timeFix = 12464935.015039;
 
 const tickMilliseconds = 20;
+const secondsPerBlock = 12;
 
 export default function Research() {
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [counter, setCounter] = useState<number>(0);
+  const [blockNumber, setBlockNumber] = useState<number>(0);
   const [lastSwapCounter, setLastSwapCounter] = useState<number>(0);
   const [speedMultiplier, setSpeedMultiplier] = useState<number>(1);
   const [isPoolInRange, setIsPoolInRange] = useState<boolean>(true);
@@ -205,37 +207,55 @@ export default function Research() {
   }, [isPlaying, speedMultiplier]);
 
   useEffect(() => {
-    if (poolCenteredness > margin / 100) return;
-    if (counter % 1 > 0.001 * (tickMilliseconds * speedMultiplier)) return; // Only update once every second.
+    // Update values once every block.
+    if (counter % secondsPerBlock > 0.001 * (tickMilliseconds * speedMultiplier) || !isPlaying) return;
+    setBlockNumber((prev) => prev + 1);
 
-    // Calculate tau
+    let newPriceRange = priceRange;
+
+    // Price range update logic
+    if (counter >= startTime && counter <= endTime) {
+      // Q0 is updating.
+      newPriceRange =
+        ((counter - startTime) * targetPriceRange + (endTime - counter) * startPriceRange) / (endTime - startTime);
+      setPriceRange(newPriceRange);
+
+      if (poolCenteredness > margin / 100) {
+        // Update price range when pool is in range and maintain pool centeredness
+        const centerBalanceA = virtualBalances.virtualBalanceA * (Math.sqrt(Math.sqrt(priceRange)) - 1);
+        const centerBalanceB = virtualBalances.virtualBalanceB * (Math.sqrt(Math.sqrt(priceRange)) - 1);
+
+        const newDenominator = Math.sqrt(Math.sqrt(newPriceRange)) - 1;
+        setVirtualBalances({
+          virtualBalanceA: centerBalanceA / newDenominator,
+          virtualBalanceB: centerBalanceB / newDenominator,
+        });
+        return; // Skip the regular virtual balance updates
+      }
+    }
+
+    if (poolCenteredness > margin / 100) return;
+
     const tau = priceShiftDailyRate / timeFix;
 
-    // Determine which token's virtual balance to update based on the condition
     if (
       currentBalanceB === 0 ||
       currentBalanceA / currentBalanceB > virtualBalances.virtualBalanceA / virtualBalances.virtualBalanceB
     ) {
-      // Update virtualBalanceB first
       const newVirtualBalanceB = virtualBalances.virtualBalanceB * Math.pow(1 - tau, counter - lastSwapCounter + 1);
-
-      // Then calculate virtualBalanceA based on the new virtualBalanceB
       const newVirtualBalanceA =
         (currentBalanceA * (newVirtualBalanceB + currentBalanceB)) /
-        (newVirtualBalanceB * (Math.sqrt(priceRange) - 1) - currentBalanceB);
+        (newVirtualBalanceB * (Math.sqrt(newPriceRange) - 1) - currentBalanceB);
 
       setVirtualBalances({
         virtualBalanceA: newVirtualBalanceA,
         virtualBalanceB: newVirtualBalanceB,
       });
     } else {
-      // Update virtualBalanceA first
       const newVirtualBalanceA = virtualBalances.virtualBalanceA * Math.pow(1 - tau, counter - lastSwapCounter + 1);
-
-      // Then calculate virtualBalanceB based on the new virtualBalanceA
       const newVirtualBalanceB =
         (currentBalanceB * (newVirtualBalanceA + currentBalanceA)) /
-        (newVirtualBalanceA * (Math.sqrt(priceRange) - 1) - currentBalanceA);
+        (newVirtualBalanceA * (Math.sqrt(newPriceRange) - 1) - currentBalanceA);
 
       setVirtualBalances({
         virtualBalanceA: newVirtualBalanceA,
@@ -486,7 +506,7 @@ export default function Research() {
                   color: isPlaying ? 'green' : 'red',
                 }}
               >
-                {isPlaying ? 'Running' : 'Paused'} - Simulation time: {formatTime(counter)}
+                {isPlaying ? 'Running' : 'Paused'} - Simulation time: {formatTime(counter)} - Block: {blockNumber}
               </Typography>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -531,6 +551,15 @@ export default function Research() {
             <Typography variant="h6" style={{ marginTop: 16 }}>
               Token Price
             </Typography>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography>Rate Max/Min:</Typography>
+              <Typography>
+                {(
+                  Math.pow(invariant, 2) /
+                  (Math.pow(virtualBalances.virtualBalanceA, 2) * Math.pow(virtualBalances.virtualBalanceB, 2))
+                ).toFixed(2)}
+              </Typography>
+            </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <Typography style={{ color: 'red' }}>Min Price A:</Typography>
               <Typography style={{ color: 'red' }}>
