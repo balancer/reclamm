@@ -1,5 +1,16 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { TextField, Grid, Paper, Typography, Container, Button } from '@mui/material';
+import {
+  TextField,
+  Grid,
+  Paper,
+  Typography,
+  Container,
+  Button,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+} from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
 import { D3Chart } from './Chart';
@@ -10,6 +21,7 @@ const defaultPriceRange = 16;
 const defaultMargin = 10;
 const defaultPriceShiftDailyRate = 100;
 const defaultSwapAmountIn = 100;
+const timeFix = 12464935.015039;
 
 const tickMilliseconds = 20;
 
@@ -24,6 +36,7 @@ export default function Research() {
 
   const [initialBalanceA, setInitialBalanceA] = useState<number>(defaultInitialBalanceA);
   const [initialBalanceB, setInitialBalanceB] = useState<number>(defaultInitialBalanceB);
+  const [initialInvariant, setInitialInvariant] = useState<number>(0);
   const [priceRange, setPriceRange] = useState<number>(defaultPriceRange);
   const [margin, setMargin] = useState<number>(defaultMargin);
   const [priceShiftDailyRate, setPriceShiftDailyRate] = useState<number>(defaultPriceShiftDailyRate);
@@ -39,6 +52,15 @@ export default function Research() {
 
   const [swapTokenIn, setSwapTokenIn] = useState('Token A');
   const [swapAmountIn, setSwapAmountIn] = useState<number>(defaultSwapAmountIn);
+
+  const [startPriceRange, setStartPriceRange] = useState<number>(defaultPriceRange);
+  const [targetPriceRange, setTargetPriceRange] = useState<number>(defaultPriceRange);
+  const [startTime, setStartTime] = useState<number>(0);
+  const [endTime, setEndTime] = useState<number>(0);
+
+  const [inputTargetPriceRange, setInputTargetPriceRange] = useState<number>(defaultPriceRange);
+  const [inputStartTime, setInputStartTime] = useState<number>(0);
+  const [inputEndTime, setInputEndTime] = useState<number>(0);
 
   const invariant = useMemo(() => {
     return (currentBalanceA + virtualBalances.virtualBalanceA) * (currentBalanceB + virtualBalances.virtualBalanceB);
@@ -84,11 +106,28 @@ export default function Research() {
         0.7 * virtualBalances.virtualBalanceA + (i * (1.3 * xForPointB - 0.7 * virtualBalances.virtualBalanceA)) / 100;
       const y = invariant / x;
 
-      return { x, y, isSpecialPoint: false };
+      return { x, y };
     });
 
     return curvePoints;
   }, [currentBalanceA, currentBalanceB, priceRange, virtualBalances, invariant]);
+
+  const charInitialData = useMemo(() => {
+    if (priceRange <= 1) return [];
+
+    const xForPointB = initialInvariant / virtualBalances.virtualBalanceB;
+
+    // Create regular curve points
+    const curvePoints = Array.from({ length: 100 }, (_, i) => {
+      const x =
+        0.7 * virtualBalances.virtualBalanceA + (i * (1.3 * xForPointB - 0.7 * virtualBalances.virtualBalanceA)) / 100;
+      const y = initialInvariant / x;
+
+      return { x, y };
+    });
+
+    return curvePoints;
+  }, [initialInvariant]);
 
   const specialPoints = useMemo(() => {
     // Add special points
@@ -125,6 +164,24 @@ export default function Research() {
     return [pointA, pointB, currentPoint, lowerMarginPoint, higherMarginPoint];
   }, [currentBalanceA, currentBalanceB, priceRange, margin, virtualBalances, invariant]);
 
+  const calculatedSwapAmountOut = useMemo(() => {
+    if (!swapAmountIn) return 0;
+
+    if (swapTokenIn === 'Token A') {
+      // Swapping Token A for Token B
+      const newBalanceA = currentBalanceA + swapAmountIn;
+      return (
+        currentBalanceB + virtualBalances.virtualBalanceB - invariant / (newBalanceA + virtualBalances.virtualBalanceA)
+      );
+    } else {
+      // Swapping Token B for Token A
+      const newBalanceB = currentBalanceB + swapAmountIn;
+      return (
+        currentBalanceA + virtualBalances.virtualBalanceA - invariant / (newBalanceB + virtualBalances.virtualBalanceB)
+      );
+    }
+  }, [swapAmountIn, swapTokenIn, currentBalanceA, currentBalanceB, virtualBalances, invariant]);
+
   useEffect(() => {
     setTimeout(() => {
       initializeVirtualBalances();
@@ -152,7 +209,7 @@ export default function Research() {
     if (counter % 1 > 0.001 * (tickMilliseconds * speedMultiplier)) return; // Only update once every second.
 
     // Calculate tau
-    const tau = priceShiftDailyRate / 12464935.015039;
+    const tau = priceShiftDailyRate / timeFix;
 
     // Determine which token's virtual balance to update based on the condition
     if (
@@ -211,17 +268,28 @@ export default function Research() {
     initializeVirtualBalances();
   };
 
+  const handleUpdatePriceRange = () => {
+    setStartPriceRange(priceRange);
+    setTargetPriceRange(inputTargetPriceRange);
+    setStartTime(inputStartTime);
+    setEndTime(inputEndTime);
+  };
+
   const initializeVirtualBalances = () => {
     const priceRangeNum = Number(inputPriceRange);
-    if (priceRangeNum <= 1) {
-      setVirtualBalances({ virtualBalanceA: 0, virtualBalanceB: 0 });
-    } else {
+    let virtualBalancesLocal = { virtualBalanceA: 0, virtualBalanceB: 0 };
+    if (priceRangeNum > 1) {
       const denominator = Math.sqrt(Math.sqrt(priceRangeNum)) - 1;
-      setVirtualBalances({
+      virtualBalancesLocal = {
         virtualBalanceA: Number(inputBalanceA) / denominator,
         virtualBalanceB: Number(inputBalanceB) / denominator,
-      });
+      };
     }
+    setVirtualBalances(virtualBalancesLocal);
+
+    setInitialInvariant(
+      (inputBalanceA + virtualBalancesLocal.virtualBalanceA) * (inputBalanceB + virtualBalancesLocal.virtualBalanceB)
+    );
   };
 
   const handleSwap = () => {
@@ -268,88 +336,139 @@ export default function Research() {
     <Container>
       <Grid container spacing={2}>
         <Grid item xs={3}>
-          <Paper style={{ padding: 16 }}>
-            <Typography variant="h6">Initial conditions</Typography>
-            <TextField
-              label="Real Initial Balance A"
-              type="number"
-              fullWidth
-              margin="normal"
-              value={inputBalanceA}
-              onChange={(e) => setInputBalanceA(Number(e.target.value))}
-            />
-            <TextField
-              label="Real Initial Balance B"
-              type="number"
-              fullWidth
-              margin="normal"
-              value={inputBalanceB}
-              onChange={(e) => setInputBalanceB(Number(e.target.value))}
-            />
-            <TextField
-              label="Price Range"
-              type="number"
-              fullWidth
-              margin="normal"
-              value={inputPriceRange}
-              onChange={(e) => setInputPriceRange(Number(e.target.value))}
-            />
-            <TextField
-              label="Margin (%)"
-              type="number"
-              fullWidth
-              margin="normal"
-              value={inputMargin}
-              onChange={(e) => setInputMargin(Number(e.target.value))}
-            />
-            <TextField
-              label="Price Shift Daily Rate (%)"
-              type="number"
-              fullWidth
-              margin="normal"
-              value={priceShiftDailyRate}
-              onChange={(e) => setPriceShiftDailyRate(Number(e.target.value))}
-            />
-            <Button variant="contained" fullWidth onClick={handleUpdate} style={{ marginTop: 16 }}>
-              Initialize Pool
-            </Button>
-          </Paper>
+          <Accordion>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography variant="h6">Initialize Pool</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <TextField
+                label="Real Initial Balance A"
+                type="number"
+                fullWidth
+                margin="normal"
+                value={inputBalanceA}
+                onChange={(e) => setInputBalanceA(Number(e.target.value))}
+              />
+              <TextField
+                label="Real Initial Balance B"
+                type="number"
+                fullWidth
+                margin="normal"
+                value={inputBalanceB}
+                onChange={(e) => setInputBalanceB(Number(e.target.value))}
+              />
+              <TextField
+                label="Price Range"
+                type="number"
+                fullWidth
+                margin="normal"
+                value={inputPriceRange}
+                onChange={(e) => setInputPriceRange(Number(e.target.value))}
+              />
+              <TextField
+                label="Margin (%)"
+                type="number"
+                fullWidth
+                margin="normal"
+                value={inputMargin}
+                onChange={(e) => setInputMargin(Number(e.target.value))}
+              />
+              <TextField
+                label="Price Shift Daily Rate (%)"
+                type="number"
+                fullWidth
+                margin="normal"
+                value={priceShiftDailyRate}
+                onChange={(e) => setPriceShiftDailyRate(Number(e.target.value))}
+              />
+              <Button variant="contained" fullWidth onClick={handleUpdate} style={{ marginTop: 16 }}>
+                Initialize Pool
+              </Button>
+            </AccordionDetails>
+          </Accordion>
 
-          {/* New Swap Box */}
-          <Paper style={{ padding: 16, marginTop: 16 }}>
-            <Typography variant="h6">Swap</Typography>
-            <TextField
-              select
-              label="Token In"
-              fullWidth
-              margin="normal"
-              value={swapTokenIn}
-              onChange={(e) => setSwapTokenIn(e.target.value)}
-              SelectProps={{
-                native: true,
-              }}
-            >
-              <option value="Token A">Token A</option>
-              <option value="Token B">Token B</option>
-            </TextField>
-            <TextField
-              label="Amount In"
-              type="number"
-              fullWidth
-              margin="normal"
-              value={swapAmountIn}
-              onChange={(e) => setSwapAmountIn(Number(e.target.value))}
-            />
-            <Button variant="contained" fullWidth onClick={handleSwap} style={{ marginTop: 16 }}>
-              Swap
-            </Button>
-          </Paper>
+          <Accordion>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography variant="h6">Swap Exact In</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <TextField
+                select
+                label="Token In"
+                fullWidth
+                margin="normal"
+                value={swapTokenIn}
+                onChange={(e) => setSwapTokenIn(e.target.value)}
+                SelectProps={{
+                  native: true,
+                }}
+              >
+                <option value="Token A">Token A</option>
+                <option value="Token B">Token B</option>
+              </TextField>
+              <TextField
+                label="Amount In"
+                type="number"
+                fullWidth
+                margin="normal"
+                value={swapAmountIn}
+                onChange={(e) => setSwapAmountIn(Number(e.target.value))}
+              />
+              <Typography style={{ marginTop: 8, marginBottom: 8 }}>
+                Amount Out {swapTokenIn === 'Token A' ? 'B' : 'A'}:{' '}
+                {calculatedSwapAmountOut > 0 ? calculatedSwapAmountOut.toFixed(2) : '0'}
+              </Typography>
+              <Button variant="contained" fullWidth onClick={handleSwap} style={{ marginTop: 16 }}>
+                Swap
+              </Button>
+            </AccordionDetails>
+          </Accordion>
+          <Accordion>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography variant="h6">Update Price Range</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <TextField
+                label="Target Price Range"
+                type="number"
+                fullWidth
+                margin="normal"
+                value={inputTargetPriceRange}
+                onChange={(e) => setInputTargetPriceRange(Number(e.target.value))}
+              />
+              <Typography>Current Time: {counter.toFixed(0)}</Typography>
+              <TextField
+                label="Start Time (in seconds)"
+                type="number"
+                fullWidth
+                margin="normal"
+                value={inputStartTime}
+                onChange={(e) => setInputStartTime(Number(e.target.value))}
+              />
+              <TextField
+                label="End Time (in seconds)"
+                type="number"
+                fullWidth
+                margin="normal"
+                value={inputEndTime}
+                onChange={(e) => setInputEndTime(Number(e.target.value))}
+              />
+              <Button variant="contained" fullWidth onClick={handleUpdatePriceRange} style={{ marginTop: 16 }}>
+                Update Price Range
+              </Button>
+            </AccordionDetails>
+          </Accordion>
         </Grid>
 
         <Grid item xs={6}>
           <Paper style={{ padding: 16, textAlign: 'center' }}>
             <div style={{ width: '100%', height: 600 }}>
-              <D3Chart data={chartData} specialPoints={specialPoints} virtualBalances={virtualBalances} />
+              <D3Chart
+                data={chartData}
+                initialData={charInitialData}
+                specialPoints={specialPoints}
+                virtualBalances={virtualBalances}
+              />
             </div>
           </Paper>
           <Paper style={{ padding: 16, marginTop: 16 }}>
@@ -392,54 +511,131 @@ export default function Research() {
         <Grid item xs={3}>
           <Paper style={{ padding: 16 }}>
             <Typography variant="h6">Initial Values</Typography>
-            <Typography>Initial Balance A: {initialBalanceA.toFixed(2)}</Typography>
-            <Typography>Initial Balance B: {initialBalanceB.toFixed(2)}</Typography>
-            <Typography>Price Range: {priceRange.toFixed(2)}</Typography>
-            <Typography>Margin: {margin.toFixed(2)}%</Typography>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography>Initial Balance A:</Typography>
+              <Typography>{initialBalanceA.toFixed(2)}</Typography>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography>Initial Balance B:</Typography>
+              <Typography>{initialBalanceB.toFixed(2)}</Typography>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography>Price Range:</Typography>
+              <Typography>{priceRange.toFixed(2)}</Typography>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography>Margin:</Typography>
+              <Typography>{margin.toFixed(2)}%</Typography>
+            </div>
 
             <Typography variant="h6" style={{ marginTop: 16 }}>
               Token Price
             </Typography>
-            <Typography style={{ color: 'red' }}>
-              Min Price A: {(Math.pow(virtualBalances.virtualBalanceB, 2) / invariant).toFixed(4)}
-            </Typography>
-            <Typography style={{ color: 'blue' }}>
-              Lower Margin Price A: {(invariant / Math.pow(higherMargin, 2)).toFixed(4)}
-            </Typography>
-            <Typography style={{ color: 'green' }}>
-              Current Price A:{' '}
-              {(
-                (currentBalanceB + virtualBalances.virtualBalanceB) /
-                (currentBalanceA + virtualBalances.virtualBalanceA)
-              ).toFixed(4)}
-            </Typography>
-            <Typography style={{ color: 'blue' }}>
-              Higher Margin Price A: {(invariant / Math.pow(lowerMargin, 2)).toFixed(4)}
-            </Typography>
-            <Typography style={{ color: 'red' }}>
-              Max Price A: {(invariant / Math.pow(virtualBalances.virtualBalanceA, 2)).toFixed(4)}
-            </Typography>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography style={{ color: 'red' }}>Min Price A:</Typography>
+              <Typography style={{ color: 'red' }}>
+                {(Math.pow(virtualBalances.virtualBalanceB, 2) / invariant).toFixed(4)}
+              </Typography>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography style={{ color: 'blue' }}>Lower Margin Price A:</Typography>
+              <Typography style={{ color: 'blue' }}>{(invariant / Math.pow(higherMargin, 2)).toFixed(4)}</Typography>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography style={{ color: 'green' }}>Current Price A:</Typography>
+              <Typography style={{ color: 'green' }}>
+                {(
+                  (currentBalanceB + virtualBalances.virtualBalanceB) /
+                  (currentBalanceA + virtualBalances.virtualBalanceA)
+                ).toFixed(4)}
+              </Typography>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography style={{ color: 'blue' }}>Upper Margin Price A:</Typography>
+              <Typography style={{ color: 'blue' }}>{(invariant / Math.pow(lowerMargin, 2)).toFixed(4)}</Typography>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography style={{ color: 'red' }}>Max Price A:</Typography>
+              <Typography style={{ color: 'red' }}>
+                {(invariant / Math.pow(virtualBalances.virtualBalanceA, 2)).toFixed(4)}
+              </Typography>
+            </div>
 
             <Typography variant="h6" style={{ marginTop: 16 }}>
-              Price Range Update
+              Price Range
             </Typography>
-            <Typography>Pool Centeredness: {poolCenteredness.toFixed(2)}</Typography>
-            <Typography>
-              Status:{' '}
-              <span style={{ color: poolCenteredness > margin / 100 ? 'green' : 'red', fontWeight: 'bold' }}>
+            {counter < endTime ? (
+              <>
+                <Typography style={{ color: 'green', fontWeight: 'bold' }}>UPDATING RANGE</Typography>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginLeft: 10 }}>
+                  <Typography>Start Price Range:</Typography>
+                  <Typography>{startPriceRange.toFixed(2)}</Typography>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginLeft: 10 }}>
+                  <Typography>Current Price Range:</Typography>
+                  <Typography>{priceRange.toFixed(2)}</Typography>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginLeft: 10 }}>
+                  <Typography>Target Price Range:</Typography>
+                  <Typography>{targetPriceRange.toFixed(2)}</Typography>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginLeft: 10 }}>
+                  <Typography>Start Time (s):</Typography>
+                  <Typography>{startTime}</Typography>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginLeft: 10 }}>
+                  <Typography>Current Time (s):</Typography>
+                  <Typography>{counter.toFixed(0)}</Typography>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginLeft: 10 }}>
+                  <Typography>End Time (s):</Typography>
+                  <Typography>{endTime}</Typography>
+                </div>
+              </>
+            ) : (
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography>Current Price Range:</Typography>
+                <Typography>{priceRange.toFixed(2)}</Typography>
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography>Pool Centeredness:</Typography>
+              <Typography>{poolCenteredness.toFixed(2)}</Typography>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography>Status:</Typography>
+              <Typography style={{ color: poolCenteredness > margin / 100 ? 'green' : 'red', fontWeight: 'bold' }}>
                 {poolCenteredness > margin / 100 ? 'IN RANGE' : 'OUT OF RANGE'}
-              </span>
-            </Typography>
-            <Typography>Out of Range time: {formatTime(outOfRangeTime)}</Typography>
+              </Typography>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography>Out of Range time:</Typography>
+              <Typography>{formatTime(outOfRangeTime)}</Typography>
+            </div>
 
             <Typography variant="h6" style={{ marginTop: 16 }}>
               Balances
             </Typography>
-            <Typography>Invariant: {invariant.toFixed(2)}</Typography>
-            <Typography>Current Balance A: {currentBalanceA.toFixed(2)}</Typography>
-            <Typography>Current Balance B: {currentBalanceB.toFixed(2)}</Typography>
-            <Typography>Virtual Balance A: {virtualBalances.virtualBalanceA.toFixed(2)}</Typography>
-            <Typography>Virtual Balance B: {virtualBalances.virtualBalanceB.toFixed(2)}</Typography>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography>Invariant:</Typography>
+              <Typography>{invariant.toFixed(2)}</Typography>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography>Current Balance A:</Typography>
+              <Typography>{currentBalanceA.toFixed(2)}</Typography>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography>Current Balance B:</Typography>
+              <Typography>{currentBalanceB.toFixed(2)}</Typography>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography>Virtual Balance A:</Typography>
+              <Typography>{virtualBalances.virtualBalanceA.toFixed(2)}</Typography>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography>Virtual Balance B:</Typography>
+              <Typography>{virtualBalances.virtualBalanceB.toFixed(2)}</Typography>
+            </div>
           </Paper>
         </Grid>
       </Grid>

@@ -3,9 +3,10 @@ import * as d3 from 'd3';
 
 export const D3Chart: React.FC<{
   data: any[];
+  initialData: any[];
   specialPoints: any[];
   virtualBalances: { virtualBalanceA: number; virtualBalanceB: number };
-}> = ({ data, specialPoints, virtualBalances }) => {
+}> = ({ data, initialData, specialPoints, virtualBalances }) => {
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
@@ -91,6 +92,21 @@ export const D3Chart: React.FC<{
         .attr('y2', yScale(virtualBalances.virtualBalanceB))
         .attr('stroke', '#BBBBBB')
         .attr('stroke-width', 2);
+
+      // Add initial price curve (before the regular curve)
+      const initialLine = d3
+        .line<any>()
+        .x((d) => xScale(d.x))
+        .y((d) => yScale(d.y));
+
+      svg
+        .append('path')
+        .datum(initialData)
+        .attr('fill', 'none')
+        .attr('stroke', 'red')
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '5,5')
+        .attr('d', initialLine);
 
       // Add curve
       const line = d3
