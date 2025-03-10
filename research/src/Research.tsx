@@ -36,6 +36,7 @@ export default function Research() {
   const [isPoolInRange, setIsPoolInRange] = useState<boolean>(true);
   const [outOfRangeTime, setOutOfRangeTime] = useState<number>(0);
   const [lastRangeCheckTime, setLastRangeCheckTime] = useState<number>(0);
+  const [priceUpdateMode, setPriceUpdateMode] = useState<'price' | 'centeredness'>('price');
 
   const [initialBalanceA, setInitialBalanceA] = useState<number>(defaultInitialBalanceA);
   const [initialBalanceB, setInitialBalanceB] = useState<number>(defaultInitialBalanceB);
@@ -226,15 +227,31 @@ export default function Research() {
       setPriceRange(newPriceRange);
 
       if (poolCenteredness > margin / 100) {
-        // Update price range when pool is in range and maintain pool centeredness
-        const centerBalanceA = virtualBalances.virtualBalanceA * (Math.sqrt(Math.sqrt(priceRange)) - 1);
-        const centerBalanceB = virtualBalances.virtualBalanceB * (Math.sqrt(Math.sqrt(priceRange)) - 1);
+        if (priceUpdateMode === 'price') {
+          const currentPrice =
+            (currentBalanceB + virtualBalances.virtualBalanceB) / (currentBalanceA + virtualBalances.virtualBalanceA);
+          const b = currentBalanceB - currentBalanceA * currentPrice;
+          const c = (currentPrice * invariant) / Math.sqrt(priceRange);
+          const newVirtualBalanceB = (-b + Math.sqrt(Math.pow(b, 2) + 4 * c)) / 2;
+          const newVirtualBalanceA = invariant / (Math.sqrt(priceRange) * newVirtualBalanceB);
 
-        const newDenominator = Math.sqrt(Math.sqrt(newPriceRange)) - 1;
-        setVirtualBalances({
-          virtualBalanceA: centerBalanceA / newDenominator,
-          virtualBalanceB: centerBalanceB / newDenominator,
-        });
+          setVirtualBalances({
+            virtualBalanceA: newVirtualBalanceA,
+            virtualBalanceB: newVirtualBalanceB,
+          });
+        } else {
+          // Update price range when pool is in range and maintain pool centeredness
+          const centerBalanceA = virtualBalances.virtualBalanceA * (Math.sqrt(Math.sqrt(priceRange)) - 1);
+          const centerBalanceB = virtualBalances.virtualBalanceB * (Math.sqrt(Math.sqrt(priceRange)) - 1);
+
+          const newDenominator = Math.sqrt(Math.sqrt(newPriceRange)) - 1;
+
+          setVirtualBalances({
+            virtualBalanceA: centerBalanceA / newDenominator,
+            virtualBalanceB: centerBalanceB / newDenominator,
+          });
+        }
+
         return; // Skip the regular virtual balance updates
       }
     }
@@ -453,6 +470,35 @@ export default function Research() {
               <Typography variant="h6">Update Price Range</Typography>
             </AccordionSummary>
             <AccordionDetails>
+              <div style={{ marginBottom: 16 }}>
+                <Typography component="div">Update Mode:</Typography>
+                <div>
+                  <input
+                    type="radio"
+                    id="price-constant"
+                    name="update-mode"
+                    value="price"
+                    checked={priceUpdateMode === 'price'}
+                    onChange={(e) => setPriceUpdateMode(e.target.value as 'price' | 'centeredness')}
+                  />
+                  <label htmlFor="price-constant" style={{ marginLeft: 8 }}>
+                    Price constant
+                  </label>
+                </div>
+                <div>
+                  <input
+                    type="radio"
+                    id="centeredness-constant"
+                    name="update-mode"
+                    value="centeredness"
+                    checked={priceUpdateMode === 'centeredness'}
+                    onChange={(e) => setPriceUpdateMode(e.target.value as 'price' | 'centeredness')}
+                  />
+                  <label htmlFor="centeredness-constant" style={{ marginLeft: 8 }}>
+                    Centeredness constant
+                  </label>
+                </div>
+              </div>
               <TextField
                 label="Target Price Range"
                 type="number"
