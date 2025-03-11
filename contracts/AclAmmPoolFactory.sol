@@ -5,7 +5,6 @@ pragma solidity ^0.8.24;
 import { IPoolVersion } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/helpers/IPoolVersion.sol";
 import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultErrors.sol";
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
-import { AclAmmPoolParams } from "@balancer-labs/v3-interfaces/contracts/pool-aclamm/IAclAmmPool.sol";
 import {
     TokenConfig,
     PoolRoleAccounts,
@@ -16,6 +15,7 @@ import { BasePoolFactory } from "@balancer-labs/v3-pool-utils/contracts/BasePool
 import { Version } from "@balancer-labs/v3-solidity-utils/contracts/helpers/Version.sol";
 
 import { AclAmmPool } from "./AclAmmPool.sol";
+import { AclAmmPoolParams } from "./interfaces/IAclAmmPool.sol";
 
 /**
  * @notice Acl Amm Pool factory.

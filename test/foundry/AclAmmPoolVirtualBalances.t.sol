@@ -10,11 +10,11 @@ import { GyroPoolMath } from "@balancer-labs/v3-pool-gyro/contracts/lib/GyroPool
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
-import { IAclAmmPool } from "@balancer-labs/v3-interfaces/contracts/pool-aclamm/IAclAmmPool.sol";
 
 import { BaseAclAmmTest } from "./utils/BaseAclAmmTest.sol";
 import { AclAmmPool } from "../../contracts/AclAmmPool.sol";
 import { AclAmmMath } from "../../contracts/lib/AclAmmMath.sol";
+import { IAclAmmPool } from "../../contracts/interfaces/IAclAmmPool.sol";
 
 contract AclAmmPoolVirtualBalancesTest is BaseAclAmmTest {
     using FixedPoint for uint256;

@@ -7,7 +7,6 @@ import { ISwapFeePercentageBounds } from "@balancer-labs/v3-interfaces/contracts
 import {
     IUnbalancedLiquidityInvariantRatioBounds
 } from "@balancer-labs/v3-interfaces/contracts/vault/IUnbalancedLiquidityInvariantRatioBounds.sol";
-import { AclAmmPoolParams, IAclAmmPool } from "@balancer-labs/v3-interfaces/contracts/pool-aclamm/IAclAmmPool.sol";
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
 import { IHooks } from "@balancer-labs/v3-interfaces/contracts/vault/IHooks.sol";
 import { IBasePool } from "@balancer-labs/v3-interfaces/contracts/vault/IBasePool.sol";
@@ -27,6 +26,7 @@ import { PoolInfo } from "@balancer-labs/v3-pool-utils/contracts/PoolInfo.sol";
 import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
 
 import { SqrtQ0State, AclAmmMath } from "./lib/AclAmmMath.sol";
+import { AclAmmPoolParams, IAclAmmPool } from "./interfaces/IAclAmmPool.sol";
 
 contract AclAmmPool is
     IUnbalancedLiquidityInvariantRatioBounds,
@@ -217,7 +217,7 @@ contract AclAmmPool is
 
     function _setSqrtQ0(uint256 endSqrtQ0, uint256 startTime, uint256 endTime) internal {
         if (startTime > endTime) {
-            revert InvalidTimeRange(startTime, endTime);
+            revert GradualUpdateTimeTravel(startTime, endTime);
         }
 
         uint256 startSqrtQ0 = _calculateCurrentSqrtQ0();

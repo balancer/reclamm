@@ -7,7 +7,6 @@ import "forge-std/Test.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { PoolRoleAccounts, LiquidityManagement } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
-import { AclAmmPoolParams } from "@balancer-labs/v3-interfaces/contracts/pool-aclamm/IAclAmmPool.sol";
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
 
 import { CastingHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/CastingHelpers.sol";
@@ -21,6 +20,7 @@ import { BaseVaultTest } from "@balancer-labs/v3-vault/test/foundry/utils/BaseVa
 import { AclAmmPoolContractsDeployer } from "./AclAmmPoolContractsDeployer.sol";
 import { AclAmmPool } from "../../../contracts/AclAmmPool.sol";
 import { AclAmmPoolFactory } from "../../../contracts/AclAmmPoolFactory.sol";
+import { AclAmmPoolParams } from "../../../contracts/interfaces/IAclAmmPool.sol";
 
 contract BaseAclAmmTest is AclAmmPoolContractsDeployer, BaseVaultTest {
     using FixedPoint for uint256;
