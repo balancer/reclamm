@@ -4,6 +4,7 @@
   "license": "GPL-3.0-only",
   "homepage": "https://github.com/balancer-labs/custom-pool-v3#readme",
   "repository": "git@github.com:balancer-labs/custom-pool-v3.git",
+  "private": true,
   "bugs": {
     "url": "https://github.com/balancer-labs/custom-pool-v3/issues"
   },
