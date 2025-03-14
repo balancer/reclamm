@@ -3,6 +3,8 @@ name: Setup
 runs:
   using: composite
   steps:
+    - name: Enable Corepack
+      run: corepack enable
     - name: Install Node
       uses: actions/setup-node@v4
       with:
