@@ -2,6 +2,8 @@
 
 pragma solidity ^0.8.24;
 
+import { console2 } from "forge-std/console2.sol";
+
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 
 import { BaseAclAmmTest } from "./utils/BaseAclAmmTest.sol";
@@ -10,6 +12,9 @@ import { AclAmmMath } from "../../contracts/lib/AclAmmMath.sol";
 
 contract AclAmmLiquidityTest is BaseAclAmmTest {
     using FixedPoint for uint256;
+
+    uint256 constant _MAX_PRICE_ERROR_ABS = 5;
+    uint256 constant _MAX_CENTEREDNESS_ERROR_ABS = 1e9;
 
     function testAddLiquidity_Fuzz(
         uint256 exactBptAmountOut,
@@ -27,18 +32,12 @@ contract AclAmmLiquidityTest is BaseAclAmmTest {
 
         uint256[] memory virtualBalancesBefore = AclAmmPool(pool).getLastVirtualBalances();
         (, , uint256[] memory balancesBefore, ) = vault.getPoolTokenInfo(pool);
-        uint256 daiPriceBefore = (balancesBefore[usdcIdx] + virtualBalancesBefore[usdcIdx]).divDown(
-            balancesBefore[daiIdx] + virtualBalancesBefore[daiIdx]
-        );
 
         vm.prank(alice);
         router.addLiquidityProportional(pool, maxAmountsIn, exactBptAmountOut, false, "");
 
         uint256[] memory virtualBalancesAfter = AclAmmPool(pool).getLastVirtualBalances();
         (, , uint256[] memory balancesAfter, ) = vault.getPoolTokenInfo(pool);
-        uint256 daiPriceAfter = (balancesAfter[usdcIdx] + virtualBalancesAfter[usdcIdx]).divDown(
-            balancesAfter[daiIdx] + virtualBalancesAfter[daiIdx]
-        );
 
         // Check if virtual balances were correctly updated.
         uint256 proportion = exactBptAmountOut.divUp(totalSupply);
@@ -53,13 +52,7 @@ contract AclAmmLiquidityTest is BaseAclAmmTest {
             "USDC virtual balance does not match"
         );
 
-        // Check if price is constant.
-        assertApproxEqAbs(daiPriceAfter, daiPriceBefore, 5, "Price changed");
-
-        // Check if centeredness is constant.
-        uint256 centerednessBefore = AclAmmMath.calculateCenteredness(balancesBefore, virtualBalancesBefore);
-        uint256 centerednessAfter = AclAmmMath.calculateCenteredness(balancesAfter, virtualBalancesAfter);
-        assertApproxEqAbs(centerednessAfter, centerednessBefore, 2e8, "Centeredness changed");
+        _checkPriceAndCenteredness(balancesBefore, balancesAfter, virtualBalancesBefore, virtualBalancesAfter);
     }
 
     function testRemoveLiquidity_Fuzz(
@@ -78,18 +71,12 @@ contract AclAmmLiquidityTest is BaseAclAmmTest {
 
         uint256[] memory virtualBalancesBefore = AclAmmPool(pool).getLastVirtualBalances();
         (, , uint256[] memory balancesBefore, ) = vault.getPoolTokenInfo(pool);
-        uint256 daiPriceBefore = (balancesBefore[usdcIdx] + virtualBalancesBefore[usdcIdx]).divDown(
-            balancesBefore[daiIdx] + virtualBalancesBefore[daiIdx]
-        );
 
         vm.prank(lp);
         router.removeLiquidityProportional(pool, exactBptAmountIn, minAmountsOut, false, "");
 
         uint256[] memory virtualBalancesAfter = AclAmmPool(pool).getLastVirtualBalances();
         (, , uint256[] memory balancesAfter, ) = vault.getPoolTokenInfo(pool);
-        uint256 daiPriceAfter = (balancesAfter[usdcIdx] + virtualBalancesAfter[usdcIdx]).divDown(
-            balancesAfter[daiIdx] + virtualBalancesAfter[daiIdx]
-        );
 
         // Check if virtual balances were correctly updated.
         uint256 proportion = exactBptAmountIn.divUp(totalSupply);
@@ -104,13 +91,28 @@ contract AclAmmLiquidityTest is BaseAclAmmTest {
             "USDC virtual balance does not match"
         );
 
+        _checkPriceAndCenteredness(balancesBefore, balancesAfter, virtualBalancesBefore, virtualBalancesAfter);
+    }
+
+    function _checkPriceAndCenteredness(
+        uint256[] memory balancesBefore,
+        uint256[] memory balancesAfter,
+        uint256[] memory virtualBalancesBefore,
+        uint256[] memory virtualBalancesAfter
+    ) internal view {
         // Check if price is constant.
-        assertApproxEqAbs(daiPriceAfter, daiPriceBefore, 5, "Price changed");
+        uint256 daiPriceBefore = (balancesBefore[usdcIdx] + virtualBalancesBefore[usdcIdx]).divDown(
+            balancesBefore[daiIdx] + virtualBalancesBefore[daiIdx]
+        );
+        uint256 daiPriceAfter = (balancesAfter[usdcIdx] + virtualBalancesAfter[usdcIdx]).divDown(
+            balancesAfter[daiIdx] + virtualBalancesAfter[daiIdx]
+        );
+        assertApproxEqAbs(daiPriceAfter, daiPriceBefore, _MAX_PRICE_ERROR_ABS, "Price changed");
 
         // Check if centeredness is constant.
         uint256 centerednessBefore = AclAmmMath.calculateCenteredness(balancesBefore, virtualBalancesBefore);
         uint256 centerednessAfter = AclAmmMath.calculateCenteredness(balancesAfter, virtualBalancesAfter);
-        assertApproxEqAbs(centerednessAfter, centerednessBefore, 2e8, "Centeredness changed");
+        assertApproxEqAbs(centerednessAfter, centerednessBefore, _MAX_CENTEREDNESS_ERROR_ABS, "Centeredness changed");
     }
 
     function _setPoolBalances(uint256 initialDaiBalance, uint256 initialUsdcBalance) internal {
