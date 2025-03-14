@@ -9,13 +9,13 @@ runs:
         node-version: 18.15
     - name: Cache node modules
       uses: actions/cache@v4
-      id: cache
+      id: cache-modules
       with:
         path: './node_modules/*'
         key: yarn-pool-${{ hashFiles('./yarn.lock') }}
     - name: Cache library node modules
       uses: actions/cache@v4
-      id: cache
+      id: cache-lib
       with:
         path: './lib/balancer-v3-monorepo/node_modules/*'
         key: lib-${{ hashFiles('./lib/balancer-v3-monorepo/yarn.lock') }}
@@ -27,7 +27,8 @@ runs:
     - name: Install fresh
       shell: bash
       run: sh ./scripts/install-fresh.sh
+      if: steps.cache-lib.outputs.cache-hit != 'true'
     - name: Yarn
       run: yarn --immutable
       shell: bash
-      if: steps.cache.outputs.cache-hit != 'true'
+      if: steps.cache-modules.outputs.cache-hit != 'true'
