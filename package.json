@@ -28,7 +28,6 @@
     "test:hardhat": "hardhat test",
     "test:forge": "forge test --ffi -vvv"
   },
-  "packageManager": "yarn@4.0.0-rc.42",
   "dependencies": {
     "@balancer-labs/v3-interfaces": "workspace:*",
     "@balancer-labs/v3-vault": "workspace:*",
