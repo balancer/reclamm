@@ -99,7 +99,7 @@ contract AclAmmPool is
         );
         _lastTimestamp = block.timestamp;
         if (changed) {
-            _virtualBalances = virtualBalances;
+            _setVirtualBalances(virtualBalances);
 
             if (_sqrtQ0State.startTime != 0) {
                 _sqrtQ0State.startTime = 0;
@@ -151,7 +151,7 @@ contract AclAmmPool is
         bytes memory
     ) public override onlyVault returns (bool) {
         _lastTimestamp = block.timestamp;
-        _virtualBalances = AclAmmMath.initializeVirtualBalances(balancesScaled18, _calculateCurrentSqrtQ0());
+        _setVirtualBalances(AclAmmMath.initializeVirtualBalances(balancesScaled18, _calculateCurrentSqrtQ0()));
         return true;
     }
 
@@ -167,8 +167,10 @@ contract AclAmmPool is
     ) public override onlyVault returns (bool) {
         uint256 totalSupply = _vault.totalSupply(pool);
         uint256 proportion = minBptAmountOut.divUp(totalSupply);
-        _virtualBalances[0] = _virtualBalances[0].mulUp(FixedPoint.ONE + proportion);
-        _virtualBalances[1] = _virtualBalances[1].mulUp(FixedPoint.ONE + proportion);
+        uint256[] memory virtualBalances = _getLastVirtualBalances();
+        virtualBalances[0] = virtualBalances[0].mulUp(FixedPoint.ONE + proportion);
+        virtualBalances[1] = virtualBalances[1].mulUp(FixedPoint.ONE + proportion);
+        _setVirtualBalances(virtualBalances);
         return true;
     }
 
@@ -184,8 +186,10 @@ contract AclAmmPool is
     ) public override onlyVault returns (bool) {
         uint256 totalSupply = _vault.totalSupply(pool);
         uint256 proportion = maxBptAmountIn.divUp(totalSupply);
-        _virtualBalances[0] = _virtualBalances[0].mulDown(FixedPoint.ONE - proportion);
-        _virtualBalances[1] = _virtualBalances[1].mulDown(FixedPoint.ONE - proportion);
+        uint256[] memory virtualBalances = _getLastVirtualBalances();
+        virtualBalances[0] = virtualBalances[0].mulDown(FixedPoint.ONE - proportion);
+        virtualBalances[1] = virtualBalances[1].mulDown(FixedPoint.ONE - proportion);
+        _setVirtualBalances(virtualBalances);
         return true;
     }
 
@@ -210,20 +214,8 @@ contract AclAmmPool is
     }
 
     /// @inheritdoc IAclAmmPool
-    function getLastVirtualBalances() external view returns (uint256[] memory virtualBalances) {
-        (, , uint256[] memory balancesScaled18, ) = _vault.getPoolTokenInfo(address(this));
-
-        // Calculate virtual balances
-        (virtualBalances, ) = AclAmmMath.getVirtualBalances(
-            balancesScaled18,
-            _virtualBalances,
-            _c,
-            _calculateCurrentSqrtQ0(),
-            _lastTimestamp,
-            _centerednessMargin,
-            block.timestamp,
-            _sqrtQ0State
-        );
+    function getLastVirtualBalances() external view returns (uint256[] memory) {
+        return _getLastVirtualBalances();
     }
 
     /// @inheritdoc IAclAmmPool
@@ -243,6 +235,11 @@ contract AclAmmPool is
         uint256 endTime
     ) external onlySwapFeeManagerOrGovernance(address(this)) {
         _setSqrtQ0(newSqrtQ0, startTime, endTime);
+    }
+
+    function _setVirtualBalances(uint256[] memory virtualBalances) internal {
+        _virtualBalances = virtualBalances;
+        _lastTimestamp = block.timestamp;
     }
 
     function _setSqrtQ0(uint256 endSqrtQ0, uint256 startTime, uint256 endTime) internal {
@@ -278,5 +275,21 @@ contract AclAmmPool is
 
     function _setCenterednessMargin(uint256 centerednessMargin) internal {
         _centerednessMargin = centerednessMargin;
+    }
+
+    function _getLastVirtualBalances() internal view returns (uint256[] memory virtualBalances) {
+        (, , uint256[] memory balancesScaled18, ) = _vault.getPoolTokenInfo(address(this));
+
+        // Calculate virtual balances
+        (virtualBalances, ) = AclAmmMath.getVirtualBalances(
+            balancesScaled18,
+            _virtualBalances,
+            _c,
+            _calculateCurrentSqrtQ0(),
+            _lastTimestamp,
+            _centerednessMargin,
+            block.timestamp,
+            _sqrtQ0State
+        );
     }
 }

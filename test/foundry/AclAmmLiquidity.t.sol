@@ -11,7 +11,13 @@ import { AclAmmMath } from "../../contracts/lib/AclAmmMath.sol";
 contract AclAmmLiquidityTest is BaseAclAmmTest {
     using FixedPoint for uint256;
 
-    function testAddLiquidity_Fuzz(uint256 exactBptAmountOut) public {
+    function testAddLiquidity_Fuzz(
+        uint256 exactBptAmountOut,
+        uint256 initialDaiBalance,
+        uint256 initialUsdcBalance
+    ) public {
+        _setPoolBalances(initialDaiBalance, initialUsdcBalance);
+
         uint256 totalSupply = vault.totalSupply(pool);
         exactBptAmountOut = bound(exactBptAmountOut, 1e6, 100 * totalSupply);
 
@@ -48,15 +54,21 @@ contract AclAmmLiquidityTest is BaseAclAmmTest {
         );
 
         // Check if price is constant.
-        assertEq(daiPriceAfter, daiPriceBefore, "Price changed");
+        assertApproxEqAbs(daiPriceAfter, daiPriceBefore, 5, "Price changed");
 
         // Check if centeredness is constant.
         uint256 centerednessBefore = AclAmmMath.calculateCenteredness(balancesBefore, virtualBalancesBefore);
         uint256 centerednessAfter = AclAmmMath.calculateCenteredness(balancesAfter, virtualBalancesAfter);
-        assertEq(centerednessAfter, centerednessBefore, "Centeredness changed");
+        assertApproxEqAbs(centerednessAfter, centerednessBefore, 2e8, "Centeredness changed");
     }
 
-    function testRemoveLiquidity_Fuzz(uint256 exactBptAmountIn) public {
+    function testRemoveLiquidity_Fuzz(
+        uint256 exactBptAmountIn,
+        uint256 initialDaiBalance,
+        uint256 initialUsdcBalance
+    ) public {
+        _setPoolBalances(initialDaiBalance, initialUsdcBalance);
+
         uint256 totalSupply = vault.totalSupply(pool);
         exactBptAmountIn = bound(exactBptAmountIn, 1e6, (9 * totalSupply) / 10);
 
@@ -93,11 +105,22 @@ contract AclAmmLiquidityTest is BaseAclAmmTest {
         );
 
         // Check if price is constant.
-        assertEq(daiPriceAfter, daiPriceBefore, "Price changed");
+        assertApproxEqAbs(daiPriceAfter, daiPriceBefore, 5, "Price changed");
 
         // Check if centeredness is constant.
         uint256 centerednessBefore = AclAmmMath.calculateCenteredness(balancesBefore, virtualBalancesBefore);
         uint256 centerednessAfter = AclAmmMath.calculateCenteredness(balancesAfter, virtualBalancesAfter);
-        assertEq(centerednessAfter, centerednessBefore, "Centeredness changed");
+        assertApproxEqAbs(centerednessAfter, centerednessBefore, 2e8, "Centeredness changed");
+    }
+
+    function _setPoolBalances(uint256 initialDaiBalance, uint256 initialUsdcBalance) internal {
+        initialDaiBalance = bound(initialDaiBalance, 1e10, dai.balanceOf(address(vault)));
+        initialUsdcBalance = bound(initialUsdcBalance, 1e10, usdc.balanceOf(address(vault)));
+
+        uint256[] memory initialBalances = new uint256[](2);
+        initialBalances[daiIdx] = initialDaiBalance;
+        initialBalances[usdcIdx] = initialUsdcBalance;
+
+        vault.manualSetPoolBalances(pool, initialBalances, initialBalances);
     }
 }

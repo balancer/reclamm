@@ -102,6 +102,11 @@ library AclAmmMath {
         // TODO Review rounding
         // TODO: try to find better way to change the virtual balances in storage
 
+        if (block.timestamp == lastTimestamp) {
+            virtualBalances = lastVirtualBalances;
+            return (virtualBalances, false);
+        }
+
         virtualBalances = new uint256[](balancesScaled18.length);
 
         if (isPoolInRange(balancesScaled18, lastVirtualBalances, centerednessMargin) == false) {
