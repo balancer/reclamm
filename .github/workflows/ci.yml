@@ -19,8 +19,6 @@ jobs:
         uses: ./.github/actions/setup
       - name: Lint
         run: yarn lint
-      - name: install-fresh
-        run: sh scripts/install-fresh.sh
       - name: Build
         run: yarn build
         env:

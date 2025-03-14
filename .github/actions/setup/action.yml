@@ -13,12 +13,15 @@ runs:
       with:
         path: '**/node_modules'
         key: yarn-v1-${{ hashFiles('**/yarn.lock') }}
-    - name: Yarn
-      run: yarn --immutable
-      shell: bash
-      if: steps.cache.outputs.cache-hit != 'true'
     - name: Install Foundry
       uses: foundry-rs/foundry-toolchain@v1
     - name: Install lcov
       shell: bash
       run: sudo apt-get install lcov
+    - name: Install fresh
+      shell: bash
+      run: sh ./scripts/install-fresh.sh
+    - name: Yarn
+      run: yarn --immutable
+      shell: bash
+      if: steps.cache.outputs.cache-hit != 'true'
