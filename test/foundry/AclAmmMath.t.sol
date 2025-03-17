@@ -3,16 +3,120 @@
 pragma solidity ^0.8.24;
 
 import "forge-std/Test.sol";
-
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
-
+import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 import { AclAmmMath } from "../../contracts/lib/AclAmmMath.sol";
 
 contract AclAmmMathTest is Test {
+    using ArrayHelpers for *;
     using FixedPoint for uint256;
 
+    // Number of seconds per day (plus some adjustment) = 86400 + 25%
+    uint256 private constant _SECONDS_PER_DAY_WITH_ADJUSTMENT = 110000;
     uint256 private constant _MAX_BALANCE = 1e6 * 1e18;
-    uint256 private constant _MIN_VIRTUAL_BALANCE = 1e18;
+    uint256 private constant _MIN_BALANCE = 1e18;
+
+    function testParseIncreaseDayRate() public pure {
+        uint256 value = 2123e9;
+        uint256 increaseDayRateParsed = AclAmmMath.parseIncreaseDayRate(value);
+
+        assertEq(
+            increaseDayRateParsed,
+            value / _SECONDS_PER_DAY_WITH_ADJUSTMENT,
+            "Increase day rate should be parsed correctly"
+        );
+    }
+
+    function testInitializeVirtualBalances__Fuzz(uint256 balance0, uint256 balance1, uint256 sqrtQ0) public pure {
+        balance0 = bound(balance0, 0, _MAX_BALANCE);
+        balance1 = bound(balance1, 0, _MAX_BALANCE);
+        sqrtQ0 = bound(sqrtQ0, FixedPoint.ONE + 1, type(uint128).max);
+
+        uint256[] memory balancesScaled18 = new uint256[](2);
+        balancesScaled18[0] = balance0;
+        balancesScaled18[1] = balance1;
+
+        uint256[] memory virtualBalances = AclAmmMath.initializeVirtualBalances(balancesScaled18, sqrtQ0);
+
+        assertEq(virtualBalances[0], balance0.divDown(sqrtQ0 - FixedPoint.ONE), "Virtual balance 0 should be correct");
+        assertEq(virtualBalances[1], balance1.divDown(sqrtQ0 - FixedPoint.ONE), "Virtual balance 1 should be correct");
+    }
+
+    function testCalculateInGivenOut__Fuzz(
+        uint256 balanceA,
+        uint256 balanceB,
+        uint256 virtualBalanceA,
+        uint256 virtualBalanceB,
+        uint256 tokenIn,
+        uint256 amountGivenScaled18
+    ) public pure {
+        tokenIn = bound(tokenIn, 0, 1);
+        uint256 tokenOut = tokenIn == 0 ? 1 : 0;
+
+        balanceA = bound(balanceA, _MIN_BALANCE, _MAX_BALANCE);
+        balanceB = bound(balanceB, _MIN_BALANCE, _MAX_BALANCE);
+        virtualBalanceA = bound(virtualBalanceA, _MIN_BALANCE, _MAX_BALANCE);
+        virtualBalanceB = bound(virtualBalanceB, _MIN_BALANCE, _MAX_BALANCE);
+
+        uint256 maxAmount = tokenIn == 0 ? balanceB : balanceA;
+        amountGivenScaled18 = bound(amountGivenScaled18, 1, maxAmount);
+
+        uint256 amountIn = AclAmmMath.calculateInGivenOut(
+            [balanceA, balanceB].toMemoryArray(),
+            [virtualBalanceA, virtualBalanceB].toMemoryArray(),
+            tokenIn,
+            tokenOut,
+            amountGivenScaled18
+        );
+
+        uint256[] memory finalBalances = new uint256[](2);
+        finalBalances[0] = balanceA + virtualBalanceA;
+        finalBalances[1] = balanceB + virtualBalanceB;
+
+        uint256 invariant = finalBalances[0].mulUp(finalBalances[1]);
+
+        uint256 expected = invariant.divUp(finalBalances[tokenOut] - amountGivenScaled18) - finalBalances[tokenIn];
+
+        assertEq(amountIn, expected, "Amount in should be correct");
+    }
+
+    function testCalculateOutGivenIn__Fuzz(
+        uint256 balanceA,
+        uint256 balanceB,
+        uint256 virtualBalanceA,
+        uint256 virtualBalanceB,
+        uint256 tokenIn,
+        uint256 amountGivenScaled18
+    ) public pure {
+        tokenIn = bound(tokenIn, 0, 1);
+        uint256 tokenOut = tokenIn == 0 ? 1 : 0;
+
+        balanceA = bound(balanceA, _MIN_BALANCE, _MAX_BALANCE);
+        balanceB = bound(balanceB, _MIN_BALANCE, _MAX_BALANCE);
+        virtualBalanceA = bound(virtualBalanceA, _MIN_BALANCE, _MAX_BALANCE);
+        virtualBalanceB = bound(virtualBalanceB, _MIN_BALANCE, _MAX_BALANCE);
+
+        uint256 maxAmount = tokenIn == 0 ? balanceA : balanceB;
+        amountGivenScaled18 = bound(amountGivenScaled18, 1, maxAmount);
+
+        uint256 amountOut = AclAmmMath.calculateOutGivenIn(
+            [balanceA, balanceB].toMemoryArray(),
+            [virtualBalanceA, virtualBalanceB].toMemoryArray(),
+            tokenIn,
+            tokenOut,
+            amountGivenScaled18
+        );
+
+        uint256[] memory finalBalances = new uint256[](2);
+        finalBalances[0] = balanceA + virtualBalanceA;
+        finalBalances[1] = balanceB + virtualBalanceB;
+
+        uint256 invariant = finalBalances[0].mulDown(finalBalances[1]);
+
+        uint256 expected = finalBalances[tokenOut] - invariant.divDown(finalBalances[tokenIn] + amountGivenScaled18);
+
+        assertEq(amountOut, expected, "Amount out should be correct");
+    }
 
     function testIsPoolInRange__Fuzz(
         uint256 balance0,
@@ -23,8 +127,8 @@ contract AclAmmMathTest is Test {
     ) public pure {
         balance0 = bound(balance0, 0, _MAX_BALANCE);
         balance1 = bound(balance1, 0, _MAX_BALANCE);
-        virtualBalance0 = bound(virtualBalance0, _MIN_VIRTUAL_BALANCE, _MAX_BALANCE);
-        virtualBalance1 = bound(virtualBalance1, _MIN_VIRTUAL_BALANCE, _MAX_BALANCE);
+        virtualBalance0 = bound(virtualBalance0, _MIN_BALANCE, _MAX_BALANCE);
+        virtualBalance1 = bound(virtualBalance1, _MIN_BALANCE, _MAX_BALANCE);
         centerednessMargin = bound(centerednessMargin, 0, 50e16);
 
         uint256[] memory balancesScaled18 = new uint256[](2);
@@ -55,8 +159,8 @@ contract AclAmmMathTest is Test {
     ) public pure {
         balance0 = bound(balance0, 0, _MAX_BALANCE);
         balance1 = bound(balance1, 0, _MAX_BALANCE);
-        virtualBalance0 = bound(virtualBalance0, _MIN_VIRTUAL_BALANCE, _MAX_BALANCE);
-        virtualBalance1 = bound(virtualBalance1, _MIN_VIRTUAL_BALANCE, _MAX_BALANCE);
+        virtualBalance0 = bound(virtualBalance0, _MIN_BALANCE, _MAX_BALANCE);
+        virtualBalance1 = bound(virtualBalance1, _MIN_BALANCE, _MAX_BALANCE);
 
         uint256[] memory balancesScaled18 = new uint256[](2);
         balancesScaled18[0] = balance0;
@@ -85,8 +189,8 @@ contract AclAmmMathTest is Test {
     ) public pure {
         balance0 = bound(balance0, 0, _MAX_BALANCE);
         balance1 = bound(balance1, 0, _MAX_BALANCE);
-        virtualBalance0 = bound(virtualBalance0, _MIN_VIRTUAL_BALANCE, _MAX_BALANCE);
-        virtualBalance1 = bound(virtualBalance1, _MIN_VIRTUAL_BALANCE, _MAX_BALANCE);
+        virtualBalance0 = bound(virtualBalance0, _MIN_BALANCE, _MAX_BALANCE);
+        virtualBalance1 = bound(virtualBalance1, _MIN_BALANCE, _MAX_BALANCE);
 
         uint256[] memory balancesScaled18 = new uint256[](2);
         balancesScaled18[0] = balance0;

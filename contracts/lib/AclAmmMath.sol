@@ -18,6 +18,9 @@ struct SqrtQ0State {
 library AclAmmMath {
     using FixedPoint for uint256;
 
+    // Number of seconds per day (plus some adjustment) = 86400 + 25%
+    uint256 private constant _SECONDS_PER_DAY_WITH_ADJUSTMENT = 110000;
+
     function computeInvariant(
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
@@ -208,7 +211,7 @@ library AclAmmMath {
     }
 
     function parseIncreaseDayRate(uint256 increaseDayRate) internal pure returns (uint256) {
-        // Divide daily rate by a number of seconds per day (plus some adjustment) = 86400 + 25%
-        return increaseDayRate / 110000;
+        // Divide daily rate by a number of seconds per day (plus some adjustment)
+        return increaseDayRate / _SECONDS_PER_DAY_WITH_ADJUSTMENT;
     }
 }
