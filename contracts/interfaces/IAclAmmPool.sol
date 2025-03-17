@@ -15,8 +15,11 @@ struct AclAmmPoolParams {
 }
 
 interface IAclAmmPool is IBasePool {
-    /// @dev Indicates that the start time is after the end time
+    /// @dev Indicates that the start time is after the end time.
     error GradualUpdateTimeTravel(uint256 resolvedStartTime, uint256 endTime);
+
+    /// @dev The function is not implemented.
+    error NotImplemented();
 
     event SqrtQ0Updated(uint256 startSqrtQ0, uint256 endSqrtQ0, uint256 startTime, uint256 endTime);
     event AclAmmPoolInitialized(uint256 increaseDayRate, uint256 sqrtQ0, uint256 centernessMargin);

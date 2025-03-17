@@ -86,7 +86,7 @@ contract AclAmmPool is
     /// @inheritdoc IBasePool
     function computeBalance(uint256[] memory, uint256, uint256) external pure returns (uint256) {
         // The pool does not accept unbalanced adds and removes, so this function does not need to be implemented.
-        revert("Not implemented");
+        revert NotImplemented();
     }
 
     /// @inheritdoc IBasePool
