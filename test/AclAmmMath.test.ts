@@ -1,4 +1,4 @@
-import { Contract, BigNumberish } from 'ethers';
+import { Contract } from 'ethers';
 import { deploy } from '@balancer-labs/v3-helpers/src/contract';
 import { expect } from 'chai';
 import { bn } from '@balancer-labs/v3-helpers/src/numbers';
@@ -12,6 +12,7 @@ import {
   isPoolInRange,
   parseIncreaseDayRate,
 } from './utils/aclAmmMath';
+import { expectEqualWithError } from './utils/relativeError';
 
 describe('AclAmmMath', function () {
   const EXPECTED_RELATIVE_ERROR = 1e-12;

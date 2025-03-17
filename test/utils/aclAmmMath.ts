@@ -1,6 +1,7 @@
 import { BigNumberish } from 'ethers';
 import {
   bn,
+  fp,
   FP_ONE,
   fpDivDown,
   fpDivUp,
@@ -34,9 +35,9 @@ export function calculateOutGivenIn(
   finalBalances[0] = balancesScaled18[0] + virtualBalances[0];
   finalBalances[1] = balancesScaled18[1] + virtualBalances[1];
 
-  const invariant = fpMulDown(finalBalances[0], finalBalances[1]);
+  const invariant = fpMulUp(finalBalances[0], finalBalances[1]);
 
-  return finalBalances[tokenOutIndex] - fpDivDown(invariant, finalBalances[tokenInIndex] + amountGivenScaled18);
+  return finalBalances[tokenOutIndex] - fpDivUp(invariant, finalBalances[tokenInIndex] + amountGivenScaled18);
 }
 
 export function calculateInGivenOut(
