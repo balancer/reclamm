@@ -107,7 +107,7 @@ library AclAmmMath {
         // TODO Review rounding
         // TODO: try to find better way to change the virtual balances in storage
 
-        virtualBalances = new uint256[](balancesScaled18.length);
+        virtualBalances = lastVirtualBalances;
 
         // Calculate currentSqrtQ0
         uint256 currentSqrtQ0 = calculateSqrtQ0(
@@ -118,8 +118,29 @@ library AclAmmMath {
             sqrtQ0State.endTime
         );
 
-        // if Q0 is updating, we need to calculate the virtual balances
-        if (sqrtQ0State.startTime != 0 && currentTimestamp > sqrtQ0State.startTime) {
+        if (isPoolInRange(balancesScaled18, lastVirtualBalances, centerednessMargin) == false) {
+            uint256 q0 = currentSqrtQ0.mulDown(currentSqrtQ0);
+
+            if (isAboveCenter(balancesScaled18, lastVirtualBalances)) {
+                virtualBalances[1] = lastVirtualBalances[1].mulDown(
+                    LogExpMath.pow(FixedPoint.ONE - c, (block.timestamp - lastTimestamp) * FixedPoint.ONE)
+                );
+                // Va = (Ra * (Vb + Rb)) / (((Q0 - 1) * Vb) - Rb)
+                virtualBalances[0] = (balancesScaled18[0].mulDown(virtualBalances[1] + balancesScaled18[1])).divDown(
+                    (q0 - FixedPoint.ONE).mulDown(virtualBalances[1]) - balancesScaled18[1]
+                );
+            } else {
+                virtualBalances[0] = lastVirtualBalances[0].mulDown(
+                    LogExpMath.pow(FixedPoint.ONE - c, (block.timestamp - lastTimestamp) * FixedPoint.ONE)
+                );
+                // Vb = (Rb * (Va + Ra)) / (((Q0 - 1) * Va) - Ra)
+                virtualBalances[1] = (balancesScaled18[1].mulDown(virtualBalances[0] + balancesScaled18[0])).divDown(
+                    (q0 - FixedPoint.ONE).mulDown(virtualBalances[0]) - balancesScaled18[0]
+                );
+            }
+
+            changed = true;
+        } else if (sqrtQ0State.startTime != 0 && currentTimestamp > sqrtQ0State.startTime) {
             uint256 lastSqrtQ0 = calculateSqrtQ0(
                 lastTimestamp,
                 sqrtQ0State.startSqrtQ0,
@@ -142,30 +163,6 @@ library AclAmmMath {
             );
 
             changed = true;
-        } else if (isPoolInRange(balancesScaled18, lastVirtualBalances, centerednessMargin) == false) {
-            uint256 q0 = currentSqrtQ0.mulDown(currentSqrtQ0);
-
-            if (isAboveCenter(balancesScaled18, lastVirtualBalances)) {
-                virtualBalances[1] = lastVirtualBalances[1].mulDown(
-                    LogExpMath.pow(FixedPoint.ONE - c, (block.timestamp - lastTimestamp) * FixedPoint.ONE)
-                );
-                // Va = (Ra * (Vb + Rb)) / (((Q0 - 1) * Vb) - Rb)
-                virtualBalances[0] = (balancesScaled18[0].mulDown(virtualBalances[1] + balancesScaled18[1])).divDown(
-                    (q0 - FixedPoint.ONE).mulDown(virtualBalances[1]) - balancesScaled18[1]
-                );
-            } else {
-                virtualBalances[0] = lastVirtualBalances[0].mulDown(
-                    LogExpMath.pow(FixedPoint.ONE - c, (block.timestamp - lastTimestamp) * FixedPoint.ONE)
-                );
-                // Vb = (Rb * (Va + Ra)) / (((Q0 - 1) * Va) - Ra)
-                virtualBalances[1] = (balancesScaled18[1].mulDown(virtualBalances[0] + balancesScaled18[0])).divDown(
-                    (q0 - FixedPoint.ONE).mulDown(virtualBalances[0]) - balancesScaled18[0]
-                );
-            }
-
-            changed = true;
-        } else {
-            virtualBalances = lastVirtualBalances;
         }
     }
 
