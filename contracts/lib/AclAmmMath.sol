@@ -140,9 +140,13 @@ library AclAmmMath {
             }
 
             changed = true;
-        } 
-        
-        if (sqrtQ0State.startTime != 0 && currentTimestamp > sqrtQ0State.startTime && (currentTimestamp < sqrtQ0State.endTime || lastTimestamp < sqrtQ0State.endTime)) {
+        }
+
+        if (
+            sqrtQ0State.startTime != 0 &&
+            currentTimestamp > sqrtQ0State.startTime &&
+            (currentTimestamp < sqrtQ0State.endTime || lastTimestamp < sqrtQ0State.endTime)
+        ) {
             uint256 lastSqrtQ0 = calculateSqrtQ0(
                 lastTimestamp,
                 sqrtQ0State.startSqrtQ0,
