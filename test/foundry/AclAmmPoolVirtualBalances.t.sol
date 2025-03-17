@@ -23,7 +23,7 @@ contract AclAmmPoolVirtualBalancesTest is BaseAclAmmTest {
     uint256 private constant _INITIAL_BALANCE_B = 100_000e18;
 
     function setUp() public virtual override {
-        setSqrtQ0(_PRICE_RANGE);
+        setPriceRange(_PRICE_RANGE);
         setInitialBalances(_INITIAL_BALANCE_A, _INITIAL_BALANCE_B);
         setIncreaseDayRate(0);
         super.setUp();
@@ -91,17 +91,17 @@ contract AclAmmPoolVirtualBalancesTest is BaseAclAmmTest {
         }
     }
 
-    function testWithDifferentPriceRange_Fuzz(uint256 newSqrtQ) public {
-        newSqrtQ = bound(newSqrtQ, 1.4e18, 1_000_000e18);
+    function testWithDifferentPriceRange_Fuzz(uint256 newSqrtQ0) public {
+        newSqrtQ0 = bound(newSqrtQ0, 1.001e18, 1_000_000e18); // Price range cannot be lower than 1.
 
-        uint256 initialSqrtQ = sqrtQ0();
-        setSqrtQ0(newSqrtQ);
+        uint256 initialSqrtQ0 = sqrtQ0();
+        setSqrtQ0(newSqrtQ0);
         (address firstPool, address secondPool) = _createNewPool();
 
         uint256[] memory curentFirstPoolVirtualBalances = AclAmmPool(firstPool).getLastVirtualBalances();
         uint256[] memory curentNewPoolVirtualBalances = AclAmmPool(secondPool).getLastVirtualBalances();
 
-        if (newSqrtQ > initialSqrtQ) {
+        if (newSqrtQ0 > initialSqrtQ0) {
             assertLt(
                 curentNewPoolVirtualBalances[0],
                 curentFirstPoolVirtualBalances[0],
