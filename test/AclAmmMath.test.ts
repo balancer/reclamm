@@ -2,8 +2,8 @@ import { Contract, BigNumberish } from 'ethers';
 import { deploy } from '@balancer-labs/v3-helpers/src/contract';
 import { expect } from 'chai';
 import { bn } from '@balancer-labs/v3-helpers/src/numbers';
-import { expectEqualWithError } from '@balancer-labs/v3-helpers/src/test/relativeError.ts';
 import { calculateSqrtQ0 } from './utils/aclAmmMath';
+import { expectEqualWithError } from './utils/relativeError';
 
 describe('AclAmmMath', function () {
   const EXPECTED_RELATIVE_ERROR = 1e-12;
