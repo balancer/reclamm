@@ -109,7 +109,8 @@ library AclAmmMath {
 
         virtualBalances = lastVirtualBalances;
 
-        // If the last timestamp is the same as the current timestamp, virtual balances were already reviewed in the current block.
+        // If the last timestamp is the same as the current timestamp, virtual balances were already reviewed in the
+        // current block.
         if (lastTimestamp == block.timestamp) {
             return (virtualBalances, false);
         }
