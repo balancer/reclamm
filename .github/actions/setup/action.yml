@@ -23,20 +23,19 @@ runs:
       id: cache-lib-modules
       with:
         path: './lib/balancer-v3-monorepo/node_modules/*'
-        key: lib-${{ hashFiles('./lib/balancer-v3-monorepo/yarn.lock') }}
+        key: lib-${{ git submodule status }}
     - name: Cache library artifacts
       uses: actions/cache@v4
       id: cache-lib-artifacts
       with:
         path: './lib/balancer-v3-monorepo/pkg/*'
-        key: lib-${{ hashFiles('./lib/balancer-v3-monorepo/yarn.lock') }}
+        key: lib-${{ git submodule status }}
     - name: Install lcov
       shell: bash
       run: sudo apt-get install lcov
     - name: Install fresh
       shell: bash
       run: sh ./scripts/install-fresh.sh
-      if: steps.cache-lib-modules.outputs.cache-hit != 'true' || steps.cache-lib-artifacts.outputs.cache-hit != 'true'
     - name: Yarn
       run: yarn --immutable
       shell: bash
