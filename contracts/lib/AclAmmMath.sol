@@ -207,12 +207,13 @@ library AclAmmMath {
             return startSqrtQ0;
         } else if (currentTime >= endTime) {
             return endSqrtQ0;
+        } else if (startSqrtQ0 == endSqrtQ0) {
+            return endSqrtQ0;
         }
 
-        uint256 exponent = ((currentTime - startTime) * FixedPoint.ONE).divDown((endTime - startTime) * FixedPoint.ONE);
-        uint256 base = endSqrtQ0.divDown(startSqrtQ0);
+        uint256 exponent = (currentTime - startTime).divDown(endTime - startTime);
 
-        return startSqrtQ0.mulDown(base.powDown(exponent));
+        return startSqrtQ0.mulDown(LogExpMath.pow(endSqrtQ0, exponent)).divDown(LogExpMath.pow(startSqrtQ0, exponent));
     }
 
     function isAboveCenter(
