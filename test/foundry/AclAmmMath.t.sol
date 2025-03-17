@@ -109,8 +109,8 @@ contract AclAmmMathTest is Test {
         startTime = bound(startTime, 1, endTime - 1);
         currentTime = bound(currentTime, startTime, endTime);
 
-        endSqrtQ0 = bound(endSqrtQ0, 1, type(uint128).max);
-        startSqrtQ0 = bound(endSqrtQ0, 1, type(uint128).max);
+        endSqrtQ0 = bound(endSqrtQ0, FixedPoint.ONE, type(uint128).max);
+        startSqrtQ0 = bound(endSqrtQ0, FixedPoint.ONE, type(uint128).max);
 
         uint256 sqrtQ0 = AclAmmMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
 

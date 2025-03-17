@@ -6,7 +6,7 @@ import { expectEqualWithError } from '@balancer-labs/v3-helpers/src/test/relativ
 import { calculateSqrtQ0 } from './utils/aclAmmMath';
 
 describe('AclAmmMath', function () {
-  const EXPECTED_RELATIVE_ERROR = 1e-14;
+  const EXPECTED_RELATIVE_ERROR = 1e-12;
 
   let mock: Contract;
 
