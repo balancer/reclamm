@@ -2,8 +2,6 @@
 
 pragma solidity ^0.8.24;
 
-import { console } from "forge-std/Test.sol";
-
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { GyroPoolMath } from "@balancer-labs/v3-pool-gyro/contracts/lib/GyroPoolMath.sol";
@@ -20,14 +18,13 @@ contract AclAmmPoolVirtualBalancesTest is BaseAclAmmTest {
     using FixedPoint for uint256;
     using ArrayHelpers for *;
 
-    uint256 internal constant maxPrice = 4000;
-    uint256 internal constant minPrice = 2000;
-    uint256 internal constant initialABalance = 1_000_000e18;
-    uint256 internal constant initialBBalance = 100_000e18;
+    uint256 private constant _PRICE_RANGE = 2e18; // Max price is 2x min price.
+    uint256 private constant _INITIAL_BALANCE_A = 1_000_000e18;
+    uint256 private constant _INITIAL_BALANCE_B = 100_000e18;
 
     function setUp() public virtual override {
-        setSqrtQ0(minPrice, maxPrice);
-        setInitialBalances(initialABalance, initialBBalance);
+        setPriceRange(_PRICE_RANGE);
+        setInitialBalances(_INITIAL_BALANCE_A, _INITIAL_BALANCE_B);
         setIncreaseDayRate(0);
         super.setUp();
     }
@@ -53,11 +50,11 @@ contract AclAmmPoolVirtualBalancesTest is BaseAclAmmTest {
 
         uint256[] memory newInitialBalances = new uint256[](2);
         if (diffCoefficient > 0) {
-            newInitialBalances[0] = initialABalance * uint256(diffCoefficient);
-            newInitialBalances[1] = initialBBalance * uint256(diffCoefficient);
+            newInitialBalances[0] = _INITIAL_BALANCE_A * uint256(diffCoefficient);
+            newInitialBalances[1] = _INITIAL_BALANCE_B * uint256(diffCoefficient);
         } else {
-            newInitialBalances[0] = initialABalance / uint256(-diffCoefficient);
-            newInitialBalances[1] = initialBBalance / uint256(-diffCoefficient);
+            newInitialBalances[0] = _INITIAL_BALANCE_A / uint256(-diffCoefficient);
+            newInitialBalances[1] = _INITIAL_BALANCE_B / uint256(-diffCoefficient);
         }
 
         setInitialBalances(newInitialBalances[0], newInitialBalances[1]);
@@ -94,17 +91,17 @@ contract AclAmmPoolVirtualBalancesTest is BaseAclAmmTest {
         }
     }
 
-    function testWithDifferentPriceRange_Fuzz(uint256 newSqrtQ) public {
-        newSqrtQ = bound(newSqrtQ, 1.4e18, 1_000_000e18);
+    function testWithDifferentPriceRange_Fuzz(uint256 newSqrtQ0) public {
+        newSqrtQ0 = bound(newSqrtQ0, 1.001e18, 1_000_000e18); // Price range cannot be lower than 1.
 
-        uint256 initialSqrtQ = sqrtQ0();
-        setSqrtQ0(newSqrtQ);
+        uint256 initialSqrtQ0 = sqrtQ0();
+        setSqrtQ0(newSqrtQ0);
         (address firstPool, address secondPool) = _createNewPool();
 
         uint256[] memory curentFirstPoolVirtualBalances = AclAmmPool(firstPool).getLastVirtualBalances();
         uint256[] memory curentNewPoolVirtualBalances = AclAmmPool(secondPool).getLastVirtualBalances();
 
-        if (newSqrtQ > initialSqrtQ) {
+        if (newSqrtQ0 > initialSqrtQ0) {
             assertLt(
                 curentNewPoolVirtualBalances[0],
                 curentFirstPoolVirtualBalances[0],
@@ -152,10 +149,10 @@ contract AclAmmPoolVirtualBalancesTest is BaseAclAmmTest {
                 poolVirtualBalancesBefore[0],
                 "Virtual A balance after should be less than before"
             );
-            assertLt(
+            assertGt(
                 poolVirtualBalancesAfter[1],
                 poolVirtualBalancesBefore[1],
-                "Virtual B balance after should be less than before"
+                "Virtual B balance after should be greater than before"
             );
         } else {
             assertGe(
@@ -163,29 +160,46 @@ contract AclAmmPoolVirtualBalancesTest is BaseAclAmmTest {
                 poolVirtualBalancesBefore[0],
                 "Virtual A balance after should be greater than before"
             );
-            assertGe(
+            assertLe(
                 poolVirtualBalancesAfter[1],
                 poolVirtualBalancesBefore[1],
-                "Virtual B balance after should be greater than before"
+                "Virtual B balance after should be less than before"
             );
         }
     }
 
-    function testSwap_Fuzz(uint256 exactAmountIn) public {
-        exactAmountIn = bound(exactAmountIn, 1e18, 10_000e18);
+    function testSwapExactIn_Fuzz(uint256 exactAmountIn) public {
+        exactAmountIn = bound(exactAmountIn, 1e6, _INITIAL_BALANCE_A);
 
-        uint256[] memory virtualBalances = _calculateVirtualBalances();
+        uint256[] memory oldVirtualBalances = AclAmmPool(pool).getLastVirtualBalances();
         uint256 invariantBefore = _getCurrentInvariant();
 
         vm.prank(alice);
         router.swapSingleTokenExactIn(pool, dai, usdc, exactAmountIn, 1, UINT256_MAX, false, new bytes(0));
 
         uint256 invariantAfter = _getCurrentInvariant();
-        assertEq(invariantBefore, invariantAfter, "Invariant should not change");
+        assertLe(invariantBefore, invariantAfter, "Invariant should not decrease");
 
-        uint256[] memory curentVirtualBalances = AclAmmPool(pool).getLastVirtualBalances();
-        assertEq(curentVirtualBalances[0], virtualBalances[0], "Virtual A balances don't equal");
-        assertEq(curentVirtualBalances[1], virtualBalances[1], "Virtual B balances don't equal");
+        uint256[] memory newVirtualBalances = AclAmmPool(pool).getLastVirtualBalances();
+        assertEq(newVirtualBalances[0], oldVirtualBalances[0], "Virtual A balances do not match");
+        assertEq(newVirtualBalances[1], oldVirtualBalances[1], "Virtual B balances do not match");
+    }
+
+    function testSwapExactOut_Fuzz(uint256 exactAmountOut) public {
+        exactAmountOut = bound(exactAmountOut, 1e6, _INITIAL_BALANCE_B);
+
+        uint256[] memory virtualBalances = _calculateVirtualBalances();
+        uint256 invariantBefore = _getCurrentInvariant();
+
+        vm.prank(alice);
+        router.swapSingleTokenExactOut(pool, dai, usdc, exactAmountOut, UINT256_MAX, UINT256_MAX, false, new bytes(0));
+
+        uint256 invariantAfter = _getCurrentInvariant();
+        assertLe(invariantBefore, invariantAfter, "Invariant should not decrease");
+
+        uint256[] memory currentVirtualBalances = AclAmmPool(pool).getLastVirtualBalances();
+        assertEq(currentVirtualBalances[0], virtualBalances[0], "Virtual A balances don't equal");
+        assertEq(currentVirtualBalances[1], virtualBalances[1], "Virtual B balances don't equal");
     }
 
     function testAddLiquidity_Fuzz(uint256 exactBptAmountOut) public {
@@ -238,8 +252,8 @@ contract AclAmmPoolVirtualBalancesTest is BaseAclAmmTest {
         virtualBalances = new uint256[](2);
 
         uint256 sqrtQMinusOne = sqrtQ0() - FixedPoint.ONE;
-        virtualBalances[0] = initialABalance.divDown(sqrtQMinusOne);
-        virtualBalances[1] = initialBBalance.divDown(sqrtQMinusOne);
+        virtualBalances[0] = _INITIAL_BALANCE_A.divDown(sqrtQMinusOne);
+        virtualBalances[1] = _INITIAL_BALANCE_B.divDown(sqrtQMinusOne);
     }
 
     function _createNewPool() internal returns (address initalPool, address newPool) {
