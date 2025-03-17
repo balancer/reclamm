@@ -1,5 +1,5 @@
 import { BigNumberish } from 'ethers';
-import { bn } from '@balancer-labs/v3-helpers/src/numbers';
+import { bn, fp, fpDivDown, fromFp, toFp } from '@balancer-labs/v3-helpers/src/numbers';
 
 export function calculateSqrtQ0(
   currentTime: number,
@@ -14,8 +14,14 @@ export function calculateSqrtQ0(
     return bn(endSqrtQ0Fp);
   }
 
-  const exponent = bn(currentTime - startTime) / bn(endTime - startTime);
-  const base = bn(endSqrtQ0Fp) / bn(startSqrtQ0Fp);
+  const exponent = fromFp(fpDivDown(fp(currentTime - startTime), fp(endTime - startTime)));
 
-  return bn(startSqrtQ0Fp) * base ** exponent;
+  console.log('exponent', exponent);
+
+  const base = fromFp(fpDivDown(endSqrtQ0Fp, startSqrtQ0Fp));
+
+  console.log('base', base);
+  console.log('base.pow(exponent)', base.pow(exponent));
+
+  return fp(fromFp(startSqrtQ0Fp).mul(base.pow(exponent)));
 }

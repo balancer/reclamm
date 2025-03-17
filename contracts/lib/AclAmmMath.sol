@@ -213,7 +213,7 @@ library AclAmmMath {
         uint256 exponent = ((currentTime - startTime) * FixedPoint.ONE).divDown((endTime - startTime) * FixedPoint.ONE);
         uint256 base = endSqrtQ0.divDown(startSqrtQ0);
 
-        return startSqrtQ0 * base.powDown(exponent);
+        return startSqrtQ0.mulDown(base.powDown(exponent));
     }
 
     function isAboveCenter(

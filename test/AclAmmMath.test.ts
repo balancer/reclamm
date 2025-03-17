@@ -2,9 +2,12 @@ import { Contract, BigNumberish } from 'ethers';
 import { deploy } from '@balancer-labs/v3-helpers/src/contract';
 import { expect } from 'chai';
 import { bn } from '@balancer-labs/v3-helpers/src/numbers';
+import { expectEqualWithError } from '@balancer-labs/v3-helpers/src/test/relativeError.ts';
 import { calculateSqrtQ0 } from './utils/aclAmmMath';
 
 describe('AclAmmMath', function () {
+  const EXPECTED_RELATIVE_ERROR = 1e-14;
+
   let mock: Contract;
 
   before(async function () {
@@ -36,7 +39,7 @@ describe('AclAmmMath', function () {
       const contractResult = await mock.calculateSqrtQ0(currentTime, startSqrtQ0Fp, endSqrtQ0Fp, startTime, endTime);
       const mathResult = calculateSqrtQ0(currentTime, startSqrtQ0Fp, endSqrtQ0Fp, startTime, endTime);
 
-      expect(contractResult).to.equal(mathResult);
+      expectEqualWithError(contractResult, mathResult, EXPECTED_RELATIVE_ERROR);
     });
   });
 });
