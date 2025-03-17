@@ -2,8 +2,6 @@
 
 pragma solidity ^0.8.24;
 
-import { console, console2 } from "forge-std/Test.sol";
-
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { GyroPoolMath } from "@balancer-labs/v3-pool-gyro/contracts/lib/GyroPoolMath.sol";
@@ -177,18 +175,7 @@ contract AclAmmPoolVirtualBalancesTest is BaseAclAmmTest {
         uint256 invariantBefore = _getCurrentInvariant();
 
         vm.prank(alice);
-        uint256 tokenBOut = router.swapSingleTokenExactIn(
-            pool,
-            dai,
-            usdc,
-            exactAmountIn,
-            1,
-            UINT256_MAX,
-            false,
-            new bytes(0)
-        );
-
-        console2.log("tokenBOut   ", tokenBOut);
+        router.swapSingleTokenExactIn(pool, dai, usdc, exactAmountIn, 1, UINT256_MAX, false, new bytes(0));
 
         uint256 invariantAfter = _getCurrentInvariant();
         assertLe(invariantBefore, invariantAfter, "Invariant should not decrease");
@@ -258,7 +245,6 @@ contract AclAmmPoolVirtualBalancesTest is BaseAclAmmTest {
 
     function _getCurrentInvariant() internal view returns (uint256) {
         (, , uint256[] memory balances, ) = vault.getPoolTokenInfo(pool);
-        console2.log("balances", balances[0], balances[1]);
         return AclAmmPool(pool).computeInvariant(balances, Rounding.ROUND_DOWN);
     }
 
