@@ -28,7 +28,7 @@ runs:
       id: cache-lib-artifacts
       with:
         path: './lib/balancer-v3-monorepo/pkg/*'
-        key: lib-${{ hashFiles('./submodule-hash.txt') }}
+        key: lib-pkg-${{ hashFiles('./submodule-hash.txt') }}
     - name: Install Foundry
       uses: foundry-rs/foundry-toolchain@v1
     - name: Install lcov
