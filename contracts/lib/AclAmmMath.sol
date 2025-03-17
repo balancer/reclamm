@@ -3,6 +3,7 @@
 
 pragma solidity ^0.8.24;
 
+import "forge-std/console.sol";
 import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
@@ -22,26 +23,32 @@ library AclAmmMath {
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
         uint256 c,
-        uint256 sqrtQ0,
         uint256 lastTimestamp,
         uint256 centerednessMargin,
         SqrtQ0State memory sqrtQ0State,
         Rounding rounding
     ) internal view returns (uint256) {
-        function(uint256, uint256) pure returns (uint256) _mulUpOrDown = rounding == Rounding.ROUND_DOWN
-            ? FixedPoint.mulDown
-            : FixedPoint.mulUp;
-
         (uint256[] memory virtualBalances, ) = getVirtualBalances(
             balancesScaled18,
             lastVirtualBalances,
             c,
-            sqrtQ0,
             lastTimestamp,
-            centerednessMargin,
             block.timestamp,
+            centerednessMargin,
             sqrtQ0State
         );
+
+        return computeInvariant(balancesScaled18, virtualBalances, rounding);
+    }
+
+    function computeInvariant(
+        uint256[] memory balancesScaled18,
+        uint256[] memory virtualBalances,
+        Rounding rounding
+    ) internal pure returns (uint256) {
+        function(uint256, uint256) pure returns (uint256) _mulUpOrDown = rounding == Rounding.ROUND_DOWN
+            ? FixedPoint.mulDown
+            : FixedPoint.mulUp;
 
         return _mulUpOrDown((balancesScaled18[0] + virtualBalances[0]), (balancesScaled18[1] + virtualBalances[1]));
     }
@@ -93,10 +100,9 @@ library AclAmmMath {
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
         uint256 c,
-        uint256 sqrtQ0,
         uint256 lastTimestamp,
+        uint256 currentTimestamp,
         uint256 centerednessMargin,
-        uint256 currentTime,
         SqrtQ0State memory sqrtQ0State //TODO: optimize gas usage
     ) internal view returns (uint256[] memory virtualBalances, bool changed) {
         // TODO Review rounding
@@ -104,8 +110,47 @@ library AclAmmMath {
 
         virtualBalances = new uint256[](balancesScaled18.length);
 
-        if (isPoolInRange(balancesScaled18, lastVirtualBalances, centerednessMargin) == false) {
-            uint256 q0 = sqrtQ0.mulDown(sqrtQ0);
+        // Calculate currentSqrtQ0
+        uint256 currentSqrtQ0 = calculateSqrtQ0(
+            currentTimestamp,
+            sqrtQ0State.startSqrtQ0,
+            sqrtQ0State.endSqrtQ0,
+            sqrtQ0State.startTime,
+            sqrtQ0State.endTime
+        );
+
+        console.log("sqrtQ0State.startTime != 0", sqrtQ0State.startTime != 0);
+        console.log("currentTimestamp > sqrtQ0State.startTime", currentTimestamp > sqrtQ0State.startTime);
+        console.log(
+            "isPoolInRange(balancesScaled18, lastVirtualBalances, centerednessMargin)",
+            isPoolInRange(balancesScaled18, lastVirtualBalances, centerednessMargin)
+        );
+        // if Q0 is updating, we need to calculate the virtual balances
+        if (sqrtQ0State.startTime != 0 && currentTimestamp > sqrtQ0State.startTime) {
+            uint256 lastSqrtQ0 = calculateSqrtQ0(
+                lastTimestamp,
+                sqrtQ0State.startSqrtQ0,
+                sqrtQ0State.endSqrtQ0,
+                sqrtQ0State.startTime,
+                sqrtQ0State.endTime
+            );
+
+            // Ra_center = Va * (lastSqrtQ0 - 1)
+            uint256 rACenter = lastVirtualBalances[0].mulDown(lastSqrtQ0 - FixedPoint.ONE);
+
+            // Va = Ra_center / (currentSqrtQ0 - 1)
+            virtualBalances[0] = rACenter.divDown(currentSqrtQ0 - FixedPoint.ONE);
+
+            uint256 currentInvariant = computeInvariant(balancesScaled18, lastVirtualBalances, Rounding.ROUND_DOWN);
+
+            // Vb = currentInvariant / (currentQ0 * Va)
+            virtualBalances[1] = currentInvariant.divDown(
+                currentSqrtQ0.mulDown(currentSqrtQ0).mulDown(virtualBalances[0])
+            );
+
+            changed = true;
+        } else if (isPoolInRange(balancesScaled18, lastVirtualBalances, centerednessMargin) == false) {
+            uint256 q0 = currentSqrtQ0.mulDown(currentSqrtQ0);
 
             if (isAboveCenter(balancesScaled18, lastVirtualBalances)) {
                 virtualBalances[1] = lastVirtualBalances[1].mulDown(
@@ -126,24 +171,6 @@ library AclAmmMath {
             }
 
             changed = true;
-        } else if (sqrtQ0State.startTime != 0 && currentTime > sqrtQ0State.startTime) {
-            uint256 rACenter = lastVirtualBalances[0].mulDown(sqrtQ0State.startSqrtQ0 - FixedPoint.ONE);
-            uint256 rBCenter = lastVirtualBalances[1].mulDown(sqrtQ0State.startSqrtQ0 - FixedPoint.ONE);
-
-            uint256 currentSqrtQ0 = calculateSqrtQ0(
-                currentTime,
-                sqrtQ0State.startSqrtQ0,
-                sqrtQ0State.endSqrtQ0,
-                sqrtQ0State.startTime,
-                sqrtQ0State.endTime
-            );
-
-            virtualBalances[0] = rACenter.divDown(currentSqrtQ0 - FixedPoint.ONE);
-            virtualBalances[1] = rBCenter.divDown(currentSqrtQ0 - FixedPoint.ONE);
-
-            if (currentTime >= sqrtQ0State.endTime) {
-                changed = true;
-            }
         } else {
             virtualBalances = lastVirtualBalances;
         }
@@ -190,10 +217,10 @@ library AclAmmMath {
             return endSqrtQ0;
         }
 
-        uint256 numerator = ((endTime - currentTime) * startSqrtQ0) + ((currentTime - startTime) * endSqrtQ0);
-        uint256 denominator = endTime - startTime;
+        uint256 exponent = (currentTime - startTime) / (endTime - startTime);
+        uint256 base = (endSqrtQ0 / startSqrtQ0);
 
-        return numerator / denominator;
+        return startSqrtQ0 * base ** exponent;
     }
 
     function isAboveCenter(

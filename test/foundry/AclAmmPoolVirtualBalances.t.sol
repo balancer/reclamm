@@ -152,10 +152,10 @@ contract AclAmmPoolVirtualBalancesTest is BaseAclAmmTest {
                 poolVirtualBalancesBefore[0],
                 "Virtual A balance after should be less than before"
             );
-            assertLt(
+            assertGt(
                 poolVirtualBalancesAfter[1],
                 poolVirtualBalancesBefore[1],
-                "Virtual B balance after should be less than before"
+                "Virtual B balance after should be greater than before"
             );
         } else {
             assertGe(
@@ -163,10 +163,10 @@ contract AclAmmPoolVirtualBalancesTest is BaseAclAmmTest {
                 poolVirtualBalancesBefore[0],
                 "Virtual A balance after should be greater than before"
             );
-            assertGe(
+            assertLe(
                 poolVirtualBalancesAfter[1],
                 poolVirtualBalancesBefore[1],
-                "Virtual B balance after should be greater than before"
+                "Virtual B balance after should be less than before"
             );
         }
     }

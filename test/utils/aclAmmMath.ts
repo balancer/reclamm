@@ -8,12 +8,14 @@ export function calculateSqrtQ0(
   startTime: number,
   endTime: number
 ): bigint {
-  if (currentTime > endTime) {
+  if (currentTime < startTime) {
+    return bn(startSqrtQ0Fp);
+  } else if (currentTime >= endTime) {
     return bn(endSqrtQ0Fp);
   }
 
-  const numerator = bn(endTime - currentTime) * bn(startSqrtQ0Fp) + bn(currentTime - startTime) * bn(endSqrtQ0Fp);
-  const denominator = bn(endTime - startTime);
+  const exponent = bn(currentTime - startTime) / bn(endTime - startTime);
+  const base = bn(endSqrtQ0Fp) / bn(startSqrtQ0Fp);
 
-  return numerator / denominator;
+  return bn(startSqrtQ0Fp) * base ** exponent;
 }

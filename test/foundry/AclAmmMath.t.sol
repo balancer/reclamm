@@ -37,14 +37,7 @@ contract AclAmmMathTest is Test {
 
         bool isInRange = AclAmmMath.isPoolInRange(balancesScaled18, virtualBalances, centerednessMargin);
 
-        if (balance0 == 0 || balance1 == 0) {
-            assertEq(isInRange, false);
-        } else {
-            assertEq(
-                isInRange,
-                AclAmmMath.calculateCenteredness(balancesScaled18, virtualBalances) >= centerednessMargin
-            );
-        }
+        assertEq(isInRange, AclAmmMath.calculateCenteredness(balancesScaled18, virtualBalances) >= centerednessMargin);
     }
 
     function testCalculateCenteredness__Fuzz(
@@ -98,9 +91,7 @@ contract AclAmmMathTest is Test {
 
         bool isAboveCenter = AclAmmMath.isAboveCenter(balancesScaled18, virtualBalances);
 
-        if (balance0 == 0) {
-            assertEq(isAboveCenter, false);
-        } else if (balance1 == 0) {
+        if (balance1 == 0) {
             assertEq(isAboveCenter, true);
         } else {
             assertEq(isAboveCenter, balance0.divDown(balance1) > virtualBalance0.divDown(virtualBalance1));

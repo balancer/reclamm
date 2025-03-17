@@ -76,7 +76,6 @@ contract AclAmmPool is
                 balancesScaled18,
                 _virtualBalances,
                 _c,
-                _calculateCurrentSqrtQ0(),
                 _lastTimestamp,
                 _centerednessMargin,
                 _sqrtQ0State,
@@ -97,10 +96,9 @@ contract AclAmmPool is
             request.balancesScaled18,
             _virtualBalances,
             _c,
-            _calculateCurrentSqrtQ0(),
             _lastTimestamp,
-            _centerednessMargin,
             block.timestamp,
+            _centerednessMargin,
             _sqrtQ0State
         );
         _lastTimestamp = block.timestamp;
@@ -188,10 +186,9 @@ contract AclAmmPool is
             balancesScaled18,
             _virtualBalances,
             _c,
-            _calculateCurrentSqrtQ0(),
             _lastTimestamp,
-            _centerednessMargin,
             block.timestamp,
+            _centerednessMargin,
             _sqrtQ0State
         );
     }
