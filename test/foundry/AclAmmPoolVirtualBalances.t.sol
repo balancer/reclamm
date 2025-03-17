@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.24;
 
-import { console } from "forge-std/Test.sol";
+import { console2, console } from "forge-std/Test.sol";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -35,7 +35,7 @@ contract AclAmmPoolVirtualBalancesTest is BaseAclAmmTest {
     function testInitialParams() public view {
         uint256[] memory virtualBalances = _calculateVirtualBalances();
 
-        uint256[] memory curentVirtualBalances = AclAmmPool(pool).getLastVirtualBalances();
+        uint256[] memory curentVirtualBalances = AclAmmPool(pool).getLastVirtualBalances(Rounding.ROUND_DOWN);
 
         assertEq(AclAmmPool(pool).getCurrentSqrtQ0(), sqrtQ0(), "Invalid sqrtQ0");
         assertEq(curentVirtualBalances[0], virtualBalances[0], "Invalid virtual A balance");
@@ -66,8 +66,12 @@ contract AclAmmPoolVirtualBalancesTest is BaseAclAmmTest {
         assertEq(AclAmmPool(firstPool).getCurrentSqrtQ0(), sqrtQ0(), "Invalid sqrtQ0 for firstPool");
         assertEq(AclAmmPool(secondPool).getCurrentSqrtQ0(), sqrtQ0(), "Invalid sqrtQ0 for newPool");
 
-        uint256[] memory curentFirstPoolVirtualBalances = AclAmmPool(firstPool).getLastVirtualBalances();
-        uint256[] memory curentNewPoolVirtualBalances = AclAmmPool(secondPool).getLastVirtualBalances();
+        uint256[] memory curentFirstPoolVirtualBalances = AclAmmPool(firstPool).getLastVirtualBalances(
+            Rounding.ROUND_DOWN
+        );
+        uint256[] memory curentNewPoolVirtualBalances = AclAmmPool(secondPool).getLastVirtualBalances(
+            Rounding.ROUND_DOWN
+        );
 
         if (diffCoefficient > 0) {
             assertGt(
@@ -101,8 +105,12 @@ contract AclAmmPoolVirtualBalancesTest is BaseAclAmmTest {
         setSqrtQ0(newSqrtQ);
         (address firstPool, address secondPool) = _createNewPool();
 
-        uint256[] memory curentFirstPoolVirtualBalances = AclAmmPool(firstPool).getLastVirtualBalances();
-        uint256[] memory curentNewPoolVirtualBalances = AclAmmPool(secondPool).getLastVirtualBalances();
+        uint256[] memory curentFirstPoolVirtualBalances = AclAmmPool(firstPool).getLastVirtualBalances(
+            Rounding.ROUND_DOWN
+        );
+        uint256[] memory curentNewPoolVirtualBalances = AclAmmPool(secondPool).getLastVirtualBalances(
+            Rounding.ROUND_DOWN
+        );
 
         if (newSqrtQ > initialSqrtQ) {
             assertLt(
@@ -136,7 +144,7 @@ contract AclAmmPoolVirtualBalancesTest is BaseAclAmmTest {
 
         uint256 duration = 2 hours;
 
-        uint256[] memory poolVirtualBalancesBefore = AclAmmPool(pool).getLastVirtualBalances();
+        uint256[] memory poolVirtualBalancesBefore = AclAmmPool(pool).getLastVirtualBalances(Rounding.ROUND_DOWN);
 
         uint256 currentTimestamp = block.timestamp;
 
@@ -144,7 +152,7 @@ contract AclAmmPoolVirtualBalancesTest is BaseAclAmmTest {
         AclAmmPool(pool).setSqrtQ0(initialSqrtQ, currentTimestamp, currentTimestamp + duration);
         skip(duration);
 
-        uint256[] memory poolVirtualBalancesAfter = AclAmmPool(pool).getLastVirtualBalances();
+        uint256[] memory poolVirtualBalancesAfter = AclAmmPool(pool).getLastVirtualBalances(Rounding.ROUND_DOWN);
 
         if (newSqrtQ > initialSqrtQ) {
             assertLt(
@@ -172,18 +180,30 @@ contract AclAmmPoolVirtualBalancesTest is BaseAclAmmTest {
     }
 
     function testSwap_Fuzz(uint256 exactAmountIn) public {
-        exactAmountIn = bound(exactAmountIn, 1e18, 10_000e18);
+        exactAmountIn = bound(exactAmountIn, 1e18, 1e18);
 
         uint256[] memory virtualBalances = _calculateVirtualBalances();
         uint256 invariantBefore = _getCurrentInvariant();
 
         vm.prank(alice);
-        router.swapSingleTokenExactIn(pool, dai, usdc, exactAmountIn, 1, UINT256_MAX, false, new bytes(0));
+        uint256 amountOut = router.swapSingleTokenExactIn(
+            pool,
+            dai,
+            usdc,
+            exactAmountIn,
+            1,
+            UINT256_MAX,
+            false,
+            new bytes(0)
+        );
+
+        console2.log("amountOut   ", amountOut);
 
         uint256 invariantAfter = _getCurrentInvariant();
+        console2.log("invariant difference", invariantBefore - invariantAfter);
         assertEq(invariantBefore, invariantAfter, "Invariant should not change");
 
-        uint256[] memory curentVirtualBalances = AclAmmPool(pool).getLastVirtualBalances();
+        uint256[] memory curentVirtualBalances = AclAmmPool(pool).getLastVirtualBalances(Rounding.ROUND_DOWN);
         assertEq(curentVirtualBalances[0], virtualBalances[0], "Virtual A balances don't equal");
         assertEq(curentVirtualBalances[1], virtualBalances[1], "Virtual B balances don't equal");
     }

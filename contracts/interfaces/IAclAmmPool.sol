@@ -5,6 +5,7 @@ pragma solidity ^0.8.24;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { IBasePool } from "@balancer-labs/v3-interfaces/contracts/vault/IBasePool.sol";
+import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 /// @dev Struct with data for deploying a new AclAmmPool.
 struct AclAmmPoolParams {
@@ -23,7 +24,7 @@ interface IAclAmmPool is IBasePool {
     event SqrtQ0Updated(uint256 startSqrtQ0, uint256 endSqrtQ0, uint256 startTime, uint256 endTime);
     event AclAmmPoolInitialized(uint256 increaseDayRate, uint256 sqrtQ0, uint256 centernessMargin);
 
-    function getLastVirtualBalances() external view returns (uint256[] memory virtualBalances);
+    function getLastVirtualBalances(Rounding rounding) external view returns (uint256[] memory virtualBalances);
 
     function getLastTimestamp() external view returns (uint256);
 

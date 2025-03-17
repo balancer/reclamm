@@ -78,7 +78,8 @@ contract AclAmmMathMock {
         uint256 lastTimestamp,
         uint256 centerednessMargin,
         uint256 currentTime,
-        SqrtQ0State memory sqrtQ0State
+        SqrtQ0State memory sqrtQ0State,
+        Rounding rounding
     ) external view returns (uint256[] memory virtualBalances, bool changed) {
         return
             AclAmmMath.getVirtualBalances(
@@ -89,7 +90,8 @@ contract AclAmmMathMock {
                 lastTimestamp,
                 centerednessMargin,
                 currentTime,
-                sqrtQ0State
+                sqrtQ0State,
+                rounding
             );
     }
 

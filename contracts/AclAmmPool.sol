@@ -3,6 +3,8 @@
 
 pragma solidity ^0.8.24;
 
+import { console2 } from "forge-std/Test.sol";
+
 import { ISwapFeePercentageBounds } from "@balancer-labs/v3-interfaces/contracts/vault/ISwapFeePercentageBounds.sol";
 import {
     IUnbalancedLiquidityInvariantRatioBounds
@@ -101,7 +103,8 @@ contract AclAmmPool is
             _lastTimestamp,
             _centerednessMargin,
             block.timestamp,
-            _sqrtQ0State
+            _sqrtQ0State,
+            request.kind == SwapKind.EXACT_IN ? Rounding.ROUND_DOWN : Rounding.ROUND_UP
         );
         _lastTimestamp = block.timestamp;
         if (changed) {
@@ -180,7 +183,7 @@ contract AclAmmPool is
     }
 
     /// @inheritdoc IAclAmmPool
-    function getLastVirtualBalances() external view returns (uint256[] memory virtualBalances) {
+    function getLastVirtualBalances(Rounding rounding) external view returns (uint256[] memory virtualBalances) {
         (, , uint256[] memory balancesScaled18, ) = _vault.getPoolTokenInfo(address(this));
 
         // Calculate virtual balances
@@ -192,7 +195,8 @@ contract AclAmmPool is
             _lastTimestamp,
             _centerednessMargin,
             block.timestamp,
-            _sqrtQ0State
+            _sqrtQ0State,
+            rounding
         );
     }
 

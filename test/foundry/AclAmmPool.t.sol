@@ -8,7 +8,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { GyroPoolMath } from "@balancer-labs/v3-pool-gyro/contracts/lib/GyroPoolMath.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
-
+import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 import { BaseAclAmmTest } from "./utils/BaseAclAmmTest.sol";
 import { AclAmmPool } from "../../contracts/AclAmmPool.sol";
 import { AclAmmMath } from "../../contracts/lib/AclAmmMath.sol";
@@ -73,7 +73,7 @@ contract AclAmmPoolTest is BaseAclAmmTest {
     }
 
     function _getCurrentDaiPoolPrice() internal view returns (uint256) {
-        uint256[] memory virtualBalances = AclAmmPool(pool).getLastVirtualBalances();
+        uint256[] memory virtualBalances = AclAmmPool(pool).getLastVirtualBalances(Rounding.ROUND_DOWN);
 
         (, , uint256[] memory balances, ) = vault.getPoolTokenInfo(pool);
 
@@ -84,7 +84,7 @@ contract AclAmmPoolTest is BaseAclAmmTest {
         uint256 currentMarketPriceDai,
         uint256 tokenInIndex
     ) internal view returns (uint256) {
-        uint256[] memory virtualBalances = AclAmmPool(pool).getLastVirtualBalances();
+        uint256[] memory virtualBalances = AclAmmPool(pool).getLastVirtualBalances(Rounding.ROUND_DOWN);
         (, , uint256[] memory balances, ) = vault.getPoolTokenInfo(pool);
 
         // uint256 currentPoolPriceDai = _getCurrentDaiPoolPrice();
