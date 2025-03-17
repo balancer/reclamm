@@ -12,6 +12,10 @@ runs:
     - name: Install submodules
       shell: bash
       run: forge install
+    - name: Hash submodule commit
+      id: hash-submodule
+      shell: bash
+      run: echo "$(git submodule status)" >> submodule-hash.txt
     - name: Cache node modules
       uses: actions/cache@v4
       id: cache-modules
@@ -23,13 +27,13 @@ runs:
       id: cache-lib-modules
       with:
         path: './lib/balancer-v3-monorepo/node_modules/*'
-        key: lib-${{ git submodule status }}
+        key: lib-${{ hashFiles('./submodule-hash.txt') }}
     - name: Cache library artifacts
       uses: actions/cache@v4
       id: cache-lib-artifacts
       with:
         path: './lib/balancer-v3-monorepo/pkg/*'
-        key: lib-${{ git submodule status }}
+        key: lib-${{ hashFiles('./submodule-hash.txt') }}
     - name: Install lcov
       shell: bash
       run: sudo apt-get install lcov
