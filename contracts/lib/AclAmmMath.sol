@@ -3,7 +3,6 @@
 
 pragma solidity ^0.8.24;
 
-import "forge-std/console.sol";
 import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
@@ -119,12 +118,6 @@ library AclAmmMath {
             sqrtQ0State.endTime
         );
 
-        console.log("sqrtQ0State.startTime != 0", sqrtQ0State.startTime != 0);
-        console.log("currentTimestamp > sqrtQ0State.startTime", currentTimestamp > sqrtQ0State.startTime);
-        console.log(
-            "isPoolInRange(balancesScaled18, lastVirtualBalances, centerednessMargin)",
-            isPoolInRange(balancesScaled18, lastVirtualBalances, centerednessMargin)
-        );
         // if Q0 is updating, we need to calculate the virtual balances
         if (sqrtQ0State.startTime != 0 && currentTimestamp > sqrtQ0State.startTime) {
             uint256 lastSqrtQ0 = calculateSqrtQ0(
@@ -217,10 +210,10 @@ library AclAmmMath {
             return endSqrtQ0;
         }
 
-        uint256 exponent = (currentTime - startTime) / (endTime - startTime);
-        uint256 base = (endSqrtQ0 / startSqrtQ0);
+        uint256 exponent = ((currentTime - startTime) * FixedPoint.ONE).divDown((endTime - startTime) * FixedPoint.ONE);
+        uint256 base = endSqrtQ0.divDown(startSqrtQ0);
 
-        return startSqrtQ0 * base ** exponent;
+        return startSqrtQ0 * base.powDown(exponent);
     }
 
     function isAboveCenter(
