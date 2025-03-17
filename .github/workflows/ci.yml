@@ -32,6 +32,10 @@ jobs:
         with:
           name: built-lib
           path: lib/balancer-v3-monorepo/pkg/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: built-lib-pvt
+          path: lib/balancer-v3-monorepo/pvt/
 
   test-forge:
     runs-on: ubuntu-latest
@@ -46,6 +50,10 @@ jobs:
         with:
           name: built-lib
           path: lib/balancer-v3-monorepo/pkg/
+      - uses: actions/download-artifact@v4
+        with:
+          name: built-lib-pvt
+          path: lib/balancer-v3-monorepo/pvt/
       - name: Set up environment
         uses: ./.github/actions/setup
       - name: Test
@@ -66,5 +74,9 @@ jobs:
         with:
           name: built-lib
           path: lib/balancer-v3-monorepo/pkg/
+      - uses: actions/download-artifact@v4
+        with:
+          name: built-lib-pvt
+          path: lib/balancer-v3-monorepo/pvt/
       - name: Test
         run: yarn test:hardhat
