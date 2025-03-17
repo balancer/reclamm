@@ -64,9 +64,9 @@ library AclAmmMath {
         finalBalances[0] = balancesScaled18[0] + virtualBalances[0];
         finalBalances[1] = balancesScaled18[1] + virtualBalances[1];
 
-        uint256 invariant = finalBalances[0].mulDown(finalBalances[1]);
+        uint256 invariant = finalBalances[0].mulUp(finalBalances[1]);
 
-        return finalBalances[tokenOutIndex] - invariant.divDown(finalBalances[tokenInIndex] + amountGivenScaled18);
+        return finalBalances[tokenOutIndex] - invariant.divUp(finalBalances[tokenInIndex] + amountGivenScaled18);
     }
 
     function calculateInGivenOut(
@@ -109,6 +109,11 @@ library AclAmmMath {
 
         virtualBalances = lastVirtualBalances;
 
+        // If the last timestamp is the same as the current timestamp, virtual balances were already reviewed in the current block.
+        if (lastTimestamp == block.timestamp) {
+            return (virtualBalances, false);
+        }
+
         // Calculate currentSqrtQ0
         uint256 currentSqrtQ0 = calculateSqrtQ0(
             currentTimestamp,
@@ -117,30 +122,6 @@ library AclAmmMath {
             sqrtQ0State.startTime,
             sqrtQ0State.endTime
         );
-
-        if (isPoolInRange(balancesScaled18, lastVirtualBalances, centerednessMargin) == false) {
-            uint256 q0 = currentSqrtQ0.mulDown(currentSqrtQ0);
-
-            if (isAboveCenter(balancesScaled18, lastVirtualBalances)) {
-                virtualBalances[1] = lastVirtualBalances[1].mulDown(
-                    LogExpMath.pow(FixedPoint.ONE - c, (block.timestamp - lastTimestamp) * FixedPoint.ONE)
-                );
-                // Va = (Ra * (Vb + Rb)) / (((Q0 - 1) * Vb) - Rb)
-                virtualBalances[0] = (balancesScaled18[0].mulDown(virtualBalances[1] + balancesScaled18[1])).divDown(
-                    (q0 - FixedPoint.ONE).mulDown(virtualBalances[1]) - balancesScaled18[1]
-                );
-            } else {
-                virtualBalances[0] = lastVirtualBalances[0].mulDown(
-                    LogExpMath.pow(FixedPoint.ONE - c, (block.timestamp - lastTimestamp) * FixedPoint.ONE)
-                );
-                // Vb = (Rb * (Va + Ra)) / (((Q0 - 1) * Va) - Ra)
-                virtualBalances[1] = (balancesScaled18[1].mulDown(virtualBalances[0] + balancesScaled18[0])).divDown(
-                    (q0 - FixedPoint.ONE).mulDown(virtualBalances[0]) - balancesScaled18[0]
-                );
-            }
-
-            changed = true;
-        }
 
         if (
             sqrtQ0State.startTime != 0 &&
@@ -167,6 +148,30 @@ library AclAmmMath {
             virtualBalances[1] = currentInvariant.divDown(
                 currentSqrtQ0.mulDown(currentSqrtQ0).mulDown(virtualBalances[0])
             );
+
+            changed = true;
+        }
+
+        if (isPoolInRange(balancesScaled18, lastVirtualBalances, centerednessMargin) == false) {
+            uint256 q0 = currentSqrtQ0.mulDown(currentSqrtQ0);
+
+            if (isAboveCenter(balancesScaled18, lastVirtualBalances)) {
+                virtualBalances[1] = lastVirtualBalances[1].mulDown(
+                    LogExpMath.pow(FixedPoint.ONE - c, (block.timestamp - lastTimestamp) * FixedPoint.ONE)
+                );
+                // Va = (Ra * (Vb + Rb)) / (((Q0 - 1) * Vb) - Rb)
+                virtualBalances[0] = (balancesScaled18[0].mulDown(virtualBalances[1] + balancesScaled18[1])).divDown(
+                    (q0 - FixedPoint.ONE).mulDown(virtualBalances[1]) - balancesScaled18[1]
+                );
+            } else {
+                virtualBalances[0] = lastVirtualBalances[0].mulDown(
+                    LogExpMath.pow(FixedPoint.ONE - c, (block.timestamp - lastTimestamp) * FixedPoint.ONE)
+                );
+                // Vb = (Rb * (Va + Ra)) / (((Q0 - 1) * Va) - Ra)
+                virtualBalances[1] = (balancesScaled18[1].mulDown(virtualBalances[0] + balancesScaled18[0])).divDown(
+                    (q0 - FixedPoint.ONE).mulDown(virtualBalances[0]) - balancesScaled18[0]
+                );
+            }
 
             changed = true;
         }
