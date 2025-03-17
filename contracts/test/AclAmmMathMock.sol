@@ -10,7 +10,6 @@ contract AclAmmMathMock {
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
         uint256 c,
-        uint256 sqrtQ0,
         uint256 lastTimestamp,
         uint256 centerednessMargin,
         SqrtQ0State memory sqrtQ0State,
@@ -21,7 +20,6 @@ contract AclAmmMathMock {
                 balancesScaled18,
                 lastVirtualBalances,
                 c,
-                sqrtQ0,
                 lastTimestamp,
                 centerednessMargin,
                 sqrtQ0State,
@@ -74,10 +72,9 @@ contract AclAmmMathMock {
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
         uint256 c,
-        uint256 sqrtQ0,
         uint256 lastTimestamp,
+        uint256 currentTimestamp,
         uint256 centerednessMargin,
-        uint256 currentTime,
         SqrtQ0State memory sqrtQ0State
     ) external view returns (uint256[] memory virtualBalances, bool changed) {
         return
@@ -85,10 +82,9 @@ contract AclAmmMathMock {
                 balancesScaled18,
                 lastVirtualBalances,
                 c,
-                sqrtQ0,
                 lastTimestamp,
+                currentTimestamp,
                 centerednessMargin,
-                currentTime,
                 sqrtQ0State
             );
     }

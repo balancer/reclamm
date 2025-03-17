@@ -14,6 +14,8 @@ import {
 } from './utils/aclAmmMath';
 
 describe('AclAmmMath', function () {
+  const EXPECTED_RELATIVE_ERROR = 1e-12;
+
   let mathLib: Contract;
 
   before(async function () {
@@ -195,7 +197,7 @@ describe('AclAmmMath', function () {
       const contractResult = await mathLib.calculateSqrtQ0(currentTime, startSqrtQ0Fp, endSqrtQ0Fp, startTime, endTime);
       const mathResult = calculateSqrtQ0(currentTime, startSqrtQ0Fp, endSqrtQ0Fp, startTime, endTime);
 
-      expect(contractResult).to.equal(mathResult);
+      expectEqualWithError(contractResult, mathResult, EXPECTED_RELATIVE_ERROR);
     });
   });
 });

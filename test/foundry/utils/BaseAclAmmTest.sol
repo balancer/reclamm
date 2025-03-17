@@ -57,14 +57,13 @@ contract BaseAclAmmTest is AclAmmPoolContractsDeployer, BaseVaultTest {
         (daiIdx, usdcIdx) = getSortedIndexes(address(dai), address(usdc));
     }
 
-    function setSqrtQ0(uint256 minPrice, uint256 maxPrice) internal {
-        uint256 doubleQ0 = maxPrice.divDown(minPrice);
-        uint256 Q0 = GyroPoolMath.sqrt(doubleQ0, 5);
+    function setPriceRange(uint256 priceRange) internal {
+        uint256 Q0 = GyroPoolMath.sqrt(priceRange, 5);
         _sqrtQ0 = GyroPoolMath.sqrt(Q0, 5);
     }
 
-    function setSqrtQ0(uint256 sqrtQ0_) internal {
-        _sqrtQ0 = sqrtQ0_;
+    function setSqrtQ0(uint256 newSqrtQ0) internal {
+        _sqrtQ0 = newSqrtQ0;
     }
 
     function sqrtQ0() internal view returns (uint256) {

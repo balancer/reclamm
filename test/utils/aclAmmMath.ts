@@ -96,14 +96,16 @@ export function calculateSqrtQ0(
   startTime: number,
   endTime: number
 ): bigint {
-  if (currentTime > endTime) {
+  if (currentTime < startTime) {
+    return bn(startSqrtQ0Fp);
+  } else if (currentTime >= endTime) {
     return bn(endSqrtQ0Fp);
   }
 
-  const numerator = bn(endTime - currentTime) * bn(startSqrtQ0Fp) + bn(currentTime - startTime) * bn(endSqrtQ0Fp);
-  const denominator = bn(endTime - startTime);
+  const exponent = fromFp(fpDivDown(fp(currentTime - startTime), fp(endTime - startTime)));
+  const base = fromFp(fpDivDown(endSqrtQ0Fp, startSqrtQ0Fp));
 
-  return numerator / denominator;
+  return fp(fromFp(startSqrtQ0Fp).mul(base.pow(exponent)));
 }
 
 export function isAboveCenter(balancesScaled18: bigint[], virtualBalances: bigint[]): boolean {

@@ -1,0 +1,40 @@
+name: Setup
+
+runs:
+  using: composite
+  steps:
+    - name: Install Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 18.15
+    - name: Install Foundry
+      uses: foundry-rs/foundry-toolchain@v1
+    - name: Forge install
+      shell: bash
+      run: forge install
+    - name: Hash submodule commit
+      id: hash-submodule
+      shell: bash
+      run: echo "$(git submodule status)" >> submodule-hash.txt
+    - name: Cache node modules
+      uses: actions/cache@v4
+      id: cache-modules
+      with:
+        path: './node_modules/*'
+        key: yarn-pool-${{ hashFiles('./yarn.lock') }}
+        restore-keys: |
+          yarn-pool-
+    - name: Cache library pkg
+      uses: actions/cache@v4
+      id: cache-lib-pkg
+      with:
+        path: './lib/balancer-v3-monorepo/pkg'
+        key: lib-pkg-${{ hashFiles('./submodule-hash.txt') }}
+        restore-keys: |
+          lib-pkg-
+    - name: Install lcov
+      shell: bash
+      run: sudo apt-get install lcov
+    - name: Install fresh
+      shell: bash
+      run: sh ./scripts/install-fresh.sh
