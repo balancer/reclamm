@@ -7,6 +7,11 @@ runs:
       uses: actions/setup-node@v4
       with:
         node-version: 18.15
+    - name: Install Foundry
+      uses: foundry-rs/foundry-toolchain@v1
+    - name: Forge install
+      shell: bash
+      run: forge install
     - name: Hash submodule commit
       id: hash-submodule
       shell: bash
@@ -21,24 +26,24 @@ runs:
       uses: actions/cache@v4
       id: cache-lib-modules
       with:
-        path: './lib/balancer-v3-monorepo/node_modules/*'
-        key: lib-${{ hashFiles('./submodule-hash.txt') }}
+        path: './lib/balancer-v3-monorepo/**/node_modules/*'
+        key: lib-modules-${{ hashFiles('./submodule-hash.txt') }}
     - name: Cache library artifacts
       uses: actions/cache@v4
       id: cache-lib-artifacts
       with:
-        path: './lib/balancer-v3-monorepo/pkg/*'
+        path: './lib/balancer-v3-monorepo/pkg/**/artifacts/*'
         key: lib-pkg-${{ hashFiles('./submodule-hash.txt') }}
-    - name: Install Foundry
-      uses: foundry-rs/foundry-toolchain@v1
+    - name: Cache library typechain
+      uses: actions/cache@v4
+      id: cache-lib-typechain
+      with:
+        path: './lib/balancer-v3-monorepo/pkg/**/typechain-types/*'
+        key: lib-typechain-${{ hashFiles('./submodule-hash.txt') }}
     - name: Install lcov
       shell: bash
       run: sudo apt-get install lcov
     - name: Install fresh
       shell: bash
       run: sh ./scripts/install-fresh.sh
-      if: steps.cache-lib-artifacts.outputs.cache-hit != 'true' || steps.cache-lib-modules.outputs.cache-hit != 'true'
-    - name: Yarn
-      run: yarn --immutable
-      shell: bash
-      if: steps.cache-modules.outputs.cache-hit != 'true'
+      if: steps.cache-lib-artifacts.outputs.cache-hit != 'true' || steps.cache-lib-modules.outputs.cache-hit != 'true' || steps.cache-lib-typechain.outputs.cache-hit != 'true'
