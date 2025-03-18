@@ -240,5 +240,5 @@ export function isAboveCenter(balancesScaled18: bigint[], virtualBalances: bigin
 }
 
 export function parseIncreaseDayRate(increaseDayRate: bigint): bigint {
-  return bn(increaseDayRate) / bn(110000);
+  return bn(increaseDayRate) / bn(124649);
 }
