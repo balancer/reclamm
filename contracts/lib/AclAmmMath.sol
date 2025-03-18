@@ -19,7 +19,7 @@ library AclAmmMath {
     using FixedPoint for uint256;
 
     // Constant to increase the price by a factor 2 if increase rate is 100%.
-    uint256 private constant _SECONDS_PER_DAY_WITH_ADJUSTMENT = 110000;
+    uint256 private constant _SECONDS_PER_DAY_WITH_ADJUSTMENT = 124649;
 
     function computeInvariant(
         uint256[] memory balancesScaled18,

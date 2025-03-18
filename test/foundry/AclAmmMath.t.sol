@@ -12,7 +12,7 @@ contract AclAmmMathTest is Test {
     using FixedPoint for uint256;
 
     // Constant to increase the price by a factor 2 if increase rate is 100%.
-    uint256 private constant _SECONDS_PER_DAY_WITH_ADJUSTMENT = 110000;
+    uint256 private constant _SECONDS_PER_DAY_WITH_ADJUSTMENT = 124649;
     uint256 private constant _MAX_BALANCE = 1e6 * 1e18;
     uint256 private constant _MIN_BALANCE = 1e18;
 
