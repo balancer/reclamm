@@ -19,6 +19,9 @@ interface IAclAmmPool is IBasePool {
     error GradualUpdateTimeTravel(uint256 resolvedStartTime, uint256 endTime);
 
     event SqrtQ0Updated(uint256 startSqrtQ0, uint256 endSqrtQ0, uint256 startTime, uint256 endTime);
+
+    event VirtualBalancesUpdated(uint256[] virtualBalances);
+
     event AclAmmPoolInitialized(uint256 increaseDayRate, uint256 sqrtQ0, uint256 centernessMargin);
 
     function getLastVirtualBalances() external view returns (uint256[] memory virtualBalances);

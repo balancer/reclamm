@@ -101,13 +101,11 @@ contract AclAmmPool is
             _centerednessMargin,
             _sqrtQ0State
         );
-        _lastTimestamp = block.timestamp;
-        if (changed) {
-            _virtualBalances = virtualBalances;
 
-            if (_sqrtQ0State.startTime != 0) {
-                _sqrtQ0State.startTime = 0;
-            }
+        _lastTimestamp = block.timestamp;
+
+        if (changed) {
+            _setVirtualBalances(virtualBalances);
         }
 
         // Calculate swap result
@@ -153,7 +151,11 @@ contract AclAmmPool is
         bytes memory
     ) public override onlyVault returns (bool) {
         _lastTimestamp = block.timestamp;
-        _virtualBalances = AclAmmMath.initializeVirtualBalances(balancesScaled18, _calculateCurrentSqrtQ0());
+
+        uint256 currentSqrtQ0 = _calculateCurrentSqrtQ0();
+        uint256[] memory virtualBalances = AclAmmMath.initializeVirtualBalances(balancesScaled18, currentSqrtQ0);
+        _setVirtualBalances(virtualBalances);
+
         return true;
     }
 
@@ -245,5 +247,11 @@ contract AclAmmPool is
 
     function _setCenterednessMargin(uint256 centerednessMargin) internal {
         _centerednessMargin = centerednessMargin;
+    }
+
+    function _setVirtualBalances(uint256[] memory virtualBalances) internal {
+        _virtualBalances = virtualBalances;
+
+        emit VirtualBalancesUpdated(virtualBalances);
     }
 }
