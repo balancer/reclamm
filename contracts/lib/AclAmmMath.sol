@@ -18,21 +18,25 @@ struct SqrtQ0State {
 library AclAmmMath {
     using FixedPoint for uint256;
 
+    // Constant to increase the price by a factor 2 if increase rate is 100%.
+    uint256 private constant _SECONDS_PER_DAY_WITH_ADJUSTMENT = 124649;
+
     function computeInvariant(
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
         uint256 c,
         uint256 lastTimestamp,
+        uint256 currentTimestamp,
         uint256 centerednessMargin,
         SqrtQ0State memory sqrtQ0State,
         Rounding rounding
-    ) internal view returns (uint256) {
+    ) internal pure returns (uint256) {
         (uint256[] memory virtualBalances, ) = getVirtualBalances(
             balancesScaled18,
             lastVirtualBalances,
             c,
             lastTimestamp,
-            block.timestamp,
+            currentTimestamp,
             centerednessMargin,
             sqrtQ0State
         );
@@ -103,7 +107,7 @@ library AclAmmMath {
         uint256 currentTimestamp,
         uint256 centerednessMargin,
         SqrtQ0State memory sqrtQ0State //TODO: optimize gas usage
-    ) internal view returns (uint256[] memory virtualBalances, bool changed) {
+    ) internal pure returns (uint256[] memory virtualBalances, bool changed) {
         // TODO Review rounding
         // TODO: try to find better way to change the virtual balances in storage
 
@@ -111,7 +115,7 @@ library AclAmmMath {
 
         // If the last timestamp is the same as the current timestamp, virtual balances were already reviewed in the
         // current block.
-        if (lastTimestamp == block.timestamp) {
+        if (lastTimestamp == currentTimestamp) {
             return (virtualBalances, false);
         }
 
@@ -158,7 +162,7 @@ library AclAmmMath {
 
             if (isAboveCenter(balancesScaled18, lastVirtualBalances)) {
                 virtualBalances[1] = lastVirtualBalances[1].mulDown(
-                    LogExpMath.pow(FixedPoint.ONE - c, (block.timestamp - lastTimestamp) * FixedPoint.ONE)
+                    LogExpMath.pow(FixedPoint.ONE - c, (currentTimestamp - lastTimestamp) * FixedPoint.ONE)
                 );
                 // Va = (Ra * (Vb + Rb)) / (((Q0 - 1) * Vb) - Rb)
                 virtualBalances[0] = (balancesScaled18[0].mulDown(virtualBalances[1] + balancesScaled18[1])).divDown(
@@ -166,7 +170,7 @@ library AclAmmMath {
                 );
             } else {
                 virtualBalances[0] = lastVirtualBalances[0].mulDown(
-                    LogExpMath.pow(FixedPoint.ONE - c, (block.timestamp - lastTimestamp) * FixedPoint.ONE)
+                    LogExpMath.pow(FixedPoint.ONE - c, (currentTimestamp - lastTimestamp) * FixedPoint.ONE)
                 );
                 // Vb = (Rb * (Va + Ra)) / (((Q0 - 1) * Va) - Ra)
                 virtualBalances[1] = (balancesScaled18[1].mulDown(virtualBalances[0] + balancesScaled18[0])).divDown(
@@ -238,7 +242,7 @@ library AclAmmMath {
     }
 
     function parseIncreaseDayRate(uint256 increaseDayRate) internal pure returns (uint256) {
-        // Divide daily rate by a number of seconds per day (plus some adjustment) = 86400 + 25%
-        return increaseDayRate / 110000;
+        // Divide daily rate by a number of seconds per day (plus some adjustment)
+        return increaseDayRate / _SECONDS_PER_DAY_WITH_ADJUSTMENT;
     }
 }
