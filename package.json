@@ -17,7 +17,7 @@
     "Elshan Dzhafarov <elshan@balancerlabs.dev>"
   ],
   "scripts": {
-    "build": "yarn workspaces foreach --parallel --jobs unlimited --verbose run build && yarn compile && rm -rf artifacts/build-info",
+    "build": "yarn compile && rm -rf artifacts/build-info",
     "compile": "hardhat compile",
     "compile:watch": "nodemon --ext sol --exec yarn compile",
     "lint": "yarn lint:solidity && yarn lint:typescript",
