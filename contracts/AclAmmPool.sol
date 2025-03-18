@@ -62,9 +62,8 @@ contract AclAmmPool is
         Version(params.version)
     {
         _setIncreaseDayRate(params.increaseDayRate);
-
-        _sqrtQ0State.endSqrtQ0 = params.sqrtQ0;
         _setCenterednessMargin(params.centerednessMargin);
+        _setSqrtQ0(params.sqrtQ0, 0, block.timestamp);
     }
 
     /// @inheritdoc IBasePool
@@ -212,6 +211,11 @@ contract AclAmmPool is
         _setSqrtQ0(newSqrtQ0, startTime, endTime);
     }
 
+    /// @inheritdoc IAclAmmPool
+    function setIncreaseDayRate(uint256 newIncreaseDayRate) external onlySwapFeeManagerOrGovernance(address(this)) {
+        _setIncreaseDayRate(newIncreaseDayRate);
+    }
+
     function _setSqrtQ0(uint256 endSqrtQ0, uint256 startTime, uint256 endTime) internal {
         if (startTime > endTime) {
             revert GradualUpdateTimeTravel(startTime, endTime);
@@ -241,10 +245,14 @@ contract AclAmmPool is
 
     function _setIncreaseDayRate(uint256 increaseDayRate) internal {
         _timeConstant = AclAmmMath.parseIncreaseDayRate(increaseDayRate);
+
+        emit IncreaseDayRateUpdated(increaseDayRate);
     }
 
     function _setCenterednessMargin(uint256 centerednessMargin) internal {
         _centerednessMargin = centerednessMargin;
+
+        emit CenterednessMarginUpdated(centerednessMargin);
     }
 
     function _setVirtualBalances(uint256[] memory virtualBalances) internal {

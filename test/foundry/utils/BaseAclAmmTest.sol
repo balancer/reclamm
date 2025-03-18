@@ -21,6 +21,8 @@ import { AclAmmPoolContractsDeployer } from "./AclAmmPoolContractsDeployer.sol";
 import { AclAmmPool } from "../../../contracts/AclAmmPool.sol";
 import { AclAmmPoolFactory } from "../../../contracts/AclAmmPoolFactory.sol";
 import { AclAmmPoolParams } from "../../../contracts/interfaces/IAclAmmPool.sol";
+import { AclAmmPoolMock } from "../../../contracts/test/AclAmmPoolMock.sol";
+import { AclAmmPoolFactoryMock } from "../../../contracts/test/AclAmmPoolFactoryMock.sol";
 
 contract BaseAclAmmTest is AclAmmPoolContractsDeployer, BaseVaultTest {
     using FixedPoint for uint256;
@@ -41,8 +43,7 @@ contract BaseAclAmmTest is AclAmmPoolContractsDeployer, BaseVaultTest {
 
     uint256 internal saltNumber = 0;
 
-    AclAmmPool internal ammPool;
-    AclAmmPoolFactory internal factory;
+    AclAmmPoolFactoryMock internal factory;
 
     uint256 internal daiIdx;
     uint256 internal usdcIdx;
@@ -84,7 +85,7 @@ contract BaseAclAmmTest is AclAmmPoolContractsDeployer, BaseVaultTest {
     }
 
     function createPoolFactory() internal override returns (address) {
-        factory = deployAclAmmPoolFactory(vault, 365 days, "Factory v1", _POOL_VERSION);
+        factory = deployAclAmmPoolFactoryMock(vault, 365 days, "Factory v1", _POOL_VERSION);
         vm.label(address(factory), "Acl Amm Factory");
 
         return address(factory);
@@ -103,7 +104,7 @@ contract BaseAclAmmTest is AclAmmPoolContractsDeployer, BaseVaultTest {
 
         roleAccounts = PoolRoleAccounts({ pauseManager: address(0), swapFeeManager: admin, poolCreator: address(0) });
 
-        newPool = AclAmmPoolFactory(poolFactory).create(
+        newPool = AclAmmPoolFactoryMock(poolFactory).create(
             name,
             symbol,
             vault.buildTokenConfig(sortedTokens),

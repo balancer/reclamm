@@ -11,6 +11,7 @@ import { BaseAclAmmTest } from "./utils/BaseAclAmmTest.sol";
 import { AclAmmPool } from "../../contracts/AclAmmPool.sol";
 import { AclAmmMath } from "../../contracts/lib/AclAmmMath.sol";
 import { IAclAmmPool } from "../../contracts/interfaces/IAclAmmPool.sol";
+import { AclAmmPoolMock } from "../../contracts/test/AclAmmPoolMock.sol";
 
 contract AclAmmPoolTest is BaseAclAmmTest {
     using FixedPoint for uint256;
@@ -41,5 +42,23 @@ contract AclAmmPoolTest is BaseAclAmmTest {
         skip(duration / 2 + 1);
         sqrtQ0 = AclAmmPool(pool).getCurrentSqrtQ0();
         assertEq(sqrtQ0, newSqrtQ0, "SqrtQ0 does not match new value");
+    }
+
+    function testSetIncreaseDayRate() public {
+        uint256 newIncreaseDayRate = 200e16;
+        vm.prank(admin);
+        vm.expectEmit();
+        emit IAclAmmPool.IncreaseDayRateUpdated(newIncreaseDayRate);
+        AclAmmPool(pool).setIncreaseDayRate(newIncreaseDayRate);
+    }
+
+    function testSetCenterednessMargin() public {
+        // ReCLAMM pools do not have a way to set the margin, so this function uses a mocked version that exposes a
+        // private function.
+        uint256 newCenterednessMargin = 50e16;
+        vm.prank(admin);
+        vm.expectEmit();
+        emit IAclAmmPool.CenterednessMarginUpdated(newCenterednessMargin);
+        AclAmmPoolMock(pool).setCenterednessMargin(newCenterednessMargin);
     }
 }

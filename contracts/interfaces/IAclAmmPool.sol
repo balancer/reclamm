@@ -22,6 +22,10 @@ interface IAclAmmPool is IBasePool {
 
     event VirtualBalancesUpdated(uint256[] virtualBalances);
 
+    event IncreaseDayRateUpdated(uint256 increaseDayRate);
+
+    event CenterednessMarginUpdated(uint256 centerednessMargin);
+
     function getLastVirtualBalances() external view returns (uint256[] memory virtualBalances);
 
     function getLastTimestamp() external view returns (uint256);
@@ -29,4 +33,6 @@ interface IAclAmmPool is IBasePool {
     function getCurrentSqrtQ0() external view returns (uint256);
 
     function setSqrtQ0(uint256 newSqrtQ0, uint256 startTime, uint256 endTime) external;
+
+    function setIncreaseDayRate(uint256 newIncreaseDayRate) external;
 }
