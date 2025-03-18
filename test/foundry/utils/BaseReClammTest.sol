@@ -17,12 +17,12 @@ import { PoolFactoryMock } from "@balancer-labs/v3-vault/contracts/test/PoolFact
 import { GyroPoolMath } from "@balancer-labs/v3-pool-gyro/contracts/lib/GyroPoolMath.sol";
 import { BaseVaultTest } from "@balancer-labs/v3-vault/test/foundry/utils/BaseVaultTest.sol";
 
-import { AclAmmPoolContractsDeployer } from "./AclAmmPoolContractsDeployer.sol";
-import { AclAmmPool } from "../../../contracts/AclAmmPool.sol";
-import { AclAmmPoolFactory } from "../../../contracts/AclAmmPoolFactory.sol";
-import { AclAmmPoolParams } from "../../../contracts/interfaces/IAclAmmPool.sol";
+import { ReClammPoolContractsDeployer } from "./ReClammPoolContractsDeployer.sol";
+import { ReClammPool } from "../../../contracts/ReClammPool.sol";
+import { ReClammPoolFactory } from "../../../contracts/ReClammPoolFactory.sol";
+import { ReClammPoolParams } from "../../../contracts/interfaces/IReClammPool.sol";
 
-contract BaseAclAmmTest is AclAmmPoolContractsDeployer, BaseVaultTest {
+contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     using FixedPoint for uint256;
     using CastingHelpers for address[];
     using ArrayHelpers for *;
@@ -41,8 +41,8 @@ contract BaseAclAmmTest is AclAmmPoolContractsDeployer, BaseVaultTest {
 
     bytes32 internal salt = ZERO_BYTES32;
 
-    AclAmmPool internal ammPool;
-    AclAmmPoolFactory internal factory;
+    ReClammPool internal ammPool;
+    ReClammPoolFactory internal factory;
 
     uint256 internal daiIdx;
     uint256 internal usdcIdx;
@@ -84,7 +84,7 @@ contract BaseAclAmmTest is AclAmmPoolContractsDeployer, BaseVaultTest {
     }
 
     function createPoolFactory() internal override returns (address) {
-        factory = deployAclAmmPoolFactory(vault, 365 days, "Factory v1", _POOL_VERSION);
+        factory = deployReClammPoolFactory(vault, 365 days, "Factory v1", _POOL_VERSION);
         vm.label(address(factory), "Acl Amm Factory");
 
         return address(factory);
@@ -95,7 +95,7 @@ contract BaseAclAmmTest is AclAmmPoolContractsDeployer, BaseVaultTest {
         string memory label
     ) internal override returns (address newPool, bytes memory poolArgs) {
         string memory name = "Acl Amm Pool";
-        string memory symbol = "ACLAMMPOOL";
+        string memory symbol = "RECLAMMPOOL";
 
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens.asIERC20());
 
@@ -103,7 +103,7 @@ contract BaseAclAmmTest is AclAmmPoolContractsDeployer, BaseVaultTest {
 
         roleAccounts = PoolRoleAccounts({ pauseManager: address(0), swapFeeManager: admin, poolCreator: address(0) });
 
-        newPool = AclAmmPoolFactory(poolFactory).create(
+        newPool = ReClammPoolFactory(poolFactory).create(
             name,
             symbol,
             vault.buildTokenConfig(sortedTokens),
@@ -118,7 +118,7 @@ contract BaseAclAmmTest is AclAmmPoolContractsDeployer, BaseVaultTest {
 
         // poolArgs is used to check pool deployment address with create2.
         poolArgs = abi.encode(
-            AclAmmPoolParams({
+            ReClammPoolParams({
                 name: name,
                 symbol: symbol,
                 version: _POOL_VERSION,

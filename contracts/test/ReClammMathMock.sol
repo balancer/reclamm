@@ -3,9 +3,9 @@
 pragma solidity ^0.8.24;
 
 import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
-import { SqrtQ0State, AclAmmMath } from "../lib/AclAmmMath.sol";
+import { SqrtQ0State, ReClammMath } from "../lib/ReClammMath.sol";
 
-contract AclAmmMathMock {
+contract ReClammMathMock {
     function computeInvariant(
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
@@ -17,7 +17,7 @@ contract AclAmmMathMock {
         Rounding rounding
     ) external pure returns (uint256) {
         return
-            AclAmmMath.computeInvariant(
+            ReClammMath.computeInvariant(
                 balancesScaled18,
                 lastVirtualBalances,
                 c,
@@ -34,7 +34,7 @@ contract AclAmmMathMock {
         uint256[] memory virtualBalances,
         Rounding rounding
     ) external pure returns (uint256) {
-        return AclAmmMath.computeInvariant(balancesScaled18, virtualBalances, rounding);
+        return ReClammMath.computeInvariant(balancesScaled18, virtualBalances, rounding);
     }
 
     function calculateOutGivenIn(
@@ -45,7 +45,7 @@ contract AclAmmMathMock {
         uint256 amountGivenScaled18
     ) external pure returns (uint256) {
         return
-            AclAmmMath.calculateOutGivenIn(
+            ReClammMath.calculateOutGivenIn(
                 balancesScaled18,
                 virtualBalances,
                 tokenInIndex,
@@ -62,7 +62,7 @@ contract AclAmmMathMock {
         uint256 amountGivenScaled18
     ) external pure returns (uint256) {
         return
-            AclAmmMath.calculateInGivenOut(
+            ReClammMath.calculateInGivenOut(
                 balancesScaled18,
                 virtualBalances,
                 tokenInIndex,
@@ -75,7 +75,7 @@ contract AclAmmMathMock {
         uint256[] memory balancesScaled18,
         uint256 sqrtQ0
     ) external pure returns (uint256[] memory virtualBalances) {
-        return AclAmmMath.initializeVirtualBalances(balancesScaled18, sqrtQ0);
+        return ReClammMath.initializeVirtualBalances(balancesScaled18, sqrtQ0);
     }
 
     function getVirtualBalances(
@@ -88,7 +88,7 @@ contract AclAmmMathMock {
         SqrtQ0State memory sqrtQ0State
     ) external pure returns (uint256[] memory virtualBalances, bool changed) {
         return
-            AclAmmMath.getVirtualBalances(
+            ReClammMath.getVirtualBalances(
                 balancesScaled18,
                 lastVirtualBalances,
                 c,
@@ -104,14 +104,14 @@ contract AclAmmMathMock {
         uint256[] memory virtualBalances,
         uint256 centerednessMargin
     ) external pure returns (bool) {
-        return AclAmmMath.isPoolInRange(balancesScaled18, virtualBalances, centerednessMargin);
+        return ReClammMath.isPoolInRange(balancesScaled18, virtualBalances, centerednessMargin);
     }
 
     function calculateCenteredness(
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances
     ) external pure returns (uint256) {
-        return AclAmmMath.calculateCenteredness(balancesScaled18, virtualBalances);
+        return ReClammMath.calculateCenteredness(balancesScaled18, virtualBalances);
     }
 
     function calculateSqrtQ0(
@@ -121,17 +121,17 @@ contract AclAmmMathMock {
         uint256 startTime,
         uint256 endTime
     ) external pure returns (uint256) {
-        return AclAmmMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
+        return ReClammMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
     }
 
     function isAboveCenter(
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances
     ) external pure returns (bool) {
-        return AclAmmMath.isAboveCenter(balancesScaled18, virtualBalances);
+        return ReClammMath.isAboveCenter(balancesScaled18, virtualBalances);
     }
 
     function parseIncreaseDayRate(uint256 increaseDayRate) external pure returns (uint256) {
-        return AclAmmMath.parseIncreaseDayRate(increaseDayRate);
+        return ReClammMath.parseIncreaseDayRate(increaseDayRate);
     }
 }
