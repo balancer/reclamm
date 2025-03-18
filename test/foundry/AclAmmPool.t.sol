@@ -15,22 +15,6 @@ import { IAclAmmPool } from "../../contracts/interfaces/IAclAmmPool.sol";
 contract AclAmmPoolTest is BaseAclAmmTest {
     using FixedPoint for uint256;
 
-    function testEmitsInitializationEvent() public {
-        // Deploy a new pool to test the initialization event
-        address[] memory tokens = new address[](2);
-        tokens[0] = address(dai);
-        tokens[1] = address(usdc);
-
-        vm.expectEmit();
-        emit IAclAmmPool.AclAmmPoolInitialized(
-            _DEFAULT_INCREASE_DAY_RATE,
-            _DEFAULT_SQRT_Q0,
-            _DEFAULT_CENTEREDNESS_MARGIN
-        );
-
-        _createPool(tokens, "Test Pool");
-    }
-
     function testGetCurrentSqrtQ0() public view {
         uint256 sqrtQ0 = AclAmmPool(pool).getCurrentSqrtQ0();
         assertEq(sqrtQ0, _DEFAULT_SQRT_Q0, "Invalid default sqrtQ0");

@@ -22,8 +22,6 @@ interface IAclAmmPool is IBasePool {
 
     event VirtualBalancesUpdated(uint256[] virtualBalances);
 
-    event AclAmmPoolInitialized(uint256 increaseDayRate, uint256 sqrtQ0, uint256 centernessMargin);
-
     function getLastVirtualBalances() external view returns (uint256[] memory virtualBalances);
 
     function getLastTimestamp() external view returns (uint256);

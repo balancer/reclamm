@@ -48,7 +48,7 @@ contract AclAmmPool is
 
     SqrtQ0State private _sqrtQ0State;
     uint256 private _lastTimestamp;
-    uint256 private _c;
+    uint256 private _timeConstant;
     uint256 private _centerednessMargin;
     uint256[] private _virtualBalances;
 
@@ -65,8 +65,6 @@ contract AclAmmPool is
 
         _sqrtQ0State.endSqrtQ0 = params.sqrtQ0;
         _setCenterednessMargin(params.centerednessMargin);
-
-        emit AclAmmPoolInitialized(params.increaseDayRate, params.sqrtQ0, params.centerednessMargin);
     }
 
     /// @inheritdoc IBasePool
@@ -75,7 +73,7 @@ contract AclAmmPool is
             AclAmmMath.computeInvariant(
                 balancesScaled18,
                 _virtualBalances,
-                _c,
+                _timeConstant,
                 _lastTimestamp,
                 _centerednessMargin,
                 _sqrtQ0State,
@@ -95,7 +93,7 @@ contract AclAmmPool is
         (uint256[] memory virtualBalances, bool changed) = AclAmmMath.getVirtualBalances(
             request.balancesScaled18,
             _virtualBalances,
-            _c,
+            _timeConstant,
             _lastTimestamp,
             block.timestamp,
             _centerednessMargin,
@@ -187,7 +185,7 @@ contract AclAmmPool is
         (virtualBalances, ) = AclAmmMath.getVirtualBalances(
             balancesScaled18,
             _virtualBalances,
-            _c,
+            _timeConstant,
             _lastTimestamp,
             block.timestamp,
             _centerednessMargin,
@@ -242,7 +240,7 @@ contract AclAmmPool is
     }
 
     function _setIncreaseDayRate(uint256 increaseDayRate) internal {
-        _c = AclAmmMath.parseIncreaseDayRate(increaseDayRate);
+        _timeConstant = AclAmmMath.parseIncreaseDayRate(increaseDayRate);
     }
 
     function _setCenterednessMargin(uint256 centerednessMargin) internal {
