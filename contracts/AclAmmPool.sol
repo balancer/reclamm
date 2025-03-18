@@ -4,24 +4,16 @@
 pragma solidity ^0.8.24;
 
 import { ISwapFeePercentageBounds } from "@balancer-labs/v3-interfaces/contracts/vault/ISwapFeePercentageBounds.sol";
-import {
-    IUnbalancedLiquidityInvariantRatioBounds
-} from "@balancer-labs/v3-interfaces/contracts/vault/IUnbalancedLiquidityInvariantRatioBounds.sol";
+import "@balancer-labs/v3-interfaces/contracts/vault/IUnbalancedLiquidityInvariantRatioBounds.sol";
+import { IBasePool } from "@balancer-labs/v3-interfaces/contracts/vault/IBasePool.sol";
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
 import { IHooks } from "@balancer-labs/v3-interfaces/contracts/vault/IHooks.sol";
-import { IBasePool } from "@balancer-labs/v3-interfaces/contracts/vault/IBasePool.sol";
-import {
-    Rounding,
-    PoolSwapParams,
-    SwapKind,
-    HookFlags,
-    TokenConfig,
-    LiquidityManagement
-} from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
+import "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
+import { BasePoolAuthentication } from "@balancer-labs/v3-pool-utils/contracts/BasePoolAuthentication.sol";
+import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { BalancerPoolToken } from "@balancer-labs/v3-vault/contracts/BalancerPoolToken.sol";
 import { Version } from "@balancer-labs/v3-solidity-utils/contracts/helpers/Version.sol";
-import { BasePoolAuthentication } from "@balancer-labs/v3-pool-utils/contracts/BasePoolAuthentication.sol";
 import { PoolInfo } from "@balancer-labs/v3-pool-utils/contracts/PoolInfo.sol";
 import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
 
@@ -37,6 +29,8 @@ contract AclAmmPool is
     Version,
     BaseHooks
 {
+    using FixedPoint for uint256;
+
     // uint256 private constant _MIN_SWAP_FEE_PERCENTAGE = 0.001e16; // 0.001%
     uint256 private constant _MIN_SWAP_FEE_PERCENTAGE = 0;
     uint256 private constant _MAX_SWAP_FEE_PERCENTAGE = 10e16; // 10%
@@ -103,7 +97,7 @@ contract AclAmmPool is
         );
         _lastTimestamp = block.timestamp;
         if (changed) {
-            _virtualBalances = virtualBalances;
+            _setVirtualBalances(virtualBalances);
 
             if (_sqrtQ0State.startTime != 0) {
                 _sqrtQ0State.startTime = 0;
@@ -135,6 +129,8 @@ contract AclAmmPool is
     /// @inheritdoc IHooks
     function getHookFlags() public pure override returns (HookFlags memory hookFlags) {
         hookFlags.shouldCallBeforeInitialize = true;
+        hookFlags.shouldCallBeforeAddLiquidity = true;
+        hookFlags.shouldCallBeforeRemoveLiquidity = true;
     }
 
     /// @inheritdoc IHooks
@@ -142,9 +138,9 @@ contract AclAmmPool is
         address,
         address,
         TokenConfig[] memory tokenConfig,
-        LiquidityManagement calldata
+        LiquidityManagement calldata liquidityManagement
     ) public view override onlyVault returns (bool) {
-        return tokenConfig.length == 2;
+        return tokenConfig.length == 2 && liquidityManagement.disableUnbalancedLiquidity;
     }
 
     /// @inheritdoc IHooks
@@ -153,7 +149,45 @@ contract AclAmmPool is
         bytes memory
     ) public override onlyVault returns (bool) {
         _lastTimestamp = block.timestamp;
-        _virtualBalances = AclAmmMath.initializeVirtualBalances(balancesScaled18, _calculateCurrentSqrtQ0());
+        _setVirtualBalances(AclAmmMath.initializeVirtualBalances(balancesScaled18, _calculateCurrentSqrtQ0()));
+        return true;
+    }
+
+    /// @inheritdoc IHooks
+    function onBeforeAddLiquidity(
+        address,
+        address pool,
+        AddLiquidityKind,
+        uint256[] memory,
+        uint256 minBptAmountOut,
+        uint256[] memory,
+        bytes memory
+    ) public override onlyVault returns (bool) {
+        uint256 totalSupply = _vault.totalSupply(pool);
+        uint256 proportion = minBptAmountOut.divUp(totalSupply);
+        uint256[] memory virtualBalances = _getLastVirtualBalances();
+        virtualBalances[0] = virtualBalances[0].mulUp(FixedPoint.ONE + proportion);
+        virtualBalances[1] = virtualBalances[1].mulUp(FixedPoint.ONE + proportion);
+        _setVirtualBalances(virtualBalances);
+        return true;
+    }
+
+    /// @inheritdoc IHooks
+    function onBeforeRemoveLiquidity(
+        address,
+        address pool,
+        RemoveLiquidityKind,
+        uint256 maxBptAmountIn,
+        uint256[] memory,
+        uint256[] memory,
+        bytes memory
+    ) public override onlyVault returns (bool) {
+        uint256 totalSupply = _vault.totalSupply(pool);
+        uint256 proportion = maxBptAmountIn.divUp(totalSupply);
+        uint256[] memory virtualBalances = _getLastVirtualBalances();
+        virtualBalances[0] = virtualBalances[0].mulDown(FixedPoint.ONE - proportion);
+        virtualBalances[1] = virtualBalances[1].mulDown(FixedPoint.ONE - proportion);
+        _setVirtualBalances(virtualBalances);
         return true;
     }
 
@@ -178,19 +212,8 @@ contract AclAmmPool is
     }
 
     /// @inheritdoc IAclAmmPool
-    function getLastVirtualBalances() external view returns (uint256[] memory virtualBalances) {
-        (, , uint256[] memory balancesScaled18, ) = _vault.getPoolTokenInfo(address(this));
-
-        // Calculate virtual balances
-        (virtualBalances, ) = AclAmmMath.getVirtualBalances(
-            balancesScaled18,
-            _virtualBalances,
-            _c,
-            _lastTimestamp,
-            block.timestamp,
-            _centerednessMargin,
-            _sqrtQ0State
-        );
+    function getLastVirtualBalances() external view returns (uint256[] memory) {
+        return _getLastVirtualBalances();
     }
 
     /// @inheritdoc IAclAmmPool
@@ -210,6 +233,11 @@ contract AclAmmPool is
         uint256 endTime
     ) external onlySwapFeeManagerOrGovernance(address(this)) {
         _setSqrtQ0(newSqrtQ0, startTime, endTime);
+    }
+
+    function _setVirtualBalances(uint256[] memory virtualBalances) internal {
+        _virtualBalances = virtualBalances;
+        _lastTimestamp = block.timestamp;
     }
 
     function _setSqrtQ0(uint256 endSqrtQ0, uint256 startTime, uint256 endTime) internal {
@@ -245,5 +273,20 @@ contract AclAmmPool is
 
     function _setCenterednessMargin(uint256 centerednessMargin) internal {
         _centerednessMargin = centerednessMargin;
+    }
+
+    function _getLastVirtualBalances() internal view returns (uint256[] memory virtualBalances) {
+        (, , uint256[] memory balancesScaled18, ) = _vault.getPoolTokenInfo(address(this));
+
+        // Calculate virtual balances
+        (virtualBalances, ) = AclAmmMath.getVirtualBalances(
+            balancesScaled18,
+            _virtualBalances,
+            _c,
+            _lastTimestamp,
+            block.timestamp,
+            _centerednessMargin,
+            _sqrtQ0State
+        );
     }
 }
