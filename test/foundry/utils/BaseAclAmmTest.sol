@@ -39,7 +39,7 @@ contract BaseAclAmmTest is AclAmmPoolContractsDeployer, BaseVaultTest {
     uint256 private _increaseDayRate = _DEFAULT_INCREASE_DAY_RATE;
     uint256[] private _initialBalances = new uint256[](2);
 
-    bytes32 internal salt = ZERO_BYTES32;
+    uint256 internal saltNumber = 0;
 
     AclAmmPool internal ammPool;
     AclAmmPoolFactory internal factory;
@@ -112,7 +112,7 @@ contract BaseAclAmmTest is AclAmmPoolContractsDeployer, BaseVaultTest {
             _DEFAULT_INCREASE_DAY_RATE,
             sqrtQ0(),
             _DEFAULT_CENTEREDNESS_MARGIN,
-            salt
+            bytes32(saltNumber++)
         );
         vm.label(newPool, label);
 
