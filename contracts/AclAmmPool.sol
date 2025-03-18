@@ -71,6 +71,7 @@ contract AclAmmPool is
                 _virtualBalances,
                 _c,
                 _lastTimestamp,
+                block.timestamp,
                 _centerednessMargin,
                 _sqrtQ0State,
                 rounding

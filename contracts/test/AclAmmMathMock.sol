@@ -11,20 +11,30 @@ contract AclAmmMathMock {
         uint256[] memory lastVirtualBalances,
         uint256 c,
         uint256 lastTimestamp,
+        uint256 currentTimestamp,
         uint256 centerednessMargin,
         SqrtQ0State memory sqrtQ0State,
         Rounding rounding
-    ) external view returns (uint256) {
+    ) external pure returns (uint256) {
         return
             AclAmmMath.computeInvariant(
                 balancesScaled18,
                 lastVirtualBalances,
                 c,
                 lastTimestamp,
+                currentTimestamp,
                 centerednessMargin,
                 sqrtQ0State,
                 rounding
             );
+    }
+
+    function computeInvariant(
+        uint256[] memory balancesScaled18,
+        uint256[] memory virtualBalances,
+        Rounding rounding
+    ) external pure returns (uint256) {
+        return AclAmmMath.computeInvariant(balancesScaled18, virtualBalances, rounding);
     }
 
     function calculateOutGivenIn(
@@ -76,7 +86,7 @@ contract AclAmmMathMock {
         uint256 currentTimestamp,
         uint256 centerednessMargin,
         SqrtQ0State memory sqrtQ0State
-    ) external view returns (uint256[] memory virtualBalances, bool changed) {
+    ) external pure returns (uint256[] memory virtualBalances, bool changed) {
         return
             AclAmmMath.getVirtualBalances(
                 balancesScaled18,

@@ -111,9 +111,9 @@ contract AclAmmMathTest is Test {
         finalBalances[0] = balanceA + virtualBalanceA;
         finalBalances[1] = balanceB + virtualBalanceB;
 
-        uint256 invariant = finalBalances[0].mulDown(finalBalances[1]);
+        uint256 invariant = finalBalances[0].mulUp(finalBalances[1]);
 
-        uint256 expected = finalBalances[tokenOut] - invariant.divDown(finalBalances[tokenIn] + amountGivenScaled18);
+        uint256 expected = finalBalances[tokenOut] - invariant.divUp(finalBalances[tokenIn] + amountGivenScaled18);
 
         assertEq(amountOut, expected, "Amount out should be correct");
     }
@@ -250,5 +250,17 @@ contract AclAmmMathTest is Test {
         uint256 sqrtQ0 = AclAmmMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
 
         assertEq(sqrtQ0, startSqrtQ0, "SqrtQ0 should be equal to startSqrtQ0");
+    }
+
+    function testCalculateSqrtQ0WhenStartSqrtQ0IsEqualToEndSqrtQ0() public pure {
+        uint256 startSqrtQ0 = 100;
+        uint256 endSqrtQ0 = 100;
+        uint256 startTime = 0;
+        uint256 endTime = 100;
+        uint256 currentTime = 50;
+
+        uint256 sqrtQ0 = AclAmmMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
+
+        assertEq(sqrtQ0, endSqrtQ0, "SqrtQ0 should be equal to endSqrtQ0");
     }
 }
