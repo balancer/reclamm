@@ -11,7 +11,7 @@ contract AclAmmMathTest is Test {
     using ArrayHelpers for *;
     using FixedPoint for uint256;
 
-    // Number of seconds per day (plus some adjustment) = 86400 + 25%
+    // Constant to increase the price by a factor 2 if increase rate is 100%.
     uint256 private constant _SECONDS_PER_DAY_WITH_ADJUSTMENT = 110000;
     uint256 private constant _MAX_BALANCE = 1e6 * 1e18;
     uint256 private constant _MIN_BALANCE = 1e18;

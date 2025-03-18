@@ -18,7 +18,7 @@ struct SqrtQ0State {
 library AclAmmMath {
     using FixedPoint for uint256;
 
-    // Number of seconds per day (plus some adjustment) = 86400 + 25%
+    // Constant to increase the price by a factor 2 if increase rate is 100%.
     uint256 private constant _SECONDS_PER_DAY_WITH_ADJUSTMENT = 110000;
 
     function computeInvariant(
