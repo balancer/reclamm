@@ -22,7 +22,12 @@ interface IReClammPool is IBasePool {
     error NotImplemented();
 
     event SqrtQ0Updated(uint256 startSqrtQ0, uint256 endSqrtQ0, uint256 startTime, uint256 endTime);
-    event ReClammPoolInitialized(uint256 increaseDayRate, uint256 sqrtQ0, uint256 centernessMargin);
+
+    event VirtualBalancesUpdated(uint256[] virtualBalances);
+
+    event IncreaseDayRateUpdated(uint256 increaseDayRate);
+
+    event CenterednessMarginUpdated(uint256 centerednessMargin);
 
     function getLastVirtualBalances() external view returns (uint256[] memory virtualBalances);
 
@@ -31,4 +36,6 @@ interface IReClammPool is IBasePool {
     function getCurrentSqrtQ0() external view returns (uint256);
 
     function setSqrtQ0(uint256 newSqrtQ0, uint256 startTime, uint256 endTime) external;
+
+    function setIncreaseDayRate(uint256 newIncreaseDayRate) external;
 }
