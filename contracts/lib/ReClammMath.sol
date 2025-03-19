@@ -15,7 +15,7 @@ struct SqrtQ0State {
     uint256 endTime;
 }
 
-library AclAmmMath {
+library ReClammMath {
     using FixedPoint for uint256;
 
     // Constant to increase the price by a factor 2 if increase rate is 100%.

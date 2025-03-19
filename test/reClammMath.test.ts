@@ -15,16 +15,16 @@ import {
   parseIncreaseDayRate,
   pureComputeInvariant,
   Rounding,
-} from './utils/aclAmmMath';
+} from './utils/reClammMath';
 import { expectEqualWithError } from './utils/relativeError';
 
-describe('AclAmmMath', function () {
+describe('ReClammMath', function () {
   const EXPECTED_RELATIVE_ERROR = 1e-12;
 
   let mathLib: Contract;
 
   before(async function () {
-    mathLib = await deploy('AclAmmMathMock');
+    mathLib = await deploy('ReClammMathMock');
   });
 
   context('parseIncreaseDayRate', () => {

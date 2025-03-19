@@ -9,11 +9,11 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { GyroPoolMath } from "@balancer-labs/v3-pool-gyro/contracts/lib/GyroPoolMath.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 
-import { BaseAclAmmTest } from "./utils/BaseAclAmmTest.sol";
-import { AclAmmPool } from "../../contracts/AclAmmPool.sol";
-import { AclAmmMath } from "../../contracts/lib/AclAmmMath.sol";
+import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
+import { ReClammPool } from "../../contracts/ReClammPool.sol";
+import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
 
-contract AclAmmPoolTest is BaseAclAmmTest {
+contract ReClammPoolTest is BaseReClammTest {
     using FixedPoint for uint256;
 
     uint256 internal constant _ITERATIONS = 100;
@@ -73,7 +73,7 @@ contract AclAmmPoolTest is BaseAclAmmTest {
     }
 
     function _getCurrentDaiPoolPrice() internal view returns (uint256) {
-        uint256[] memory virtualBalances = AclAmmPool(pool).getLastVirtualBalances();
+        uint256[] memory virtualBalances = ReClammPool(pool).getLastVirtualBalances();
 
         (, , uint256[] memory balances, ) = vault.getPoolTokenInfo(pool);
 
@@ -84,7 +84,7 @@ contract AclAmmPoolTest is BaseAclAmmTest {
         uint256 currentMarketPriceDai,
         uint256 tokenInIndex
     ) internal view returns (uint256) {
-        uint256[] memory virtualBalances = AclAmmPool(pool).getLastVirtualBalances();
+        uint256[] memory virtualBalances = ReClammPool(pool).getLastVirtualBalances();
         (, , uint256[] memory balances, ) = vault.getPoolTokenInfo(pool);
 
         // uint256 currentPoolPriceDai = _getCurrentDaiPoolPrice();
@@ -141,7 +141,7 @@ contract AclAmmPoolTest is BaseAclAmmTest {
     }
 
     function testGetCurrentSqrtQ0() public view {
-        uint256 sqrtQ0 = AclAmmPool(pool).getCurrentSqrtQ0();
+        uint256 sqrtQ0 = ReClammPool(pool).getCurrentSqrtQ0();
         assertEq(sqrtQ0, _DEFAULT_SQRT_Q0, "Invalid default sqrtQ0");
     }
 
@@ -151,18 +151,18 @@ contract AclAmmPoolTest is BaseAclAmmTest {
         uint256 duration = 1 hours;
         uint256 endTime = block.timestamp + duration;
 
-        uint256 startSqrtQ0 = AclAmmPool(pool).getCurrentSqrtQ0();
+        uint256 startSqrtQ0 = ReClammPool(pool).getCurrentSqrtQ0();
         vm.prank(admin);
-        AclAmmPool(pool).setSqrtQ0(newSqrtQ0, startTime, endTime);
+        ReClammPool(pool).setSqrtQ0(newSqrtQ0, startTime, endTime);
 
         skip(duration / 2);
-        uint256 sqrtQ0 = AclAmmPool(pool).getCurrentSqrtQ0();
-        uint256 mathSqrtQ0 = AclAmmMath.calculateSqrtQ0(block.timestamp, startSqrtQ0, newSqrtQ0, startTime, endTime);
+        uint256 sqrtQ0 = ReClammPool(pool).getCurrentSqrtQ0();
+        uint256 mathSqrtQ0 = ReClammMath.calculateSqrtQ0(block.timestamp, startSqrtQ0, newSqrtQ0, startTime, endTime);
 
         assertEq(sqrtQ0, mathSqrtQ0, "SqrtQ0 not updated correctly");
 
         skip(duration / 2 + 1);
-        sqrtQ0 = AclAmmPool(pool).getCurrentSqrtQ0();
+        sqrtQ0 = ReClammPool(pool).getCurrentSqrtQ0();
         assertEq(sqrtQ0, newSqrtQ0, "SqrtQ0 does not match new value");
     }
 }
