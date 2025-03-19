@@ -6,11 +6,11 @@ import { console2 } from "forge-std/console2.sol";
 
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 
-import { BaseAclAmmTest } from "./utils/BaseAclAmmTest.sol";
-import { AclAmmPool } from "../../contracts/AclAmmPool.sol";
-import { AclAmmMath } from "../../contracts/lib/AclAmmMath.sol";
+import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
+import { ReClammPool } from "../../contracts/ReClammPool.sol";
+import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
 
-contract AclAmmLiquidityTest is BaseAclAmmTest {
+contract ReClammLiquidityTest is BaseReClammTest {
     using FixedPoint for uint256;
 
     uint256 constant _MAX_PRICE_ERROR_ABS = 5;
@@ -30,13 +30,13 @@ contract AclAmmLiquidityTest is BaseAclAmmTest {
         maxAmountsIn[daiIdx] = dai.balanceOf(alice);
         maxAmountsIn[usdcIdx] = usdc.balanceOf(alice);
 
-        uint256[] memory virtualBalancesBefore = AclAmmPool(pool).getLastVirtualBalances();
+        uint256[] memory virtualBalancesBefore = ReClammPool(pool).getLastVirtualBalances();
         (, , uint256[] memory balancesBefore, ) = vault.getPoolTokenInfo(pool);
 
         vm.prank(alice);
         router.addLiquidityProportional(pool, maxAmountsIn, exactBptAmountOut, false, "");
 
-        uint256[] memory virtualBalancesAfter = AclAmmPool(pool).getLastVirtualBalances();
+        uint256[] memory virtualBalancesAfter = ReClammPool(pool).getLastVirtualBalances();
         (, , uint256[] memory balancesAfter, ) = vault.getPoolTokenInfo(pool);
 
         // Check if virtual balances were correctly updated.
@@ -69,13 +69,13 @@ contract AclAmmLiquidityTest is BaseAclAmmTest {
         minAmountsOut[daiIdx] = 0;
         minAmountsOut[usdcIdx] = 0;
 
-        uint256[] memory virtualBalancesBefore = AclAmmPool(pool).getLastVirtualBalances();
+        uint256[] memory virtualBalancesBefore = ReClammPool(pool).getLastVirtualBalances();
         (, , uint256[] memory balancesBefore, ) = vault.getPoolTokenInfo(pool);
 
         vm.prank(lp);
         router.removeLiquidityProportional(pool, exactBptAmountIn, minAmountsOut, false, "");
 
-        uint256[] memory virtualBalancesAfter = AclAmmPool(pool).getLastVirtualBalances();
+        uint256[] memory virtualBalancesAfter = ReClammPool(pool).getLastVirtualBalances();
         (, , uint256[] memory balancesAfter, ) = vault.getPoolTokenInfo(pool);
 
         // Check if virtual balances were correctly updated.
@@ -110,8 +110,8 @@ contract AclAmmLiquidityTest is BaseAclAmmTest {
         assertApproxEqAbs(daiPriceAfter, daiPriceBefore, _MAX_PRICE_ERROR_ABS, "Price changed");
 
         // Check if centeredness is constant.
-        uint256 centerednessBefore = AclAmmMath.calculateCenteredness(balancesBefore, virtualBalancesBefore);
-        uint256 centerednessAfter = AclAmmMath.calculateCenteredness(balancesAfter, virtualBalancesAfter);
+        uint256 centerednessBefore = ReClammMath.calculateCenteredness(balancesBefore, virtualBalancesBefore);
+        uint256 centerednessAfter = ReClammMath.calculateCenteredness(balancesAfter, virtualBalancesAfter);
         assertApproxEqAbs(centerednessAfter, centerednessBefore, _MAX_CENTEREDNESS_ERROR_ABS, "Centeredness changed");
     }
 

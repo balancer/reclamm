@@ -5,9 +5,9 @@ pragma solidity ^0.8.24;
 import "forge-std/Test.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
-import { AclAmmMath } from "../../contracts/lib/AclAmmMath.sol";
+import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
 
-contract AclAmmMathTest is Test {
+contract ReClammMathTest is Test {
     using ArrayHelpers for *;
     using FixedPoint for uint256;
 
@@ -18,7 +18,7 @@ contract AclAmmMathTest is Test {
 
     function testParseIncreaseDayRate() public pure {
         uint256 value = 2123e9;
-        uint256 increaseDayRateParsed = AclAmmMath.parseIncreaseDayRate(value);
+        uint256 increaseDayRateParsed = ReClammMath.parseIncreaseDayRate(value);
 
         assertEq(
             increaseDayRateParsed,
@@ -36,7 +36,7 @@ contract AclAmmMathTest is Test {
         balancesScaled18[0] = balance0;
         balancesScaled18[1] = balance1;
 
-        uint256[] memory virtualBalances = AclAmmMath.initializeVirtualBalances(balancesScaled18, sqrtQ0);
+        uint256[] memory virtualBalances = ReClammMath.initializeVirtualBalances(balancesScaled18, sqrtQ0);
 
         assertEq(virtualBalances[0], balance0.divDown(sqrtQ0 - FixedPoint.ONE), "Virtual balance 0 should be correct");
         assertEq(virtualBalances[1], balance1.divDown(sqrtQ0 - FixedPoint.ONE), "Virtual balance 1 should be correct");
@@ -61,7 +61,7 @@ contract AclAmmMathTest is Test {
         uint256 maxAmount = tokenIn == 0 ? balanceB : balanceA;
         amountGivenScaled18 = bound(amountGivenScaled18, 1, maxAmount);
 
-        uint256 amountIn = AclAmmMath.calculateInGivenOut(
+        uint256 amountIn = ReClammMath.calculateInGivenOut(
             [balanceA, balanceB].toMemoryArray(),
             [virtualBalanceA, virtualBalanceB].toMemoryArray(),
             tokenIn,
@@ -99,7 +99,7 @@ contract AclAmmMathTest is Test {
         uint256 maxAmount = tokenIn == 0 ? balanceA : balanceB;
         amountGivenScaled18 = bound(amountGivenScaled18, 1, maxAmount);
 
-        uint256 amountOut = AclAmmMath.calculateOutGivenIn(
+        uint256 amountOut = ReClammMath.calculateOutGivenIn(
             [balanceA, balanceB].toMemoryArray(),
             [virtualBalanceA, virtualBalanceB].toMemoryArray(),
             tokenIn,
@@ -139,9 +139,9 @@ contract AclAmmMathTest is Test {
         virtualBalances[0] = virtualBalance0;
         virtualBalances[1] = virtualBalance1;
 
-        bool isInRange = AclAmmMath.isPoolInRange(balancesScaled18, virtualBalances, centerednessMargin);
+        bool isInRange = ReClammMath.isPoolInRange(balancesScaled18, virtualBalances, centerednessMargin);
 
-        assertEq(isInRange, AclAmmMath.calculateCenteredness(balancesScaled18, virtualBalances) >= centerednessMargin);
+        assertEq(isInRange, ReClammMath.calculateCenteredness(balancesScaled18, virtualBalances) >= centerednessMargin);
     }
 
     function testCalculateCenteredness__Fuzz(
@@ -163,11 +163,11 @@ contract AclAmmMathTest is Test {
         virtualBalances[0] = virtualBalance0;
         virtualBalances[1] = virtualBalance1;
 
-        uint256 centeredness = AclAmmMath.calculateCenteredness(balancesScaled18, virtualBalances);
+        uint256 centeredness = ReClammMath.calculateCenteredness(balancesScaled18, virtualBalances);
 
         if (balance0 == 0 || balance1 == 0) {
             assertEq(centeredness, 0);
-        } else if (AclAmmMath.isAboveCenter(balancesScaled18, virtualBalances)) {
+        } else if (ReClammMath.isAboveCenter(balancesScaled18, virtualBalances)) {
             assertEq(centeredness, balance1.mulDown(virtualBalance0).divDown(balance0.mulDown(virtualBalance1)));
         } else {
             assertEq(centeredness, balance0.mulDown(virtualBalance1).divDown(balance1.mulDown(virtualBalance0)));
@@ -193,7 +193,7 @@ contract AclAmmMathTest is Test {
         virtualBalances[0] = virtualBalance0;
         virtualBalances[1] = virtualBalance1;
 
-        bool isAboveCenter = AclAmmMath.isAboveCenter(balancesScaled18, virtualBalances);
+        bool isAboveCenter = ReClammMath.isAboveCenter(balancesScaled18, virtualBalances);
 
         if (balance1 == 0) {
             assertEq(isAboveCenter, true);
@@ -216,10 +216,10 @@ contract AclAmmMathTest is Test {
         endSqrtQ0 = bound(endSqrtQ0, FixedPoint.ONE, type(uint128).max);
         startSqrtQ0 = bound(endSqrtQ0, FixedPoint.ONE, type(uint128).max);
 
-        uint256 sqrtQ0 = AclAmmMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
+        uint256 sqrtQ0 = ReClammMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
 
         currentTime++;
-        uint256 nextSqrtQ0 = AclAmmMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
+        uint256 nextSqrtQ0 = ReClammMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
 
         if (startSqrtQ0 >= endSqrtQ0) {
             assertLe(nextSqrtQ0, sqrtQ0, "Next sqrtQ0 should be less than current sqrtQ0");
@@ -235,7 +235,7 @@ contract AclAmmMathTest is Test {
         uint256 endTime = 50;
         uint256 currentTime = 100;
 
-        uint256 sqrtQ0 = AclAmmMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
+        uint256 sqrtQ0 = ReClammMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
 
         assertEq(sqrtQ0, endSqrtQ0, "SqrtQ0 should be equal to endSqrtQ0");
     }
@@ -247,7 +247,7 @@ contract AclAmmMathTest is Test {
         uint256 endTime = 100;
         uint256 currentTime = 0;
 
-        uint256 sqrtQ0 = AclAmmMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
+        uint256 sqrtQ0 = ReClammMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
 
         assertEq(sqrtQ0, startSqrtQ0, "SqrtQ0 should be equal to startSqrtQ0");
     }
@@ -259,7 +259,7 @@ contract AclAmmMathTest is Test {
         uint256 endTime = 100;
         uint256 currentTime = 50;
 
-        uint256 sqrtQ0 = AclAmmMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
+        uint256 sqrtQ0 = ReClammMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
 
         assertEq(sqrtQ0, endSqrtQ0, "SqrtQ0 should be equal to endSqrtQ0");
     }

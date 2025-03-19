@@ -7,17 +7,17 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { GyroPoolMath } from "@balancer-labs/v3-pool-gyro/contracts/lib/GyroPoolMath.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 
-import { BaseAclAmmTest } from "./utils/BaseAclAmmTest.sol";
-import { AclAmmPool } from "../../contracts/AclAmmPool.sol";
-import { AclAmmMath } from "../../contracts/lib/AclAmmMath.sol";
-import { IAclAmmPool } from "../../contracts/interfaces/IAclAmmPool.sol";
-import { AclAmmPoolMock } from "../../contracts/test/AclAmmPoolMock.sol";
+import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
+import { ReClammPool } from "../../contracts/ReClammPool.sol";
+import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
+import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
+import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
 
-contract AclAmmPoolTest is BaseAclAmmTest {
+contract ReClammPoolTest is BaseReClammTest {
     using FixedPoint for uint256;
 
     function testGetCurrentSqrtQ0() public view {
-        uint256 sqrtQ0 = AclAmmPool(pool).getCurrentSqrtQ0();
+        uint256 sqrtQ0 = ReClammPool(pool).getCurrentSqrtQ0();
         assertEq(sqrtQ0, _DEFAULT_SQRT_Q0, "Invalid default sqrtQ0");
     }
 
@@ -27,20 +27,20 @@ contract AclAmmPoolTest is BaseAclAmmTest {
         uint256 duration = 1 hours;
         uint256 endTime = block.timestamp + duration;
 
-        uint256 startSqrtQ0 = AclAmmPool(pool).getCurrentSqrtQ0();
+        uint256 startSqrtQ0 = ReClammPool(pool).getCurrentSqrtQ0();
         vm.prank(admin);
         vm.expectEmit();
-        emit IAclAmmPool.SqrtQ0Updated(startSqrtQ0, newSqrtQ0, startTime, endTime);
-        AclAmmPool(pool).setSqrtQ0(newSqrtQ0, startTime, endTime);
+        emit IReClammPool.SqrtQ0Updated(startSqrtQ0, newSqrtQ0, startTime, endTime);
+        ReClammPool(pool).setSqrtQ0(newSqrtQ0, startTime, endTime);
 
         skip(duration / 2);
-        uint256 sqrtQ0 = AclAmmPool(pool).getCurrentSqrtQ0();
-        uint256 mathSqrtQ0 = AclAmmMath.calculateSqrtQ0(block.timestamp, startSqrtQ0, newSqrtQ0, startTime, endTime);
+        uint256 sqrtQ0 = ReClammPool(pool).getCurrentSqrtQ0();
+        uint256 mathSqrtQ0 = ReClammMath.calculateSqrtQ0(block.timestamp, startSqrtQ0, newSqrtQ0, startTime, endTime);
 
         assertEq(sqrtQ0, mathSqrtQ0, "SqrtQ0 not updated correctly");
 
         skip(duration / 2 + 1);
-        sqrtQ0 = AclAmmPool(pool).getCurrentSqrtQ0();
+        sqrtQ0 = ReClammPool(pool).getCurrentSqrtQ0();
         assertEq(sqrtQ0, newSqrtQ0, "SqrtQ0 does not match new value");
     }
 

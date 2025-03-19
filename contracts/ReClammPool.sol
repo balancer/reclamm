@@ -17,12 +17,12 @@ import { Version } from "@balancer-labs/v3-solidity-utils/contracts/helpers/Vers
 import { PoolInfo } from "@balancer-labs/v3-pool-utils/contracts/PoolInfo.sol";
 import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
 
-import { SqrtQ0State, AclAmmMath } from "./lib/AclAmmMath.sol";
-import { AclAmmPoolParams, IAclAmmPool } from "./interfaces/IAclAmmPool.sol";
+import { SqrtQ0State, ReClammMath } from "./lib/ReClammMath.sol";
+import { ReClammPoolParams, IReClammPool } from "./interfaces/IReClammPool.sol";
 
-contract AclAmmPool is
+contract ReClammPool is
     IUnbalancedLiquidityInvariantRatioBounds,
-    IAclAmmPool,
+    IReClammPool,
     BalancerPoolToken,
     PoolInfo,
     BasePoolAuthentication,
@@ -47,7 +47,7 @@ contract AclAmmPool is
     uint256[] private _virtualBalances;
 
     constructor(
-        AclAmmPoolParams memory params,
+        ReClammPoolParams memory params,
         IVault vault
     )
         BalancerPoolToken(vault, params.name, params.symbol)
@@ -63,7 +63,7 @@ contract AclAmmPool is
     /// @inheritdoc IBasePool
     function computeInvariant(uint256[] memory balancesScaled18, Rounding rounding) public view returns (uint256) {
         return
-            AclAmmMath.computeInvariant(
+            ReClammMath.computeInvariant(
                 balancesScaled18,
                 _virtualBalances,
                 _timeConstant,
@@ -84,7 +84,7 @@ contract AclAmmPool is
     /// @inheritdoc IBasePool
     function onSwap(PoolSwapParams memory request) public virtual returns (uint256) {
         // Calculate virtual balances
-        (uint256[] memory virtualBalances, bool changed) = AclAmmMath.getVirtualBalances(
+        (uint256[] memory virtualBalances, bool changed) = ReClammMath.getVirtualBalances(
             request.balancesScaled18,
             _virtualBalances,
             _timeConstant,
@@ -103,7 +103,7 @@ contract AclAmmPool is
         // Calculate swap result
         if (request.kind == SwapKind.EXACT_IN) {
             return
-                AclAmmMath.calculateOutGivenIn(
+                ReClammMath.calculateOutGivenIn(
                     request.balancesScaled18,
                     _virtualBalances,
                     request.indexIn,
@@ -112,7 +112,7 @@ contract AclAmmPool is
                 );
         } else {
             return
-                AclAmmMath.calculateInGivenOut(
+                ReClammMath.calculateInGivenOut(
                     request.balancesScaled18,
                     _virtualBalances,
                     request.indexIn,
@@ -147,7 +147,7 @@ contract AclAmmPool is
         _lastTimestamp = block.timestamp;
 
         uint256 currentSqrtQ0 = _calculateCurrentSqrtQ0();
-        uint256[] memory virtualBalances = AclAmmMath.initializeVirtualBalances(balancesScaled18, currentSqrtQ0);
+        uint256[] memory virtualBalances = ReClammMath.initializeVirtualBalances(balancesScaled18, currentSqrtQ0);
         _setVirtualBalances(virtualBalances);
 
         return true;
@@ -211,22 +211,22 @@ contract AclAmmPool is
         return _MAX_INVARIANT_RATIO;
     }
 
-    /// @inheritdoc IAclAmmPool
+    /// @inheritdoc IReClammPool
     function getLastVirtualBalances() external view returns (uint256[] memory) {
         return _getLastVirtualBalances();
     }
 
-    /// @inheritdoc IAclAmmPool
+    /// @inheritdoc IReClammPool
     function getLastTimestamp() external view returns (uint256) {
         return _lastTimestamp;
     }
 
-    /// @inheritdoc IAclAmmPool
+    /// @inheritdoc IReClammPool
     function getCurrentSqrtQ0() external view override returns (uint256) {
         return _calculateCurrentSqrtQ0();
     }
 
-    /// @inheritdoc IAclAmmPool
+    /// @inheritdoc IReClammPool
     function setSqrtQ0(
         uint256 newSqrtQ0,
         uint256 startTime,
@@ -258,7 +258,7 @@ contract AclAmmPool is
         SqrtQ0State memory sqrtQ0State = _sqrtQ0State;
 
         return
-            AclAmmMath.calculateSqrtQ0(
+            ReClammMath.calculateSqrtQ0(
                 block.timestamp,
                 sqrtQ0State.startSqrtQ0,
                 sqrtQ0State.endSqrtQ0,
@@ -268,7 +268,7 @@ contract AclAmmPool is
     }
 
     function _setIncreaseDayRate(uint256 increaseDayRate) internal {
-        _timeConstant = AclAmmMath.parseIncreaseDayRate(increaseDayRate);
+        _timeConstant = ReClammMath.parseIncreaseDayRate(increaseDayRate);
 
         emit IncreaseDayRateUpdated(increaseDayRate);
     }
@@ -289,7 +289,7 @@ contract AclAmmPool is
         (, , uint256[] memory balancesScaled18, ) = _vault.getPoolTokenInfo(address(this));
 
         // Calculate virtual balances
-        (virtualBalances, ) = AclAmmMath.getVirtualBalances(
+        (virtualBalances, ) = ReClammMath.getVirtualBalances(
             balancesScaled18,
             _virtualBalances,
             _timeConstant,
