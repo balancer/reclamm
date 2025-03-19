@@ -16,9 +16,8 @@ import { Version } from "@balancer-labs/v3-solidity-utils/contracts/helpers/Vers
 
 import { ReClammPoolMock } from "./ReClammPoolMock.sol";
 import { ReClammPoolParams } from "../interfaces/IReClammPool.sol";
-/**
- * @notice Acl Amm Pool Mock factory.
- */
+
+ /// @notice Acl Amm Pool Mock factory.
 contract ReClammPoolFactoryMock is IPoolVersion, BasePoolFactory, Version {
     string private _poolVersion;
 
