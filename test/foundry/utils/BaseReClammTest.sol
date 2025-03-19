@@ -21,8 +21,8 @@ import { ReClammPoolContractsDeployer } from "./ReClammPoolContractsDeployer.sol
 import { ReClammPool } from "../../../contracts/ReClammPool.sol";
 import { ReClammPoolFactory } from "../../../contracts/ReClammPoolFactory.sol";
 import { ReClammPoolParams } from "../../../contracts/interfaces/IReClammPool.sol";
-import { ReClammPoolMock } from "../../../contracts/test/AclAmmPoolMock.sol";
-import { ReClammPoolFactoryMock } from "../../../contracts/test/AclAmmPoolFactoryMock.sol";
+import { ReClammPoolMock } from "../../../contracts/test/ReClammPoolMock.sol";
+import { ReClammPoolFactoryMock } from "../../../contracts/test/ReClammPoolFactoryMock.sol";
 
 contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     using FixedPoint for uint256;

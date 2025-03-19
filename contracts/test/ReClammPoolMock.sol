@@ -4,11 +4,11 @@ pragma solidity ^0.8.24;
 
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
 
-import { AclAmmPool } from "../AclAmmPool.sol";
-import { AclAmmPoolParams } from "../interfaces/IAclAmmPool.sol";
+import { ReClammPool } from "../ReClammPool.sol";
+import { ReClammPoolParams } from "../interfaces/IReClammPool.sol";
 
-contract AclAmmPoolMock is AclAmmPool {
-    constructor(AclAmmPoolParams memory params, IVault vault) AclAmmPool(params, vault) {
+contract ReClammPoolMock is ReClammPool {
+    constructor(ReClammPoolParams memory params, IVault vault) ReClammPool(params, vault) {
         // solhint-disable-previous-line no-empty-blocks
     }
 

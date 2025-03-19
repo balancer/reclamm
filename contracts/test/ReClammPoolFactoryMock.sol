@@ -14,12 +14,12 @@ import {
 import { BasePoolFactory } from "@balancer-labs/v3-pool-utils/contracts/BasePoolFactory.sol";
 import { Version } from "@balancer-labs/v3-solidity-utils/contracts/helpers/Version.sol";
 
-import { AclAmmPoolMock } from "./AclAmmPoolMock.sol";
-import { AclAmmPoolParams } from "../interfaces/IAclAmmPool.sol";
+import { ReClammPoolMock } from "./ReClammPoolMock.sol";
+import { ReClammPoolParams } from "../interfaces/IReClammPool.sol";
 /**
  * @notice Acl Amm Pool Mock factory.
  */
-contract AclAmmPoolFactoryMock is IPoolVersion, BasePoolFactory, Version {
+contract ReClammPoolFactoryMock is IPoolVersion, BasePoolFactory, Version {
     string private _poolVersion;
 
     constructor(
@@ -27,7 +27,7 @@ contract AclAmmPoolFactoryMock is IPoolVersion, BasePoolFactory, Version {
         uint32 pauseWindowDuration,
         string memory factoryVersion,
         string memory poolVersion
-    ) BasePoolFactory(vault, pauseWindowDuration, type(AclAmmPoolMock).creationCode) Version(factoryVersion) {
+    ) BasePoolFactory(vault, pauseWindowDuration, type(ReClammPoolMock).creationCode) Version(factoryVersion) {
         _poolVersion = poolVersion;
     }
 
@@ -74,7 +74,7 @@ contract AclAmmPoolFactoryMock is IPoolVersion, BasePoolFactory, Version {
 
         pool = _create(
             abi.encode(
-                AclAmmPoolParams({
+                ReClammPoolParams({
                     name: name,
                     symbol: symbol,
                     version: _poolVersion,

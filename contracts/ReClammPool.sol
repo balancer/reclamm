@@ -235,7 +235,7 @@ contract ReClammPool is
         _setSqrtQ0(newSqrtQ0, startTime, endTime);
     }
 
-    /// @inheritdoc IAclAmmPool
+    /// @inheritdoc IReClammPool
     function setIncreaseDayRate(uint256 newIncreaseDayRate) external onlySwapFeeManagerOrGovernance(address(this)) {
         _setIncreaseDayRate(newIncreaseDayRate);
     }

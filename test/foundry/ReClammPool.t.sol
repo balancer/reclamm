@@ -48,8 +48,8 @@ contract ReClammPoolTest is BaseReClammTest {
         uint256 newIncreaseDayRate = 200e16;
         vm.prank(admin);
         vm.expectEmit();
-        emit IAclAmmPool.IncreaseDayRateUpdated(newIncreaseDayRate);
-        AclAmmPool(pool).setIncreaseDayRate(newIncreaseDayRate);
+        emit IReClammPool.IncreaseDayRateUpdated(newIncreaseDayRate);
+        ReClammPool(pool).setIncreaseDayRate(newIncreaseDayRate);
     }
 
     function testSetCenterednessMargin() public {
@@ -58,7 +58,7 @@ contract ReClammPoolTest is BaseReClammTest {
         uint256 newCenterednessMargin = 50e16;
         vm.prank(admin);
         vm.expectEmit();
-        emit IAclAmmPool.CenterednessMarginUpdated(newCenterednessMargin);
-        AclAmmPoolMock(pool).setCenterednessMargin(newCenterednessMargin);
+        emit IReClammPool.CenterednessMarginUpdated(newCenterednessMargin);
+        ReClammPoolMock(pool).setCenterednessMargin(newCenterednessMargin);
     }
 }
