@@ -5,7 +5,7 @@ pragma solidity ^0.8.24;
 import { console2 } from "forge-std/console2.sol";
 
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
-
+import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultErrors.sol";
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
 import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
@@ -55,6 +55,18 @@ contract ReClammLiquidityTest is BaseReClammTest {
         _checkPriceAndCenteredness(balancesBefore, balancesAfter, virtualBalancesBefore, virtualBalancesAfter);
     }
 
+    function testAddLiquidityUnbalanced() public {
+        // Create unbalanced amounts where we try to add more DAI than USDC
+        uint256[] memory exactAmountsIn = new uint256[](2);
+        exactAmountsIn[daiIdx] = 2e18; // 2 DAI
+        exactAmountsIn[usdcIdx] = 1e18; // 1 USDC
+
+        // Attempt to add liquidity unbalanced - should revert
+        vm.prank(alice);
+        vm.expectRevert(IVaultErrors.DoesNotSupportUnbalancedLiquidity.selector);
+        router.addLiquidityUnbalanced(pool, exactAmountsIn, 0, false, "");
+    }
+
     function testRemoveLiquidity_Fuzz(
         uint256 exactBptAmountIn,
         uint256 initialDaiBalance,
@@ -92,6 +104,20 @@ contract ReClammLiquidityTest is BaseReClammTest {
         );
 
         _checkPriceAndCenteredness(balancesBefore, balancesAfter, virtualBalancesBefore, virtualBalancesAfter);
+    }
+
+    function testRemoveLiquiditySingleTokenExactOut() public {
+        // Try to remove liquidity with exact token output - should revert
+        vm.prank(lp);
+        vm.expectRevert(IVaultErrors.DoesNotSupportUnbalancedLiquidity.selector);
+        router.removeLiquiditySingleTokenExactOut(
+            pool, // pool address
+            1e18, // maximum BPT willing to burn
+            dai, // token we want to receive
+            1e18, // exact amount of DAI we want to receive
+            false, // wethIsEth
+            "" // userData
+        );
     }
 
     function _checkPriceAndCenteredness(
