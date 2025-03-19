@@ -258,7 +258,6 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
 
     function _createNewPool() internal returns (address initalPool, address newPool) {
         initalPool = pool;
-        salt = keccak256(abi.encodePacked("test"));
         (pool, poolArguments) = createPool();
         approveForPool(IERC20(pool));
         initPool();

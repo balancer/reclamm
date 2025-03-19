@@ -21,6 +21,8 @@ import { ReClammPoolContractsDeployer } from "./ReClammPoolContractsDeployer.sol
 import { ReClammPool } from "../../../contracts/ReClammPool.sol";
 import { ReClammPoolFactory } from "../../../contracts/ReClammPoolFactory.sol";
 import { ReClammPoolParams } from "../../../contracts/interfaces/IReClammPool.sol";
+import { ReClammPoolMock } from "../../../contracts/test/ReClammPoolMock.sol";
+import { ReClammPoolFactoryMock } from "../../../contracts/test/ReClammPoolFactoryMock.sol";
 
 contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     using FixedPoint for uint256;
@@ -39,10 +41,9 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     uint256 private _increaseDayRate = _DEFAULT_INCREASE_DAY_RATE;
     uint256[] private _initialBalances = new uint256[](2);
 
-    bytes32 internal salt = ZERO_BYTES32;
+    uint256 internal saltNumber = 0;
 
-    ReClammPool internal ammPool;
-    ReClammPoolFactory internal factory;
+    ReClammPoolFactoryMock internal factory;
 
     uint256 internal daiIdx;
     uint256 internal usdcIdx;
@@ -84,7 +85,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     }
 
     function createPoolFactory() internal override returns (address) {
-        factory = deployReClammPoolFactory(vault, 365 days, "Factory v1", _POOL_VERSION);
+        factory = deployReClammPoolFactoryMock(vault, 365 days, "Factory v1", _POOL_VERSION);
         vm.label(address(factory), "Acl Amm Factory");
 
         return address(factory);
@@ -103,7 +104,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
 
         roleAccounts = PoolRoleAccounts({ pauseManager: address(0), swapFeeManager: admin, poolCreator: address(0) });
 
-        newPool = ReClammPoolFactory(poolFactory).create(
+        newPool = ReClammPoolFactoryMock(poolFactory).create(
             name,
             symbol,
             vault.buildTokenConfig(sortedTokens),
@@ -112,7 +113,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
             _DEFAULT_INCREASE_DAY_RATE,
             sqrtQ0(),
             _DEFAULT_CENTEREDNESS_MARGIN,
-            salt
+            bytes32(saltNumber++)
         );
         vm.label(newPool, label);
 
