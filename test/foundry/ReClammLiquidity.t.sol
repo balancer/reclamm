@@ -192,6 +192,47 @@ contract ReClammLiquidityTest is BaseReClammTest {
         );
     }
 
+    function testAddRemoveLiquidityProportional_Fuzz(
+        uint256 exactBptAmountOut,
+        uint256 initialDaiBalance,
+        uint256 initialUsdcBalance
+    ) public {
+        // Set initial pool balances
+        _setPoolBalances(initialDaiBalance, initialUsdcBalance);
+
+        // Get total supply and bound BPT amount to reasonable values
+        uint256 totalSupply = vault.totalSupply(pool);
+        exactBptAmountOut = bound(exactBptAmountOut, 1e6, 100 * totalSupply);
+
+        // Store Alice's initial balances
+        uint256 aliceDaiBalanceBefore = dai.balanceOf(alice);
+        uint256 aliceUsdcBalanceBefore = usdc.balanceOf(alice);
+
+        // Set max amounts for add liquidity
+        uint256[] memory maxAmountsIn = new uint256[](2);
+        maxAmountsIn[daiIdx] = aliceDaiBalanceBefore;
+        maxAmountsIn[usdcIdx] = aliceUsdcBalanceBefore;
+
+        // Add liquidity
+        vm.prank(alice);
+        router.addLiquidityProportional(pool, maxAmountsIn, exactBptAmountOut, false, "");
+
+        // Remove the same amount of liquidity
+        uint256[] memory minAmountsOut = new uint256[](2);
+        minAmountsOut[daiIdx] = 0;
+        minAmountsOut[usdcIdx] = 0;
+
+        vm.prank(alice);
+        router.removeLiquidityProportional(pool, exactBptAmountOut, minAmountsOut, false, "");
+
+        // Check final balances are not greater than initial balances
+        uint256 aliceDaiBalanceAfter = dai.balanceOf(alice);
+        uint256 aliceUsdcBalanceAfter = usdc.balanceOf(alice);
+
+        assertLe(aliceDaiBalanceAfter, aliceDaiBalanceBefore, "DAI balance should not be greater than initial");
+        assertLe(aliceUsdcBalanceAfter, aliceUsdcBalanceBefore, "USDC balance should not be greater than initial");
+    }
+
     function _checkPriceAndCenteredness(
         uint256[] memory balancesBefore,
         uint256[] memory balancesAfter,
