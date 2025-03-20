@@ -57,18 +57,16 @@ export function getVirtualBalances(
     (currentTimestamp < sqrtQ0State.endTime || lastTimestamp < sqrtQ0State.endTime)
   ) {
     const centeredness = calculateCenteredness(balancesScaled18, lastVirtualBalances);
-    const centerednessFix = isPoolAboveCenter ? fpDivDown(fp(1), centeredness) : centeredness;
+    const centerednessFactor = isPoolAboveCenter ? fpDivDown(fp(1), centeredness) : centeredness;
 
     const a = fpMulDown(currentSqrtQ0, currentSqrtQ0) - fp(1);
-    const b = fpMulDown(balancesScaled18[1], fp(1) + centerednessFix);
-    const c = fpMulDown(fpMulDown(balancesScaled18[1], balancesScaled18[1]), centerednessFix);
-    const b4ac = fpMulDown(b, b) + fpMulDown(fp(4), fpMulDown(a, c));
-    const bpsqrt = b + sqrt(b4ac);
+    const b = fpMulDown(balancesScaled18[1], fp(1) + centerednessFactor);
+    const c = fpMulDown(fpMulDown(balancesScaled18[1], balancesScaled18[1]), centerednessFactor);
 
-    virtualBalances[1] = fpDivDown(bpsqrt, fpMulDown(fp(2), a));
+    virtualBalances[1] = fpDivDown(b + sqrt(fpMulDown(b, b) + fpMulDown(fp(4), fpMulDown(a, c))), fpMulDown(fp(2), a));
     virtualBalances[0] = fpDivDown(
       fpDivDown(fpMulDown(balancesScaled18[0], virtualBalances[1]), balancesScaled18[1]),
-      centerednessFix
+      centerednessFactor
     );
 
     changed = true;

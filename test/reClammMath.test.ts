@@ -240,7 +240,7 @@ describe('ReClammMath', function () {
     const computeCheckAndReturnContractVirtualBalances = async (
       balancesScaled18: bigint[],
       lastVirtualBalances: bigint[],
-      c: bigint,
+      timeConstant: bigint,
       lastTimestamp: number,
       currentTimestamp: number,
       centerednessMargin: bigint,
@@ -252,16 +252,17 @@ describe('ReClammMath', function () {
       const contractVirtualBalances = await mathLib.getVirtualBalances(
         balancesScaled18,
         lastVirtualBalances,
-        c,
+        timeConstant,
         lastTimestamp,
         currentTimestamp,
         centerednessMargin,
         sqrtQ0State
       );
+
       const javascriptVirtualBalances = getVirtualBalances(
         balancesScaled18,
         lastVirtualBalances,
-        c,
+        timeConstant,
         lastTimestamp,
         currentTimestamp,
         centerednessMargin,
@@ -278,7 +279,7 @@ describe('ReClammMath', function () {
       return { virtualBalances: [contractVirtualBalances[0][0], contractVirtualBalances[0][1]] };
     };
 
-    it.only('q is updating & isPoolInRange == true && lastTimestamp < startTime', async () => {
+    it('q is updating & isPoolInRange == true && lastTimestamp < startTime', async () => {
       const balancesScaled18 = [bn(200e18), bn(300e18)];
       const startSqrtQ0 = bn(1.5e18);
       const endSqrtQ0 = bn(2e18);
@@ -286,7 +287,7 @@ describe('ReClammMath', function () {
       const timeConstant = bn(1e18);
       const lastTimestamp = 5;
       const currentTimestamp = 20;
-      const centerednessMargin = 0n;
+      const centerednessMargin = 20n;
       const sqrtQ0State = {
         startTime: 10,
         endTime: 50,
@@ -294,7 +295,7 @@ describe('ReClammMath', function () {
         endSqrtQ0: endSqrtQ0,
       };
 
-      const res = await computeCheckAndReturnContractVirtualBalances(
+      const contractVirtualBalances = await computeCheckAndReturnContractVirtualBalances(
         balancesScaled18,
         lastVirtualBalances,
         timeConstant,
@@ -305,7 +306,9 @@ describe('ReClammMath', function () {
         true
       );
 
-      expect(await mathLib.isPoolInRange(balancesScaled18, res.virtualBalances, centerednessMargin)).to.equal(true);
+      expect(
+        await mathLib.isPoolInRange(balancesScaled18, contractVirtualBalances.virtualBalances, centerednessMargin)
+      ).to.equal(true);
     });
 
     it('q is updating & isPoolInRange == true && lastTimestamp > startTime', async () => {

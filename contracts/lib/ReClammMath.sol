@@ -129,6 +129,7 @@ library ReClammMath {
             sqrtQ0State.startTime,
             sqrtQ0State.endTime
         );
+
         bool isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances);
 
         if (
@@ -140,7 +141,7 @@ library ReClammMath {
             uint256 centerednessFactor = isPoolAboveCenter
                 ? FixedPoint.ONE.divDown(poolCenteredness)
                 : poolCenteredness;
-            uint256 a = currentSqrtQ0.mulDown(currentSqrtQ0);
+            uint256 a = currentSqrtQ0.mulDown(currentSqrtQ0) - FixedPoint.ONE;
             uint256 b = balancesScaled18[1].mulDown(FixedPoint.ONE + centerednessFactor);
             uint256 c = balancesScaled18[1].mulDown(balancesScaled18[1]).mulDown(centerednessFactor);
             virtualBalances[1] = (b + SqrtLib.sqrt(b.mulDown(b) + 4 * a.mulDown(c), 5)).divDown(2 * a);
