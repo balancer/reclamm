@@ -158,23 +158,23 @@ library ReClammMath {
         }
 
         if (isPoolInRange(balancesScaled18, lastVirtualBalances, centerednessMargin) == false) {
-            uint256 PriceRatio = currentSqrtPriceRatio.mulDown(currentSqrtPriceRatio);
+            uint256 priceRatio = currentSqrtPriceRatio.mulDown(currentSqrtPriceRatio);
 
             if (isAboveCenter(balancesScaled18, lastVirtualBalances)) {
                 virtualBalances[1] = lastVirtualBalances[1].mulDown(
                     LogExpMath.pow(FixedPoint.ONE - c, (currentTimestamp - lastTimestamp) * FixedPoint.ONE)
                 );
-                // Va = (Ra * (Vb + Rb)) / (((PriceRatio - 1) * Vb) - Rb)
+                // Va = (Ra * (Vb + Rb)) / (((priceRatio - 1) * Vb) - Rb)
                 virtualBalances[0] = (balancesScaled18[0].mulDown(virtualBalances[1] + balancesScaled18[1])).divDown(
-                    (PriceRatio - FixedPoint.ONE).mulDown(virtualBalances[1]) - balancesScaled18[1]
+                    (priceRatio - FixedPoint.ONE).mulDown(virtualBalances[1]) - balancesScaled18[1]
                 );
             } else {
                 virtualBalances[0] = lastVirtualBalances[0].mulDown(
                     LogExpMath.pow(FixedPoint.ONE - c, (currentTimestamp - lastTimestamp) * FixedPoint.ONE)
                 );
-                // Vb = (Rb * (Va + Ra)) / (((PriceRatio - 1) * Va) - Ra)
+                // Vb = (Rb * (Va + Ra)) / (((priceRatio - 1) * Va) - Ra)
                 virtualBalances[1] = (balancesScaled18[1].mulDown(virtualBalances[0] + balancesScaled18[0])).divDown(
-                    (PriceRatio - FixedPoint.ONE).mulDown(virtualBalances[0]) - balancesScaled18[0]
+                    (priceRatio - FixedPoint.ONE).mulDown(virtualBalances[0]) - balancesScaled18[0]
                 );
             }
 

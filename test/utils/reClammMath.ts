@@ -76,7 +76,7 @@ export function getVirtualBalances(
   }
 
   if (isPoolInRange(balancesScaled18, lastVirtualBalances, centerednessMargin) == false) {
-    const PriceRatio = fpMulDown(currentSqrtPriceRatio, currentSqrtPriceRatio);
+    const priceRatio = fpMulDown(currentSqrtPriceRatio, currentSqrtPriceRatio);
 
     const base = fromFp(FP_ONE - c);
     const exponent = fromFp(fp(currentTimestamp - lastTimestamp));
@@ -86,13 +86,13 @@ export function getVirtualBalances(
       virtualBalances[1] = fpMulDown(lastVirtualBalances[1], fp(powResult));
       virtualBalances[0] = fpDivDown(
         fpMulDown(balancesScaled18[0], virtualBalances[1] + balancesScaled18[1]),
-        fpMulDown(PriceRatio - FP_ONE, virtualBalances[1]) - balancesScaled18[1]
+        fpMulDown(priceRatio - FP_ONE, virtualBalances[1]) - balancesScaled18[1]
       );
     } else {
       virtualBalances[0] = fpMulDown(lastVirtualBalances[0], fp(powResult));
       virtualBalances[1] = fpDivDown(
         fpMulDown(balancesScaled18[1], virtualBalances[0] + balancesScaled18[0]),
-        fpMulDown(PriceRatio - FP_ONE, virtualBalances[0]) - balancesScaled18[0]
+        fpMulDown(priceRatio - FP_ONE, virtualBalances[0]) - balancesScaled18[0]
       );
     }
 

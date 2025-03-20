@@ -134,10 +134,10 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         }
     }
 
-    function testChangingDifferentPriceRange_Fuzz(uint256 newSqrtQ) public {
-        newSqrtQ = bound(newSqrtQ, 1.4e18, 1_000_000e18);
+    function testChangingDifferentPriceRange_Fuzz(uint256 newSqrtPriceRange) public {
+        newSqrtPriceRange = bound(newSqrtPriceRange, 1.4e18, 1_000_000e18);
 
-        uint256 initialSqrtQ = sqrtPriceRatio();
+        uint256 initialSqrtPriceRange = sqrtPriceRatio();
 
         uint256 duration = 2 hours;
 
@@ -146,12 +146,12 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         uint256 currentTimestamp = block.timestamp;
 
         vm.prank(admin);
-        ReClammPool(pool).setSqrtPriceRatio(initialSqrtQ, currentTimestamp, currentTimestamp + duration);
+        ReClammPool(pool).setSqrtPriceRatio(initialSqrtPriceRange, currentTimestamp, currentTimestamp + duration);
         skip(duration);
 
         uint256[] memory poolVirtualBalancesAfter = ReClammPool(pool).getLastVirtualBalances();
 
-        if (newSqrtQ > initialSqrtQ) {
+        if (newSqrtPriceRange > initialSqrtPriceRange) {
             assertLt(
                 poolVirtualBalancesAfter[0],
                 poolVirtualBalancesBefore[0],
@@ -259,9 +259,9 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     function _calculateVirtualBalances() internal view returns (uint256[] memory virtualBalances) {
         virtualBalances = new uint256[](2);
 
-        uint256 sqrtQMinusOne = sqrtPriceRatio() - FixedPoint.ONE;
-        virtualBalances[0] = _INITIAL_BALANCE_A.divDown(sqrtQMinusOne);
-        virtualBalances[1] = _INITIAL_BALANCE_B.divDown(sqrtQMinusOne);
+        uint256 sqrtPriceRatioMinusOne = sqrtPriceRatio() - FixedPoint.ONE;
+        virtualBalances[0] = _INITIAL_BALANCE_A.divDown(sqrtPriceRatioMinusOne);
+        virtualBalances[1] = _INITIAL_BALANCE_B.divDown(sqrtPriceRatioMinusOne);
     }
 
     function _createNewPool() internal returns (address initalPool, address newPool) {
