@@ -8,9 +8,9 @@ import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultType
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { LogExpMath } from "@balancer-labs/v3-solidity-utils/contracts/math/LogExpMath.sol";
 
-struct SqrtQ0State {
-    uint256 startSqrtQ0;
-    uint256 endSqrtQ0;
+struct SqrtPriceRatioState {
+    uint256 startSqrtPriceRatio;
+    uint256 endSqrtPriceRatio;
     uint256 startTime;
     uint256 endTime;
 }
@@ -28,7 +28,7 @@ library ReClammMath {
         uint256 lastTimestamp,
         uint256 currentTimestamp,
         uint256 centerednessMargin,
-        SqrtQ0State memory sqrtQ0State,
+        SqrtPriceRatioState memory sqrtPriceRatioState,
         Rounding rounding
     ) internal pure returns (uint256) {
         (uint256[] memory virtualBalances, ) = getVirtualBalances(
@@ -38,7 +38,7 @@ library ReClammMath {
             lastTimestamp,
             currentTimestamp,
             centerednessMargin,
-            sqrtQ0State
+            sqrtPriceRatioState
         );
 
         return computeInvariant(balancesScaled18, virtualBalances, rounding);
@@ -92,11 +92,11 @@ library ReClammMath {
 
     function initializeVirtualBalances(
         uint256[] memory balancesScaled18,
-        uint256 sqrtQ0
+        uint256 sqrtPriceRatio
     ) internal pure returns (uint256[] memory virtualBalances) {
         virtualBalances = new uint256[](balancesScaled18.length);
-        virtualBalances[0] = balancesScaled18[0].divDown(sqrtQ0 - FixedPoint.ONE);
-        virtualBalances[1] = balancesScaled18[1].divDown(sqrtQ0 - FixedPoint.ONE);
+        virtualBalances[0] = balancesScaled18[0].divDown(sqrtPriceRatio - FixedPoint.ONE);
+        virtualBalances[1] = balancesScaled18[1].divDown(sqrtPriceRatio - FixedPoint.ONE);
     }
 
     function getVirtualBalances(
@@ -106,7 +106,7 @@ library ReClammMath {
         uint256 lastTimestamp,
         uint256 currentTimestamp,
         uint256 centerednessMargin,
-        SqrtQ0State memory sqrtQ0State //TODO: optimize gas usage
+        SqrtPriceRatioState memory sqrtPriceRatioState //TODO: optimize gas usage
     ) internal pure returns (uint256[] memory virtualBalances, bool changed) {
         // TODO Review rounding
         // TODO: try to find better way to change the virtual balances in storage
@@ -119,62 +119,62 @@ library ReClammMath {
             return (virtualBalances, false);
         }
 
-        // Calculate currentSqrtQ0
-        uint256 currentSqrtQ0 = calculateSqrtQ0(
+        // Calculate currentSqrtPriceRatio
+        uint256 currentSqrtPriceRatio = calculateSqrtPriceRatio(
             currentTimestamp,
-            sqrtQ0State.startSqrtQ0,
-            sqrtQ0State.endSqrtQ0,
-            sqrtQ0State.startTime,
-            sqrtQ0State.endTime
+            sqrtPriceRatioState.startSqrtPriceRatio,
+            sqrtPriceRatioState.endSqrtPriceRatio,
+            sqrtPriceRatioState.startTime,
+            sqrtPriceRatioState.endTime
         );
 
         if (
-            sqrtQ0State.startTime != 0 &&
-            currentTimestamp > sqrtQ0State.startTime &&
-            (currentTimestamp < sqrtQ0State.endTime || lastTimestamp < sqrtQ0State.endTime)
+            sqrtPriceRatioState.startTime != 0 &&
+            currentTimestamp > sqrtPriceRatioState.startTime &&
+            (currentTimestamp < sqrtPriceRatioState.endTime || lastTimestamp < sqrtPriceRatioState.endTime)
         ) {
-            uint256 lastSqrtQ0 = calculateSqrtQ0(
+            uint256 lastSqrtPriceRatio = calculateSqrtPriceRatio(
                 lastTimestamp,
-                sqrtQ0State.startSqrtQ0,
-                sqrtQ0State.endSqrtQ0,
-                sqrtQ0State.startTime,
-                sqrtQ0State.endTime
+                sqrtPriceRatioState.startSqrtPriceRatio,
+                sqrtPriceRatioState.endSqrtPriceRatio,
+                sqrtPriceRatioState.startTime,
+                sqrtPriceRatioState.endTime
             );
 
-            // Ra_center = Va * (lastSqrtQ0 - 1)
-            uint256 rACenter = lastVirtualBalances[0].mulDown(lastSqrtQ0 - FixedPoint.ONE);
+            // Ra_center = Va * (lastSqrtPriceRatio - 1)
+            uint256 rACenter = lastVirtualBalances[0].mulDown(lastSqrtPriceRatio - FixedPoint.ONE);
 
-            // Va = Ra_center / (currentSqrtQ0 - 1)
-            virtualBalances[0] = rACenter.divDown(currentSqrtQ0 - FixedPoint.ONE);
+            // Va = Ra_center / (currentSqrtPriceRatio - 1)
+            virtualBalances[0] = rACenter.divDown(currentSqrtPriceRatio - FixedPoint.ONE);
 
             uint256 currentInvariant = computeInvariant(balancesScaled18, lastVirtualBalances, Rounding.ROUND_DOWN);
 
-            // Vb = currentInvariant / (currentQ0 * Va)
+            // Vb = currentInvariant / (currentPriceRatio * Va)
             virtualBalances[1] = currentInvariant.divDown(
-                currentSqrtQ0.mulDown(currentSqrtQ0).mulDown(virtualBalances[0])
+                currentSqrtPriceRatio.mulDown(currentSqrtPriceRatio).mulDown(virtualBalances[0])
             );
 
             changed = true;
         }
 
         if (isPoolInRange(balancesScaled18, lastVirtualBalances, centerednessMargin) == false) {
-            uint256 q0 = currentSqrtQ0.mulDown(currentSqrtQ0);
+            uint256 PriceRatio = currentSqrtPriceRatio.mulDown(currentSqrtPriceRatio);
 
             if (isAboveCenter(balancesScaled18, lastVirtualBalances)) {
                 virtualBalances[1] = lastVirtualBalances[1].mulDown(
                     LogExpMath.pow(FixedPoint.ONE - c, (currentTimestamp - lastTimestamp) * FixedPoint.ONE)
                 );
-                // Va = (Ra * (Vb + Rb)) / (((Q0 - 1) * Vb) - Rb)
+                // Va = (Ra * (Vb + Rb)) / (((PriceRatio - 1) * Vb) - Rb)
                 virtualBalances[0] = (balancesScaled18[0].mulDown(virtualBalances[1] + balancesScaled18[1])).divDown(
-                    (q0 - FixedPoint.ONE).mulDown(virtualBalances[1]) - balancesScaled18[1]
+                    (PriceRatio - FixedPoint.ONE).mulDown(virtualBalances[1]) - balancesScaled18[1]
                 );
             } else {
                 virtualBalances[0] = lastVirtualBalances[0].mulDown(
                     LogExpMath.pow(FixedPoint.ONE - c, (currentTimestamp - lastTimestamp) * FixedPoint.ONE)
                 );
-                // Vb = (Rb * (Va + Ra)) / (((Q0 - 1) * Va) - Ra)
+                // Vb = (Rb * (Va + Ra)) / (((PriceRatio - 1) * Va) - Ra)
                 virtualBalances[1] = (balancesScaled18[1].mulDown(virtualBalances[0] + balancesScaled18[0])).divDown(
-                    (q0 - FixedPoint.ONE).mulDown(virtualBalances[0]) - balancesScaled18[0]
+                    (PriceRatio - FixedPoint.ONE).mulDown(virtualBalances[0]) - balancesScaled18[0]
                 );
             }
 
@@ -210,24 +210,27 @@ library ReClammMath {
         }
     }
 
-    function calculateSqrtQ0(
+    function calculateSqrtPriceRatio(
         uint256 currentTime,
-        uint256 startSqrtQ0,
-        uint256 endSqrtQ0,
+        uint256 startSqrtPriceRatio,
+        uint256 endSqrtPriceRatio,
         uint256 startTime,
         uint256 endTime
     ) internal pure returns (uint256) {
         if (currentTime <= startTime) {
-            return startSqrtQ0;
+            return startSqrtPriceRatio;
         } else if (currentTime >= endTime) {
-            return endSqrtQ0;
-        } else if (startSqrtQ0 == endSqrtQ0) {
-            return endSqrtQ0;
+            return endSqrtPriceRatio;
+        } else if (startSqrtPriceRatio == endSqrtPriceRatio) {
+            return endSqrtPriceRatio;
         }
 
         uint256 exponent = (currentTime - startTime).divDown(endTime - startTime);
 
-        return startSqrtQ0.mulDown(LogExpMath.pow(endSqrtQ0, exponent)).divDown(LogExpMath.pow(startSqrtQ0, exponent));
+        return
+            startSqrtPriceRatio.mulDown(LogExpMath.pow(endSqrtPriceRatio, exponent)).divDown(
+                LogExpMath.pow(startSqrtPriceRatio, exponent)
+            );
     }
 
     function isAboveCenter(
