@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultErrors.sol";
+import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
+
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
 import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
@@ -246,15 +248,15 @@ contract ReClammLiquidityTest is BaseReClammTest {
         uint256 totalSupply = vault.totalSupply(pool);
         exactBptAmountOut = bound(exactBptAmountOut, 1e6, 100 * totalSupply);
 
-        // Store Alice's initial balances
-        uint256 aliceDaiBalanceBefore = dai.balanceOf(alice);
-        uint256 aliceUsdcBalanceBefore = usdc.balanceOf(alice);
-        uint256 aliceTotalValueBefore = aliceDaiBalanceBefore + aliceUsdcBalanceBefore;
+        // Store initial balances of pool
+        (, , uint256[] memory balancesBefore, ) = vault.getPoolTokenInfo(pool);
+        uint256 poolDaiBalanceBefore = balancesBefore[daiIdx];
+        uint256 poolUsdcBalanceBefore = balancesBefore[usdcIdx];
 
         // Set max amounts for add liquidity
         uint256[] memory maxAmountsIn = new uint256[](2);
-        maxAmountsIn[daiIdx] = aliceDaiBalanceBefore;
-        maxAmountsIn[usdcIdx] = aliceUsdcBalanceBefore;
+        maxAmountsIn[daiIdx] = dai.balanceOf(alice);
+        maxAmountsIn[usdcIdx] = usdc.balanceOf(alice);
 
         // Add liquidity
         vm.prank(alice);
@@ -262,7 +264,7 @@ contract ReClammLiquidityTest is BaseReClammTest {
 
         // Perform Bob's swap (DAI -> USDC)
         bobSwapAmount = bound(bobSwapAmount, 1e6, dai.balanceOf(bob));
-        vm.prank(bob);
+        vm.startPrank(bob);
         router.swapSingleTokenExactIn(
             pool,
             dai,
@@ -273,6 +275,17 @@ contract ReClammLiquidityTest is BaseReClammTest {
             false, // wethIsEth
             "" // userData
         );
+        router.swapSingleTokenExactOut(
+            pool,
+            usdc,
+            dai,
+            bobSwapAmount,
+            type(uint128).max, // max amount out
+            type(uint256).max, // deadline
+            false, // wethIsEth
+            "" // userData
+        );
+        vm.stopPrank();
 
         // Remove the same amount of liquidity
         uint256[] memory minAmountsOut = new uint256[](2);
@@ -282,12 +295,13 @@ contract ReClammLiquidityTest is BaseReClammTest {
         vm.prank(alice);
         router.removeLiquidityProportional(pool, exactBptAmountOut, minAmountsOut, false, "");
 
-        // Check final balances total value is not greater than initial
-        uint256 aliceDaiBalanceAfter = dai.balanceOf(alice);
-        uint256 aliceUsdcBalanceAfter = usdc.balanceOf(alice);
-        uint256 aliceTotalValueAfter = aliceDaiBalanceAfter + aliceUsdcBalanceAfter;
+        // Check final balances of pool
+        (, , uint256[] memory balancesAfter, ) = vault.getPoolTokenInfo(pool);
+        uint256 poolDaiBalanceAfter = balancesAfter[daiIdx];
+        uint256 poolUsdcBalanceAfter = balancesAfter[usdcIdx];
 
-        assertLe(aliceTotalValueAfter, aliceTotalValueBefore, "Total token value should not be greater than initial");
+        assertGe(poolDaiBalanceAfter, poolDaiBalanceBefore, "DAI balance should not be smaller than initial");
+        assertGe(poolUsdcBalanceAfter, poolUsdcBalanceBefore, "USDC balance should not be smaller than initial");
     }
 
     function _checkPriceAndCenteredness(
