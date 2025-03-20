@@ -2,8 +2,6 @@
 
 pragma solidity ^0.8.24;
 
-import { console2 } from "forge-std/console2.sol";
-
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
