@@ -65,6 +65,51 @@ contract ReClammLiquidityTest is BaseReClammTest {
         router.addLiquidityUnbalanced(pool, exactAmountsIn, 0, false, "");
     }
 
+    function testAddLiquiditySingleTokenExactOut() public {
+        // Try to add liquidity with single token - should revert
+        vm.prank(alice);
+        vm.expectRevert(IVaultErrors.DoesNotSupportUnbalancedLiquidity.selector);
+        router.addLiquiditySingleTokenExactOut(
+            pool, // pool address
+            dai, // token we want to add
+            1e18, // maximum DAI willing to pay
+            1e18, // exact BPT amount we want to receive
+            false, // wethIsEth
+            "" // userData
+        );
+    }
+
+    function testAddLiquidityCustom() public {
+        uint256[] memory maxAmountsIn = new uint256[](2);
+        maxAmountsIn[daiIdx] = 1e18;
+        maxAmountsIn[usdcIdx] = 1e18;
+
+        vm.prank(alice);
+        vm.expectRevert(IVaultErrors.DoesNotSupportAddLiquidityCustom.selector);
+        router.addLiquidityCustom(
+            pool, // pool address
+            maxAmountsIn, // maximum amounts willing to pay
+            1e18, // minimum BPT amount we want to receive
+            false, // wethIsEth
+            "" // userData
+        );
+    }
+
+    function testDonate() public {
+        uint256[] memory amountsIn = new uint256[](2);
+        amountsIn[daiIdx] = 1e18;
+        amountsIn[usdcIdx] = 1e18;
+
+        vm.prank(alice);
+        vm.expectRevert(IVaultErrors.DoesNotSupportDonation.selector);
+        router.donate(
+            pool, // pool address
+            amountsIn, // amounts to donate
+            false, // wethIsEth
+            "" // userData
+        );
+    }
+
     function testRemoveLiquidity_Fuzz(
         uint256 exactBptAmountIn,
         uint256 initialDaiBalance,
@@ -113,6 +158,35 @@ contract ReClammLiquidityTest is BaseReClammTest {
             1e18, // maximum BPT willing to burn
             dai, // token we want to receive
             1e18, // exact amount of DAI we want to receive
+            false, // wethIsEth
+            "" // userData
+        );
+    }
+
+    function testRemoveLiquiditySingleTokenExactIn() public {
+        vm.prank(lp);
+        vm.expectRevert(IVaultErrors.DoesNotSupportUnbalancedLiquidity.selector);
+        router.removeLiquiditySingleTokenExactIn(
+            pool, // pool address
+            1e18, // exact BPT amount to burn
+            dai, // token we want to receive
+            1e18, // minimum DAI amount we want to receive
+            false, // wethIsEth
+            "" // userData
+        );
+    }
+
+    function testRemoveLiquidityCustom() public {
+        uint256[] memory minAmountsOut = new uint256[](2);
+        minAmountsOut[daiIdx] = 1e18;
+        minAmountsOut[usdcIdx] = 1e18;
+
+        vm.prank(lp);
+        vm.expectRevert(IVaultErrors.DoesNotSupportRemoveLiquidityCustom.selector);
+        router.removeLiquidityCustom(
+            pool, // pool address
+            1e18, // maximum BPT amount willing to burn
+            minAmountsOut, // minimum amounts we want to receive
             false, // wethIsEth
             "" // userData
         );
