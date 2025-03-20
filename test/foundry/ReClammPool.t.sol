@@ -12,8 +12,6 @@ import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
 import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
 import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
 
-import { SqrtLib } from "../../contracts/lib/SqrtLib.sol";
-
 contract ReClammPoolTest is BaseReClammTest {
     using FixedPoint for uint256;
 

@@ -5,6 +5,7 @@ pragma solidity ^0.8.24;
 import "forge-std/Test.sol";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { PoolRoleAccounts, LiquidityManagement } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
@@ -22,7 +23,6 @@ import { ReClammPoolFactory } from "../../../contracts/ReClammPoolFactory.sol";
 import { ReClammPoolParams } from "../../../contracts/interfaces/IReClammPool.sol";
 import { ReClammPoolMock } from "../../../contracts/test/ReClammPoolMock.sol";
 import { ReClammPoolFactoryMock } from "../../../contracts/test/ReClammPoolFactoryMock.sol";
-import { SqrtLib } from "../../../contracts/lib/SqrtLib.sol";
 
 contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     using FixedPoint for uint256;
@@ -59,8 +59,8 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     }
 
     function setPriceRange(uint256 priceRange) internal {
-        uint256 Q0 = SqrtLib.sqrt(priceRange, 5);
-        _sqrtQ0 = SqrtLib.sqrt(Q0, 5);
+        uint256 Q0 = Math.sqrt(priceRange * FixedPoint.ONE);
+        _sqrtQ0 = Math.sqrt(Q0 * FixedPoint.ONE);
     }
 
     function setSqrtQ0(uint256 newSqrtQ0) internal {

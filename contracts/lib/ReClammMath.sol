@@ -3,12 +3,12 @@
 
 pragma solidity ^0.8.24;
 
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+
 import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { LogExpMath } from "@balancer-labs/v3-solidity-utils/contracts/math/LogExpMath.sol";
-
-import { SqrtLib } from "./SqrtLib.sol";
 
 struct SqrtQ0State {
     uint256 startSqrtQ0;
@@ -185,7 +185,7 @@ library ReClammMath {
         uint256 a = currentSqrtQ0.mulDown(currentSqrtQ0) - FixedPoint.ONE;
         uint256 b = balancesScaled18[1].mulDown(FixedPoint.ONE + centerednessFactor);
         uint256 c = balancesScaled18[1].mulDown(balancesScaled18[1]).mulDown(centerednessFactor);
-        virtualBalances[1] = (b + SqrtLib.sqrt(b.mulDown(b) + 4 * a.mulDown(c), 5)).divDown(2 * a);
+        virtualBalances[1] = (b + Math.sqrt((b.mulDown(b) + 4 * a.mulDown(c)) * FixedPoint.ONE)).divDown(2 * a);
         virtualBalances[0] = (balancesScaled18[0].mulDown(virtualBalances[1])).divDown(balancesScaled18[1]).divDown(
             centerednessFactor
         );
