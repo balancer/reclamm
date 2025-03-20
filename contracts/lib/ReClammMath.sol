@@ -8,6 +8,8 @@ import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultType
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { LogExpMath } from "@balancer-labs/v3-solidity-utils/contracts/math/LogExpMath.sol";
 
+import { SqrtLib } from "./SqrtLib.sol";
+
 struct SqrtQ0State {
     uint256 startSqrtQ0;
     uint256 endSqrtQ0;
@@ -102,7 +104,7 @@ library ReClammMath {
     function getVirtualBalances(
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
-        uint256 c,
+        uint256 timeConstant,
         uint256 lastTimestamp,
         uint256 currentTimestamp,
         uint256 centerednessMargin,
@@ -127,31 +129,23 @@ library ReClammMath {
             sqrtQ0State.startTime,
             sqrtQ0State.endTime
         );
+        bool isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances);
 
         if (
             sqrtQ0State.startTime != 0 &&
             currentTimestamp > sqrtQ0State.startTime &&
             (currentTimestamp < sqrtQ0State.endTime || lastTimestamp < sqrtQ0State.endTime)
         ) {
-            uint256 lastSqrtQ0 = calculateSqrtQ0(
-                lastTimestamp,
-                sqrtQ0State.startSqrtQ0,
-                sqrtQ0State.endSqrtQ0,
-                sqrtQ0State.startTime,
-                sqrtQ0State.endTime
-            );
-
-            // Ra_center = Va * (lastSqrtQ0 - 1)
-            uint256 rACenter = lastVirtualBalances[0].mulDown(lastSqrtQ0 - FixedPoint.ONE);
-
-            // Va = Ra_center / (currentSqrtQ0 - 1)
-            virtualBalances[0] = rACenter.divDown(currentSqrtQ0 - FixedPoint.ONE);
-
-            uint256 currentInvariant = computeInvariant(balancesScaled18, lastVirtualBalances, Rounding.ROUND_DOWN);
-
-            // Vb = currentInvariant / (currentQ0 * Va)
-            virtualBalances[1] = currentInvariant.divDown(
-                currentSqrtQ0.mulDown(currentSqrtQ0).mulDown(virtualBalances[0])
+            uint256 poolCenteredness = calculateCenteredness(balancesScaled18, lastVirtualBalances);
+            uint256 centerednessFactor = isPoolAboveCenter
+                ? FixedPoint.ONE.divDown(poolCenteredness)
+                : poolCenteredness;
+            uint256 a = currentSqrtQ0.mulDown(currentSqrtQ0);
+            uint256 b = balancesScaled18[1].mulDown(FixedPoint.ONE + centerednessFactor);
+            uint256 c = balancesScaled18[1].mulDown(balancesScaled18[1]).mulDown(centerednessFactor);
+            virtualBalances[1] = (b + SqrtLib.sqrt(b.mulDown(b) + 4 * a.mulDown(c), 5)).divDown(2 * a);
+            virtualBalances[0] = (balancesScaled18[0].mulDown(virtualBalances[1])).divDown(balancesScaled18[1]).divDown(
+                centerednessFactor
             );
 
             changed = true;
@@ -160,9 +154,9 @@ library ReClammMath {
         if (isPoolInRange(balancesScaled18, lastVirtualBalances, centerednessMargin) == false) {
             uint256 q0 = currentSqrtQ0.mulDown(currentSqrtQ0);
 
-            if (isAboveCenter(balancesScaled18, lastVirtualBalances)) {
+            if (isPoolAboveCenter) {
                 virtualBalances[1] = lastVirtualBalances[1].mulDown(
-                    LogExpMath.pow(FixedPoint.ONE - c, (currentTimestamp - lastTimestamp) * FixedPoint.ONE)
+                    LogExpMath.pow(FixedPoint.ONE - timeConstant, (currentTimestamp - lastTimestamp) * FixedPoint.ONE)
                 );
                 // Va = (Ra * (Vb + Rb)) / (((Q0 - 1) * Vb) - Rb)
                 virtualBalances[0] = (balancesScaled18[0].mulDown(virtualBalances[1] + balancesScaled18[1])).divDown(
@@ -170,7 +164,7 @@ library ReClammMath {
                 );
             } else {
                 virtualBalances[0] = lastVirtualBalances[0].mulDown(
-                    LogExpMath.pow(FixedPoint.ONE - c, (currentTimestamp - lastTimestamp) * FixedPoint.ONE)
+                    LogExpMath.pow(FixedPoint.ONE - timeConstant, (currentTimestamp - lastTimestamp) * FixedPoint.ONE)
                 );
                 // Vb = (Rb * (Va + Ra)) / (((Q0 - 1) * Va) - Ra)
                 virtualBalances[1] = (balancesScaled18[1].mulDown(virtualBalances[0] + balancesScaled18[0])).divDown(

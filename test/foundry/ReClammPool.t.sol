@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import { GyroPoolMath } from "@balancer-labs/v3-pool-gyro/contracts/lib/GyroPoolMath.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
@@ -12,6 +11,8 @@ import { ReClammPool } from "../../contracts/ReClammPool.sol";
 import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
 import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
 import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
+
+import { SqrtLib } from "../../contracts/lib/SqrtLib.sol";
 
 contract ReClammPoolTest is BaseReClammTest {
     using FixedPoint for uint256;

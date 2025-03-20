@@ -14,7 +14,6 @@ import { InputHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { PoolFactoryMock } from "@balancer-labs/v3-vault/contracts/test/PoolFactoryMock.sol";
-import { GyroPoolMath } from "@balancer-labs/v3-pool-gyro/contracts/lib/GyroPoolMath.sol";
 import { BaseVaultTest } from "@balancer-labs/v3-vault/test/foundry/utils/BaseVaultTest.sol";
 
 import { ReClammPoolContractsDeployer } from "./ReClammPoolContractsDeployer.sol";
@@ -23,6 +22,7 @@ import { ReClammPoolFactory } from "../../../contracts/ReClammPoolFactory.sol";
 import { ReClammPoolParams } from "../../../contracts/interfaces/IReClammPool.sol";
 import { ReClammPoolMock } from "../../../contracts/test/ReClammPoolMock.sol";
 import { ReClammPoolFactoryMock } from "../../../contracts/test/ReClammPoolFactoryMock.sol";
+import { SqrtLib } from "../../../contracts/lib/SqrtLib.sol";
 
 contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     using FixedPoint for uint256;
@@ -59,8 +59,8 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     }
 
     function setPriceRange(uint256 priceRange) internal {
-        uint256 Q0 = GyroPoolMath.sqrt(priceRange, 5);
-        _sqrtQ0 = GyroPoolMath.sqrt(Q0, 5);
+        uint256 Q0 = SqrtLib.sqrt(priceRange, 5);
+        _sqrtQ0 = SqrtLib.sqrt(Q0, 5);
     }
 
     function setSqrtQ0(uint256 newSqrtQ0) internal {
