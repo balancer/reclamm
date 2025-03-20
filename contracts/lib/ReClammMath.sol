@@ -137,16 +137,11 @@ library ReClammMath {
             currentTimestamp > sqrtQ0State.startTime &&
             (currentTimestamp < sqrtQ0State.endTime || lastTimestamp < sqrtQ0State.endTime)
         ) {
-            uint256 poolCenteredness = calculateCenteredness(balancesScaled18, lastVirtualBalances);
-            uint256 centerednessFactor = isPoolAboveCenter
-                ? FixedPoint.ONE.divDown(poolCenteredness)
-                : poolCenteredness;
-            uint256 a = currentSqrtQ0.mulDown(currentSqrtQ0) - FixedPoint.ONE;
-            uint256 b = balancesScaled18[1].mulDown(FixedPoint.ONE + centerednessFactor);
-            uint256 c = balancesScaled18[1].mulDown(balancesScaled18[1]).mulDown(centerednessFactor);
-            virtualBalances[1] = (b + SqrtLib.sqrt(b.mulDown(b) + 4 * a.mulDown(c), 5)).divDown(2 * a);
-            virtualBalances[0] = (balancesScaled18[0].mulDown(virtualBalances[1])).divDown(balancesScaled18[1]).divDown(
-                centerednessFactor
+            virtualBalances = _calculateVirtualBalancesUpdatingQ0(
+                currentSqrtQ0,
+                balancesScaled18,
+                lastVirtualBalances,
+                isPoolAboveCenter
             );
 
             changed = true;
@@ -175,6 +170,25 @@ library ReClammMath {
 
             changed = true;
         }
+    }
+
+    function _calculateVirtualBalancesUpdatingQ0(
+        uint256 currentSqrtQ0,
+        uint256[] memory balancesScaled18,
+        uint256[] memory lastVirtualBalances,
+        bool isPoolAboveCenter
+    ) private pure returns (uint256[] memory virtualBalances) {
+        virtualBalances = new uint256[](2);
+
+        uint256 poolCenteredness = calculateCenteredness(balancesScaled18, lastVirtualBalances);
+        uint256 centerednessFactor = isPoolAboveCenter ? FixedPoint.ONE.divDown(poolCenteredness) : poolCenteredness;
+        uint256 a = currentSqrtQ0.mulDown(currentSqrtQ0) - FixedPoint.ONE;
+        uint256 b = balancesScaled18[1].mulDown(FixedPoint.ONE + centerednessFactor);
+        uint256 c = balancesScaled18[1].mulDown(balancesScaled18[1]).mulDown(centerednessFactor);
+        virtualBalances[1] = (b + SqrtLib.sqrt(b.mulDown(b) + 4 * a.mulDown(c), 5)).divDown(2 * a);
+        virtualBalances[0] = (balancesScaled18[0].mulDown(virtualBalances[1])).divDown(balancesScaled18[1]).divDown(
+            centerednessFactor
+        );
     }
 
     function isPoolInRange(
