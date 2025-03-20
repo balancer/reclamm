@@ -113,7 +113,11 @@ contract ReClammMathTest is Test {
 
         uint256 invariant = finalBalances[0].mulUp(finalBalances[1]);
 
+        uint256 tokenBalance = tokenOut == 0 ? balanceA : balanceB;
         uint256 expected = finalBalances[tokenOut] - invariant.divUp(finalBalances[tokenIn] + amountGivenScaled18);
+
+        // The swap result should not be bigger than the real balance of the token out.
+        expected = expected > tokenBalance ? tokenBalance : expected;
 
         assertEq(amountOut, expected, "Amount out should be correct");
     }

@@ -233,6 +233,63 @@ contract ReClammLiquidityTest is BaseReClammTest {
         assertLe(aliceUsdcBalanceAfter, aliceUsdcBalanceBefore, "USDC balance should not be greater than initial");
     }
 
+    function testAddSwapRemoveLiquidityProportional_Fuzz(
+        uint256 exactBptAmountOut,
+        uint256 initialDaiBalance,
+        uint256 initialUsdcBalance,
+        uint256 bobSwapAmount
+    ) public {
+        // Set initial pool balances
+        _setPoolBalances(initialDaiBalance, initialUsdcBalance);
+
+        // Get total supply and bound BPT amount to reasonable values
+        uint256 totalSupply = vault.totalSupply(pool);
+        exactBptAmountOut = bound(exactBptAmountOut, 1e6, 100 * totalSupply);
+
+        // Store Alice's initial balances
+        uint256 aliceDaiBalanceBefore = dai.balanceOf(alice);
+        uint256 aliceUsdcBalanceBefore = usdc.balanceOf(alice);
+        uint256 aliceTotalValueBefore = aliceDaiBalanceBefore + aliceUsdcBalanceBefore;
+
+        // Set max amounts for add liquidity
+        uint256[] memory maxAmountsIn = new uint256[](2);
+        maxAmountsIn[daiIdx] = aliceDaiBalanceBefore;
+        maxAmountsIn[usdcIdx] = aliceUsdcBalanceBefore;
+
+        // Add liquidity
+        vm.prank(alice);
+        router.addLiquidityProportional(pool, maxAmountsIn, exactBptAmountOut, false, "");
+
+        // Perform Bob's swap (DAI -> USDC)
+        bobSwapAmount = bound(bobSwapAmount, 1e6, dai.balanceOf(bob));
+        vm.prank(bob);
+        router.swapSingleTokenExactIn(
+            pool,
+            dai,
+            usdc,
+            bobSwapAmount,
+            0, // min amount out
+            type(uint256).max, // deadline
+            false, // wethIsEth
+            "" // userData
+        );
+
+        // Remove the same amount of liquidity
+        uint256[] memory minAmountsOut = new uint256[](2);
+        minAmountsOut[daiIdx] = 0;
+        minAmountsOut[usdcIdx] = 0;
+
+        vm.prank(alice);
+        router.removeLiquidityProportional(pool, exactBptAmountOut, minAmountsOut, false, "");
+
+        // Check final balances total value is not greater than initial
+        uint256 aliceDaiBalanceAfter = dai.balanceOf(alice);
+        uint256 aliceUsdcBalanceAfter = usdc.balanceOf(alice);
+        uint256 aliceTotalValueAfter = aliceDaiBalanceAfter + aliceUsdcBalanceAfter;
+
+        assertLe(aliceTotalValueAfter, aliceTotalValueBefore, "Total token value should not be greater than initial");
+    }
+
     function _checkPriceAndCenteredness(
         uint256[] memory balancesBefore,
         uint256[] memory balancesAfter,

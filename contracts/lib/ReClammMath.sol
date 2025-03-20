@@ -70,7 +70,11 @@ library ReClammMath {
 
         uint256 invariant = finalBalances[0].mulUp(finalBalances[1]);
 
-        return finalBalances[tokenOutIndex] - invariant.divUp(finalBalances[tokenInIndex] + amountGivenScaled18);
+        uint256 amountOut = finalBalances[tokenOutIndex] -
+            invariant.divUp(finalBalances[tokenInIndex] + amountGivenScaled18);
+
+        // The swap result should not be bigger than the real balance of the token out.
+        return amountOut > balancesScaled18[tokenOutIndex] ? balancesScaled18[tokenOutIndex] : amountOut;
     }
 
     function calculateInGivenOut(
