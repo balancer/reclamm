@@ -6,16 +6,21 @@ import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultType
 import { SqrtQ0State, ReClammMath } from "../lib/ReClammMath.sol";
 
 contract ReClammMathMock {
+    SqrtQ0State private _sqrtQ0State;
+
+    function setSqrtQ0State(SqrtQ0State memory sqrtQ0State) external {
+        _sqrtQ0State = sqrtQ0State;
+    }
+
     function computeInvariant(
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
         uint256 c,
-        uint256 lastTimestamp,
-        uint256 currentTimestamp,
+        uint32 lastTimestamp,
+        uint32 currentTimestamp,
         uint256 centerednessMargin,
-        SqrtQ0State memory sqrtQ0State,
         Rounding rounding
-    ) external pure returns (uint256) {
+    ) external view returns (uint256) {
         return
             ReClammMath.computeInvariant(
                 balancesScaled18,
@@ -24,7 +29,7 @@ contract ReClammMathMock {
                 lastTimestamp,
                 currentTimestamp,
                 centerednessMargin,
-                sqrtQ0State,
+                _sqrtQ0State,
                 rounding
             );
     }
@@ -82,11 +87,10 @@ contract ReClammMathMock {
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
         uint256 c,
-        uint256 lastTimestamp,
-        uint256 currentTimestamp,
-        uint256 centerednessMargin,
-        SqrtQ0State memory sqrtQ0State
-    ) external pure returns (uint256[] memory virtualBalances, bool changed) {
+        uint32 lastTimestamp,
+        uint32 currentTimestamp,
+        uint256 centerednessMargin
+    ) external view returns (uint256[] memory virtualBalances, bool changed) {
         return
             ReClammMath.getVirtualBalances(
                 balancesScaled18,
@@ -95,7 +99,7 @@ contract ReClammMathMock {
                 lastTimestamp,
                 currentTimestamp,
                 centerednessMargin,
-                sqrtQ0State
+                _sqrtQ0State
             );
     }
 
@@ -115,11 +119,11 @@ contract ReClammMathMock {
     }
 
     function calculateSqrtQ0(
-        uint256 currentTime,
-        uint256 startSqrtQ0,
-        uint256 endSqrtQ0,
-        uint256 startTime,
-        uint256 endTime
+        uint32 currentTime,
+        uint96 startSqrtQ0,
+        uint96 endSqrtQ0,
+        uint32 startTime,
+        uint32 endTime
     ) external pure returns (uint256) {
         return ReClammMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
     }

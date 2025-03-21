@@ -57,7 +57,7 @@ contract ReClammPool is
     {
         _setIncreaseDayRate(params.increaseDayRate);
         _setCenterednessMargin(params.centerednessMargin);
-        _setSqrtQ0(params.sqrtQ0, 0, block.timestamp);
+        _setSqrtQ0(params.sqrtQ0, 0, uint32(block.timestamp));
     }
 
     /// @inheritdoc IBasePool
@@ -67,8 +67,8 @@ contract ReClammPool is
                 balancesScaled18,
                 _virtualBalances,
                 _timeConstant,
-                _lastTimestamp,
-                block.timestamp,
+                uint32(_lastTimestamp),
+                uint32(block.timestamp),
                 _centerednessMargin,
                 _sqrtQ0State,
                 rounding
@@ -88,8 +88,8 @@ contract ReClammPool is
             request.balancesScaled18,
             _virtualBalances,
             _timeConstant,
-            _lastTimestamp,
-            block.timestamp,
+            uint32(_lastTimestamp),
+            uint32(block.timestamp),
             _centerednessMargin,
             _sqrtQ0State
         );
@@ -222,15 +222,15 @@ contract ReClammPool is
     }
 
     /// @inheritdoc IReClammPool
-    function getCurrentSqrtQ0() external view override returns (uint256) {
+    function getCurrentSqrtQ0() external view override returns (uint96) {
         return _calculateCurrentSqrtQ0();
     }
 
     /// @inheritdoc IReClammPool
     function setSqrtQ0(
-        uint256 newSqrtQ0,
-        uint256 startTime,
-        uint256 endTime
+        uint96 newSqrtQ0,
+        uint32 startTime,
+        uint32 endTime
     ) external onlySwapFeeManagerOrGovernance(address(this)) {
         _setSqrtQ0(newSqrtQ0, startTime, endTime);
     }
@@ -240,12 +240,12 @@ contract ReClammPool is
         _setIncreaseDayRate(newIncreaseDayRate);
     }
 
-    function _setSqrtQ0(uint256 endSqrtQ0, uint256 startTime, uint256 endTime) internal {
+    function _setSqrtQ0(uint96 endSqrtQ0, uint32 startTime, uint32 endTime) internal {
         if (startTime > endTime) {
             revert GradualUpdateTimeTravel(startTime, endTime);
         }
 
-        uint256 startSqrtQ0 = _calculateCurrentSqrtQ0();
+        uint96 startSqrtQ0 = _calculateCurrentSqrtQ0();
         _sqrtQ0State.startSqrtQ0 = startSqrtQ0;
         _sqrtQ0State.endSqrtQ0 = endSqrtQ0;
         _sqrtQ0State.startTime = startTime;
@@ -254,12 +254,12 @@ contract ReClammPool is
         emit SqrtQ0Updated(startSqrtQ0, endSqrtQ0, startTime, endTime);
     }
 
-    function _calculateCurrentSqrtQ0() internal view returns (uint256) {
+    function _calculateCurrentSqrtQ0() internal view returns (uint96) {
         SqrtQ0State memory sqrtQ0State = _sqrtQ0State;
 
         return
             ReClammMath.calculateSqrtQ0(
-                block.timestamp,
+                uint32(block.timestamp),
                 sqrtQ0State.startSqrtQ0,
                 sqrtQ0State.endSqrtQ0,
                 sqrtQ0State.startTime,
@@ -293,8 +293,8 @@ contract ReClammPool is
             balancesScaled18,
             _virtualBalances,
             _timeConstant,
-            _lastTimestamp,
-            block.timestamp,
+            uint32(_lastTimestamp),
+            uint32(block.timestamp),
             _centerednessMargin,
             _sqrtQ0State
         );
