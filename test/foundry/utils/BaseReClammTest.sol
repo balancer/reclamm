@@ -5,6 +5,7 @@ pragma solidity ^0.8.24;
 import "forge-std/Test.sol";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import { PoolRoleAccounts, LiquidityManagement } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
@@ -34,10 +35,10 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     string internal constant _POOL_VERSION = "Acl Amm Pool v1";
 
     uint256 internal constant _DEFAULT_INCREASE_DAY_RATE = 100e16; // 100%
-    uint256 internal constant _DEFAULT_SQRT_PriceRatio = 1.41421356e18; // Price Range of 4 (fourth square root is 1.41)
+    uint96 internal constant _DEFAULT_SQRT_Q0 = 1.41421356e18; // Price Range of 4 (fourth square root is 1.41)
     uint256 internal constant _DEFAULT_CENTEREDNESS_MARGIN = 10e16; // 10%
 
-    uint256 private _sqrtPriceRatio = _DEFAULT_SQRT_PriceRatio;
+    uint96 private _sqrtQ0 = _DEFAULT_SQRT_Q0;
     uint256 private _increaseDayRate = _DEFAULT_INCREASE_DAY_RATE;
     uint256[] private _initialBalances = new uint256[](2);
 
@@ -59,16 +60,16 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     }
 
     function setPriceRange(uint256 priceRange) internal {
-        uint256 PriceRatio = GyroPoolMath.sqrt(priceRange, 5);
-        _sqrtPriceRatio = GyroPoolMath.sqrt(PriceRatio, 5);
+        uint256 Q0 = GyroPoolMath.sqrt(priceRange, 5);
+        _sqrtQ0 = SafeCast.toUint96(GyroPoolMath.sqrt(Q0, 5));
     }
 
-    function setSqrtPriceRatio(uint256 newSqrtPriceRatio) internal {
-        _sqrtPriceRatio = newSqrtPriceRatio;
+    function setSqrtQ0(uint96 newSqrtQ0) internal {
+        _sqrtQ0 = newSqrtQ0;
     }
 
-    function sqrtPriceRatio() internal view returns (uint256) {
-        return _sqrtPriceRatio;
+    function sqrtQ0() internal view returns (uint96) {
+        return _sqrtQ0;
     }
 
     function setIncreaseDayRate(uint256 increaseDayRate) internal {

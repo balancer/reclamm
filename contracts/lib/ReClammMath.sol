@@ -3,16 +3,22 @@
 
 pragma solidity ^0.8.24;
 
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { LogExpMath } from "@balancer-labs/v3-solidity-utils/contracts/math/LogExpMath.sol";
 
 struct SqrtPriceRatioState {
-    uint256 startSqrtPriceRatio;
-    uint256 endSqrtPriceRatio;
-    uint256 startTime;
-    uint256 endTime;
+    uint96 startSqrtPriceRatio;
+    uint96 endSqrtPriceRatio;
+    uint32 startTime;
+    uint32 endTime;
+struct SqrtQ0State {
+    uint96 startSqrtQ0;
+    uint96 endSqrtQ0;
+    uint32 startTime;
+    uint32 endTime;
 }
 
 library ReClammMath {
@@ -25,10 +31,11 @@ library ReClammMath {
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
         uint256 c,
-        uint256 lastTimestamp,
-        uint256 currentTimestamp,
+        uint32 lastTimestamp,
+        uint32 currentTimestamp,
         uint256 centerednessMargin,
         SqrtPriceRatioState memory sqrtPriceRatioState,
+        SqrtQ0State storage sqrtQ0State,
         Rounding rounding
     ) internal pure returns (uint256) {
         (uint256[] memory virtualBalances, ) = getVirtualBalances(
@@ -103,13 +110,13 @@ library ReClammMath {
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
         uint256 c,
-        uint256 lastTimestamp,
-        uint256 currentTimestamp,
+        uint32 lastTimestamp,
+        uint32 currentTimestamp,
         uint256 centerednessMargin,
-        SqrtPriceRatioState memory sqrtPriceRatioState //TODO: optimize gas usage
+        SqrtPriceRatioState memory sqrtPriceRatioState
+        SqrtQ0State storage sqrtQ0State
     ) internal pure returns (uint256[] memory virtualBalances, bool changed) {
         // TODO Review rounding
-        // TODO: try to find better way to change the virtual balances in storage
 
         virtualBalances = lastVirtualBalances;
 
@@ -119,26 +126,28 @@ library ReClammMath {
             return (virtualBalances, false);
         }
 
-        // Calculate currentSqrtPriceRatio
-        uint256 currentSqrtPriceRatio = calculateSqrtPriceRatio(
+        SqrtQ0State memory _sqrtQ0State = sqrtQ0State;
+
+        // Calculate currentSqrtQ0
+        uint256 currentSqrtQ0 = calculateSqrtQ0(
             currentTimestamp,
-            sqrtPriceRatioState.startSqrtPriceRatio,
-            sqrtPriceRatioState.endSqrtPriceRatio,
-            sqrtPriceRatioState.startTime,
-            sqrtPriceRatioState.endTime
+            _sqrtQ0State.startSqrtQ0,
+            _sqrtQ0State.endSqrtQ0,
+            _sqrtQ0State.startTime,
+            _sqrtQ0State.endTime
         );
 
         if (
-            sqrtPriceRatioState.startTime != 0 &&
-            currentTimestamp > sqrtPriceRatioState.startTime &&
-            (currentTimestamp < sqrtPriceRatioState.endTime || lastTimestamp < sqrtPriceRatioState.endTime)
+            _sqrtQ0State.startTime != 0 &&
+            currentTimestamp > _sqrtQ0State.startTime &&
+            (currentTimestamp < _sqrtQ0State.endTime || lastTimestamp < _sqrtQ0State.endTime)
         ) {
             uint256 lastSqrtPriceRatio = calculateSqrtPriceRatio(
                 lastTimestamp,
-                sqrtPriceRatioState.startSqrtPriceRatio,
-                sqrtPriceRatioState.endSqrtPriceRatio,
-                sqrtPriceRatioState.startTime,
-                sqrtPriceRatioState.endTime
+                _sqrtQ0State.startSqrtQ0,
+                _sqrtQ0State.endSqrtQ0,
+                _sqrtQ0State.startTime,
+                _sqrtQ0State.endTime
             );
 
             // Ra_center = Va * (lastSqrtPriceRatio - 1)
@@ -210,13 +219,13 @@ library ReClammMath {
         }
     }
 
-    function calculateSqrtPriceRatio(
-        uint256 currentTime,
-        uint256 startSqrtPriceRatio,
-        uint256 endSqrtPriceRatio,
-        uint256 startTime,
-        uint256 endTime
-    ) internal pure returns (uint256) {
+    function calculateSqrtQ0(
+        uint32 currentTime,
+        uint96 startSqrtQ0,
+        uint96 endSqrtQ0,
+        uint32 startTime,
+        uint32 endTime
+    ) internal pure returns (uint96) {
         if (currentTime <= startTime) {
             return startSqrtPriceRatio;
         } else if (currentTime >= endTime) {
@@ -225,11 +234,13 @@ library ReClammMath {
             return endSqrtPriceRatio;
         }
 
-        uint256 exponent = (currentTime - startTime).divDown(endTime - startTime);
+        uint256 exponent = uint256(currentTime - startTime).divDown(endTime - startTime);
 
         return
-            startSqrtPriceRatio.mulDown(LogExpMath.pow(endSqrtPriceRatio, exponent)).divDown(
-                LogExpMath.pow(startSqrtPriceRatio, exponent)
+            SafeCast.toUint96(
+                uint256(startSqrtQ0).mulDown(LogExpMath.pow(endSqrtQ0, exponent)).divDown(
+                    LogExpMath.pow(startSqrtQ0, exponent)
+                )
             );
     }
 
