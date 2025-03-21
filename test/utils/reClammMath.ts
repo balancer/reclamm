@@ -10,7 +10,6 @@ import {
   fromFp,
   toFp,
 } from '@balancer-labs/v3-helpers/src/numbers';
-import { sqrt } from './sqrtLib';
 
 export enum Rounding {
   ROUND_UP,
@@ -63,7 +62,10 @@ export function getVirtualBalances(
     const b = fpMulDown(balancesScaled18[1], fp(1) + centerednessFactor);
     const c = fpMulDown(fpMulDown(balancesScaled18[1], balancesScaled18[1]), centerednessFactor);
 
-    virtualBalances[1] = fpDivDown(b + sqrt(fpMulDown(b, b) + fpMulDown(fp(4), fpMulDown(a, c))), fpMulDown(fp(2), a));
+    virtualBalances[1] = fpDivDown(
+      b + BigInt(Math.sqrt(Number(fp(1) * (fpMulDown(b, b) + fpMulDown(fp(4), fpMulDown(a, c)))))),
+      fpMulDown(fp(2), a)
+    );
     virtualBalances[0] = fpDivDown(
       fpDivDown(fpMulDown(balancesScaled18[0], virtualBalances[1]), balancesScaled18[1]),
       centerednessFactor
