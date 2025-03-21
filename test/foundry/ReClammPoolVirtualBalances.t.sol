@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+
 import { GyroPoolMath } from "@balancer-labs/v3-pool-gyro/contracts/lib/GyroPoolMath.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
@@ -91,10 +93,10 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         }
     }
 
-    function testWithDifferentPriceRange_Fuzz(uint256 newSqrtQ0) public {
-        newSqrtQ0 = bound(newSqrtQ0, 1.001e18, 1_000_000e18); // Price range cannot be lower than 1.
+    function testWithDifferentPriceRange_Fuzz(uint96 newSqrtQ0) public {
+        newSqrtQ0 = SafeCast.toUint96(bound(newSqrtQ0, 1.001e18, 1_000_000e18)); // Price range cannot be lower than 1.
 
-        uint256 initialSqrtQ0 = sqrtQ0();
+        uint96 initialSqrtQ0 = sqrtQ0();
         setSqrtQ0(newSqrtQ0);
         (address firstPool, address secondPool) = _createNewPool();
 
@@ -129,13 +131,13 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     function testChangingDifferentPriceRange_Fuzz(uint256 newSqrtQ) public {
         newSqrtQ = bound(newSqrtQ, 1.4e18, 1_000_000e18);
 
-        uint256 initialSqrtQ = sqrtQ0();
+        uint96 initialSqrtQ = sqrtQ0();
 
-        uint256 duration = 2 hours;
+        uint32 duration = 2 hours;
 
         uint256[] memory poolVirtualBalancesBefore = ReClammPool(pool).getLastVirtualBalances();
 
-        uint256 currentTimestamp = block.timestamp;
+        uint32 currentTimestamp = uint32(block.timestamp);
 
         vm.prank(admin);
         ReClammPool(pool).setSqrtQ0(initialSqrtQ, currentTimestamp, currentTimestamp + duration);

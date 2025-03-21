@@ -22,20 +22,26 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function testSetSqrtQ0() public {
-        uint256 newSqrtQ0 = 2e18;
-        uint256 startTime = block.timestamp;
-        uint256 duration = 1 hours;
-        uint256 endTime = block.timestamp + duration;
+        uint96 newSqrtQ0 = 2e18;
+        uint32 startTime = uint32(block.timestamp);
+        uint32 duration = 1 hours;
+        uint32 endTime = uint32(block.timestamp) + duration;
 
-        uint256 startSqrtQ0 = ReClammPool(pool).getCurrentSqrtQ0();
+        uint96 startSqrtQ0 = ReClammPool(pool).getCurrentSqrtQ0();
         vm.prank(admin);
         vm.expectEmit();
         emit IReClammPool.SqrtQ0Updated(startSqrtQ0, newSqrtQ0, startTime, endTime);
         ReClammPool(pool).setSqrtQ0(newSqrtQ0, startTime, endTime);
 
         skip(duration / 2);
-        uint256 sqrtQ0 = ReClammPool(pool).getCurrentSqrtQ0();
-        uint256 mathSqrtQ0 = ReClammMath.calculateSqrtQ0(block.timestamp, startSqrtQ0, newSqrtQ0, startTime, endTime);
+        uint96 sqrtQ0 = ReClammPool(pool).getCurrentSqrtQ0();
+        uint96 mathSqrtQ0 = ReClammMath.calculateSqrtQ0(
+            uint32(block.timestamp),
+            startSqrtQ0,
+            newSqrtQ0,
+            startTime,
+            endTime
+        );
 
         assertEq(sqrtQ0, mathSqrtQ0, "SqrtQ0 not updated correctly");
 
