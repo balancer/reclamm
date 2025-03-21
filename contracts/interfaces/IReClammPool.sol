@@ -21,12 +21,7 @@ interface IReClammPool is IBasePool {
     /// @dev The function is not implemented.
     error NotImplemented();
 
-    event SqrtPriceRatioUpdated(
-        uint96 startSqrtPriceRatio,
-        uint96 endSqrtPriceRatio,
-        uint32 startTime,
-        uint32 endTime
-    );
+    event SqrtPriceRatioUpdated(uint96 startSqrtPriceRatio, uint96 endSqrtPriceRatio, uint32 startTime, uint32 endTime);
 
     event VirtualBalancesUpdated(uint256[] virtualBalances);
 
