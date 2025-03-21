@@ -35,10 +35,10 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     string internal constant _POOL_VERSION = "Acl Amm Pool v1";
 
     uint256 internal constant _DEFAULT_INCREASE_DAY_RATE = 100e16; // 100%
-    uint96 internal constant _DEFAULT_SQRT_PriceRatio = 1.41421356e18; // Price Range of 4 (fourth square root is 1.41)
+    uint96 internal constant _DEFAULT_SQRT_PRICE_RATIO = 1.41421356e18; // Price Range of 4 (fourth square root is 1.41)
     uint256 internal constant _DEFAULT_CENTEREDNESS_MARGIN = 10e16; // 10%
 
-    uint96 private _sqrtPriceRatio = _DEFAULT_SQRT_PriceRatio;
+    uint96 private _sqrtPriceRatio = _DEFAULT_SQRT_PRICE_RATIO;
     uint256 private _increaseDayRate = _DEFAULT_INCREASE_DAY_RATE;
     uint256[] private _initialBalances = new uint256[](2);
 

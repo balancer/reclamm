@@ -18,7 +18,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
     function testGetCurrentSqrtPriceRatio() public view {
         uint256 sqrtPriceRatio = ReClammPool(pool).getCurrentSqrtPriceRatio();
-        assertEq(sqrtPriceRatio, _DEFAULT_SQRT_PriceRatio, "Invalid default sqrtPriceRatio");
+        assertEq(sqrtPriceRatio, _DEFAULT_SQRT_PRICE_RATIO, "Invalid default sqrtPriceRatio");
     }
 
     function testSetSqrtPriceRatio() public {
