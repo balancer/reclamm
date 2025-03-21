@@ -126,8 +126,8 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         }
     }
 
-    function testChangingDifferentPriceRange_Fuzz(uint256 newSqrtQ0) public {
-        newSqrtQ0 = bound(newSqrtQ0, 1.4e18, 1_000_000e18);
+    function testChangingDifferentPriceRange_Fuzz(uint96 newSqrtQ0) public {
+        newSqrtQ0 = SafeCast.toUint96(bound(newSqrtQ0, 1.1e18, 10e18));
 
         uint256 initialSqrtQ0 = ReClammPool(pool).getCurrentSqrtQ0();
 

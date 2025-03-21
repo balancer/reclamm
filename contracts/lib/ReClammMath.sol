@@ -149,26 +149,16 @@ library ReClammMath {
             changed = true;
         }
 
-        if (isPoolInRange(balancesScaled18, lastVirtualBalances, centerednessMargin) == false) {
-            uint256 q0 = currentSqrtQ0.mulDown(currentSqrtQ0);
-
-            if (isPoolAboveCenter) {
-                virtualBalances[1] = lastVirtualBalances[1].mulDown(
-                    LogExpMath.pow(FixedPoint.ONE - timeConstant, (currentTimestamp - lastTimestamp) * FixedPoint.ONE)
-                );
-                // Va = (Ra * (Vb + Rb)) / (((Q0 - 1) * Vb) - Rb)
-                virtualBalances[0] = (balancesScaled18[0].mulDown(virtualBalances[1] + balancesScaled18[1])).divDown(
-                    (q0 - FixedPoint.ONE).mulDown(virtualBalances[1]) - balancesScaled18[1]
-                );
-            } else {
-                virtualBalances[0] = lastVirtualBalances[0].mulDown(
-                    LogExpMath.pow(FixedPoint.ONE - timeConstant, (currentTimestamp - lastTimestamp) * FixedPoint.ONE)
-                );
-                // Vb = (Rb * (Va + Ra)) / (((Q0 - 1) * Va) - Ra)
-                virtualBalances[1] = (balancesScaled18[1].mulDown(virtualBalances[0] + balancesScaled18[0])).divDown(
-                    (q0 - FixedPoint.ONE).mulDown(virtualBalances[0]) - balancesScaled18[0]
-                );
-            }
+        if (isPoolInRange(balancesScaled18, virtualBalances, centerednessMargin) == false) {
+            virtualBalances = _calculateVirtualBalancesOutOfRange(
+                currentSqrtQ0,
+                balancesScaled18,
+                virtualBalances,
+                isPoolAboveCenter,
+                timeConstant,
+                currentTimestamp,
+                lastTimestamp
+            );
 
             changed = true;
         }
@@ -191,6 +181,38 @@ library ReClammMath {
         virtualBalances[0] = (balancesScaled18[0].mulDown(virtualBalances[1])).divDown(balancesScaled18[1]).divDown(
             centerednessFactor
         );
+    }
+
+    function _calculateVirtualBalancesOutOfRange(
+        uint256 currentSqrtQ0,
+        uint256[] memory balancesScaled18,
+        uint256[] memory virtualBalances,
+        bool isPoolAboveCenter,
+        uint256 timeConstant,
+        uint32 currentTimestamp,
+        uint32 lastTimestamp
+    ) private pure returns (uint256[] memory) {
+        uint256 q0 = currentSqrtQ0.mulDown(currentSqrtQ0);
+
+        if (isPoolAboveCenter) {
+            virtualBalances[1] = virtualBalances[1].mulDown(
+                LogExpMath.pow(FixedPoint.ONE - timeConstant, (currentTimestamp - lastTimestamp) * FixedPoint.ONE)
+            );
+            // Va = (Ra * (Vb + Rb)) / (((Q0 - 1) * Vb) - Rb)
+            virtualBalances[0] = (balancesScaled18[0].mulDown(virtualBalances[1] + balancesScaled18[1])).divDown(
+                (q0 - FixedPoint.ONE).mulDown(virtualBalances[1]) - balancesScaled18[1]
+            );
+        } else {
+            virtualBalances[0] = virtualBalances[0].mulDown(
+                LogExpMath.pow(FixedPoint.ONE - timeConstant, (currentTimestamp - lastTimestamp) * FixedPoint.ONE)
+            );
+            // Vb = (Rb * (Va + Ra)) / (((Q0 - 1) * Va) - Ra)
+            virtualBalances[1] = (balancesScaled18[1].mulDown(virtualBalances[0] + balancesScaled18[0])).divDown(
+                (q0 - FixedPoint.ONE).mulDown(virtualBalances[0]) - balancesScaled18[0]
+            );
+        }
+
+        return virtualBalances;
     }
 
     function isPoolInRange(
