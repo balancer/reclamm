@@ -3,8 +3,12 @@
 pragma solidity ^0.8.24;
 
 import "forge-std/Test.sol";
+
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
+
 import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
 
 contract ReClammMathTest is Test {
@@ -27,10 +31,10 @@ contract ReClammMathTest is Test {
         );
     }
 
-    function testInitializeVirtualBalances__Fuzz(uint256 balance0, uint256 balance1, uint256 sqrtQ0) public pure {
+    function testInitializeVirtualBalances__Fuzz(uint256 balance0, uint256 balance1, uint96 sqrtQ0) public pure {
         balance0 = bound(balance0, 0, _MAX_BALANCE);
         balance1 = bound(balance1, 0, _MAX_BALANCE);
-        sqrtQ0 = bound(sqrtQ0, FixedPoint.ONE + 1, type(uint128).max);
+        sqrtQ0 = SafeCast.toUint96(bound(sqrtQ0, FixedPoint.ONE + 1, type(uint96).max));
 
         uint256[] memory balancesScaled18 = new uint256[](2);
         balancesScaled18[0] = balance0;
@@ -207,20 +211,20 @@ contract ReClammMathTest is Test {
     }
 
     function testCalculateSqrtQ0__Fuzz(
-        uint256 currentTime,
-        uint256 startSqrtQ0,
-        uint256 endSqrtQ0,
-        uint256 startTime,
-        uint256 endTime
+        uint32 currentTime,
+        uint96 startSqrtQ0,
+        uint96 endSqrtQ0,
+        uint32 startTime,
+        uint32 endTime
     ) public pure {
-        endTime = bound(endTime, 2, type(uint64).max);
-        startTime = bound(startTime, 1, endTime - 1);
-        currentTime = bound(currentTime, startTime, endTime);
+        endTime = SafeCast.toUint32(bound(endTime, 2, type(uint64).max));
+        startTime = SafeCast.toUint32(bound(startTime, 1, endTime - 1));
+        currentTime = SafeCast.toUint32(bound(currentTime, startTime, endTime));
 
-        endSqrtQ0 = bound(endSqrtQ0, FixedPoint.ONE, type(uint128).max);
-        startSqrtQ0 = bound(endSqrtQ0, FixedPoint.ONE, type(uint128).max);
+        endSqrtQ0 = SafeCast.toUint96(bound(endSqrtQ0, FixedPoint.ONE, type(uint96).max));
+        startSqrtQ0 = SafeCast.toUint96(bound(endSqrtQ0, FixedPoint.ONE, type(uint96).max));
 
-        uint256 sqrtQ0 = ReClammMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
+        uint96 sqrtQ0 = ReClammMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
 
         currentTime++;
         uint256 nextSqrtQ0 = ReClammMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
@@ -233,37 +237,37 @@ contract ReClammMathTest is Test {
     }
 
     function testCalculateSqrtQ0WhenCurrentTimeIsAfterEndTime() public pure {
-        uint256 startSqrtQ0 = 100;
-        uint256 endSqrtQ0 = 200;
-        uint256 startTime = 0;
-        uint256 endTime = 50;
-        uint256 currentTime = 100;
+        uint96 startSqrtQ0 = 100;
+        uint96 endSqrtQ0 = 200;
+        uint32 startTime = 0;
+        uint32 endTime = 50;
+        uint32 currentTime = 100;
 
-        uint256 sqrtQ0 = ReClammMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
+        uint96 sqrtQ0 = ReClammMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
 
         assertEq(sqrtQ0, endSqrtQ0, "SqrtQ0 should be equal to endSqrtQ0");
     }
 
     function testCalculateSqrtQ0WhenCurrentTimeIsBeforeStartTime() public pure {
-        uint256 startSqrtQ0 = 100;
-        uint256 endSqrtQ0 = 200;
-        uint256 startTime = 50;
-        uint256 endTime = 100;
-        uint256 currentTime = 0;
+        uint96 startSqrtQ0 = 100;
+        uint96 endSqrtQ0 = 200;
+        uint32 startTime = 50;
+        uint32 endTime = 100;
+        uint32 currentTime = 0;
 
-        uint256 sqrtQ0 = ReClammMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
+        uint96 sqrtQ0 = ReClammMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
 
         assertEq(sqrtQ0, startSqrtQ0, "SqrtQ0 should be equal to startSqrtQ0");
     }
 
     function testCalculateSqrtQ0WhenStartSqrtQ0IsEqualToEndSqrtQ0() public pure {
-        uint256 startSqrtQ0 = 100;
-        uint256 endSqrtQ0 = 100;
-        uint256 startTime = 0;
-        uint256 endTime = 100;
-        uint256 currentTime = 50;
+        uint96 startSqrtQ0 = 100;
+        uint96 endSqrtQ0 = 100;
+        uint32 startTime = 0;
+        uint32 endTime = 100;
+        uint32 currentTime = 50;
 
-        uint256 sqrtQ0 = ReClammMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
+        uint96 sqrtQ0 = ReClammMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
 
         assertEq(sqrtQ0, endSqrtQ0, "SqrtQ0 should be equal to endSqrtQ0");
     }

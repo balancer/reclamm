@@ -3,16 +3,17 @@
 
 pragma solidity ^0.8.24;
 
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { LogExpMath } from "@balancer-labs/v3-solidity-utils/contracts/math/LogExpMath.sol";
 
 struct SqrtQ0State {
-    uint256 startSqrtQ0;
-    uint256 endSqrtQ0;
-    uint256 startTime;
-    uint256 endTime;
+    uint96 startSqrtQ0;
+    uint96 endSqrtQ0;
+    uint32 startTime;
+    uint32 endTime;
 }
 
 library ReClammMath {
@@ -25,10 +26,10 @@ library ReClammMath {
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
         uint256 c,
-        uint256 lastTimestamp,
-        uint256 currentTimestamp,
+        uint32 lastTimestamp,
+        uint32 currentTimestamp,
         uint256 centerednessMargin,
-        SqrtQ0State memory sqrtQ0State,
+        SqrtQ0State storage sqrtQ0State,
         Rounding rounding
     ) internal pure returns (uint256) {
         (uint256[] memory virtualBalances, ) = getVirtualBalances(
@@ -107,13 +108,12 @@ library ReClammMath {
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
         uint256 c,
-        uint256 lastTimestamp,
-        uint256 currentTimestamp,
+        uint32 lastTimestamp,
+        uint32 currentTimestamp,
         uint256 centerednessMargin,
-        SqrtQ0State memory sqrtQ0State //TODO: optimize gas usage
+        SqrtQ0State storage sqrtQ0State
     ) internal pure returns (uint256[] memory virtualBalances, bool changed) {
         // TODO Review rounding
-        // TODO: try to find better way to change the virtual balances in storage
 
         virtualBalances = lastVirtualBalances;
 
@@ -123,26 +123,28 @@ library ReClammMath {
             return (virtualBalances, false);
         }
 
+        SqrtQ0State memory _sqrtQ0State = sqrtQ0State;
+
         // Calculate currentSqrtQ0
         uint256 currentSqrtQ0 = calculateSqrtQ0(
             currentTimestamp,
-            sqrtQ0State.startSqrtQ0,
-            sqrtQ0State.endSqrtQ0,
-            sqrtQ0State.startTime,
-            sqrtQ0State.endTime
+            _sqrtQ0State.startSqrtQ0,
+            _sqrtQ0State.endSqrtQ0,
+            _sqrtQ0State.startTime,
+            _sqrtQ0State.endTime
         );
 
         if (
-            sqrtQ0State.startTime != 0 &&
-            currentTimestamp > sqrtQ0State.startTime &&
-            (currentTimestamp < sqrtQ0State.endTime || lastTimestamp < sqrtQ0State.endTime)
+            _sqrtQ0State.startTime != 0 &&
+            currentTimestamp > _sqrtQ0State.startTime &&
+            (currentTimestamp < _sqrtQ0State.endTime || lastTimestamp < _sqrtQ0State.endTime)
         ) {
             uint256 lastSqrtQ0 = calculateSqrtQ0(
                 lastTimestamp,
-                sqrtQ0State.startSqrtQ0,
-                sqrtQ0State.endSqrtQ0,
-                sqrtQ0State.startTime,
-                sqrtQ0State.endTime
+                _sqrtQ0State.startSqrtQ0,
+                _sqrtQ0State.endSqrtQ0,
+                _sqrtQ0State.startTime,
+                _sqrtQ0State.endTime
             );
 
             // Ra_center = Va * (lastSqrtQ0 - 1)
@@ -215,12 +217,12 @@ library ReClammMath {
     }
 
     function calculateSqrtQ0(
-        uint256 currentTime,
-        uint256 startSqrtQ0,
-        uint256 endSqrtQ0,
-        uint256 startTime,
-        uint256 endTime
-    ) internal pure returns (uint256) {
+        uint32 currentTime,
+        uint96 startSqrtQ0,
+        uint96 endSqrtQ0,
+        uint32 startTime,
+        uint32 endTime
+    ) internal pure returns (uint96) {
         if (currentTime <= startTime) {
             return startSqrtQ0;
         } else if (currentTime >= endTime) {
@@ -229,9 +231,14 @@ library ReClammMath {
             return endSqrtQ0;
         }
 
-        uint256 exponent = (currentTime - startTime).divDown(endTime - startTime);
+        uint256 exponent = uint256(currentTime - startTime).divDown(endTime - startTime);
 
-        return startSqrtQ0.mulDown(LogExpMath.pow(endSqrtQ0, exponent)).divDown(LogExpMath.pow(startSqrtQ0, exponent));
+        return
+            SafeCast.toUint96(
+                uint256(startSqrtQ0).mulDown(LogExpMath.pow(endSqrtQ0, exponent)).divDown(
+                    LogExpMath.pow(startSqrtQ0, exponent)
+                )
+            );
     }
 
     function isAboveCenter(
