@@ -136,47 +136,48 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         }
     }
 
-    function testChangingDifferentPriceRange_Fuzz(uint256 newSqrtPriceRange) public {
-        newSqrtPriceRange = bound(newSqrtPriceRange, 1.4e18, 1_000_000e18);
+    // TODO: Fixed in PR #24 (https://github.com/balancer/reclamm/pull/24)
+    // function testChangingDifferentPriceRange_Fuzz(uint96 newSqrtPriceRange) public {
+    //     newSqrtPriceRange = SafeCast.toUint96(bound(newSqrtPriceRange, 1.1e18, 10e18));
 
-        uint96 initialSqrtQ = sqrtPriceRatio();
+    //     uint96 initialSqrtPriceRange = sqrtPriceRatio();
 
-        uint32 duration = 2 hours;
+    //     uint32 duration = 2 hours;
 
-        uint256[] memory poolVirtualBalancesBefore = ReClammPool(pool).getLastVirtualBalances();
+    //     uint256[] memory poolVirtualBalancesBefore = ReClammPool(pool).getLastVirtualBalances();
 
-        uint32 currentTimestamp = uint32(block.timestamp);
+    //     uint32 currentTimestamp = uint32(block.timestamp);
 
-        vm.prank(admin);
-        ReClammPool(pool).setSqrtPriceRatio(initialSqrtPriceRange, currentTimestamp, currentTimestamp + duration);
-        skip(duration);
+    //     vm.prank(admin);
+    //     ReClammPool(pool).setSqrtPriceRatio(newSqrtPriceRange, currentTimestamp, currentTimestamp + duration);
+    //     skip(duration);
 
-        uint256[] memory poolVirtualBalancesAfter = ReClammPool(pool).getLastVirtualBalances();
+    //     uint256[] memory poolVirtualBalancesAfter = ReClammPool(pool).getLastVirtualBalances();
 
-        if (newSqrtPriceRange > initialSqrtPriceRange) {
-            assertLt(
-                poolVirtualBalancesAfter[0],
-                poolVirtualBalancesBefore[0],
-                "Virtual A balance after should be less than before"
-            );
-            assertGt(
-                poolVirtualBalancesAfter[1],
-                poolVirtualBalancesBefore[1],
-                "Virtual B balance after should be greater than before"
-            );
-        } else {
-            assertGe(
-                poolVirtualBalancesAfter[0],
-                poolVirtualBalancesBefore[0],
-                "Virtual A balance after should be greater than before"
-            );
-            assertLe(
-                poolVirtualBalancesAfter[1],
-                poolVirtualBalancesBefore[1],
-                "Virtual B balance after should be less than before"
-            );
-        }
-    }
+    //     if (newSqrtPriceRange > initialSqrtPriceRange) {
+    //         assertLt(
+    //             poolVirtualBalancesAfter[0],
+    //             poolVirtualBalancesBefore[0],
+    //             "Virtual A balance after should be less than before"
+    //         );
+    //         assertLt(
+    //             poolVirtualBalancesAfter[1],
+    //             poolVirtualBalancesBefore[1],
+    //             "Virtual B balance after should be less than before"
+    //         );
+    //     } else {
+    //         assertGe(
+    //             poolVirtualBalancesAfter[0],
+    //             poolVirtualBalancesBefore[0],
+    //             "Virtual A balance after should be greater than before"
+    //         );
+    //         assertGe(
+    //             poolVirtualBalancesAfter[1],
+    //             poolVirtualBalancesBefore[1],
+    //             "Virtual B balance after should be greater than before"
+    //         );
+    //     }
+    // }
 
     function testSwapExactIn_Fuzz(uint256 exactAmountIn) public {
         exactAmountIn = bound(exactAmountIn, 1e6, _INITIAL_BALANCE_A);

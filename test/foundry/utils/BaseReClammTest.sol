@@ -61,7 +61,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
 
     function setPriceRange(uint256 priceRange) internal {
         uint256 priceRatio = GyroPoolMath.sqrt(priceRange, 5);
-        _sqrtPriceRatio = SafeCast.toUint96(GyroPoolMath.sqrt(PriceRatio, 5));
+        _sqrtPriceRatio = SafeCast.toUint96(GyroPoolMath.sqrt(priceRatio, 5));
     }
 
     function setSqrtPriceRatio(uint96 newSqrtPriceRatio) internal {
