@@ -35,10 +35,10 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     string internal constant _POOL_VERSION = "Acl Amm Pool v1";
 
     uint256 internal constant _DEFAULT_INCREASE_DAY_RATE = 100e16; // 100%
-    uint96 internal constant _DEFAULT_SQRT_Q0 = 1.41421356e18; // Price Range of 4 (fourth square root is 1.41)
+    uint96 internal constant _DEFAULT_SQRT_PriceRatio = 1.41421356e18; // Price Range of 4 (fourth square root is 1.41)
     uint256 internal constant _DEFAULT_CENTEREDNESS_MARGIN = 10e16; // 10%
 
-    uint96 private _sqrtQ0 = _DEFAULT_SQRT_Q0;
+    uint96 private _sqrtPriceRatio = _DEFAULT_SQRT_PriceRatio;
     uint256 private _increaseDayRate = _DEFAULT_INCREASE_DAY_RATE;
     uint256[] private _initialBalances = new uint256[](2);
 
@@ -60,16 +60,16 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     }
 
     function setPriceRange(uint256 priceRange) internal {
-        uint256 Q0 = GyroPoolMath.sqrt(priceRange, 5);
-        _sqrtQ0 = SafeCast.toUint96(GyroPoolMath.sqrt(Q0, 5));
+        uint256 priceRatio = GyroPoolMath.sqrt(priceRange, 5);
+        _sqrtPriceRatio = SafeCast.toUint96(GyroPoolMath.sqrt(PriceRatio, 5));
     }
 
-    function setSqrtQ0(uint96 newSqrtQ0) internal {
-        _sqrtQ0 = newSqrtQ0;
+    function setSqrtPriceRatio(uint96 newSqrtPriceRatio) internal {
+        _sqrtPriceRatio = newSqrtPriceRatio;
     }
 
-    function sqrtQ0() internal view returns (uint96) {
-        return _sqrtQ0;
+    function sqrtPriceRatio() internal view returns (uint96) {
+        return _sqrtPriceRatio;
     }
 
     function setIncreaseDayRate(uint256 increaseDayRate) internal {

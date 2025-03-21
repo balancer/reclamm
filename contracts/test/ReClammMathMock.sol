@@ -6,10 +6,10 @@ import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultType
 import { SqrtPriceRatioState, ReClammMath } from "../lib/ReClammMath.sol";
 
 contract ReClammMathMock {
-    SqrtQ0State private _sqrtQ0State;
+    SqrtPriceRatioState private _sqrtPriceRatioState;
 
-    function setSqrtQ0State(SqrtQ0State memory sqrtQ0State) external {
-        _sqrtQ0State = sqrtQ0State;
+    function setSqrtPriceRatioState(SqrtPriceRatioState memory sqrtPriceRatioState) external {
+        _sqrtPriceRatioState = sqrtPriceRatioState;
     }
 
     function computeInvariant(
@@ -29,7 +29,7 @@ contract ReClammMathMock {
                 lastTimestamp,
                 currentTimestamp,
                 centerednessMargin,
-                _sqrtQ0State,
+                _sqrtPriceRatioState,
                 rounding
             );
     }
@@ -99,7 +99,7 @@ contract ReClammMathMock {
                 lastTimestamp,
                 currentTimestamp,
                 centerednessMargin,
-                _sqrtQ0State
+                _sqrtPriceRatioState
             );
     }
 
@@ -118,10 +118,10 @@ contract ReClammMathMock {
         return ReClammMath.calculateCenteredness(balancesScaled18, virtualBalances);
     }
 
-    function calculateSqrtQ0(
+    function calculateSqrtPriceRatio(
         uint32 currentTime,
-        uint96 startSqrtQ0,
-        uint96 endSqrtQ0,
+        uint96 startSqrtPriceRatio,
+        uint96 endSqrtPriceRatio,
         uint32 startTime,
         uint32 endTime
     ) external pure returns (uint256) {

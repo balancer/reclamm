@@ -302,7 +302,7 @@ describe('ReClammMath', function () {
     ): Promise<{
       virtualBalances: bigint[];
     }> => {
-      await (await mathLib.setSqrtQ0State(sqrtQ0State)).wait();
+      await (await mathLib.setSqrtPriceRatioState(sqrtPriceRatioState)).wait();
 
       const res = await mathLib.getVirtualBalances(
         balancesScaled18,
@@ -491,7 +491,7 @@ describe('ReClammMath', function () {
 
       const rounding = Rounding.ROUND_UP;
 
-      await (await mathLib.setSqrtQ0State(sqrtQ0State)).wait();
+      await (await mathLib.setSqrtPriceRatioState(sqrtPriceRatioState)).wait();
 
       const res = await mathLib.computeInvariant(
         balancesScaled18,
@@ -533,7 +533,7 @@ describe('ReClammMath', function () {
 
       const rounding = Rounding.ROUND_DOWN;
 
-      await (await mathLib.setSqrtQ0State(sqrtQ0State)).wait();
+      await (await mathLib.setSqrtPriceRatioState(sqrtPriceRatioState)).wait();
 
       const res = await mathLib.computeInvariant(
         balancesScaled18,

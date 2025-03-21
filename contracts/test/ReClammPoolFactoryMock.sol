@@ -54,7 +54,7 @@ contract ReClammPoolFactoryMock is IPoolVersion, BasePoolFactory, Version {
         PoolRoleAccounts memory roleAccounts,
         uint256 swapFeePercentage,
         uint256 increaseDayRate,
-        uint96 sqrtQ0,
+        uint96 sqrtPriceRatio,
         uint256 centerednessMargin,
         bytes32 salt
     ) external returns (address pool) {

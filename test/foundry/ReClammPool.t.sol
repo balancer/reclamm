@@ -21,24 +21,24 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(sqrtPriceRatio, _DEFAULT_SQRT_PriceRatio, "Invalid default sqrtPriceRatio");
     }
 
-    function testSetSqrtQ0() public {
-        uint96 newSqrtQ0 = 2e18;
+    function testSetSqrtPriceRatio() public {
+        uint96 newSqrtPriceRatio = 2e18;
         uint32 startTime = uint32(block.timestamp);
         uint32 duration = 1 hours;
         uint32 endTime = uint32(block.timestamp) + duration;
 
-        uint96 startSqrtQ0 = ReClammPool(pool).getCurrentSqrtQ0();
+        uint96 startSqrtPriceRatio = ReClammPool(pool).getCurrentSqrtPriceRatio();
         vm.prank(admin);
         vm.expectEmit();
         emit IReClammPool.SqrtPriceRatioUpdated(startSqrtPriceRatio, newSqrtPriceRatio, startTime, endTime);
         ReClammPool(pool).setSqrtPriceRatio(newSqrtPriceRatio, startTime, endTime);
 
         skip(duration / 2);
-        uint96 sqrtQ0 = ReClammPool(pool).getCurrentSqrtQ0();
-        uint96 mathSqrtQ0 = ReClammMath.calculateSqrtQ0(
+        uint96 sqrtPriceRatio = ReClammPool(pool).getCurrentSqrtPriceRatio();
+        uint96 mathSqrtPriceRatio = ReClammMath.calculateSqrtPriceRatio(
             uint32(block.timestamp),
-            startSqrtQ0,
-            newSqrtQ0,
+            startSqrtPriceRatio,
+            newSqrtPriceRatio,
             startTime,
             endTime
         );

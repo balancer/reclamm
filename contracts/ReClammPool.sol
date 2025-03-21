@@ -57,7 +57,7 @@ contract ReClammPool is
     {
         _setIncreaseDayRate(params.increaseDayRate);
         _setCenterednessMargin(params.centerednessMargin);
-        _setSqrtQ0(params.sqrtQ0, 0, uint32(block.timestamp));
+        _setSqrtPriceRatio(params.sqrtPriceRatio, 0, uint32(block.timestamp));
     }
 
     /// @inheritdoc IBasePool
@@ -225,13 +225,13 @@ contract ReClammPool is
     }
 
     /// @inheritdoc IReClammPool
-    function getCurrentSqrtQ0() external view override returns (uint96) {
-        return _calculateCurrentSqrtQ0();
+    function getCurrentSqrtPriceRatio() external view override returns (uint96) {
+        return _calculateCurrentSqrtPriceRatio();
     }
 
     /// @inheritdoc IReClammPool
-    function setSqrtQ0(
-        uint96 newSqrtQ0,
+    function setSqrtPriceRatio(
+        uint96 newSqrtPriceRatio,
         uint32 startTime,
         uint32 endTime
     ) external onlySwapFeeManagerOrGovernance(address(this)) {
@@ -243,30 +243,30 @@ contract ReClammPool is
         _setIncreaseDayRate(newIncreaseDayRate);
     }
 
-    function _setSqrtQ0(uint96 endSqrtQ0, uint32 startTime, uint32 endTime) internal {
+    function _setSqrtPriceRatio(uint96 endSqrtPriceRatio, uint32 startTime, uint32 endTime) internal {
         if (startTime > endTime) {
             revert GradualUpdateTimeTravel(startTime, endTime);
         }
 
-        uint96 startSqrtQ0 = _calculateCurrentSqrtQ0();
-        _sqrtQ0State.startSqrtQ0 = startSqrtQ0;
-        _sqrtQ0State.endSqrtQ0 = endSqrtQ0;
-        _sqrtQ0State.startTime = startTime;
-        _sqrtQ0State.endTime = endTime;
+        uint96 startSqrtPriceRatio = _calculateCurrentSqrtPriceRatio();
+        _sqrtPriceRatioState.startSqrtPriceRatio = startSqrtPriceRatio;
+        _sqrtPriceRatioState.endSqrtPriceRatio = endSqrtPriceRatio;
+        _sqrtPriceRatioState.startTime = startTime;
+        _sqrtPriceRatioState.endTime = endTime;
 
         emit SqrtPriceRatioUpdated(startSqrtPriceRatio, endSqrtPriceRatio, startTime, endTime);
     }
 
-    function _calculateCurrentSqrtQ0() internal view returns (uint96) {
-        SqrtQ0State memory sqrtQ0State = _sqrtQ0State;
+    function _calculateCurrentSqrtPriceRatio() internal view returns (uint96) {
+        SqrtPriceRatioState memory sqrtPriceRatioState = _sqrtPriceRatioState;
 
         return
-            ReClammMath.calculateSqrtQ0(
+            ReClammMath.calculateSqrtPriceRatio(
                 uint32(block.timestamp),
-                sqrtQ0State.startSqrtQ0,
-                sqrtQ0State.endSqrtQ0,
-                sqrtQ0State.startTime,
-                sqrtQ0State.endTime
+                sqrtPriceRatioState.startSqrtPriceRatio,
+                sqrtPriceRatioState.endSqrtPriceRatio,
+                sqrtPriceRatioState.startTime,
+                sqrtPriceRatioState.endTime
             );
     }
 

@@ -31,10 +31,14 @@ contract ReClammMathTest is Test {
         );
     }
 
-    function testInitializeVirtualBalances__Fuzz(uint256 balance0, uint256 balance1, uint96 sqrtQ0) public pure {
+    function testInitializeVirtualBalances__Fuzz(
+        uint256 balance0,
+        uint256 balance1,
+        uint96 sqrtPriceRatio
+    ) public pure {
         balance0 = bound(balance0, 0, _MAX_BALANCE);
         balance1 = bound(balance1, 0, _MAX_BALANCE);
-        sqrtQ0 = SafeCast.toUint96(bound(sqrtQ0, FixedPoint.ONE + 1, type(uint96).max));
+        sqrtPriceRatio = SafeCast.toUint96(bound(sqrtPriceRatio, FixedPoint.ONE + 1, type(uint96).max));
 
         uint256[] memory balancesScaled18 = new uint256[](2);
         balancesScaled18[0] = balance0;
@@ -214,10 +218,10 @@ contract ReClammMathTest is Test {
         }
     }
 
-    function testCalculateSqrtQ0__Fuzz(
+    function testCalculateSqrtPriceRatio__Fuzz(
         uint32 currentTime,
-        uint96 startSqrtQ0,
-        uint96 endSqrtQ0,
+        uint96 startSqrtPriceRatio,
+        uint96 endSqrtPriceRatio,
         uint32 startTime,
         uint32 endTime
     ) public pure {
@@ -225,10 +229,16 @@ contract ReClammMathTest is Test {
         startTime = SafeCast.toUint32(bound(startTime, 1, endTime - 1));
         currentTime = SafeCast.toUint32(bound(currentTime, startTime, endTime));
 
-        endSqrtQ0 = SafeCast.toUint96(bound(endSqrtQ0, FixedPoint.ONE, type(uint96).max));
-        startSqrtQ0 = SafeCast.toUint96(bound(endSqrtQ0, FixedPoint.ONE, type(uint96).max));
+        endSqrtPriceRatio = SafeCast.toUint96(bound(endSqrtPriceRatio, FixedPoint.ONE, type(uint96).max));
+        startSqrtPriceRatio = SafeCast.toUint96(bound(endSqrtPriceRatio, FixedPoint.ONE, type(uint96).max));
 
-        uint96 sqrtQ0 = ReClammMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
+        uint96 sqrtPriceRatio = ReClammMath.calculateSqrtPriceRatio(
+            currentTime,
+            startSqrtPriceRatio,
+            endSqrtPriceRatio,
+            startTime,
+            endTime
+        );
 
         currentTime++;
         uint256 nextSqrtPriceRatio = ReClammMath.calculateSqrtPriceRatio(
@@ -254,38 +264,56 @@ contract ReClammMathTest is Test {
         }
     }
 
-    function testCalculateSqrtQ0WhenCurrentTimeIsAfterEndTime() public pure {
-        uint96 startSqrtQ0 = 100;
-        uint96 endSqrtQ0 = 200;
+    function testCalculateSqrtPriceRatioWhenCurrentTimeIsAfterEndTime() public pure {
+        uint96 startSqrtPriceRatio = 100;
+        uint96 endSqrtPriceRatio = 200;
         uint32 startTime = 0;
         uint32 endTime = 50;
         uint32 currentTime = 100;
 
-        uint96 sqrtQ0 = ReClammMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
+        uint96 sqrtPriceRatio = ReClammMath.calculateSqrtPriceRatio(
+            currentTime,
+            startSqrtPriceRatio,
+            endSqrtPriceRatio,
+            startTime,
+            endTime
+        );
 
         assertEq(sqrtPriceRatio, endSqrtPriceRatio, "SqrtPriceRatio should be equal to endSqrtPriceRatio");
     }
 
-    function testCalculateSqrtQ0WhenCurrentTimeIsBeforeStartTime() public pure {
-        uint96 startSqrtQ0 = 100;
-        uint96 endSqrtQ0 = 200;
+    function testCalculateSqrtPriceRatioWhenCurrentTimeIsBeforeStartTime() public pure {
+        uint96 startSqrtPriceRatio = 100;
+        uint96 endSqrtPriceRatio = 200;
         uint32 startTime = 50;
         uint32 endTime = 100;
         uint32 currentTime = 0;
 
-        uint96 sqrtQ0 = ReClammMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
+        uint96 sqrtPriceRatio = ReClammMath.calculateSqrtPriceRatio(
+            currentTime,
+            startSqrtPriceRatio,
+            endSqrtPriceRatio,
+            startTime,
+            endTime
+        );
 
         assertEq(sqrtPriceRatio, startSqrtPriceRatio, "SqrtPriceRatio should be equal to startSqrtPriceRatio");
     }
 
-    function testCalculateSqrtQ0WhenStartSqrtQ0IsEqualToEndSqrtQ0() public pure {
-        uint96 startSqrtQ0 = 100;
-        uint96 endSqrtQ0 = 100;
+    function testCalculateSqrtPriceRatioWhenStartSqrtPriceRatioIsEqualToEndSqrtPriceRatio() public pure {
+        uint96 startSqrtPriceRatio = 100;
+        uint96 endSqrtPriceRatio = 100;
         uint32 startTime = 0;
         uint32 endTime = 100;
         uint32 currentTime = 50;
 
-        uint96 sqrtQ0 = ReClammMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
+        uint96 sqrtPriceRatio = ReClammMath.calculateSqrtPriceRatio(
+            currentTime,
+            startSqrtPriceRatio,
+            endSqrtPriceRatio,
+            startTime,
+            endTime
+        );
 
         assertEq(sqrtPriceRatio, endSqrtPriceRatio, "SqrtPriceRatio should be equal to endSqrtPriceRatio");
     }

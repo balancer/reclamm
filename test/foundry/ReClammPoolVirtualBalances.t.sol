@@ -101,11 +101,11 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         }
     }
 
-    function testWithDifferentPriceRange_Fuzz(uint96 newSqrtQ0) public {
-        newSqrtQ0 = SafeCast.toUint96(bound(newSqrtQ0, 1.001e18, 1_000_000e18)); // Price range cannot be lower than 1.
+    function testWithDifferentPriceRange_Fuzz(uint96 newSqrtPriceRatio) public {
+        newSqrtPriceRatio = SafeCast.toUint96(bound(newSqrtPriceRatio, 1.001e18, 1_000_000e18)); // Price range cannot be lower than 1.
 
-        uint96 initialSqrtQ0 = sqrtQ0();
-        setSqrtQ0(newSqrtQ0);
+        uint96 initialSqrtPriceRatio = sqrtPriceRatio();
+        setSqrtPriceRatio(newSqrtPriceRatio);
         (address firstPool, address secondPool) = _createNewPool();
 
         uint256[] memory curentFirstPoolVirtualBalances = ReClammPool(firstPool).getLastVirtualBalances();
@@ -139,7 +139,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     function testChangingDifferentPriceRange_Fuzz(uint256 newSqrtPriceRange) public {
         newSqrtPriceRange = bound(newSqrtPriceRange, 1.4e18, 1_000_000e18);
 
-        uint96 initialSqrtQ = sqrtQ0();
+        uint96 initialSqrtQ = sqrtPriceRatio();
 
         uint32 duration = 2 hours;
 
