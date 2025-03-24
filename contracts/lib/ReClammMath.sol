@@ -173,14 +173,23 @@ library ReClammMath {
         virtualBalances = new uint256[](2);
 
         uint256 poolCenteredness = calculateCenteredness(balancesScaled18, lastVirtualBalances);
-        uint256 centerednessFactor = isPoolAboveCenter ? FixedPoint.ONE.divDown(poolCenteredness) : poolCenteredness;
-        uint256 a = currentSqrtQ0.mulDown(currentSqrtQ0) - FixedPoint.ONE;
-        uint256 b = balancesScaled18[1].mulDown(FixedPoint.ONE + centerednessFactor);
-        uint256 c = balancesScaled18[1].mulDown(balancesScaled18[1]).mulDown(centerednessFactor);
-        virtualBalances[1] = (b + Math.sqrt((b.mulDown(b) + 4 * a.mulDown(c)) * FixedPoint.ONE)).divDown(2 * a);
-        virtualBalances[0] = (balancesScaled18[0].mulDown(virtualBalances[1])).divDown(balancesScaled18[1]).divDown(
-            centerednessFactor
-        );
+        if (isPoolAboveCenter) {
+            uint256 a = currentSqrtQ0.mulDown(currentSqrtQ0) - FixedPoint.ONE;
+            uint256 b = balancesScaled18[0].mulDown(FixedPoint.ONE + poolCenteredness);
+            uint256 c = balancesScaled18[0].mulDown(balancesScaled18[0]).mulDown(poolCenteredness);
+            virtualBalances[0] = (b + Math.sqrt((b.mulDown(b) + 4 * a.mulDown(c)) * FixedPoint.ONE)).divDown(2 * a);
+            virtualBalances[1] = balancesScaled18[1].mulDown(virtualBalances[0]).mulDown(poolCenteredness).divDown(
+                balancesScaled18[0]
+            );
+        } else {
+            uint256 a = currentSqrtQ0.mulDown(currentSqrtQ0) - FixedPoint.ONE;
+            uint256 b = balancesScaled18[1].mulDown(FixedPoint.ONE + poolCenteredness);
+            uint256 c = balancesScaled18[1].mulDown(balancesScaled18[1]).mulDown(poolCenteredness);
+            virtualBalances[1] = (b + Math.sqrt((b.mulDown(b) + 4 * a.mulDown(c)) * FixedPoint.ONE)).divDown(2 * a);
+            virtualBalances[0] = balancesScaled18[0].mulDown(virtualBalances[1]).mulDown(poolCenteredness).divDown(
+                balancesScaled18[1]
+            );
+        }
     }
 
     function _calculateVirtualBalancesOutOfRange(

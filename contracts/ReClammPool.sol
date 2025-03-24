@@ -17,8 +17,8 @@ import { Version } from "@balancer-labs/v3-solidity-utils/contracts/helpers/Vers
 import { PoolInfo } from "@balancer-labs/v3-pool-utils/contracts/PoolInfo.sol";
 import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
 
-import { SqrtQ0State, ReClammMath } from "./lib/ReClammMath.sol";
 import { ReClammPoolParams, IReClammPool } from "./interfaces/IReClammPool.sol";
+import { SqrtQ0State, ReClammMath } from "./lib/ReClammMath.sol";
 
 contract ReClammPool is
     IUnbalancedLiquidityInvariantRatioBounds,
@@ -39,6 +39,8 @@ contract ReClammPool is
     uint256 internal constant _MAX_INVARIANT_RATIO = 300e16; // 300%
     // Invariant shrink limit: non-proportional remove cannot cause the invariant to decrease by less than this ratio.
     uint256 internal constant _MIN_INVARIANT_RATIO = 70e16; // 70%
+
+    uint256 private constant _MIN_TOKEN_OUT_BALANCE = 1e3;
 
     SqrtQ0State private _sqrtQ0State;
     uint256 private _lastTimestamp;
@@ -127,6 +129,7 @@ contract ReClammPool is
         hookFlags.shouldCallBeforeInitialize = true;
         hookFlags.shouldCallBeforeAddLiquidity = true;
         hookFlags.shouldCallBeforeRemoveLiquidity = true;
+        hookFlags.shouldCallAfterSwap = true;
     }
 
     /// @inheritdoc IHooks
@@ -189,6 +192,19 @@ contract ReClammPool is
         virtualBalances[1] = virtualBalances[1].mulDown(FixedPoint.ONE - proportion);
         _setVirtualBalances(virtualBalances);
         return true;
+    }
+
+    /// @inheritdoc IHooks
+    function onAfterSwap(
+        AfterSwapParams calldata params
+    ) public view override onlyVault returns (bool success, uint256 hookAdjustedAmountCalculatedRaw) {
+        if (params.tokenOutBalanceScaled18 <= _MIN_TOKEN_OUT_BALANCE) {
+            // If one of pool token balances is low, the pool centeredness will be very close to 0. This can cause the
+            // update of price ratio to revert.
+            revert LowTokenOutBalance();
+        }
+
+        return (true, params.amountCalculatedRaw);
     }
 
     /// @inheritdoc ISwapFeePercentageBounds

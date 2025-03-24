@@ -21,6 +21,9 @@ interface IReClammPool is IBasePool {
     /// @dev The function is not implemented.
     error NotImplemented();
 
+    /// @dev The token out balance is too low after a swap.
+    error LowTokenOutBalance();
+
     event SqrtQ0Updated(uint96 startSqrtQ0, uint96 endSqrtQ0, uint32 startTime, uint32 endTime);
 
     event VirtualBalancesUpdated(uint256[] virtualBalances);
