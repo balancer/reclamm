@@ -21,9 +21,6 @@ struct SqrtPriceRatioState {
 library ReClammMath {
     using FixedPoint for uint256;
 
-    // The pool balances and the virtual balances are too low to calculate the centeredness.
-    error LowPoolBalances();
-
     // Constant to increase the price by a factor 2 if increase rate is 100%.
     uint256 private constant _SECONDS_PER_DAY_WITH_ADJUSTMENT = 124649;
 
@@ -176,14 +173,24 @@ library ReClammMath {
         virtualBalances = new uint256[](2);
 
         uint256 poolCenteredness = calculateCenteredness(balancesScaled18, lastVirtualBalances);
-        uint256 centerednessFactor = isPoolAboveCenter ? FixedPoint.ONE.divDown(poolCenteredness) : poolCenteredness;
-        uint256 a = currentSqrtPriceRatio.mulDown(currentSqrtPriceRatio) - FixedPoint.ONE;
-        uint256 b = balancesScaled18[1].mulDown(FixedPoint.ONE + centerednessFactor);
-        uint256 c = balancesScaled18[1].mulDown(balancesScaled18[1]).mulDown(centerednessFactor);
-        virtualBalances[1] = (b + Math.sqrt((b.mulDown(b) + 4 * a.mulDown(c)) * FixedPoint.ONE)).divDown(2 * a);
-        virtualBalances[0] = (balancesScaled18[0].mulDown(virtualBalances[1])).divDown(balancesScaled18[1]).divDown(
-            centerednessFactor
-        );
+
+        if (isPoolAboveCenter) {
+            uint256 a = currentSqrtPriceRatio.mulDown(currentSqrtPriceRatio) - FixedPoint.ONE;
+            uint256 b = balancesScaled18[0].mulDown(FixedPoint.ONE + poolCenteredness);
+            uint256 c = balancesScaled18[0].mulDown(balancesScaled18[0]).mulDown(poolCenteredness);
+            virtualBalances[0] = (b + Math.sqrt((b.mulDown(b) + 4 * a.mulDown(c)) * FixedPoint.ONE)).divDown(2 * a);
+            virtualBalances[1] = (balancesScaled18[1].mulDown(virtualBalances[0])).divDown(balancesScaled18[0]).divDown(
+                poolCenteredness
+            );
+        } else {
+            uint256 a = currentSqrtPriceRatio.mulDown(currentSqrtPriceRatio) - FixedPoint.ONE;
+            uint256 b = balancesScaled18[1].mulDown(FixedPoint.ONE + poolCenteredness);
+            uint256 c = balancesScaled18[1].mulDown(balancesScaled18[1]).mulDown(poolCenteredness);
+            virtualBalances[1] = (b + Math.sqrt((b.mulDown(b) + 4 * a.mulDown(c)) * FixedPoint.ONE)).divDown(2 * a);
+            virtualBalances[0] = (balancesScaled18[0].mulDown(virtualBalances[1])).divDown(balancesScaled18[1]).divDown(
+                poolCenteredness
+            );
+        }
     }
 
     function calculateVirtualBalancesOutOfRange(
@@ -234,23 +241,15 @@ library ReClammMath {
         if (balancesScaled18[0] == 0 || balancesScaled18[1] == 0) {
             return 0;
         } else if (isAboveCenter(balancesScaled18, virtualBalances)) {
-            uint256 numerator = balancesScaled18[1].mulDown(virtualBalances[0]);
-            uint256 denominator = balancesScaled18[0].mulDown(virtualBalances[1]);
-
-            if (denominator == 0) {
-                revert LowPoolBalances();
-            }
-
-            return numerator.divDown(denominator);
+            return
+                balancesScaled18[1].mulDown(virtualBalances[0]).divDown(balancesScaled18[0]).divDown(
+                    virtualBalances[1]
+                );
         } else {
-            uint256 numerator = balancesScaled18[0].mulDown(virtualBalances[1]);
-            uint256 denominator = balancesScaled18[1].mulDown(virtualBalances[0]);
-
-            if (denominator == 0) {
-                revert LowPoolBalances();
-            }
-
-            return numerator.divDown(denominator);
+            return
+                balancesScaled18[0].mulDown(virtualBalances[1]).divDown(balancesScaled18[1]).divDown(
+                    virtualBalances[0]
+                );
         }
     }
 

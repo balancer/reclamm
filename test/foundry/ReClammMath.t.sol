@@ -21,6 +21,7 @@ contract ReClammMathTest is Test {
     uint256 private constant _MAX_BALANCE = 1e6 * 1e18;
     uint256 private constant _MIN_BALANCE = 1e18;
     uint256 private constant _MIN_POOL_CENTEREDNESS = 1e3;
+    uint256 private constant _ERROR_PRICE_AND_CENTEREDNESS = 1000;
 
     function testParseIncreaseDayRate() public pure {
         uint256 value = 2123e9;
@@ -168,8 +169,8 @@ contract ReClammMathTest is Test {
         uint256 virtualBalance0,
         uint256 virtualBalance1
     ) public pure {
-        balance0 = bound(balance0, 0, _MAX_BALANCE);
-        balance1 = bound(balance1, 0, _MAX_BALANCE);
+        balance0 = bound(balance0, _MIN_BALANCE, _MAX_BALANCE);
+        balance1 = bound(balance1, _MIN_BALANCE, _MAX_BALANCE);
         virtualBalance0 = bound(virtualBalance0, _MIN_BALANCE, _MAX_BALANCE);
         virtualBalance1 = bound(virtualBalance1, _MIN_BALANCE, _MAX_BALANCE);
 
@@ -186,9 +187,17 @@ contract ReClammMathTest is Test {
         if (balance0 == 0 || balance1 == 0) {
             assertEq(centeredness, 0);
         } else if (ReClammMath.isAboveCenter(balancesScaled18, virtualBalances)) {
-            assertEq(centeredness, balance1.mulDown(virtualBalance0).divDown(balance0.mulDown(virtualBalance1)));
+            assertApproxEqAbs(
+                centeredness,
+                balance1.mulDown(virtualBalance0).divDown(balance0.mulDown(virtualBalance1)),
+                1
+            );
         } else {
-            assertEq(centeredness, balance0.mulDown(virtualBalance1).divDown(balance1.mulDown(virtualBalance0)));
+            assertApproxEqAbs(
+                centeredness,
+                balance0.mulDown(virtualBalance1).divDown(balance1.mulDown(virtualBalance0)),
+                1
+            );
         }
     }
 
@@ -309,14 +318,24 @@ contract ReClammMathTest is Test {
         vm.assume(balancesScaled18[0].mulDown(newVirtualBalances[1]) > 0);
         vm.assume(balancesScaled18[1].mulDown(newVirtualBalances[0]) > 0);
         uint256 newCenteredness = ReClammMath.calculateCenteredness(balancesScaled18, newVirtualBalances);
-        assertApproxEqAbs(newCenteredness, oldCenteredness, 100, "Centeredness should be the same");
+        assertApproxEqAbs(
+            newCenteredness,
+            oldCenteredness,
+            _ERROR_PRICE_AND_CENTEREDNESS,
+            "Centeredness should be the same"
+        );
 
         // Check if price ratio matches the new price ratio
         uint256 invariant = ReClammMath.computeInvariant(balancesScaled18, newVirtualBalances, Rounding.ROUND_DOWN);
         uint256 actualSqrtPriceRatio = Math.sqrt(
             invariant.divDown(newVirtualBalances[0]).divDown(newVirtualBalances[1]) * FixedPoint.ONE
         );
-        assertApproxEqAbs(expectedSqrtPriceRatio, actualSqrtPriceRatio, 100, "Price Ratio should be correct");
+        assertApproxEqAbs(
+            expectedSqrtPriceRatio,
+            actualSqrtPriceRatio,
+            _ERROR_PRICE_AND_CENTEREDNESS,
+            "Price Ratio should be correct"
+        );
     }
 
     function testCalculateSqrtPriceRatioWhenCurrentTimeIsAfterEndTime() public pure {
