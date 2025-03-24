@@ -58,7 +58,7 @@ export function getVirtualBalances(
     const centeredness = calculateCenteredness(balancesScaled18, lastVirtualBalances);
     const centerednessFactor = isPoolAboveCenter ? fpDivDown(fp(1), centeredness) : centeredness;
 
-    const a = fpMulDown(currentSqrtQ0, currentSqrtQ0) - fp(1);
+    const a = fpMulDown(currentSqrtPriceRatio, currentSqrtPriceRatio) - fp(1);
     const b = fpMulDown(balancesScaled18[1], fp(1) + centerednessFactor);
     const c = fpMulDown(fpMulDown(balancesScaled18[1], balancesScaled18[1]), centerednessFactor);
 

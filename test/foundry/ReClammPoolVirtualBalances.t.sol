@@ -135,24 +135,24 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         }
     }
 
-    function testChangingDifferentPriceRange_Fuzz(uint96 newSqrtQ0) public {
-        newSqrtQ0 = SafeCast.toUint96(bound(newSqrtQ0, 1.1e18, 10e18));
+    function testChangingDifferentPriceRange_Fuzz(uint96 newSqrtPriceRatio) public {
+        newSqrtPriceRatio = SafeCast.toUint96(bound(newSqrtPriceRatio, 1.1e18, 10e18));
 
-        uint256 initialSqrtQ0 = ReClammPool(pool).getCurrentSqrtQ0();
+        uint256 initialSqrtPriceRatio = ReClammPool(pool).getCurrentSqrtPriceRatio();
 
-         uint32 duration = 2 hours;
+        uint32 duration = 2 hours;
 
-         uint256[] memory poolVirtualBalancesBefore = ReClammPool(pool).getLastVirtualBalances();
+        uint256[] memory poolVirtualBalancesBefore = ReClammPool(pool).getLastVirtualBalances();
 
-         uint32 currentTimestamp = uint32(block.timestamp);
+        uint32 currentTimestamp = uint32(block.timestamp);
 
         vm.prank(admin);
-        ReClammPool(pool).setSqrtQ0(newSqrtQ0, currentTimestamp, currentTimestamp + duration);
+        ReClammPool(pool).setSqrtPriceRatio(newSqrtPriceRatio, currentTimestamp, currentTimestamp + duration);
         skip(duration);
 
-         uint256[] memory poolVirtualBalancesAfter = ReClammPool(pool).getLastVirtualBalances();
+        uint256[] memory poolVirtualBalancesAfter = ReClammPool(pool).getLastVirtualBalances();
 
-        if (newSqrtQ0 > initialSqrtQ0) {
+        if (newSqrtPriceRatio > initialSqrtPriceRatio) {
             assertLt(
                 poolVirtualBalancesAfter[0],
                 poolVirtualBalancesBefore[0],
