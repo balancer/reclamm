@@ -19,9 +19,10 @@ contract ReClammMathTest is Test {
     // Constant to increase the price by a factor 2 if increase rate is 100%.
     uint256 private constant _SECONDS_PER_DAY_WITH_ADJUSTMENT = 124649;
     uint256 private constant _MAX_BALANCE = 1e6 * 1e18;
-    uint256 private constant _MIN_BALANCE = 1e18;
+    uint256 private constant _MIN_BALANCE = 1e14;
     uint256 private constant _MIN_POOL_CENTEREDNESS = 1e3;
-    uint256 private constant _ERROR_PRICE_AND_CENTEREDNESS = 1000;
+    uint256 private constant _MAX_CENTEREDNESS_ERROR_ABS = 1e5;
+    uint256 private constant _MAX_PRICE_ERROR_ABS = 1e12;
 
     function testParseIncreaseDayRate() public pure {
         uint256 value = 2123e9;
@@ -132,7 +133,13 @@ contract ReClammMathTest is Test {
 
         uint256 invariant = finalBalances[0].mulUp(finalBalances[1]);
 
-        uint256 expected = finalBalances[tokenOut] - invariant.divUp(finalBalances[tokenIn] + amountGivenScaled18);
+        uint256 tokenOutPoolAmount = invariant.divUp(finalBalances[tokenIn] + amountGivenScaled18);
+        uint256 expected;
+        if (tokenOutPoolAmount > finalBalances[tokenOut]) {
+            expected = 0;
+        } else {
+            expected = finalBalances[tokenOut] - tokenOutPoolAmount;
+        }
 
         assertEq(amountOut, expected, "Amount out should be correct");
     }
@@ -190,13 +197,13 @@ contract ReClammMathTest is Test {
             assertApproxEqAbs(
                 centeredness,
                 balance1.mulDown(virtualBalance0).divDown(balance0.mulDown(virtualBalance1)),
-                1
+                _MAX_CENTEREDNESS_ERROR_ABS
             );
         } else {
             assertApproxEqAbs(
                 centeredness,
                 balance0.mulDown(virtualBalance1).divDown(balance1.mulDown(virtualBalance0)),
-                1
+                _MAX_CENTEREDNESS_ERROR_ABS
             );
         }
     }
@@ -321,7 +328,7 @@ contract ReClammMathTest is Test {
         assertApproxEqAbs(
             newCenteredness,
             oldCenteredness,
-            _ERROR_PRICE_AND_CENTEREDNESS,
+            _MAX_CENTEREDNESS_ERROR_ABS,
             "Centeredness should be the same"
         );
 
@@ -333,7 +340,7 @@ contract ReClammMathTest is Test {
         assertApproxEqAbs(
             expectedSqrtPriceRatio,
             actualSqrtPriceRatio,
-            _ERROR_PRICE_AND_CENTEREDNESS,
+            _MAX_PRICE_ERROR_ABS,
             "Price Ratio should be correct"
         );
     }

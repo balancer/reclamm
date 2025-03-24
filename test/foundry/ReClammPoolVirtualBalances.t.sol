@@ -19,7 +19,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     using ArrayHelpers for *;
 
     uint256 private constant _PRICE_RANGE = 2e18; // Max price is 2x min price.
-    uint256 private constant _MIN_TOKEN_OUT_BALANCE = 1e18;
+    uint256 private constant _MIN_TOKEN_BALANCE = 1e14;
     uint256 private constant _INITIAL_BALANCE_A = 1_000_000e18;
     uint256 private constant _INITIAL_BALANCE_B = 100_000e18;
 
@@ -195,7 +195,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     }
 
     function testSwapExactOut_Fuzz(uint256 exactAmountOut) public {
-        exactAmountOut = bound(exactAmountOut, 1e6, _INITIAL_BALANCE_B - _MIN_TOKEN_OUT_BALANCE - 1);
+        exactAmountOut = bound(exactAmountOut, 1e6, _INITIAL_BALANCE_B - _MIN_TOKEN_BALANCE - 1);
 
         uint256[] memory virtualBalances = _calculateVirtualBalances();
         uint256 invariantBefore = _getCurrentInvariant();
@@ -218,7 +218,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
             pool,
             dai,
             usdc,
-            _INITIAL_BALANCE_B - _MIN_TOKEN_OUT_BALANCE,
+            _INITIAL_BALANCE_B - _MIN_TOKEN_BALANCE,
             UINT256_MAX,
             UINT256_MAX,
             false,

@@ -14,8 +14,8 @@ contract ReClammLiquidityTest is BaseReClammTest {
     using FixedPoint for uint256;
 
     uint256 constant _MAX_PRICE_ERROR_ABS = 5;
-    uint256 constant _MAX_CENTEREDNESS_ERROR_ABS = 1e9;
-    uint256 constant _MIN_TOKEN_BALANCE = 1e18;
+    uint256 constant _MAX_CENTEREDNESS_ERROR_ABS = 1e5;
+    uint256 constant _MIN_TOKEN_BALANCE = 1e14;
 
     function testAddLiquidity_Fuzz(
         uint256 exactBptAmountOut,

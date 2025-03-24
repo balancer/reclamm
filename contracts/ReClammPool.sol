@@ -40,7 +40,7 @@ contract ReClammPool is
     // Invariant shrink limit: non-proportional remove cannot cause the invariant to decrease by less than this ratio.
     uint256 internal constant _MIN_INVARIANT_RATIO = 70e16; // 70%
 
-    uint256 private constant _MIN_TOKEN_BALANCE = 1e18;
+    uint256 private constant _MIN_TOKEN_BALANCE = 1e14;
     uint256 private constant _MIN_POOL_CENTEREDNESS = 1e3;
 
     SqrtPriceRatioState private _sqrtPriceRatioState;

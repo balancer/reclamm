@@ -66,14 +66,22 @@ library ReClammMath {
         uint256 tokenOutIndex,
         uint256 amountGivenScaled18
     ) internal pure returns (uint256) {
-        uint256[] memory finalBalances = new uint256[](balancesScaled18.length);
+        uint256[] memory totalBalances = new uint256[](balancesScaled18.length);
 
-        finalBalances[0] = balancesScaled18[0] + virtualBalances[0];
-        finalBalances[1] = balancesScaled18[1] + virtualBalances[1];
+        totalBalances[0] = balancesScaled18[0] + virtualBalances[0];
+        totalBalances[1] = balancesScaled18[1] + virtualBalances[1];
 
-        uint256 invariant = finalBalances[0].mulUp(finalBalances[1]);
+        uint256 invariant = totalBalances[0].mulUp(totalBalances[1]);
+        // Total (virtual + real) token out amount that should stay in the pool after the swap.
+        uint256 tokenOutPoolAmount = invariant.divUp(totalBalances[tokenInIndex] + amountGivenScaled18);
 
-        return finalBalances[tokenOutIndex] - invariant.divUp(finalBalances[tokenInIndex] + amountGivenScaled18);
+        if (tokenOutPoolAmount > totalBalances[tokenOutIndex]) {
+            // If the token out pool amount is greater than the total balance of the token out, it means that the pool
+            // is heavily unbalanced and the token in is deeply undervalued. The swap result must be 0 in this case.
+            return 0;
+        }
+
+        return totalBalances[tokenOutIndex] - tokenOutPoolAmount;
     }
 
     function calculateInGivenOut(
@@ -83,14 +91,14 @@ library ReClammMath {
         uint256 tokenOutIndex,
         uint256 amountGivenScaled18
     ) internal pure returns (uint256) {
-        uint256[] memory finalBalances = new uint256[](balancesScaled18.length);
+        uint256[] memory totalBalances = new uint256[](balancesScaled18.length);
 
-        finalBalances[0] = balancesScaled18[0] + virtualBalances[0];
-        finalBalances[1] = balancesScaled18[1] + virtualBalances[1];
+        totalBalances[0] = balancesScaled18[0] + virtualBalances[0];
+        totalBalances[1] = balancesScaled18[1] + virtualBalances[1];
 
-        uint256 invariant = finalBalances[0].mulUp(finalBalances[1]);
+        uint256 invariant = totalBalances[0].mulUp(totalBalances[1]);
 
-        return invariant.divUp(finalBalances[tokenOutIndex] - amountGivenScaled18) - finalBalances[tokenInIndex];
+        return invariant.divUp(totalBalances[tokenOutIndex] - amountGivenScaled18) - totalBalances[tokenInIndex];
     }
 
     function initializeVirtualBalances(
