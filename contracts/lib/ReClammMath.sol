@@ -11,9 +11,9 @@ import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultType
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { LogExpMath } from "@balancer-labs/v3-solidity-utils/contracts/math/LogExpMath.sol";
 
-struct SqrtQ0State {
-    uint96 startSqrtQ0;
-    uint96 endSqrtQ0;
+struct SqrtPriceRatioState {
+    uint96 startSqrtPriceRatio;
+    uint96 endSqrtPriceRatio;
     uint32 startTime;
     uint32 endTime;
 }
@@ -31,7 +31,7 @@ library ReClammMath {
         uint32 lastTimestamp,
         uint32 currentTimestamp,
         uint256 centerednessMargin,
-        SqrtQ0State storage sqrtQ0State,
+        SqrtPriceRatioState storage sqrtPriceRatioState,
         Rounding rounding
     ) internal pure returns (uint256) {
         (uint256[] memory virtualBalances, ) = getVirtualBalances(
@@ -41,7 +41,7 @@ library ReClammMath {
             lastTimestamp,
             currentTimestamp,
             centerednessMargin,
-            sqrtQ0State
+            sqrtPriceRatioState
         );
 
         return computeInvariant(balancesScaled18, virtualBalances, rounding);
@@ -95,11 +95,11 @@ library ReClammMath {
 
     function initializeVirtualBalances(
         uint256[] memory balancesScaled18,
-        uint256 sqrtQ0
+        uint256 sqrtPriceRatio
     ) internal pure returns (uint256[] memory virtualBalances) {
         virtualBalances = new uint256[](balancesScaled18.length);
-        virtualBalances[0] = balancesScaled18[0].divDown(sqrtQ0 - FixedPoint.ONE);
-        virtualBalances[1] = balancesScaled18[1].divDown(sqrtQ0 - FixedPoint.ONE);
+        virtualBalances[0] = balancesScaled18[0].divDown(sqrtPriceRatio - FixedPoint.ONE);
+        virtualBalances[1] = balancesScaled18[1].divDown(sqrtPriceRatio - FixedPoint.ONE);
     }
 
     function getVirtualBalances(
@@ -109,7 +109,7 @@ library ReClammMath {
         uint32 lastTimestamp,
         uint32 currentTimestamp,
         uint256 centerednessMargin,
-        SqrtQ0State storage sqrtQ0State
+        SqrtPriceRatioState storage sqrtPriceRatioState
     ) internal pure returns (uint256[] memory virtualBalances, bool changed) {
         // TODO Review rounding
 
@@ -121,26 +121,26 @@ library ReClammMath {
             return (virtualBalances, false);
         }
 
-        SqrtQ0State memory _sqrtQ0State = sqrtQ0State;
+        SqrtPriceRatioState memory _sqrtPriceRatioState = sqrtPriceRatioState;
 
-        // Calculate currentSqrtQ0
-        uint256 currentSqrtQ0 = calculateSqrtQ0(
+        // Calculate currentSqrtPriceRatio
+        uint256 currentSqrtPriceRatio = calculateSqrtPriceRatio(
             currentTimestamp,
-            _sqrtQ0State.startSqrtQ0,
-            _sqrtQ0State.endSqrtQ0,
-            _sqrtQ0State.startTime,
-            _sqrtQ0State.endTime
+            _sqrtPriceRatioState.startSqrtPriceRatio,
+            _sqrtPriceRatioState.endSqrtPriceRatio,
+            _sqrtPriceRatioState.startTime,
+            _sqrtPriceRatioState.endTime
         );
 
         bool isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances);
 
         if (
-            _sqrtQ0State.startTime != 0 &&
-            currentTimestamp > _sqrtQ0State.startTime &&
-            (currentTimestamp < _sqrtQ0State.endTime || lastTimestamp < _sqrtQ0State.endTime)
+            _sqrtPriceRatioState.startTime != 0 &&
+            currentTimestamp > _sqrtPriceRatioState.startTime &&
+            (currentTimestamp < _sqrtPriceRatioState.endTime || lastTimestamp < _sqrtPriceRatioState.endTime)
         ) {
-            virtualBalances = _calculateVirtualBalancesUpdatingQ0(
-                currentSqrtQ0,
+            virtualBalances = _calculateVirtualBalancesUpdatingPriceRatio(
+                currentSqrtPriceRatio,
                 balancesScaled18,
                 lastVirtualBalances,
                 isPoolAboveCenter
@@ -151,7 +151,7 @@ library ReClammMath {
 
         if (isPoolInRange(balancesScaled18, virtualBalances, centerednessMargin) == false) {
             virtualBalances = _calculateVirtualBalancesOutOfRange(
-                currentSqrtQ0,
+                currentSqrtPriceRatio,
                 balancesScaled18,
                 virtualBalances,
                 isPoolAboveCenter,
@@ -164,8 +164,8 @@ library ReClammMath {
         }
     }
 
-    function _calculateVirtualBalancesUpdatingQ0(
-        uint256 currentSqrtQ0,
+    function _calculateVirtualBalancesUpdatingPriceRatio(
+        uint256 currentSqrtPriceRatio,
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
         bool isPoolAboveCenter
@@ -174,7 +174,7 @@ library ReClammMath {
 
         uint256 poolCenteredness = calculateCenteredness(balancesScaled18, lastVirtualBalances);
         if (isPoolAboveCenter) {
-            uint256 a = currentSqrtQ0.mulDown(currentSqrtQ0) - FixedPoint.ONE;
+            uint256 a = currentSqrtPriceRatio.mulDown(currentSqrtQ0) - FixedPoint.ONE;
             uint256 b = balancesScaled18[0].mulDown(FixedPoint.ONE + poolCenteredness);
             uint256 c = balancesScaled18[0].mulDown(balancesScaled18[0]).mulDown(poolCenteredness);
             virtualBalances[0] = (b + Math.sqrt((b.mulDown(b) + 4 * a.mulDown(c)) * FixedPoint.ONE)).divDown(2 * a);
@@ -252,27 +252,27 @@ library ReClammMath {
         }
     }
 
-    function calculateSqrtQ0(
+    function calculateSqrtPriceRatio(
         uint32 currentTime,
-        uint96 startSqrtQ0,
-        uint96 endSqrtQ0,
+        uint96 startSqrtPriceRatio,
+        uint96 endSqrtPriceRatio,
         uint32 startTime,
         uint32 endTime
     ) internal pure returns (uint96) {
         if (currentTime <= startTime) {
-            return startSqrtQ0;
+            return startSqrtPriceRatio;
         } else if (currentTime >= endTime) {
-            return endSqrtQ0;
-        } else if (startSqrtQ0 == endSqrtQ0) {
-            return endSqrtQ0;
+            return endSqrtPriceRatio;
+        } else if (startSqrtPriceRatio == endSqrtPriceRatio) {
+            return endSqrtPriceRatio;
         }
 
         uint256 exponent = uint256(currentTime - startTime).divDown(endTime - startTime);
 
         return
             SafeCast.toUint96(
-                uint256(startSqrtQ0).mulDown(LogExpMath.pow(endSqrtQ0, exponent)).divDown(
-                    LogExpMath.pow(startSqrtQ0, exponent)
+                uint256(startSqrtPriceRatio).mulDown(LogExpMath.pow(endSqrtPriceRatio, exponent)).divDown(
+                    LogExpMath.pow(startSqrtPriceRatio, exponent)
                 )
             );
     }

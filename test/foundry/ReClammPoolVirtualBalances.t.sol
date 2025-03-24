@@ -35,7 +35,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
 
         uint256[] memory curentVirtualBalances = ReClammPool(pool).getLastVirtualBalances();
 
-        assertEq(ReClammPool(pool).getCurrentSqrtQ0(), sqrtQ0(), "Invalid sqrtQ0");
+        assertEq(ReClammPool(pool).getCurrentSqrtPriceRatio(), sqrtPriceRatio(), "Invalid sqrtPriceRatio");
         assertEq(curentVirtualBalances[0], virtualBalances[0], "Invalid virtual A balance");
         assertEq(curentVirtualBalances[1], virtualBalances[1], "Invalid virtual B balance");
     }
@@ -61,8 +61,16 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         setInitialBalances(newInitialBalances[0], newInitialBalances[1]);
         (address firstPool, address secondPool) = _createNewPool();
 
-        assertEq(ReClammPool(firstPool).getCurrentSqrtQ0(), sqrtQ0(), "Invalid sqrtQ0 for firstPool");
-        assertEq(ReClammPool(secondPool).getCurrentSqrtQ0(), sqrtQ0(), "Invalid sqrtQ0 for newPool");
+        assertEq(
+            ReClammPool(firstPool).getCurrentSqrtPriceRatio(),
+            sqrtPriceRatio(),
+            "Invalid sqrtPriceRatio for firstPool"
+        );
+        assertEq(
+            ReClammPool(secondPool).getCurrentSqrtPriceRatio(),
+            sqrtPriceRatio(),
+            "Invalid sqrtPriceRatio for newPool"
+        );
 
         uint256[] memory curentFirstPoolVirtualBalances = ReClammPool(firstPool).getLastVirtualBalances();
         uint256[] memory curentNewPoolVirtualBalances = ReClammPool(secondPool).getLastVirtualBalances();
@@ -92,17 +100,17 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         }
     }
 
-    function testWithDifferentPriceRange_Fuzz(uint96 newSqrtQ0) public {
-        newSqrtQ0 = SafeCast.toUint96(bound(newSqrtQ0, 1.001e18, 1_000_000e18)); // Price range cannot be lower than 1.
+    function testWithDifferentPriceRange_Fuzz(uint96 newSqrtPriceRatio) public {
+        newSqrtPriceRatio = SafeCast.toUint96(bound(newSqrtPriceRatio, 1.001e18, 1_000_000e18)); // Price range cannot be lower than 1.
 
-        uint96 initialSqrtQ0 = sqrtQ0();
-        setSqrtQ0(newSqrtQ0);
+        uint96 initialSqrtPriceRatio = sqrtPriceRatio();
+        setSqrtPriceRatio(newSqrtPriceRatio);
         (address firstPool, address secondPool) = _createNewPool();
 
         uint256[] memory curentFirstPoolVirtualBalances = ReClammPool(firstPool).getLastVirtualBalances();
         uint256[] memory curentNewPoolVirtualBalances = ReClammPool(secondPool).getLastVirtualBalances();
 
-        if (newSqrtQ0 > initialSqrtQ0) {
+        if (newSqrtPriceRatio > initialSqrtPriceRatio) {
             assertLt(
                 curentNewPoolVirtualBalances[0],
                 curentFirstPoolVirtualBalances[0],
@@ -132,17 +140,17 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
 
         uint256 initialSqrtQ0 = ReClammPool(pool).getCurrentSqrtQ0();
 
-        uint32 duration = 2 hours;
+         uint32 duration = 2 hours;
 
-        uint256[] memory poolVirtualBalancesBefore = ReClammPool(pool).getLastVirtualBalances();
+         uint256[] memory poolVirtualBalancesBefore = ReClammPool(pool).getLastVirtualBalances();
 
-        uint32 currentTimestamp = uint32(block.timestamp);
+         uint32 currentTimestamp = uint32(block.timestamp);
 
         vm.prank(admin);
         ReClammPool(pool).setSqrtQ0(newSqrtQ0, currentTimestamp, currentTimestamp + duration);
         skip(duration);
 
-        uint256[] memory poolVirtualBalancesAfter = ReClammPool(pool).getLastVirtualBalances();
+         uint256[] memory poolVirtualBalancesAfter = ReClammPool(pool).getLastVirtualBalances();
 
         if (newSqrtQ0 > initialSqrtQ0) {
             assertLt(
@@ -267,9 +275,9 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     function _calculateVirtualBalances() internal view returns (uint256[] memory virtualBalances) {
         virtualBalances = new uint256[](2);
 
-        uint256 sqrtQMinusOne = sqrtQ0() - FixedPoint.ONE;
-        virtualBalances[0] = _INITIAL_BALANCE_A.divDown(sqrtQMinusOne);
-        virtualBalances[1] = _INITIAL_BALANCE_B.divDown(sqrtQMinusOne);
+        uint256 sqrtPriceRatioMinusOne = sqrtPriceRatio() - FixedPoint.ONE;
+        virtualBalances[0] = _INITIAL_BALANCE_A.divDown(sqrtPriceRatioMinusOne);
+        virtualBalances[1] = _INITIAL_BALANCE_B.divDown(sqrtPriceRatioMinusOne);
     }
 
     function _createNewPool() internal returns (address initalPool, address newPool) {
