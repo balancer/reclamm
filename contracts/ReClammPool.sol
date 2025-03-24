@@ -17,7 +17,7 @@ import { Version } from "@balancer-labs/v3-solidity-utils/contracts/helpers/Vers
 import { PoolInfo } from "@balancer-labs/v3-pool-utils/contracts/PoolInfo.sol";
 import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
 
-import { SqrtQ0State, ReClammMath } from "./lib/ReClammMath.sol";
+import { SqrtPriceRatioState, ReClammMath } from "./lib/ReClammMath.sol";
 import { ReClammPoolParams, IReClammPool } from "./interfaces/IReClammPool.sol";
 
 contract ReClammPool is
@@ -40,7 +40,7 @@ contract ReClammPool is
     // Invariant shrink limit: non-proportional remove cannot cause the invariant to decrease by less than this ratio.
     uint256 internal constant _MIN_INVARIANT_RATIO = 70e16; // 70%
 
-    SqrtQ0State private _sqrtQ0State;
+    SqrtPriceRatioState private _sqrtPriceRatioState;
     uint256 private _lastTimestamp;
     uint256 private _timeConstant;
     uint256 private _centerednessMargin;
@@ -57,7 +57,7 @@ contract ReClammPool is
     {
         _setIncreaseDayRate(params.increaseDayRate);
         _setCenterednessMargin(params.centerednessMargin);
-        _setSqrtQ0(params.sqrtQ0, 0, block.timestamp);
+        _setSqrtPriceRatio(params.sqrtPriceRatio, 0, uint32(block.timestamp));
     }
 
     /// @inheritdoc IBasePool
@@ -67,10 +67,10 @@ contract ReClammPool is
                 balancesScaled18,
                 _virtualBalances,
                 _timeConstant,
-                _lastTimestamp,
-                block.timestamp,
+                uint32(_lastTimestamp),
+                uint32(block.timestamp),
                 _centerednessMargin,
-                _sqrtQ0State,
+                _sqrtPriceRatioState,
                 rounding
             );
     }
@@ -88,10 +88,10 @@ contract ReClammPool is
             request.balancesScaled18,
             _virtualBalances,
             _timeConstant,
-            _lastTimestamp,
-            block.timestamp,
+            uint32(_lastTimestamp),
+            uint32(block.timestamp),
             _centerednessMargin,
-            _sqrtQ0State
+            _sqrtPriceRatioState
         );
 
         _lastTimestamp = block.timestamp;
@@ -146,8 +146,11 @@ contract ReClammPool is
     ) public override onlyVault returns (bool) {
         _lastTimestamp = block.timestamp;
 
-        uint256 currentSqrtQ0 = _calculateCurrentSqrtQ0();
-        uint256[] memory virtualBalances = ReClammMath.initializeVirtualBalances(balancesScaled18, currentSqrtQ0);
+        uint256 currentSqrtPriceRatio = _calculateCurrentSqrtPriceRatio();
+        uint256[] memory virtualBalances = ReClammMath.initializeVirtualBalances(
+            balancesScaled18,
+            currentSqrtPriceRatio
+        );
         _setVirtualBalances(virtualBalances);
 
         return true;
@@ -222,17 +225,17 @@ contract ReClammPool is
     }
 
     /// @inheritdoc IReClammPool
-    function getCurrentSqrtQ0() external view override returns (uint256) {
-        return _calculateCurrentSqrtQ0();
+    function getCurrentSqrtPriceRatio() external view override returns (uint96) {
+        return _calculateCurrentSqrtPriceRatio();
     }
 
     /// @inheritdoc IReClammPool
-    function setSqrtQ0(
-        uint256 newSqrtQ0,
-        uint256 startTime,
-        uint256 endTime
+    function setSqrtPriceRatio(
+        uint96 newSqrtPriceRatio,
+        uint32 startTime,
+        uint32 endTime
     ) external onlySwapFeeManagerOrGovernance(address(this)) {
-        _setSqrtQ0(newSqrtQ0, startTime, endTime);
+        _setSqrtPriceRatio(newSqrtPriceRatio, startTime, endTime);
     }
 
     /// @inheritdoc IReClammPool
@@ -240,30 +243,30 @@ contract ReClammPool is
         _setIncreaseDayRate(newIncreaseDayRate);
     }
 
-    function _setSqrtQ0(uint256 endSqrtQ0, uint256 startTime, uint256 endTime) internal {
+    function _setSqrtPriceRatio(uint96 endSqrtPriceRatio, uint32 startTime, uint32 endTime) internal {
         if (startTime > endTime) {
             revert GradualUpdateTimeTravel(startTime, endTime);
         }
 
-        uint256 startSqrtQ0 = _calculateCurrentSqrtQ0();
-        _sqrtQ0State.startSqrtQ0 = startSqrtQ0;
-        _sqrtQ0State.endSqrtQ0 = endSqrtQ0;
-        _sqrtQ0State.startTime = startTime;
-        _sqrtQ0State.endTime = endTime;
+        uint96 startSqrtPriceRatio = _calculateCurrentSqrtPriceRatio();
+        _sqrtPriceRatioState.startSqrtPriceRatio = startSqrtPriceRatio;
+        _sqrtPriceRatioState.endSqrtPriceRatio = endSqrtPriceRatio;
+        _sqrtPriceRatioState.startTime = startTime;
+        _sqrtPriceRatioState.endTime = endTime;
 
-        emit SqrtQ0Updated(startSqrtQ0, endSqrtQ0, startTime, endTime);
+        emit SqrtPriceRatioUpdated(startSqrtPriceRatio, endSqrtPriceRatio, startTime, endTime);
     }
 
-    function _calculateCurrentSqrtQ0() internal view returns (uint256) {
-        SqrtQ0State memory sqrtQ0State = _sqrtQ0State;
+    function _calculateCurrentSqrtPriceRatio() internal view returns (uint96) {
+        SqrtPriceRatioState memory sqrtPriceRatioState = _sqrtPriceRatioState;
 
         return
-            ReClammMath.calculateSqrtQ0(
-                block.timestamp,
-                sqrtQ0State.startSqrtQ0,
-                sqrtQ0State.endSqrtQ0,
-                sqrtQ0State.startTime,
-                sqrtQ0State.endTime
+            ReClammMath.calculateSqrtPriceRatio(
+                uint32(block.timestamp),
+                sqrtPriceRatioState.startSqrtPriceRatio,
+                sqrtPriceRatioState.endSqrtPriceRatio,
+                sqrtPriceRatioState.startTime,
+                sqrtPriceRatioState.endTime
             );
     }
 
@@ -293,10 +296,10 @@ contract ReClammPool is
             balancesScaled18,
             _virtualBalances,
             _timeConstant,
-            _lastTimestamp,
-            block.timestamp,
+            uint32(_lastTimestamp),
+            uint32(block.timestamp),
             _centerednessMargin,
-            _sqrtQ0State
+            _sqrtPriceRatioState
         );
     }
 }

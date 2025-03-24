@@ -16,32 +16,38 @@ import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
 contract ReClammPoolTest is BaseReClammTest {
     using FixedPoint for uint256;
 
-    function testGetCurrentSqrtQ0() public view {
-        uint256 sqrtQ0 = ReClammPool(pool).getCurrentSqrtQ0();
-        assertEq(sqrtQ0, _DEFAULT_SQRT_Q0, "Invalid default sqrtQ0");
+    function testGetCurrentSqrtPriceRatio() public view {
+        uint256 sqrtPriceRatio = ReClammPool(pool).getCurrentSqrtPriceRatio();
+        assertEq(sqrtPriceRatio, _DEFAULT_SQRT_PRICE_RATIO, "Invalid default sqrtPriceRatio");
     }
 
-    function testSetSqrtQ0() public {
-        uint256 newSqrtQ0 = 2e18;
-        uint256 startTime = block.timestamp;
-        uint256 duration = 1 hours;
-        uint256 endTime = block.timestamp + duration;
+    function testSetSqrtPriceRatio() public {
+        uint96 newSqrtPriceRatio = 2e18;
+        uint32 startTime = uint32(block.timestamp);
+        uint32 duration = 1 hours;
+        uint32 endTime = uint32(block.timestamp) + duration;
 
-        uint256 startSqrtQ0 = ReClammPool(pool).getCurrentSqrtQ0();
+        uint96 startSqrtPriceRatio = ReClammPool(pool).getCurrentSqrtPriceRatio();
         vm.prank(admin);
         vm.expectEmit();
-        emit IReClammPool.SqrtQ0Updated(startSqrtQ0, newSqrtQ0, startTime, endTime);
-        ReClammPool(pool).setSqrtQ0(newSqrtQ0, startTime, endTime);
+        emit IReClammPool.SqrtPriceRatioUpdated(startSqrtPriceRatio, newSqrtPriceRatio, startTime, endTime);
+        ReClammPool(pool).setSqrtPriceRatio(newSqrtPriceRatio, startTime, endTime);
 
         skip(duration / 2);
-        uint256 sqrtQ0 = ReClammPool(pool).getCurrentSqrtQ0();
-        uint256 mathSqrtQ0 = ReClammMath.calculateSqrtQ0(block.timestamp, startSqrtQ0, newSqrtQ0, startTime, endTime);
+        uint96 sqrtPriceRatio = ReClammPool(pool).getCurrentSqrtPriceRatio();
+        uint96 mathSqrtPriceRatio = ReClammMath.calculateSqrtPriceRatio(
+            uint32(block.timestamp),
+            startSqrtPriceRatio,
+            newSqrtPriceRatio,
+            startTime,
+            endTime
+        );
 
-        assertEq(sqrtQ0, mathSqrtQ0, "SqrtQ0 not updated correctly");
+        assertEq(sqrtPriceRatio, mathSqrtPriceRatio, "SqrtPriceRatio not updated correctly");
 
         skip(duration / 2 + 1);
-        sqrtQ0 = ReClammPool(pool).getCurrentSqrtQ0();
-        assertEq(sqrtQ0, newSqrtQ0, "SqrtQ0 does not match new value");
+        sqrtPriceRatio = ReClammPool(pool).getCurrentSqrtPriceRatio();
+        assertEq(sqrtPriceRatio, newSqrtPriceRatio, "SqrtPriceRatio does not match new value");
     }
 
     function testSetIncreaseDayRate() public {

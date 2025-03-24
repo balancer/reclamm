@@ -3,19 +3,24 @@
 pragma solidity ^0.8.24;
 
 import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
-import { SqrtQ0State, ReClammMath } from "../lib/ReClammMath.sol";
+import { SqrtPriceRatioState, ReClammMath } from "../lib/ReClammMath.sol";
 
 contract ReClammMathMock {
+    SqrtPriceRatioState private _sqrtPriceRatioState;
+
+    function setSqrtPriceRatioState(SqrtPriceRatioState memory sqrtPriceRatioState) external {
+        _sqrtPriceRatioState = sqrtPriceRatioState;
+    }
+
     function computeInvariant(
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
         uint256 c,
-        uint256 lastTimestamp,
-        uint256 currentTimestamp,
+        uint32 lastTimestamp,
+        uint32 currentTimestamp,
         uint256 centerednessMargin,
-        SqrtQ0State memory sqrtQ0State,
         Rounding rounding
-    ) external pure returns (uint256) {
+    ) external view returns (uint256) {
         return
             ReClammMath.computeInvariant(
                 balancesScaled18,
@@ -24,7 +29,7 @@ contract ReClammMathMock {
                 lastTimestamp,
                 currentTimestamp,
                 centerednessMargin,
-                sqrtQ0State,
+                _sqrtPriceRatioState,
                 rounding
             );
     }
@@ -73,20 +78,19 @@ contract ReClammMathMock {
 
     function initializeVirtualBalances(
         uint256[] memory balancesScaled18,
-        uint256 sqrtQ0
+        uint256 sqrtPriceRatio
     ) external pure returns (uint256[] memory virtualBalances) {
-        return ReClammMath.initializeVirtualBalances(balancesScaled18, sqrtQ0);
+        return ReClammMath.initializeVirtualBalances(balancesScaled18, sqrtPriceRatio);
     }
 
     function getVirtualBalances(
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
         uint256 c,
-        uint256 lastTimestamp,
-        uint256 currentTimestamp,
-        uint256 centerednessMargin,
-        SqrtQ0State memory sqrtQ0State
-    ) external pure returns (uint256[] memory virtualBalances, bool changed) {
+        uint32 lastTimestamp,
+        uint32 currentTimestamp,
+        uint256 centerednessMargin
+    ) external view returns (uint256[] memory virtualBalances, bool changed) {
         return
             ReClammMath.getVirtualBalances(
                 balancesScaled18,
@@ -95,7 +99,7 @@ contract ReClammMathMock {
                 lastTimestamp,
                 currentTimestamp,
                 centerednessMargin,
-                sqrtQ0State
+                _sqrtPriceRatioState
             );
     }
 
@@ -114,14 +118,21 @@ contract ReClammMathMock {
         return ReClammMath.calculateCenteredness(balancesScaled18, virtualBalances);
     }
 
-    function calculateSqrtQ0(
-        uint256 currentTime,
-        uint256 startSqrtQ0,
-        uint256 endSqrtQ0,
-        uint256 startTime,
-        uint256 endTime
+    function calculateSqrtPriceRatio(
+        uint32 currentTime,
+        uint96 startSqrtPriceRatio,
+        uint96 endSqrtPriceRatio,
+        uint32 startTime,
+        uint32 endTime
     ) external pure returns (uint256) {
-        return ReClammMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
+        return
+            ReClammMath.calculateSqrtPriceRatio(
+                currentTime,
+                startSqrtPriceRatio,
+                endSqrtPriceRatio,
+                startTime,
+                endTime
+            );
     }
 
     function isAboveCenter(
