@@ -211,9 +211,9 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         assertEq(currentVirtualBalances[1], virtualBalances[1], "Virtual B balances don't equal");
     }
 
-    function testSwapExactOutLowTokenOutBalance() public {
+    function testSwapExactOutLowTokenBalance() public {
         vm.prank(alice);
-        vm.expectRevert(IReClammPool.LowTokenOutBalance.selector);
+        vm.expectRevert(IReClammPool.LowTokenBalance.selector);
         router.swapSingleTokenExactOut(
             pool,
             dai,
