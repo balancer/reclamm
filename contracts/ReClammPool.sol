@@ -40,7 +40,8 @@ contract ReClammPool is
     // Invariant shrink limit: non-proportional remove cannot cause the invariant to decrease by less than this ratio.
     uint256 internal constant _MIN_INVARIANT_RATIO = 70e16; // 70%
 
-    uint256 private constant _MIN_TOKEN_OUT_BALANCE = 1e3;
+    uint256 private constant _MIN_TOKEN_OUT_BALANCE = 1e18;
+    uint256 private constant _MIN_POOL_CENTEREDNESS = 1e3;
 
     SqrtPriceRatioState private _sqrtPriceRatioState;
     uint256 private _lastTimestamp;
@@ -84,7 +85,7 @@ contract ReClammPool is
     }
 
     /// @inheritdoc IBasePool
-    function onSwap(PoolSwapParams memory request) public virtual returns (uint256) {
+    function onSwap(PoolSwapParams memory request) public virtual returns (uint256 amountCalculatedScaled18) {
         // Calculate virtual balances
         (uint256[] memory virtualBalances, bool changed) = ReClammMath.getVirtualBalances(
             request.balancesScaled18,
@@ -104,23 +105,39 @@ contract ReClammPool is
 
         // Calculate swap result
         if (request.kind == SwapKind.EXACT_IN) {
-            return
-                ReClammMath.calculateOutGivenIn(
-                    request.balancesScaled18,
-                    _virtualBalances,
-                    request.indexIn,
-                    request.indexOut,
-                    request.amountGivenScaled18
-                );
+            amountCalculatedScaled18 = ReClammMath.calculateOutGivenIn(
+                request.balancesScaled18,
+                virtualBalances,
+                request.indexIn,
+                request.indexOut,
+                request.amountGivenScaled18
+            );
+
+            _checkPoolAfterSwap(
+                request.balancesScaled18,
+                virtualBalances,
+                request.amountGivenScaled18,
+                amountCalculatedScaled18,
+                request.indexIn,
+                request.indexOut
+            );
         } else {
-            return
-                ReClammMath.calculateInGivenOut(
-                    request.balancesScaled18,
-                    _virtualBalances,
-                    request.indexIn,
-                    request.indexOut,
-                    request.amountGivenScaled18
-                );
+            amountCalculatedScaled18 = ReClammMath.calculateInGivenOut(
+                request.balancesScaled18,
+                virtualBalances,
+                request.indexIn,
+                request.indexOut,
+                request.amountGivenScaled18
+            );
+
+            _checkPoolAfterSwap(
+                request.balancesScaled18,
+                virtualBalances,
+                amountCalculatedScaled18,
+                request.amountGivenScaled18,
+                request.indexIn,
+                request.indexOut
+            );
         }
     }
 
@@ -129,7 +146,6 @@ contract ReClammPool is
         hookFlags.shouldCallBeforeInitialize = true;
         hookFlags.shouldCallBeforeAddLiquidity = true;
         hookFlags.shouldCallBeforeRemoveLiquidity = true;
-        hookFlags.shouldCallAfterSwap = true;
     }
 
     /// @inheritdoc IHooks
@@ -197,19 +213,6 @@ contract ReClammPool is
         return true;
     }
 
-    /// @inheritdoc IHooks
-    function onAfterSwap(
-        AfterSwapParams calldata params
-    ) public view override onlyVault returns (bool success, uint256 hookAdjustedAmountCalculatedRaw) {
-        if (params.tokenOutBalanceScaled18 <= _MIN_TOKEN_OUT_BALANCE) {
-            // If one of pool token balances is low, the pool centeredness will be very close to 0. This can cause the
-            // update of price ratio to revert.
-            revert LowTokenOutBalance();
-        }
-
-        return (true, params.amountCalculatedRaw);
-    }
-
     /// @inheritdoc ISwapFeePercentageBounds
     function getMinimumSwapFeePercentage() external pure returns (uint256) {
         return _MIN_SWAP_FEE_PERCENTAGE;
@@ -257,6 +260,28 @@ contract ReClammPool is
     /// @inheritdoc IReClammPool
     function setIncreaseDayRate(uint256 newIncreaseDayRate) external onlySwapFeeManagerOrGovernance(address(this)) {
         _setIncreaseDayRate(newIncreaseDayRate);
+    }
+
+    function _checkPoolAfterSwap(
+        uint256[] memory currentBalancesScaled18,
+        uint256[] memory virtualBalances,
+        uint256 amountInScaled18,
+        uint256 amountOutScaled18,
+        uint256 indexIn,
+        uint256 indexOut
+    ) internal pure {
+        currentBalancesScaled18[indexIn] += amountInScaled18;
+        currentBalancesScaled18[indexOut] -= amountOutScaled18;
+
+        if (currentBalancesScaled18[indexOut] <= _MIN_TOKEN_OUT_BALANCE) {
+            // If one of the token balances is below 1e18, the update of price ratio is not accurate.
+            revert LowTokenOutBalance();
+        }
+
+        if (ReClammMath.calculateCenteredness(currentBalancesScaled18, virtualBalances) < _MIN_POOL_CENTEREDNESS) {
+            // If the pool centeredness is below 1e3, the update of price ratio is not accurate.
+            revert LowPoolCenteredness();
+        }
     }
 
     function _setSqrtPriceRatio(uint96 endSqrtPriceRatio, uint32 startTime, uint32 endTime) internal {

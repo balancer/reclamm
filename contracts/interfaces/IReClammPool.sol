@@ -24,6 +24,9 @@ interface IReClammPool is IBasePool {
     /// @dev The token out balance is too low after a swap.
     error LowTokenOutBalance();
 
+    /// @dev The pool centeredness is too low after a swap.
+    error LowPoolCenteredness();
+
     event SqrtPriceRatioUpdated(uint96 startSqrtPriceRatio, uint96 endSqrtPriceRatio, uint32 startTime, uint32 endTime);
 
     event VirtualBalancesUpdated(uint256[] virtualBalances);

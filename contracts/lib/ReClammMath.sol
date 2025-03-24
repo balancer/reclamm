@@ -21,6 +21,9 @@ struct SqrtPriceRatioState {
 library ReClammMath {
     using FixedPoint for uint256;
 
+    // The pool balances and the virtual balances are too low to calculate the centeredness.
+    error LowPoolBalances();
+
     // Constant to increase the price by a factor 2 if increase rate is 100%.
     uint256 private constant _SECONDS_PER_DAY_WITH_ADJUSTMENT = 124649;
 
@@ -231,15 +234,23 @@ library ReClammMath {
         if (balancesScaled18[0] == 0 || balancesScaled18[1] == 0) {
             return 0;
         } else if (isAboveCenter(balancesScaled18, virtualBalances)) {
-            return
-                balancesScaled18[1].mulDown(virtualBalances[0]).divDown(
-                    balancesScaled18[0].mulDown(virtualBalances[1])
-                );
+            uint256 numerator = balancesScaled18[1].mulDown(virtualBalances[0]);
+            uint256 denominator = balancesScaled18[0].mulDown(virtualBalances[1]);
+
+            if (denominator == 0) {
+                revert LowPoolBalances();
+            }
+
+            return numerator.divDown(denominator);
         } else {
-            return
-                balancesScaled18[0].mulDown(virtualBalances[1]).divDown(
-                    balancesScaled18[1].mulDown(virtualBalances[0])
-                );
+            uint256 numerator = balancesScaled18[0].mulDown(virtualBalances[1]);
+            uint256 denominator = balancesScaled18[1].mulDown(virtualBalances[0]);
+
+            if (denominator == 0) {
+                revert LowPoolBalances();
+            }
+
+            return numerator.divDown(denominator);
         }
     }
 

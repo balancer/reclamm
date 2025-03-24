@@ -20,6 +20,7 @@ contract ReClammMathTest is Test {
     uint256 private constant _SECONDS_PER_DAY_WITH_ADJUSTMENT = 124649;
     uint256 private constant _MAX_BALANCE = 1e6 * 1e18;
     uint256 private constant _MIN_BALANCE = 1e18;
+    uint256 private constant _MIN_POOL_CENTEREDNESS = 1e3;
 
     function testParseIncreaseDayRate() public pure {
         uint256 value = 2123e9;
@@ -270,13 +271,13 @@ contract ReClammMathTest is Test {
         uint256 balance1,
         uint256 virtualBalance0,
         uint256 virtualBalance1,
-        uint256 currentSqrtPriceRatio
+        uint256 expectedSqrtPriceRatio
     ) public pure {
-        balance0 = 732018281609987821657601; //bound(balance0, 1e3, _MAX_BALANCE);
-        balance1 = 246086224670228197301348; //bound(balance1, 1e3, _MAX_BALANCE);
-        virtualBalance0 = 991240441163438900401727; //bound(virtualBalance0, 1e3, _MAX_BALANCE);
-        virtualBalance1 = 621074962488942026092015; //bound(virtualBalance1, 1e3, _MAX_BALANCE);
-        currentSqrtPriceRatio = 3040910068240710251; //SafeCast.toUint96(bound(currentSqrtPriceRatio, 1.1e18, 10e18));
+        balance0 = bound(balance0, _MIN_BALANCE, _MAX_BALANCE);
+        balance1 = bound(balance1, _MIN_BALANCE, _MAX_BALANCE);
+        virtualBalance0 = bound(virtualBalance0, _MIN_BALANCE, _MAX_BALANCE);
+        virtualBalance1 = bound(virtualBalance1, _MIN_BALANCE, _MAX_BALANCE);
+        expectedSqrtPriceRatio = SafeCast.toUint96(bound(expectedSqrtPriceRatio, 1.1e18, 10e18));
 
         uint256[] memory balancesScaled18 = new uint256[](2);
         balancesScaled18[0] = balance0;
@@ -286,26 +287,36 @@ contract ReClammMathTest is Test {
         lastVirtualBalances[0] = virtualBalance0;
         lastVirtualBalances[1] = virtualBalance1;
 
+        vm.assume(_calculateCurrentPriceRatio(balancesScaled18, lastVirtualBalances) >= 1.1e18);
+        vm.assume(_calculateCurrentPriceRatio(balancesScaled18, lastVirtualBalances) <= 10e18);
+
         bool isPoolAboveCenter = ReClammMath.isAboveCenter(balancesScaled18, lastVirtualBalances);
+
+        vm.assume(balancesScaled18[0].mulDown(lastVirtualBalances[1]) > 0);
+        vm.assume(balancesScaled18[1].mulDown(lastVirtualBalances[0]) > 0);
         uint256 oldCenteredness = ReClammMath.calculateCenteredness(balancesScaled18, lastVirtualBalances);
 
+        vm.assume(oldCenteredness > _MIN_POOL_CENTEREDNESS);
+
         uint256[] memory newVirtualBalances = ReClammMath.calculateVirtualBalancesUpdatingPriceRatio(
-            currentSqrtPriceRatio,
+            expectedSqrtPriceRatio,
             balancesScaled18,
             lastVirtualBalances,
             isPoolAboveCenter
         );
 
         // Check if centeredness is the same
+        vm.assume(balancesScaled18[0].mulDown(newVirtualBalances[1]) > 0);
+        vm.assume(balancesScaled18[1].mulDown(newVirtualBalances[0]) > 0);
         uint256 newCenteredness = ReClammMath.calculateCenteredness(balancesScaled18, newVirtualBalances);
-        assertApproxEqAbs(newCenteredness, oldCenteredness, 1e6, "Centeredness should be the same");
+        assertApproxEqAbs(newCenteredness, oldCenteredness, 100, "Centeredness should be the same");
 
         // Check if price ratio matches the new price ratio
         uint256 invariant = ReClammMath.computeInvariant(balancesScaled18, newVirtualBalances, Rounding.ROUND_DOWN);
-        uint256 newSqrtPriceRatio = Math.sqrt(
+        uint256 actualSqrtPriceRatio = Math.sqrt(
             invariant.divDown(newVirtualBalances[0]).divDown(newVirtualBalances[1]) * FixedPoint.ONE
         );
-        assertApproxEqAbs(currentSqrtPriceRatio, newSqrtPriceRatio, 5, "Price Ratio should be correct");
+        assertApproxEqAbs(expectedSqrtPriceRatio, actualSqrtPriceRatio, 100, "Price Ratio should be correct");
     }
 
     function testCalculateSqrtPriceRatioWhenCurrentTimeIsAfterEndTime() public pure {
@@ -360,5 +371,15 @@ contract ReClammMathTest is Test {
         );
 
         assertEq(sqrtPriceRatio, endSqrtPriceRatio, "SqrtPriceRatio should be equal to endSqrtPriceRatio");
+    }
+
+    function _calculateCurrentPriceRatio(
+        uint256[] memory balancesScaled18,
+        uint256[] memory virtualBalances
+    ) private pure returns (uint256 newSqwrtPriceRatio) {
+        uint256 invariant = ReClammMath.computeInvariant(balancesScaled18, virtualBalances, Rounding.ROUND_DOWN);
+        newSqwrtPriceRatio = Math.sqrt(
+            invariant.divDown(virtualBalances[0]).divDown(virtualBalances[1]) * FixedPoint.ONE
+        );
     }
 }
