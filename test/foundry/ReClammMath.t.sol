@@ -5,9 +5,10 @@ pragma solidity ^0.8.24;
 import "forge-std/Test.sol";
 
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-
-import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
+import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
+import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
 
@@ -262,6 +263,49 @@ contract ReClammMathTest is Test {
                 "Next sqrtPriceRatio should be greater than current sqrtPriceRatio"
             );
         }
+    }
+
+    function testCalculateVirtualBalancesUpdatingPriceRatio__Fuzz(
+        uint256 balance0,
+        uint256 balance1,
+        uint256 virtualBalance0,
+        uint256 virtualBalance1,
+        uint256 currentSqrtPriceRatio
+    ) public pure {
+        balance0 = 732018281609987821657601; //bound(balance0, 1e3, _MAX_BALANCE);
+        balance1 = 246086224670228197301348; //bound(balance1, 1e3, _MAX_BALANCE);
+        virtualBalance0 = 991240441163438900401727; //bound(virtualBalance0, 1e3, _MAX_BALANCE);
+        virtualBalance1 = 621074962488942026092015; //bound(virtualBalance1, 1e3, _MAX_BALANCE);
+        currentSqrtPriceRatio = 3040910068240710251; //SafeCast.toUint96(bound(currentSqrtPriceRatio, 1.1e18, 10e18));
+
+        uint256[] memory balancesScaled18 = new uint256[](2);
+        balancesScaled18[0] = balance0;
+        balancesScaled18[1] = balance1;
+
+        uint256[] memory lastVirtualBalances = new uint256[](2);
+        lastVirtualBalances[0] = virtualBalance0;
+        lastVirtualBalances[1] = virtualBalance1;
+
+        bool isPoolAboveCenter = ReClammMath.isAboveCenter(balancesScaled18, lastVirtualBalances);
+        uint256 oldCenteredness = ReClammMath.calculateCenteredness(balancesScaled18, lastVirtualBalances);
+
+        uint256[] memory newVirtualBalances = ReClammMath.calculateVirtualBalancesUpdatingPriceRatio(
+            currentSqrtPriceRatio,
+            balancesScaled18,
+            lastVirtualBalances,
+            isPoolAboveCenter
+        );
+
+        // Check if centeredness is the same
+        uint256 newCenteredness = ReClammMath.calculateCenteredness(balancesScaled18, newVirtualBalances);
+        assertApproxEqAbs(newCenteredness, oldCenteredness, 1e6, "Centeredness should be the same");
+
+        // Check if price ratio matches the new price ratio
+        uint256 invariant = ReClammMath.computeInvariant(balancesScaled18, newVirtualBalances, Rounding.ROUND_DOWN);
+        uint256 newSqrtPriceRatio = Math.sqrt(
+            invariant.divDown(newVirtualBalances[0]).divDown(newVirtualBalances[1]) * FixedPoint.ONE
+        );
+        assertApproxEqAbs(currentSqrtPriceRatio, newSqrtPriceRatio, 5, "Price Ratio should be correct");
     }
 
     function testCalculateSqrtPriceRatioWhenCurrentTimeIsAfterEndTime() public pure {

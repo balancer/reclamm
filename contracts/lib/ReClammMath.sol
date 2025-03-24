@@ -139,7 +139,7 @@ library ReClammMath {
             currentTimestamp > _sqrtPriceRatioState.startTime &&
             (currentTimestamp < _sqrtPriceRatioState.endTime || lastTimestamp < _sqrtPriceRatioState.endTime)
         ) {
-            virtualBalances = _calculateVirtualBalancesUpdatingPriceRatio(
+            virtualBalances = calculateVirtualBalancesUpdatingPriceRatio(
                 currentSqrtPriceRatio,
                 balancesScaled18,
                 lastVirtualBalances,
@@ -150,7 +150,7 @@ library ReClammMath {
         }
 
         if (isPoolInRange(balancesScaled18, virtualBalances, centerednessMargin) == false) {
-            virtualBalances = _calculateVirtualBalancesOutOfRange(
+            virtualBalances = calculateVirtualBalancesOutOfRange(
                 currentSqrtPriceRatio,
                 balancesScaled18,
                 virtualBalances,
@@ -164,35 +164,26 @@ library ReClammMath {
         }
     }
 
-    function _calculateVirtualBalancesUpdatingPriceRatio(
+    function calculateVirtualBalancesUpdatingPriceRatio(
         uint256 currentSqrtPriceRatio,
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
         bool isPoolAboveCenter
-    ) private pure returns (uint256[] memory virtualBalances) {
+    ) internal pure returns (uint256[] memory virtualBalances) {
         virtualBalances = new uint256[](2);
 
         uint256 poolCenteredness = calculateCenteredness(balancesScaled18, lastVirtualBalances);
-        if (isPoolAboveCenter) {
-            uint256 a = currentSqrtPriceRatio.mulDown(currentSqrtPriceRatio) - FixedPoint.ONE;
-            uint256 b = balancesScaled18[0].mulDown(FixedPoint.ONE + poolCenteredness);
-            uint256 c = balancesScaled18[0].mulDown(balancesScaled18[0]).mulDown(poolCenteredness);
-            virtualBalances[0] = (b + Math.sqrt((b.mulDown(b) + 4 * a.mulDown(c)) * FixedPoint.ONE)).divDown(2 * a);
-            virtualBalances[1] = balancesScaled18[1].mulDown(virtualBalances[0]).mulDown(poolCenteredness).divDown(
-                balancesScaled18[0]
-            );
-        } else {
-            uint256 a = currentSqrtPriceRatio.mulDown(currentSqrtPriceRatio) - FixedPoint.ONE;
-            uint256 b = balancesScaled18[1].mulDown(FixedPoint.ONE + poolCenteredness);
-            uint256 c = balancesScaled18[1].mulDown(balancesScaled18[1]).mulDown(poolCenteredness);
-            virtualBalances[1] = (b + Math.sqrt((b.mulDown(b) + 4 * a.mulDown(c)) * FixedPoint.ONE)).divDown(2 * a);
-            virtualBalances[0] = balancesScaled18[0].mulDown(virtualBalances[1]).mulDown(poolCenteredness).divDown(
-                balancesScaled18[1]
-            );
-        }
+        uint256 centerednessFactor = isPoolAboveCenter ? FixedPoint.ONE.divDown(poolCenteredness) : poolCenteredness;
+        uint256 a = currentSqrtPriceRatio.mulDown(currentSqrtPriceRatio) - FixedPoint.ONE;
+        uint256 b = balancesScaled18[1].mulDown(FixedPoint.ONE + centerednessFactor);
+        uint256 c = balancesScaled18[1].mulDown(balancesScaled18[1]).mulDown(centerednessFactor);
+        virtualBalances[1] = (b + Math.sqrt((b.mulDown(b) + 4 * a.mulDown(c)) * FixedPoint.ONE)).divDown(2 * a);
+        virtualBalances[0] = (balancesScaled18[0].mulDown(virtualBalances[1])).divDown(balancesScaled18[1]).divDown(
+            centerednessFactor
+        );
     }
 
-    function _calculateVirtualBalancesOutOfRange(
+    function calculateVirtualBalancesOutOfRange(
         uint256 currentSqrtPriceRatio,
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances,
@@ -200,7 +191,7 @@ library ReClammMath {
         uint256 timeConstant,
         uint32 currentTimestamp,
         uint32 lastTimestamp
-    ) private pure returns (uint256[] memory) {
+    ) internal pure returns (uint256[] memory) {
         uint256 PriceRatio = currentSqrtPriceRatio.mulDown(currentSqrtPriceRatio);
 
         if (isPoolAboveCenter) {
