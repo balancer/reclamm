@@ -17,8 +17,8 @@ import { Version } from "@balancer-labs/v3-solidity-utils/contracts/helpers/Vers
 import { PoolInfo } from "@balancer-labs/v3-pool-utils/contracts/PoolInfo.sol";
 import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
 
-import { SqrtPriceRatioState, ReClammMath } from "./lib/ReClammMath.sol";
 import { ReClammPoolParams, IReClammPool } from "./interfaces/IReClammPool.sol";
+import { SqrtPriceRatioState, ReClammMath } from "./lib/ReClammMath.sol";
 
 contract ReClammPool is
     IUnbalancedLiquidityInvariantRatioBounds,
@@ -39,6 +39,9 @@ contract ReClammPool is
     uint256 internal constant _MAX_INVARIANT_RATIO = 300e16; // 300%
     // Invariant shrink limit: non-proportional remove cannot cause the invariant to decrease by less than this ratio.
     uint256 internal constant _MIN_INVARIANT_RATIO = 70e16; // 70%
+
+    uint256 private constant _MIN_TOKEN_BALANCE = 1e14;
+    uint256 private constant _MIN_POOL_CENTEREDNESS = 1e3;
 
     SqrtPriceRatioState private _sqrtPriceRatioState;
     uint256 private _lastTimestamp;
@@ -82,7 +85,7 @@ contract ReClammPool is
     }
 
     /// @inheritdoc IBasePool
-    function onSwap(PoolSwapParams memory request) public virtual returns (uint256) {
+    function onSwap(PoolSwapParams memory request) public virtual returns (uint256 amountCalculatedScaled18) {
         // Calculate virtual balances
         (uint256[] memory virtualBalances, bool changed) = ReClammMath.getVirtualBalances(
             request.balancesScaled18,
@@ -102,23 +105,39 @@ contract ReClammPool is
 
         // Calculate swap result
         if (request.kind == SwapKind.EXACT_IN) {
-            return
-                ReClammMath.calculateOutGivenIn(
-                    request.balancesScaled18,
-                    _virtualBalances,
-                    request.indexIn,
-                    request.indexOut,
-                    request.amountGivenScaled18
-                );
+            amountCalculatedScaled18 = ReClammMath.calculateOutGivenIn(
+                request.balancesScaled18,
+                virtualBalances,
+                request.indexIn,
+                request.indexOut,
+                request.amountGivenScaled18
+            );
+
+            _checkPoolAfterSwap(
+                request.balancesScaled18,
+                virtualBalances,
+                request.amountGivenScaled18,
+                amountCalculatedScaled18,
+                request.indexIn,
+                request.indexOut
+            );
         } else {
-            return
-                ReClammMath.calculateInGivenOut(
-                    request.balancesScaled18,
-                    _virtualBalances,
-                    request.indexIn,
-                    request.indexOut,
-                    request.amountGivenScaled18
-                );
+            amountCalculatedScaled18 = ReClammMath.calculateInGivenOut(
+                request.balancesScaled18,
+                virtualBalances,
+                request.indexIn,
+                request.indexOut,
+                request.amountGivenScaled18
+            );
+
+            _checkPoolAfterSwap(
+                request.balancesScaled18,
+                virtualBalances,
+                amountCalculatedScaled18,
+                request.amountGivenScaled18,
+                request.indexIn,
+                request.indexOut
+            );
         }
     }
 
@@ -182,7 +201,7 @@ contract ReClammPool is
         RemoveLiquidityKind,
         uint256 maxBptAmountIn,
         uint256[] memory,
-        uint256[] memory,
+        uint256[] memory balancesScaled18,
         bytes memory
     ) public override onlyVault returns (bool) {
         uint256 totalSupply = _vault.totalSupply(pool);
@@ -191,6 +210,15 @@ contract ReClammPool is
         virtualBalances[0] = virtualBalances[0].mulDown(FixedPoint.ONE - proportion);
         virtualBalances[1] = virtualBalances[1].mulDown(FixedPoint.ONE - proportion);
         _setVirtualBalances(virtualBalances);
+
+        if (
+            balancesScaled18[0].mulDown(proportion.complement()) < _MIN_TOKEN_BALANCE ||
+            balancesScaled18[1].mulDown(proportion.complement()) < _MIN_TOKEN_BALANCE
+        ) {
+            // If one of the token balances is below 1e18, the update of price ratio is not accurate.
+            revert LowTokenBalance();
+        }
+
         return true;
     }
 
@@ -241,6 +269,28 @@ contract ReClammPool is
     /// @inheritdoc IReClammPool
     function setIncreaseDayRate(uint256 newIncreaseDayRate) external onlySwapFeeManagerOrGovernance(address(this)) {
         _setIncreaseDayRate(newIncreaseDayRate);
+    }
+
+    function _checkPoolAfterSwap(
+        uint256[] memory currentBalancesScaled18,
+        uint256[] memory virtualBalances,
+        uint256 amountInScaled18,
+        uint256 amountOutScaled18,
+        uint256 indexIn,
+        uint256 indexOut
+    ) internal pure {
+        currentBalancesScaled18[indexIn] += amountInScaled18;
+        currentBalancesScaled18[indexOut] -= amountOutScaled18;
+
+        if (currentBalancesScaled18[indexOut] <= _MIN_TOKEN_BALANCE) {
+            // If one of the token balances is below 1e18, the update of price ratio is not accurate.
+            revert LowTokenBalance();
+        }
+
+        if (ReClammMath.calculateCenteredness(currentBalancesScaled18, virtualBalances) < _MIN_POOL_CENTEREDNESS) {
+            // If the pool centeredness is below 1e3, the update of price ratio is not accurate.
+            revert LowPoolCenteredness();
+        }
     }
 
     function _setSqrtPriceRatio(uint96 endSqrtPriceRatio, uint32 startTime, uint32 endTime) internal {

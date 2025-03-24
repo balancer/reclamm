@@ -3,10 +3,8 @@
 pragma solidity ^0.8.24;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
-import { GyroPoolMath } from "@balancer-labs/v3-pool-gyro/contracts/lib/GyroPoolMath.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
@@ -21,6 +19,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     using ArrayHelpers for *;
 
     uint256 private constant _PRICE_RANGE = 2e18; // Max price is 2x min price.
+    uint256 private constant _MIN_TOKEN_BALANCE = 1e14;
     uint256 private constant _INITIAL_BALANCE_A = 1_000_000e18;
     uint256 private constant _INITIAL_BALANCE_B = 100_000e18;
 
@@ -136,48 +135,47 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         }
     }
 
-    // TODO: Fixed in PR #24 (https://github.com/balancer/reclamm/pull/24)
-    // function testChangingDifferentPriceRange_Fuzz(uint96 newSqrtPriceRange) public {
-    //     newSqrtPriceRange = SafeCast.toUint96(bound(newSqrtPriceRange, 1.1e18, 10e18));
+    function testChangingDifferentPriceRange_Fuzz(uint96 newSqrtPriceRatio) public {
+        newSqrtPriceRatio = SafeCast.toUint96(bound(newSqrtPriceRatio, 1.1e18, 10e18));
 
-    //     uint96 initialSqrtPriceRange = sqrtPriceRatio();
+        uint256 initialSqrtPriceRatio = ReClammPool(pool).getCurrentSqrtPriceRatio();
 
-    //     uint32 duration = 2 hours;
+        uint32 duration = 2 hours;
 
-    //     uint256[] memory poolVirtualBalancesBefore = ReClammPool(pool).getLastVirtualBalances();
+        uint256[] memory poolVirtualBalancesBefore = ReClammPool(pool).getLastVirtualBalances();
 
-    //     uint32 currentTimestamp = uint32(block.timestamp);
+        uint32 currentTimestamp = uint32(block.timestamp);
 
-    //     vm.prank(admin);
-    //     ReClammPool(pool).setSqrtPriceRatio(newSqrtPriceRange, currentTimestamp, currentTimestamp + duration);
-    //     skip(duration);
+        vm.prank(admin);
+        ReClammPool(pool).setSqrtPriceRatio(newSqrtPriceRatio, currentTimestamp, currentTimestamp + duration);
+        skip(duration);
 
-    //     uint256[] memory poolVirtualBalancesAfter = ReClammPool(pool).getLastVirtualBalances();
+        uint256[] memory poolVirtualBalancesAfter = ReClammPool(pool).getLastVirtualBalances();
 
-    //     if (newSqrtPriceRange > initialSqrtPriceRange) {
-    //         assertLt(
-    //             poolVirtualBalancesAfter[0],
-    //             poolVirtualBalancesBefore[0],
-    //             "Virtual A balance after should be less than before"
-    //         );
-    //         assertLt(
-    //             poolVirtualBalancesAfter[1],
-    //             poolVirtualBalancesBefore[1],
-    //             "Virtual B balance after should be less than before"
-    //         );
-    //     } else {
-    //         assertGe(
-    //             poolVirtualBalancesAfter[0],
-    //             poolVirtualBalancesBefore[0],
-    //             "Virtual A balance after should be greater than before"
-    //         );
-    //         assertGe(
-    //             poolVirtualBalancesAfter[1],
-    //             poolVirtualBalancesBefore[1],
-    //             "Virtual B balance after should be greater than before"
-    //         );
-    //     }
-    // }
+        if (newSqrtPriceRatio > initialSqrtPriceRatio) {
+            assertLt(
+                poolVirtualBalancesAfter[0],
+                poolVirtualBalancesBefore[0],
+                "Virtual A balance after should be lower than before"
+            );
+            assertLt(
+                poolVirtualBalancesAfter[1],
+                poolVirtualBalancesBefore[1],
+                "Virtual B balance after should be lower than before"
+            );
+        } else {
+            assertGe(
+                poolVirtualBalancesAfter[0],
+                poolVirtualBalancesBefore[0],
+                "Virtual A balance after should be greater than before"
+            );
+            assertGe(
+                poolVirtualBalancesAfter[1],
+                poolVirtualBalancesBefore[1],
+                "Virtual B balance after should be greater than before"
+            );
+        }
+    }
 
     function testSwapExactIn_Fuzz(uint256 exactAmountIn) public {
         exactAmountIn = bound(exactAmountIn, 1e6, _INITIAL_BALANCE_A);
@@ -197,7 +195,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     }
 
     function testSwapExactOut_Fuzz(uint256 exactAmountOut) public {
-        exactAmountOut = bound(exactAmountOut, 1e6, _INITIAL_BALANCE_B);
+        exactAmountOut = bound(exactAmountOut, 1e6, _INITIAL_BALANCE_B - _MIN_TOKEN_BALANCE - 1);
 
         uint256[] memory virtualBalances = _calculateVirtualBalances();
         uint256 invariantBefore = _getCurrentInvariant();
@@ -211,6 +209,21 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         uint256[] memory currentVirtualBalances = ReClammPool(pool).getLastVirtualBalances();
         assertEq(currentVirtualBalances[0], virtualBalances[0], "Virtual A balances don't equal");
         assertEq(currentVirtualBalances[1], virtualBalances[1], "Virtual B balances don't equal");
+    }
+
+    function testSwapExactOutLowTokenBalance() public {
+        vm.prank(alice);
+        vm.expectRevert(IReClammPool.LowTokenBalance.selector);
+        router.swapSingleTokenExactOut(
+            pool,
+            dai,
+            usdc,
+            _INITIAL_BALANCE_B - _MIN_TOKEN_BALANCE,
+            UINT256_MAX,
+            UINT256_MAX,
+            false,
+            new bytes(0)
+        );
     }
 
     function testAddLiquidity_Fuzz(uint256 exactBptAmountOut) public {

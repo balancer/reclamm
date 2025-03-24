@@ -285,10 +285,10 @@ describe('ReClammMath', function () {
   });
 
   context('getVirtualBalances', () => {
-    const computeCheckAndReturnRes = async (
+    const computeCheckAndReturnContractVirtualBalances = async (
       balancesScaled18: bigint[],
       lastVirtualBalances: bigint[],
-      c: bigint,
+      timeConstant: bigint,
       lastTimestamp: number,
       currentTimestamp: number,
       centerednessMargin: bigint,
@@ -304,32 +304,33 @@ describe('ReClammMath', function () {
     }> => {
       await (await mathLib.setSqrtPriceRatioState(sqrtPriceRatioState)).wait();
 
-      const res = await mathLib.getVirtualBalances(
+      const contractVirtualBalances = await mathLib.getVirtualBalances(
         balancesScaled18,
         lastVirtualBalances,
-        c,
+        timeConstant,
         lastTimestamp,
         currentTimestamp,
         centerednessMargin
       );
-      const jsRes = getVirtualBalances(
+
+      const javascriptVirtualBalances = getVirtualBalances(
         balancesScaled18,
         lastVirtualBalances,
-        c,
+        timeConstant,
         lastTimestamp,
         currentTimestamp,
         centerednessMargin,
         sqrtPriceRatioState
       );
 
-      expect(res[0].length).to.equal(jsRes[0].length);
-      expect(res[0].length).to.equal(2);
-      expectEqualWithError(res[0][0], jsRes[0][0], EXPECTED_RELATIVE_ERROR);
-      expectEqualWithError(res[0][1], jsRes[0][1], EXPECTED_RELATIVE_ERROR);
-      expect(res[1]).to.equal(jsRes[1]);
-      expect(res[1]).to.equal(expectChange);
+      expect(contractVirtualBalances[0].length).to.equal(javascriptVirtualBalances[0].length);
+      expect(contractVirtualBalances[0].length).to.equal(2);
+      expectEqualWithError(contractVirtualBalances[0][0], javascriptVirtualBalances[0][0], EXPECTED_RELATIVE_ERROR);
+      expectEqualWithError(contractVirtualBalances[0][1], javascriptVirtualBalances[0][1], EXPECTED_RELATIVE_ERROR);
+      expect(contractVirtualBalances[1]).to.equal(javascriptVirtualBalances[1]);
+      expect(contractVirtualBalances[1]).to.equal(expectChange);
 
-      return { virtualBalances: [res[0][0], res[0][1]] };
+      return { virtualBalances: [contractVirtualBalances[0][0], contractVirtualBalances[0][1]] };
     };
 
     it('q is updating & isPoolInRange == true && lastTimestamp < startTime', async () => {
@@ -337,10 +338,10 @@ describe('ReClammMath', function () {
       const startSqrtPriceRatio = bn(1.5e18);
       const endSqrtPriceRatio = bn(2e18);
       const lastVirtualBalances = initializeVirtualBalances(balancesScaled18, startSqrtPriceRatio);
-      const c = bn(1e18);
+      const timeConstant = bn(1e18);
       const lastTimestamp = 5;
       const currentTimestamp = 20;
-      const centerednessMargin = 0n;
+      const centerednessMargin = 20n;
       const sqrtPriceRatioState = {
         startTime: 10,
         endTime: 50,
@@ -348,10 +349,10 @@ describe('ReClammMath', function () {
         endSqrtPriceRatio: endSqrtPriceRatio,
       };
 
-      const res = await computeCheckAndReturnRes(
+      const contractVirtualBalances = await computeCheckAndReturnContractVirtualBalances(
         balancesScaled18,
         lastVirtualBalances,
-        c,
+        timeConstant,
         lastTimestamp,
         currentTimestamp,
         centerednessMargin,
@@ -359,7 +360,9 @@ describe('ReClammMath', function () {
         true
       );
 
-      expect(await mathLib.isPoolInRange(balancesScaled18, res.virtualBalances, centerednessMargin)).to.equal(true);
+      expect(
+        await mathLib.isPoolInRange(balancesScaled18, contractVirtualBalances.virtualBalances, centerednessMargin)
+      ).to.equal(true);
     });
 
     it('q is updating & isPoolInRange == true && lastTimestamp > startTime', async () => {
@@ -367,7 +370,7 @@ describe('ReClammMath', function () {
       const startSqrtPriceRatio = bn(1.5e18);
       const endSqrtPriceRatio = bn(2e18);
       const lastVirtualBalances = initializeVirtualBalances(balancesScaled18, startSqrtPriceRatio);
-      const c = bn(1e18);
+      const timeConstant = bn(1e18);
       const lastTimestamp = 15;
       const currentTimestamp = 20;
       const centerednessMargin = 0n;
@@ -378,10 +381,10 @@ describe('ReClammMath', function () {
         endSqrtPriceRatio: endSqrtPriceRatio,
       };
 
-      const res = await computeCheckAndReturnRes(
+      const res = await computeCheckAndReturnContractVirtualBalances(
         balancesScaled18,
         lastVirtualBalances,
-        c,
+        timeConstant,
         lastTimestamp,
         currentTimestamp,
         centerednessMargin,
@@ -396,7 +399,7 @@ describe('ReClammMath', function () {
       const balancesScaled18 = [bn(200e18), bn(200e18)];
       const startSqrtPriceRatio = bn(1.5e18);
       const lastVirtualBalances = [bn(200e18), balancesScaled18[1] * 2n];
-      const c = bn(0);
+      const timeConstant = bn(0);
       const lastTimestamp = 15;
       const currentTimestamp = 20;
       const centerednessMargin = bn(100e18);
@@ -410,10 +413,10 @@ describe('ReClammMath', function () {
       expect(await mathLib.isAboveCenter(balancesScaled18, lastVirtualBalances)).to.equal(true);
       expect(await mathLib.isPoolInRange(balancesScaled18, lastVirtualBalances, centerednessMargin)).to.equal(false);
 
-      await computeCheckAndReturnRes(
+      await computeCheckAndReturnContractVirtualBalances(
         balancesScaled18,
         lastVirtualBalances,
-        c,
+        timeConstant,
         lastTimestamp,
         currentTimestamp,
         centerednessMargin,
@@ -426,7 +429,7 @@ describe('ReClammMath', function () {
       const balancesScaled18 = [bn(200e18), bn(200e18)];
       const startSqrtPriceRatio = bn(1.5e18);
       const lastVirtualBalances = initializeVirtualBalances(balancesScaled18, startSqrtPriceRatio);
-      const c = bn(0);
+      const timeConstant = bn(0);
       const lastTimestamp = 15;
       const currentTimestamp = 20;
       const centerednessMargin = bn(100e18);
@@ -440,10 +443,10 @@ describe('ReClammMath', function () {
       expect(await mathLib.isAboveCenter(balancesScaled18, lastVirtualBalances)).to.equal(false);
       expect(await mathLib.isPoolInRange(balancesScaled18, lastVirtualBalances, centerednessMargin)).to.equal(false);
 
-      await computeCheckAndReturnRes(
+      await computeCheckAndReturnContractVirtualBalances(
         balancesScaled18,
         lastVirtualBalances,
-        c,
+        timeConstant,
         lastTimestamp,
         currentTimestamp,
         centerednessMargin,
@@ -478,7 +481,7 @@ describe('ReClammMath', function () {
       const balancesScaled18 = [bn(200e18), bn(200e18)];
       const startSqrtPriceRatio = bn(1.5e18);
       const lastVirtualBalances = initializeVirtualBalances(balancesScaled18, startSqrtPriceRatio);
-      const c = bn(0);
+      const timeConstant = bn(0);
       const lastTimestamp = 15;
       const currentTimestamp = 20;
       const centerednessMargin = bn(100e18);
@@ -496,7 +499,7 @@ describe('ReClammMath', function () {
       const res = await mathLib.computeInvariant(
         balancesScaled18,
         lastVirtualBalances,
-        c,
+        timeConstant,
         lastTimestamp,
         currentTimestamp,
         centerednessMargin,
@@ -505,7 +508,7 @@ describe('ReClammMath', function () {
       const jsRes = computeInvariant(
         balancesScaled18,
         lastVirtualBalances,
-        c,
+        timeConstant,
         lastTimestamp,
         currentTimestamp,
         centerednessMargin,
@@ -520,7 +523,7 @@ describe('ReClammMath', function () {
       const balancesScaled18 = [bn(200e18), bn(200e18)];
       const startSqrtPriceRatio = bn(1.5e18);
       const lastVirtualBalances = initializeVirtualBalances(balancesScaled18, startSqrtPriceRatio);
-      const c = bn(0);
+      const timeConstant = bn(0);
       const lastTimestamp = 15;
       const currentTimestamp = 20;
       const centerednessMargin = bn(100e18);
@@ -538,7 +541,7 @@ describe('ReClammMath', function () {
       const res = await mathLib.computeInvariant(
         balancesScaled18,
         lastVirtualBalances,
-        c,
+        timeConstant,
         lastTimestamp,
         currentTimestamp,
         centerednessMargin,
@@ -547,7 +550,7 @@ describe('ReClammMath', function () {
       const jsRes = computeInvariant(
         balancesScaled18,
         lastVirtualBalances,
-        c,
+        timeConstant,
         lastTimestamp,
         currentTimestamp,
         centerednessMargin,
