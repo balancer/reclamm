@@ -4,9 +4,11 @@ pragma solidity ^0.8.24;
 
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultErrors.sol";
+
+import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
+import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
-import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
 
 contract ReClammLiquidityTest is BaseReClammTest {
     using FixedPoint for uint256;
@@ -103,6 +105,22 @@ contract ReClammLiquidityTest is BaseReClammTest {
         );
 
         _checkPriceAndCenteredness(balancesBefore, balancesAfter, virtualBalancesBefore, virtualBalancesAfter);
+    }
+
+    function testRemoveLiquidityBelowMinTokenBalance() public {
+        _setPoolBalances(100 * _MIN_TOKEN_BALANCE, 100 * _MIN_TOKEN_BALANCE);
+
+        uint256 totalSupply = vault.totalSupply(pool);
+        // 99% of the total supply + 1, so the LP is leaving less than _MIN_TOKEN_BALANCE in the pool.
+        uint256 exactBptAmountIn = (99 * totalSupply) / 100 + 1;
+
+        uint256[] memory minAmountsOut = new uint256[](2);
+        minAmountsOut[daiIdx] = 0;
+        minAmountsOut[usdcIdx] = 0;
+
+        vm.prank(lp);
+        vm.expectRevert(IReClammPool.LowTokenBalance.selector);
+        router.removeLiquidityProportional(pool, exactBptAmountIn, minAmountsOut, false, "");
     }
 
     function testRemoveLiquiditySingleTokenExactOut() public {
