@@ -3,13 +3,13 @@
 pragma solidity ^0.8.24;
 
 import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
-import { SqrtQ0State, ReClammMath } from "../lib/ReClammMath.sol";
+import { SqrtPriceRatioState, ReClammMath } from "../lib/ReClammMath.sol";
 
 contract ReClammMathMock {
-    SqrtQ0State private _sqrtQ0State;
+    SqrtPriceRatioState private _sqrtPriceRatioState;
 
-    function setSqrtQ0State(SqrtQ0State memory sqrtQ0State) external {
-        _sqrtQ0State = sqrtQ0State;
+    function setSqrtPriceRatioState(SqrtPriceRatioState memory sqrtPriceRatioState) external {
+        _sqrtPriceRatioState = sqrtPriceRatioState;
     }
 
     function computeInvariant(
@@ -29,7 +29,7 @@ contract ReClammMathMock {
                 lastTimestamp,
                 currentTimestamp,
                 centerednessMargin,
-                _sqrtQ0State,
+                _sqrtPriceRatioState,
                 rounding
             );
     }
@@ -78,9 +78,9 @@ contract ReClammMathMock {
 
     function initializeVirtualBalances(
         uint256[] memory balancesScaled18,
-        uint256 sqrtQ0
+        uint256 sqrtPriceRatio
     ) external pure returns (uint256[] memory virtualBalances) {
-        return ReClammMath.initializeVirtualBalances(balancesScaled18, sqrtQ0);
+        return ReClammMath.initializeVirtualBalances(balancesScaled18, sqrtPriceRatio);
     }
 
     function getVirtualBalances(
@@ -99,7 +99,7 @@ contract ReClammMathMock {
                 lastTimestamp,
                 currentTimestamp,
                 centerednessMargin,
-                _sqrtQ0State
+                _sqrtPriceRatioState
             );
     }
 
@@ -118,14 +118,21 @@ contract ReClammMathMock {
         return ReClammMath.calculateCenteredness(balancesScaled18, virtualBalances);
     }
 
-    function calculateSqrtQ0(
+    function calculateSqrtPriceRatio(
         uint32 currentTime,
-        uint96 startSqrtQ0,
-        uint96 endSqrtQ0,
+        uint96 startSqrtPriceRatio,
+        uint96 endSqrtPriceRatio,
         uint32 startTime,
         uint32 endTime
     ) external pure returns (uint256) {
-        return ReClammMath.calculateSqrtQ0(currentTime, startSqrtQ0, endSqrtQ0, startTime, endTime);
+        return
+            ReClammMath.calculateSqrtPriceRatio(
+                currentTime,
+                startSqrtPriceRatio,
+                endSqrtPriceRatio,
+                startTime,
+                endTime
+            );
     }
 
     function isAboveCenter(
