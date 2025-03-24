@@ -225,7 +225,7 @@ contract ReClammMathTest is Test {
         uint32 startTime,
         uint32 endTime
     ) public pure {
-        endTime = SafeCast.toUint32(bound(endTime, 2, type(uint64).max));
+        endTime = SafeCast.toUint32(bound(endTime, 2, type(uint32).max - 1));
         startTime = SafeCast.toUint32(bound(startTime, 1, endTime - 1));
         currentTime = SafeCast.toUint32(bound(currentTime, startTime, endTime));
 
