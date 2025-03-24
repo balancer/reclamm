@@ -10,7 +10,7 @@ struct ReClammPoolParams {
     string symbol;
     string version;
     uint256 increaseDayRate;
-    uint96 sqrtQ0;
+    uint96 sqrtPriceRatio;
     uint256 centerednessMargin;
 }
 
@@ -21,7 +21,7 @@ interface IReClammPool is IBasePool {
     /// @dev The function is not implemented.
     error NotImplemented();
 
-    event SqrtQ0Updated(uint96 startSqrtQ0, uint96 endSqrtQ0, uint32 startTime, uint32 endTime);
+    event SqrtPriceRatioUpdated(uint96 startSqrtPriceRatio, uint96 endSqrtPriceRatio, uint32 startTime, uint32 endTime);
 
     event VirtualBalancesUpdated(uint256[] virtualBalances);
 
@@ -33,9 +33,9 @@ interface IReClammPool is IBasePool {
 
     function getLastTimestamp() external view returns (uint256);
 
-    function getCurrentSqrtQ0() external view returns (uint96);
+    function getCurrentSqrtPriceRatio() external view returns (uint96);
 
-    function setSqrtQ0(uint96 newSqrtQ0, uint32 startTime, uint32 endTime) external;
+    function setSqrtPriceRatio(uint96 newSqrtPriceRatio, uint32 startTime, uint32 endTime) external;
 
     function setIncreaseDayRate(uint256 newIncreaseDayRate) external;
 }
