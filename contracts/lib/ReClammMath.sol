@@ -27,7 +27,7 @@ library ReClammMath {
     function computeInvariant(
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
-        uint256 c,
+        uint256 timeConstant,
         uint32 lastTimestamp,
         uint32 currentTimestamp,
         uint256 centerednessMargin,
@@ -37,7 +37,7 @@ library ReClammMath {
         (uint256[] memory virtualBalances, ) = getVirtualBalances(
             balancesScaled18,
             lastVirtualBalances,
-            c,
+            timeConstant,
             lastTimestamp,
             currentTimestamp,
             centerednessMargin,
