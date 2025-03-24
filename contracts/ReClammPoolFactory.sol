@@ -43,7 +43,7 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
      * @param symbol The symbol of the pool
      * @param tokens An array of descriptors for the tokens the pool will manage
      * @param increaseDayRate The allowed change in a virtual balance per day
-     * @param sqrtQ0 The fourth root of the price range (e.g. price range = [400, 6400], Q0^2 = 16 and sqrtQ0 = 2)
+     * @param sqrtPriceRatio The fourth root of the price ratio
      * @param centerednessMargin How far the price can be from the center before the price range starts to move
      * @param roleAccounts Addresses the Vault will allow to change certain pool settings
      * @param swapFeePercentage Initial swap fee percentage
@@ -56,7 +56,7 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
         PoolRoleAccounts memory roleAccounts,
         uint256 swapFeePercentage,
         uint256 increaseDayRate,
-        uint96 sqrtQ0,
+        uint96 sqrtPriceRatio,
         uint256 centerednessMargin,
         bytes32 salt
     ) external returns (address pool) {
@@ -80,7 +80,7 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
                     symbol: symbol,
                     version: _poolVersion,
                     increaseDayRate: increaseDayRate,
-                    sqrtQ0: sqrtQ0,
+                    sqrtPriceRatio: sqrtPriceRatio,
                     centerednessMargin: centerednessMargin
                 }),
                 getVault()
