@@ -108,7 +108,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                 request.amountGivenScaled18
             );
 
-            _checkPoolAfterSwap(
+            _ensureValidPoolStateAfterSwap(
                 request.balancesScaled18,
                 virtualBalances,
                 request.amountGivenScaled18,
@@ -125,7 +125,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                 request.amountGivenScaled18
             );
 
-            _checkPoolAfterSwap(
+            _ensureValidPoolStateAfterSwap(
                 request.balancesScaled18,
                 virtualBalances,
                 amountCalculatedScaled18,
