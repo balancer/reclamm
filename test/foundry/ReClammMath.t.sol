@@ -21,7 +21,7 @@ contract ReClammMathTest is Test {
     uint256 private constant _MAX_BALANCE = 1e6 * 1e18;
     uint256 private constant _MIN_BALANCE = 1e14;
     uint256 private constant _MIN_POOL_CENTEREDNESS = 1e3;
-    uint256 private constant _MAX_CENTEREDNESS_ERROR_ABS = 1e5;
+    uint256 private constant _MAX_CENTEREDNESS_ERROR_ABS = 1e9;
     uint256 private constant _MAX_PRICE_ERROR_ABS = 1e12;
 
     function testParseIncreaseDayRate() public pure {

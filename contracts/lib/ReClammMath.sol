@@ -21,7 +21,15 @@ struct SqrtPriceRatioState {
 library ReClammMath {
     using FixedPoint for uint256;
 
-    // Constant to increase the price by a factor 2 if increase rate is 100%.
+    // We want, after 1 day (86400 seconds) that the pool is out of range, to double the price (or reduce by 50%)
+    // with PriceShiftDailyRate = 100%. So, we want to be able to move the virtual balances by the same rate.
+    // Therefore, after one day:
+    //
+    // 1. `Vnext = 2*Vcurrent`
+    // 2. In the equation `Vnext = Vcurrent * (1 - tau)^(n+1)`, isolate tau.
+    // 3. Replace `Vnext` with `2*Vcurrent` and `n` with `86400` to get `tau = 1 - pow(2, 1/(86400+1))`.
+    // 4. Since `tau = priceShiftDailyRate/x`, then `x = priceShiftDailyRate/tau`. Since priceShiftDailyRate = 100%,
+    //    then `x = 100%/(1 - pow(2, 1/(86400+1)))`, which is 124649.
     uint256 private constant _SECONDS_PER_DAY_WITH_ADJUSTMENT = 124649;
 
     function computeInvariant(
