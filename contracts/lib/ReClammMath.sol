@@ -227,6 +227,7 @@ library ReClammMath {
                 (priceRatio - FixedPoint.ONE).mulDown(virtualBalances[1]) - balancesScaled18[1]
             );
         } else {
+            // Va = Va * (1 - timeConstant)^(Tcurr - Tlast)
             virtualBalances[0] = virtualBalances[0].mulDown(
                 LogExpMath.pow(FixedPoint.ONE - timeConstant, (currentTimestamp - lastTimestamp) * FixedPoint.ONE)
             );
