@@ -81,7 +81,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IBasePool
     function onSwap(PoolSwapParams memory request) public virtual returns (uint256 amountCalculatedScaled18) {
-        // Calculate virtual balances
+        // Calculate virtual balances.
         (uint256[] memory virtualBalances, bool changed) = ReClammMath.getVirtualBalances(
             request.balancesScaled18,
             _virtualBalances,
@@ -98,7 +98,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             _setVirtualBalances(virtualBalances);
         }
 
-        // Calculate swap result
+        // Calculate swap result.
         if (request.kind == SwapKind.EXACT_IN) {
             amountCalculatedScaled18 = ReClammMath.calculateOutGivenIn(
                 request.balancesScaled18,
@@ -282,12 +282,12 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         currentBalancesScaled18[indexOut] -= amountOutScaled18;
 
         if (currentBalancesScaled18[indexOut] <= _MIN_TOKEN_BALANCE_SCALED18) {
-            // If one of the token balances is below 1e18, the update of price ratio is not accurate.
+            // If one of the token balances is below the minimum, the price ratio update is unreliable.
             revert TokenBalanceTooLow();
         }
 
         if (ReClammMath.calculateCenteredness(currentBalancesScaled18, virtualBalances) < _MIN_POOL_CENTEREDNESS) {
-            // If the pool centeredness is below 1e3, the update of price ratio is not accurate.
+            // If the pool centeredness is below the minimum, the price ratio update is unreliable.
             revert PoolCenterednessTooLow();
         }
     }
