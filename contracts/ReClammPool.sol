@@ -211,7 +211,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             balancesScaled18[1].mulDown(proportion.complement()) < _MIN_TOKEN_BALANCE_SCALED18
         ) {
             // If one of the token balances is below 1e18, the update of price ratio is not accurate.
-            revert LowTokenBalance();
+            revert TokenBalanceTooLow();
         }
 
         return true;
@@ -283,12 +283,12 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         if (currentBalancesScaled18[indexOut] <= _MIN_TOKEN_BALANCE_SCALED18) {
             // If one of the token balances is below 1e18, the update of price ratio is not accurate.
-            revert LowTokenBalance();
+            revert TokenBalanceTooLow();
         }
 
         if (ReClammMath.calculateCenteredness(currentBalancesScaled18, virtualBalances) < _MIN_POOL_CENTEREDNESS) {
             // If the pool centeredness is below 1e3, the update of price ratio is not accurate.
-            revert LowPoolCenteredness();
+            revert PoolCenterednessTooLow();
         }
     }
 

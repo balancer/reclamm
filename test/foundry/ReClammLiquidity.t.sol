@@ -119,7 +119,7 @@ contract ReClammLiquidityTest is BaseReClammTest {
         minAmountsOut[usdcIdx] = 0;
 
         vm.prank(lp);
-        vm.expectRevert(IReClammPool.LowTokenBalance.selector);
+        vm.expectRevert(IReClammPool.TokenBalanceTooLow.selector);
         router.removeLiquidityProportional(pool, exactBptAmountIn, minAmountsOut, false, "");
     }
 
