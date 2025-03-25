@@ -20,15 +20,7 @@ import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
 import { ReClammPoolParams, IReClammPool } from "./interfaces/IReClammPool.sol";
 import { SqrtPriceRatioState, ReClammMath } from "./lib/ReClammMath.sol";
 
-contract ReClammPool is
-    IUnbalancedLiquidityInvariantRatioBounds,
-    IReClammPool,
-    BalancerPoolToken,
-    PoolInfo,
-    BasePoolAuthentication,
-    Version,
-    BaseHooks
-{
+contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthentication, Version, BaseHooks {
     using FixedPoint for uint256;
 
     // uint256 private constant _MIN_SWAP_FEE_PERCENTAGE = 0.001e16; // 0.001%
@@ -40,6 +32,14 @@ contract ReClammPool is
     // Invariant shrink limit: non-proportional remove cannot cause the invariant to decrease by less than this ratio.
     uint256 internal constant _MIN_INVARIANT_RATIO = 70e16; // 70%
 
+    // A pool is "centered" when it holds equal (non-zero) value in both real token balances. In this state, the ratio
+    // of the real balances equals the ratio of the virtual balances, and the value of the centeredness measure is
+    // FixedPoint.ONE.
+    //
+    // As the real balance of either token approaches zero, the centeredness measure likewise approaches zero. Since
+    // centeredness is the divisor in many calculations, zero values would revert, and even near-zero values are
+    // problematic. Imposing this limit on centeredness (i.e., reverting if an operation would cause the centeredness
+    // to decrease below this threshold) keeps the math well-behaved.
     uint256 private constant _MIN_TOKEN_BALANCE_SCALED18 = 1e14;
     uint256 private constant _MIN_POOL_CENTEREDNESS = 1e3;
 
