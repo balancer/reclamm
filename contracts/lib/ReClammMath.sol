@@ -178,27 +178,27 @@ library ReClammMath {
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
         bool isPoolAboveCenter
-    ) internal pure returns (uint256[] memory virtualBalances) {
-        virtualBalances = new uint256[](2);
-
+    ) internal pure returns (uint256[] memory) {
         uint256 poolCenteredness = calculateCenteredness(balancesScaled18, lastVirtualBalances);
 
         if (isPoolAboveCenter) {
-            uint256 a = currentSqrtPriceRatio.mulDown(currentSqrtPriceRatio) - FixedPoint.ONE;
-            uint256 b = balancesScaled18[0].mulDown(FixedPoint.ONE + poolCenteredness);
-            uint256 c = balancesScaled18[0].mulDown(balancesScaled18[0]).mulDown(poolCenteredness);
-            virtualBalances[0] = (b + Math.sqrt((b.mulDown(b) + 4 * a.mulDown(c)) * FixedPoint.ONE)).divDown(2 * a);
-            virtualBalances[1] = (balancesScaled18[1].mulDown(virtualBalances[0])).divDown(balancesScaled18[0]).divDown(
-                poolCenteredness
-            );
+            return
+                _calculateVirtualBalancesWithPriceRatioAndCenterednessConstant(
+                    balancesScaled18,
+                    currentSqrtPriceRatio,
+                    poolCenteredness,
+                    0,
+                    1
+                );
         } else {
-            uint256 a = currentSqrtPriceRatio.mulDown(currentSqrtPriceRatio) - FixedPoint.ONE;
-            uint256 b = balancesScaled18[1].mulDown(FixedPoint.ONE + poolCenteredness);
-            uint256 c = balancesScaled18[1].mulDown(balancesScaled18[1]).mulDown(poolCenteredness);
-            virtualBalances[1] = (b + Math.sqrt((b.mulDown(b) + 4 * a.mulDown(c)) * FixedPoint.ONE)).divDown(2 * a);
-            virtualBalances[0] = (balancesScaled18[0].mulDown(virtualBalances[1])).divDown(balancesScaled18[1]).divDown(
-                poolCenteredness
-            );
+            return
+                _calculateVirtualBalancesWithPriceRatioAndCenterednessConstant(
+                    balancesScaled18,
+                    currentSqrtPriceRatio,
+                    poolCenteredness,
+                    1,
+                    0
+                );
         }
     }
 
@@ -301,5 +301,26 @@ library ReClammMath {
     function parseIncreaseDayRate(uint256 increaseDayRate) internal pure returns (uint256) {
         // Divide daily rate by a number of seconds per day (plus some adjustment)
         return increaseDayRate / _SECONDS_PER_DAY_WITH_ADJUSTMENT;
+    }
+
+    function _calculateVirtualBalancesWithPriceRatioAndCenterednessConstant(
+        uint256[] memory balancesScaled18,
+        uint256 currentSqrtPriceRatio,
+        uint256 poolCenteredness,
+        uint256 indexTokenUndervalued,
+        uint256 indexTokenOvervalued
+    ) private pure returns (uint256[] memory virtualBalances) {
+        virtualBalances = new uint256[](2);
+
+        uint256 a = currentSqrtPriceRatio.mulDown(currentSqrtPriceRatio) - FixedPoint.ONE;
+        uint256 b = balancesScaled18[indexTokenUndervalued].mulDown(FixedPoint.ONE + poolCenteredness);
+        uint256 c = balancesScaled18[indexTokenUndervalued].mulDown(balancesScaled18[indexTokenUndervalued]).mulDown(
+            poolCenteredness
+        );
+        virtualBalances[indexTokenUndervalued] = (b + Math.sqrt((b.mulDown(b) + 4 * a.mulDown(c)) * FixedPoint.ONE))
+            .divDown(2 * a);
+        virtualBalances[indexTokenOvervalued] = (
+            balancesScaled18[indexTokenOvervalued].mulDown(virtualBalances[indexTokenUndervalued])
+        ).divDown(balancesScaled18[indexTokenUndervalued]).divDown(poolCenteredness);
     }
 }
