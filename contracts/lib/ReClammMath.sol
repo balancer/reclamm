@@ -76,8 +76,9 @@ library ReClammMath {
         uint256 tokenOutPoolAmount = invariant.divUp(totalBalances[tokenInIndex] + amountGivenScaled18);
 
         if (tokenOutPoolAmount > totalBalances[tokenOutIndex]) {
-            // If the token out pool amount is greater than the total balance of the token out, it means that the pool
-            // is heavily unbalanced and the token in is deeply undervalued. The swap result must be 0 in this case.
+            // If the amount of `tokenOut` remaining in the pool post-swap is greater than the total balance of
+            // `tokenOut`, that means the pool is heavily unbalanced, and `tokenIn` is extremely undervalued.
+            // Set the swap result to 0 in this case.
             return 0;
         }
 
