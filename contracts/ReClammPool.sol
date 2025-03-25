@@ -270,7 +270,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _setIncreaseDayRate(newIncreaseDayRate);
     }
 
-    function _checkPoolAfterSwap(
+    function _ensureValidPoolStateAfterSwap(
         uint256[] memory currentBalancesScaled18,
         uint256[] memory virtualBalances,
         uint256 amountInScaled18,
