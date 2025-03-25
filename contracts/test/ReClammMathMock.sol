@@ -83,7 +83,7 @@ contract ReClammMathMock {
         return ReClammMath.initializeVirtualBalances(balancesScaled18, sqrtPriceRatio);
     }
 
-    function getVirtualBalances(
+    function getCurrentVirtualBalances(
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
         uint256 c,
@@ -92,7 +92,7 @@ contract ReClammMathMock {
         uint256 centerednessMargin
     ) external view returns (uint256[] memory virtualBalances, bool changed) {
         return
-            ReClammMath.getVirtualBalances(
+            ReClammMath.getCurrentVirtualBalances(
                 balancesScaled18,
                 lastVirtualBalances,
                 c,

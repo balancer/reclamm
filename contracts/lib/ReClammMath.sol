@@ -42,7 +42,7 @@ library ReClammMath {
         SqrtPriceRatioState storage sqrtPriceRatioState,
         Rounding rounding
     ) internal pure returns (uint256) {
-        (uint256[] memory virtualBalances, ) = getVirtualBalances(
+        (uint256[] memory virtualBalances, ) = getCurrentVirtualBalances(
             balancesScaled18,
             lastVirtualBalances,
             timeConstant,
@@ -119,7 +119,7 @@ library ReClammMath {
         virtualBalances[1] = balancesScaled18[1].divDown(sqrtPriceRatio - FixedPoint.ONE);
     }
 
-    function getVirtualBalances(
+    function getCurrentVirtualBalances(
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
         uint256 timeConstant,

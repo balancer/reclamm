@@ -82,7 +82,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     /// @inheritdoc IBasePool
     function onSwap(PoolSwapParams memory request) public virtual returns (uint256 amountCalculatedScaled18) {
         // Calculate virtual balances.
-        (uint256[] memory virtualBalances, bool changed) = ReClammMath.getVirtualBalances(
+        (uint256[] memory virtualBalances, bool changed) = ReClammMath.getCurrentVirtualBalances(
             request.balancesScaled18,
             _virtualBalances,
             _timeConstant,
@@ -341,7 +341,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
 
         // Calculate virtual balances
-        (virtualBalances, ) = ReClammMath.getVirtualBalances(
+        (virtualBalances, ) = ReClammMath.getCurrentVirtualBalances(
             balancesScaled18,
             _virtualBalances,
             _timeConstant,

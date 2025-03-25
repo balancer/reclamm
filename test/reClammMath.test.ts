@@ -8,7 +8,7 @@ import {
   calculateOutGivenIn,
   calculateSqrtPriceRatio,
   computeInvariant,
-  getVirtualBalances,
+  getCurrentVirtualBalances,
   initializeVirtualBalances,
   isAboveCenter,
   isPoolInRange,
@@ -284,7 +284,7 @@ describe('ReClammMath', function () {
     });
   });
 
-  context('getVirtualBalances', () => {
+  context('getCurrentVirtualBalances', () => {
     const computeCheckAndReturnContractVirtualBalances = async (
       balancesScaled18: bigint[],
       lastVirtualBalances: bigint[],
@@ -304,7 +304,7 @@ describe('ReClammMath', function () {
     }> => {
       await (await mathLib.setSqrtPriceRatioState(sqrtPriceRatioState)).wait();
 
-      const contractVirtualBalances = await mathLib.getVirtualBalances(
+      const contractVirtualBalances = await mathLib.getCurrentVirtualBalances(
         balancesScaled18,
         lastVirtualBalances,
         timeConstant,
@@ -313,7 +313,7 @@ describe('ReClammMath', function () {
         centerednessMargin
       );
 
-      const javascriptVirtualBalances = getVirtualBalances(
+      const javascriptVirtualBalances = getCurrentVirtualBalances(
         balancesScaled18,
         lastVirtualBalances,
         timeConstant,
