@@ -89,7 +89,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
                 symbol: defaultParams.symbol,
                 version: defaultParams.poolVersion,
                 increaseDayRate: defaultParams.defaultIncreaseDayRate,
-                sqrtQ0: defaultParams.defaultSqrtQ0,
+                sqrtPriceRatio: defaultParams.defaultSqrtQ0,
                 centerednessMargin: defaultParams.defaultCenterednessMargin
             }),
             vault

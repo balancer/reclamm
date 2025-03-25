@@ -7,7 +7,7 @@ import "forge-std/Test.sol";
 import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 
-import { SqrtQ0State } from "../../contracts/lib/ReClammMath.sol";
+import { SqrtPriceRatioState } from "../../contracts/lib/ReClammMath.sol";
 import { ReClammMathMock } from "../../contracts/test/ReClammMathMock.sol";
 
 contract ReClammRoundingTest is Test {
@@ -68,7 +68,9 @@ contract ReClammRoundingTest is Test {
 
         uint256[] memory virtualBalances = mathMock.initializeVirtualBalances(balances, sqrtQ0);
 
-        mathMock.setSqrtQ0State(SqrtQ0State({ startSqrtQ0: sqrtQ0, endSqrtQ0: sqrtQ0, startTime: 0, endTime: 0 }));
+        mathMock.setSqrtPriceRatioState(
+            SqrtPriceRatioState({ startSqrtPriceRatio: sqrtQ0, endSqrtPriceRatio: sqrtQ0, startTime: 0, endTime: 0 })
+        );
         uint256 amountOut = mathMock.calculateOutGivenIn(
             balances,
             virtualBalances,
@@ -116,7 +118,9 @@ contract ReClammRoundingTest is Test {
 
         uint256[] memory virtualBalances = mathMock.initializeVirtualBalances(balances, sqrtQ0);
 
-        mathMock.setSqrtQ0State(SqrtQ0State({ startSqrtQ0: sqrtQ0, endSqrtQ0: sqrtQ0, startTime: 0, endTime: 0 }));
+        mathMock.setSqrtPriceRatioState(
+            SqrtPriceRatioState({ startSqrtPriceRatio: sqrtQ0, endSqrtPriceRatio: sqrtQ0, startTime: 0, endTime: 0 })
+        );
         uint256 amountIn = mathMock.calculateOutGivenIn(
             balances,
             virtualBalances,
