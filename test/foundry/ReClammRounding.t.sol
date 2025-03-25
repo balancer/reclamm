@@ -17,8 +17,8 @@ contract ReClammRoundingTest is Test {
     uint256 constant MIN_BALANCE = 1e18;
     uint256 constant MIN_AMOUNT = 1e12;
     uint256 constant MAX_AMOUNT = 1_000_000_000_000 * 1e18;
-    uint256 constant MIN_SQRTQ0 = 10e12 + FixedPoint.ONE; // 1.00001
-    uint256 constant MAX_SQRTQ0 = 1000e18;
+    uint256 constant MIN_SQRT_PRICE_RATIO = 10e12 + FixedPoint.ONE; // 1.00001
+    uint256 constant MAX_SQRT_PRICE_RATIO = 1000e18;
     uint256 constant MAX_TIME_CONSTANT = FixedPoint.ONE - 1;
 
     uint256 constant MIN_SWAP_FEE = 0;
@@ -31,15 +31,15 @@ contract ReClammRoundingTest is Test {
         mathMock = new ReClammMathMock();
     }
 
-    function testPureComputeInvariant__Fuzz(uint256[2] memory rawBalances, uint256 sqrtQ0) public view {
-        uint256[] memory balances = new uint256[](rawBalances.length);
+    function testPureComputeInvariant__Fuzz(uint256[2] memory balancesRaw, uint256 sqrtPriceRatio) public view {
+        uint256[] memory balances = new uint256[](balancesRaw.length);
         for (uint256 i = 0; i < balances.length; ++i) {
-            balances[i] = bound(rawBalances[i], MIN_BALANCE, MAX_AMOUNT);
+            balances[i] = bound(balancesRaw[i], MIN_BALANCE, MAX_AMOUNT);
         }
 
-        sqrtQ0 = uint96(bound(sqrtQ0, MIN_SQRTQ0, MAX_SQRTQ0));
+        sqrtPriceRatio = uint96(bound(sqrtPriceRatio, MIN_SQRT_PRICE_RATIO, MAX_SQRT_PRICE_RATIO));
 
-        uint256[] memory virtualBalances = mathMock.initializeVirtualBalances(balances, sqrtQ0);
+        uint256[] memory virtualBalances = mathMock.initializeVirtualBalances(balances, sqrtPriceRatio);
 
         uint256 invariantRoundedUp = mathMock.computeInvariant(balances, virtualBalances, Rounding.ROUND_UP);
         uint256 invariantRoundedDown = mathMock.computeInvariant(balances, virtualBalances, Rounding.ROUND_DOWN);
@@ -52,24 +52,29 @@ contract ReClammRoundingTest is Test {
     }
 
     function testCalculateOutGivenIn___Fuzz(
-        uint256[2] calldata rawBalances,
-        uint96 sqrtQ0,
+        uint256[2] calldata balancesRaw,
+        uint96 sqrtPriceRatio,
         bool isTokenAIn,
         uint256 amountGivenScaled18
     ) external {
-        (uint256 tokenInIndex, uint256 tokenOutIndex) = _getTokenInIndexAndTokenOutIndex(isTokenAIn);
+        (uint256 tokenInIndex, uint256 tokenOutIndex) = isTokenAIn ? (0, 1) : (1, 0);
 
-        uint256[] memory balances = new uint256[](rawBalances.length);
+        uint256[] memory balances = new uint256[](balancesRaw.length);
         for (uint256 i = 0; i < balances.length; ++i) {
-            balances[i] = bound(rawBalances[i], MIN_BALANCE, MAX_AMOUNT);
+            balances[i] = bound(balancesRaw[i], MIN_BALANCE, MAX_AMOUNT);
         }
-        sqrtQ0 = uint96(bound(sqrtQ0, MIN_SQRTQ0, MAX_SQRTQ0));
+        sqrtPriceRatio = uint96(bound(sqrtPriceRatio, MIN_SQRT_PRICE_RATIO, MAX_SQRT_PRICE_RATIO));
         amountGivenScaled18 = bound(amountGivenScaled18, MIN_AMOUNT, balances[tokenOutIndex]);
 
-        uint256[] memory virtualBalances = mathMock.initializeVirtualBalances(balances, sqrtQ0);
+        uint256[] memory virtualBalances = mathMock.initializeVirtualBalances(balances, sqrtPriceRatio);
 
         mathMock.setSqrtPriceRatioState(
-            SqrtPriceRatioState({ startSqrtPriceRatio: sqrtQ0, endSqrtPriceRatio: sqrtQ0, startTime: 0, endTime: 0 })
+            SqrtPriceRatioState({
+                startSqrtPriceRatio: sqrtPriceRatio,
+                endSqrtPriceRatio: sqrtPriceRatio,
+                startTime: 0,
+                endTime: 0
+            })
         );
         uint256 amountOut = mathMock.calculateOutGivenIn(
             balances,
@@ -102,24 +107,29 @@ contract ReClammRoundingTest is Test {
     }
 
     function testCalculateInGivenOut___Fuzz(
-        uint256[2] calldata rawBalances,
-        uint96 sqrtQ0,
+        uint256[2] calldata balancesRaw,
+        uint96 sqrtPriceRatio,
         bool isTokenAIn,
         uint256 amountGivenScaled18
     ) external {
-        uint256[] memory balances = new uint256[](rawBalances.length);
-        (uint256 tokenInIndex, uint256 tokenOutIndex) = _getTokenInIndexAndTokenOutIndex(isTokenAIn);
+        uint256[] memory balances = new uint256[](balancesRaw.length);
+        (uint256 tokenInIndex, uint256 tokenOutIndex) = isTokenAIn ? (0, 1) : (1, 0);
 
         for (uint256 i = 0; i < balances.length; ++i) {
-            balances[i] = bound(rawBalances[i], MIN_BALANCE, MAX_AMOUNT);
+            balances[i] = bound(balancesRaw[i], MIN_BALANCE, MAX_AMOUNT);
         }
-        sqrtQ0 = uint96(bound(sqrtQ0, MIN_SQRTQ0, MAX_SQRTQ0));
+        sqrtPriceRatio = uint96(bound(sqrtPriceRatio, MIN_SQRT_PRICE_RATIO, MAX_SQRT_PRICE_RATIO));
         amountGivenScaled18 = bound(amountGivenScaled18, MIN_AMOUNT, balances[tokenOutIndex]);
 
-        uint256[] memory virtualBalances = mathMock.initializeVirtualBalances(balances, sqrtQ0);
+        uint256[] memory virtualBalances = mathMock.initializeVirtualBalances(balances, sqrtPriceRatio);
 
         mathMock.setSqrtPriceRatioState(
-            SqrtPriceRatioState({ startSqrtPriceRatio: sqrtQ0, endSqrtPriceRatio: sqrtQ0, startTime: 0, endTime: 0 })
+            SqrtPriceRatioState({
+                startSqrtPriceRatio: sqrtPriceRatio,
+                endSqrtPriceRatio: sqrtPriceRatio,
+                startTime: 0,
+                endTime: 0
+            })
         );
         uint256 amountIn = mathMock.calculateOutGivenIn(
             balances,
@@ -149,16 +159,5 @@ contract ReClammRoundingTest is Test {
 
         assertGe(amountInRoundedUp, amountIn, "amountInRoundedUp < amountIn (calculateOutGivenIn)");
         assertLe(amountInRoundedDown, amountIn, "amountInRoundedDown > amountIn (calculateOutGivenIn)");
-    }
-
-    function _getTokenInIndexAndTokenOutIndex(
-        bool isTokenAIn
-    ) internal pure returns (uint256 tokenInIndex, uint256 tokenOutIndex) {
-        tokenInIndex = 0;
-        tokenOutIndex = 1;
-        if (isTokenAIn == false) {
-            tokenInIndex = 1;
-            tokenOutIndex = 0;
-        }
     }
 }

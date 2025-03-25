@@ -17,7 +17,7 @@ import { ReClammPoolFactory } from "../../../contracts/ReClammPoolFactory.sol";
 import { ReClammPoolFactoryMock } from "../../../contracts/test/ReClammPoolFactoryMock.sol";
 import { ReClammPoolParams } from "../../../contracts/interfaces/IReClammPool.sol";
 /**
- * @dev This contract contains functions for deploying mocks and contracts related to the "Acl Amm Pool". These
+ * @dev This contract contains functions for deploying mocks and contracts related to the "ReClamm Pool". These
  * functions should have support for reusing artifacts from the hardhat compilation.
  */
 contract ReClammPoolContractsDeployer is BaseContractsDeployer {
@@ -28,7 +28,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
         string symbol;
         uint256 defaultIncreaseDayRate;
         uint256 defaultCenterednessMargin;
-        uint96 defaultSqrtQ0;
+        uint96 defaultSqrtPriceRatio;
         string poolVersion;
         string factoryVersion;
     }
@@ -40,13 +40,13 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
 
     constructor() {
         defaultParams = DefaultDeployParams({
-            name: "Acl Amm Pool",
+            name: "ReClamm Pool",
             symbol: "RECLAMMPOOL",
             defaultIncreaseDayRate: 100e16, // 100%
             defaultCenterednessMargin: 10e16, // 10%
-            defaultSqrtQ0: 1.41421356e18, // Price Range of 4 (fourth square root is 1.41)
-            poolVersion: "Acl Amm Pool v1",
-            factoryVersion: "Acl Amm Pool Factory v1"
+            defaultSqrtPriceRatio: 1.41421356e18, // Price Range of 4 (fourth square root is 1.41)
+            poolVersion: "ReClamm Pool v1",
+            factoryVersion: "ReClamm Pool Factory v1"
         });
 
         // if this external artifact path exists, it means we are running outside of this repo
@@ -61,8 +61,8 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
         IVaultMock vault,
         address poolCreator
     ) internal returns (address newPool, bytes memory poolArgs) {
-        string memory poolVersion = "Acl Amm Pool v1";
-        string memory factoryVersion = "Acl Amm Pool Factory v1";
+        string memory poolVersion = "ReClamm Pool v1";
+        string memory factoryVersion = "ReClamm Pool Factory v1";
 
         ReClammPoolFactory poolFactory = deployReClammPoolFactory(vault, 1 days, factoryVersion, poolVersion);
         PoolRoleAccounts memory roleAccounts;
@@ -76,7 +76,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
             roleAccounts,
             0,
             defaultParams.defaultIncreaseDayRate,
-            defaultParams.defaultSqrtQ0,
+            defaultParams.defaultSqrtPriceRatio,
             defaultParams.defaultCenterednessMargin,
             bytes32(_saltIndex++)
         );
@@ -89,7 +89,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
                 symbol: defaultParams.symbol,
                 version: defaultParams.poolVersion,
                 increaseDayRate: defaultParams.defaultIncreaseDayRate,
-                sqrtPriceRatio: defaultParams.defaultSqrtQ0,
+                sqrtPriceRatio: defaultParams.defaultSqrtPriceRatio,
                 centerednessMargin: defaultParams.defaultCenterednessMargin
             }),
             vault
