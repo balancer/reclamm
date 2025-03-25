@@ -61,7 +61,7 @@ contract ReClammPoolTest is BaseReClammTest {
     function testSetCenterednessMargin() public {
         // ReCLAMM pools do not have a way to set the margin, so this function uses a mocked version that exposes a
         // private function.
-        uint256 newCenterednessMargin = 50e16;
+        uint64 newCenterednessMargin = 50e16;
         vm.prank(admin);
         vm.expectEmit();
         emit IReClammPool.CenterednessMarginUpdated(newCenterednessMargin);

@@ -41,9 +41,9 @@ contract ReClammPool is
     uint256 internal constant _MIN_INVARIANT_RATIO = 70e16; // 70%
 
     SqrtPriceRatioState private _sqrtPriceRatioState;
-    uint256 private _lastTimestamp;
-    uint256 private _timeConstant;
-    uint256 private _centerednessMargin;
+    uint32 private _lastTimestamp;
+    uint128 private _timeConstant;
+    uint64 private _centerednessMargin;
     uint256[] private _virtualBalances;
 
     constructor(
@@ -67,7 +67,7 @@ contract ReClammPool is
                 balancesScaled18,
                 _virtualBalances,
                 _timeConstant,
-                uint32(_lastTimestamp),
+                _lastTimestamp,
                 uint32(block.timestamp),
                 _centerednessMargin,
                 _sqrtPriceRatioState,
@@ -88,13 +88,13 @@ contract ReClammPool is
             request.balancesScaled18,
             _virtualBalances,
             _timeConstant,
-            uint32(_lastTimestamp),
+            _lastTimestamp,
             uint32(block.timestamp),
             _centerednessMargin,
             _sqrtPriceRatioState
         );
 
-        _lastTimestamp = block.timestamp;
+        _lastTimestamp = uint32(block.timestamp);
 
         if (changed) {
             _setVirtualBalances(virtualBalances);
@@ -144,7 +144,7 @@ contract ReClammPool is
         uint256[] memory balancesScaled18,
         bytes memory
     ) public override onlyVault returns (bool) {
-        _lastTimestamp = block.timestamp;
+        _lastTimestamp = uint32(block.timestamp);
 
         uint256 currentSqrtPriceRatio = _calculateCurrentSqrtPriceRatio();
         uint256[] memory virtualBalances = ReClammMath.initializeVirtualBalances(
@@ -276,7 +276,7 @@ contract ReClammPool is
         emit IncreaseDayRateUpdated(increaseDayRate);
     }
 
-    function _setCenterednessMargin(uint256 centerednessMargin) internal {
+    function _setCenterednessMargin(uint64 centerednessMargin) internal {
         _centerednessMargin = centerednessMargin;
 
         emit CenterednessMarginUpdated(centerednessMargin);
@@ -296,7 +296,7 @@ contract ReClammPool is
             balancesScaled18,
             _virtualBalances,
             _timeConstant,
-            uint32(_lastTimestamp),
+            _lastTimestamp,
             uint32(block.timestamp),
             _centerednessMargin,
             _sqrtPriceRatioState

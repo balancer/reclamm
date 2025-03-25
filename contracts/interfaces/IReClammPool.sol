@@ -11,7 +11,7 @@ struct ReClammPoolParams {
     string version;
     uint256 increaseDayRate;
     uint96 sqrtPriceRatio;
-    uint256 centerednessMargin;
+    uint64 centerednessMargin;
 }
 
 interface IReClammPool is IBasePool {

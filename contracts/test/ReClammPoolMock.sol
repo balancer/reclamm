@@ -12,7 +12,7 @@ contract ReClammPoolMock is ReClammPool {
         // solhint-disable-previous-line no-empty-blocks
     }
 
-    function setCenterednessMargin(uint256 newCenterednessMargin) external {
+    function setCenterednessMargin(uint64 newCenterednessMargin) external {
         _setCenterednessMargin(newCenterednessMargin);
     }
 }

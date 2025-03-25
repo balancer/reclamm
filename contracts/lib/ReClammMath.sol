@@ -28,7 +28,7 @@ library ReClammMath {
         uint256 c,
         uint32 lastTimestamp,
         uint32 currentTimestamp,
-        uint256 centerednessMargin,
+        uint64 centerednessMargin,
         SqrtPriceRatioState storage sqrtPriceRatioState,
         Rounding rounding
     ) internal pure returns (uint256) {
@@ -106,7 +106,7 @@ library ReClammMath {
         uint256 c,
         uint32 lastTimestamp,
         uint32 currentTimestamp,
-        uint256 centerednessMargin,
+        uint64 centerednessMargin,
         SqrtPriceRatioState storage sqrtPriceRatioState
     ) internal pure returns (uint256[] memory virtualBalances, bool changed) {
         // TODO Review rounding
@@ -248,8 +248,8 @@ library ReClammMath {
         }
     }
 
-    function parseIncreaseDayRate(uint256 increaseDayRate) internal pure returns (uint256) {
+    function parseIncreaseDayRate(uint256 increaseDayRate) internal pure returns (uint128) {
         // Divide daily rate by a number of seconds per day (plus some adjustment)
-        return increaseDayRate / _SECONDS_PER_DAY_WITH_ADJUSTMENT;
+        return SafeCast.toUint128(increaseDayRate / _SECONDS_PER_DAY_WITH_ADJUSTMENT);
     }
 }
