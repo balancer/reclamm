@@ -177,6 +177,26 @@ contract ReClammMathTest is Test {
         assertEq(amountOut, expected, "Amount out should be correct");
     }
 
+    function testCalculateOutGivenInBiggerThanBalance() public {
+        // Pool heavily unbalanced, token B over valued.
+        uint256 balanceA = 4e5 * 1e18;
+        uint256 balanceB = 1e18;
+        uint256 virtualBalanceA = 7e5 * 1e18;
+        uint256 virtualBalanceB = 5e5 * 1e18;
+
+        // This trade will return more tokens B than the real balance of the pool.
+        uint256 amountGivenScaled18 = balanceA;
+
+        vm.expectRevert(ReClammMath.AmountOutBiggerThanBalance.selector);
+        mathContract.calculateOutGivenIn(
+            [balanceA, balanceB].toMemoryArray(),
+            [virtualBalanceA, virtualBalanceB].toMemoryArray(),
+            0,
+            1,
+            amountGivenScaled18
+        );
+    }
+
     function testIsPoolInRange__Fuzz(
         uint256 balance0,
         uint256 balance1,
