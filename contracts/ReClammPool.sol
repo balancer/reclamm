@@ -339,7 +339,7 @@ contract ReClammPool is
     }
 
     function _getLastVirtualBalances() internal view returns (uint256[] memory virtualBalances) {
-        (, , uint256[] memory balancesScaled18, ) = _vault.getPoolTokenInfo(address(this));
+        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
 
         // Calculate virtual balances
         (virtualBalances, ) = ReClammMath.getVirtualBalances(

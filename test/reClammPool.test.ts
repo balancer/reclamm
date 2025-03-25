@@ -26,6 +26,8 @@ import { deployPermit2 } from '@balancer-labs/v3-vault/test/Permit2Deployer';
 import { IPermit2 } from '@balancer-labs/v3-vault/typechain-types/permit2/src/interfaces/IPermit2';
 import { PoolConfigStructOutput } from '@balancer-labs/v3-interfaces/typechain-types/contracts/vault/IVault';
 import { TokenConfigStruct } from '../typechain-types/@balancer-labs/v3-interfaces/contracts/vault/IVault';
+import { getVirtualBalances, parseIncreaseDayRate } from './utils/reClammMath';
+import { expectEqualWithError } from './utils/relativeError';
 
 describe('ReClammPool', function () {
   const FACTORY_VERSION = 'ReClamm Pool Factory v1';
@@ -35,10 +37,15 @@ describe('ReClammPool', function () {
   const POOL_SWAP_FEE = fp(0.01);
   const TOKEN_AMOUNT = fp(100);
 
-  const INITIAL_BALANCES = [TOKEN_AMOUNT, TOKEN_AMOUNT];
-  const SWAP_AMOUNT = fp(20);
+  const INITIAL_BALANCES = [2n * TOKEN_AMOUNT, TOKEN_AMOUNT];
 
   const SWAP_FEE = fp(0.01); // 1%
+  const SQRT_PRICE_RATIO = fp(2); // The ratio between max and min price is 16 (2^4)
+  const INCREASE_DAY_RATE = fp(1); // 100%. Price interval can double or reduce by half each day
+  // 20%. If pool centeredness is less than margin, price interval will track the market price.
+  const CENTEREDNESS_MARGIN = fp(0.2);
+
+  const virtualBalancesError = 0.000000000000001;
 
   let permit2: IPermit2;
   let vault: IVaultMock;
@@ -86,9 +93,9 @@ describe('ReClammPool', function () {
       tokenConfig,
       { pauseManager: ZERO_ADDRESS, swapFeeManager: ZERO_ADDRESS, poolCreator: ZERO_ADDRESS },
       SWAP_FEE,
-      fp(1),
-      fp(2),
-      fp(0.2),
+      INCREASE_DAY_RATE,
+      SQRT_PRICE_RATIO,
+      CENTEREDNESS_MARGIN,
       ZERO_BYTES32
     );
     const receipt = await tx.wait();
@@ -96,8 +103,8 @@ describe('ReClammPool', function () {
 
     pool = (await deployedAt('ReClammPool', event.args.pool)) as unknown as ReClammPool;
 
-    await tokenA.mint(bob, TOKEN_AMOUNT + SWAP_AMOUNT);
-    await tokenB.mint(bob, TOKEN_AMOUNT);
+    await tokenA.mint(bob, 10n * TOKEN_AMOUNT);
+    await tokenB.mint(bob, 10n * TOKEN_AMOUNT);
 
     await pool.connect(bob).approve(router, MAX_UINT256);
     for (const token of [tokenA, tokenB]) {
@@ -155,5 +162,60 @@ describe('ReClammPool', function () {
   it('is registered in the factory', async () => {
     expect(await factory.getPoolCount()).to.be.eq(1);
     expect(await factory.getPools()).to.be.deep.eq([await pool.getAddress()]);
+  });
+
+  it('should change the virtual balances as expected', async () => {
+    // Very big swap, putting the pool right at the edge.
+    const exactAmountIn = 2n * TOKEN_AMOUNT;
+    const minAmountOut = FP_ZERO;
+    const deadline = MAX_UINT256;
+    const wethIsEth = false;
+
+    await router
+      .connect(bob)
+      .swapSingleTokenExactIn(pool, tokenA, tokenB, exactAmountIn, minAmountOut, deadline, wethIsEth, '0x');
+
+    const [, , , poolBalancesAfterSwap] = await vault.getPoolTokenInfo(pool);
+    const lastVirtualBalances = await pool.getLastVirtualBalances();
+    const lastTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
+
+    // Pass 1 hour
+    await ethers.provider.send('evm_increaseTime', [60 * 60]);
+    await ethers.provider.send('evm_mine');
+
+    // calculate the expected virtual balances in the next swap
+    const [expectedVirtualBalances] = getVirtualBalances(
+      poolBalancesAfterSwap,
+      lastVirtualBalances,
+      parseIncreaseDayRate(INCREASE_DAY_RATE),
+      lastTimestamp,
+      lastTimestamp + 60 * 60 + 1,
+      CENTEREDNESS_MARGIN,
+      {
+        startTime: 0,
+        endTime: 0,
+        startSqrtPriceRatio: SQRT_PRICE_RATIO,
+        endSqrtPriceRatio: SQRT_PRICE_RATIO,
+      }
+    );
+
+    // make the next swap
+    await router.connect(bob).swapSingleTokenExactIn(
+      pool, // pool address
+      tokenB, // token we're swapping from
+      tokenA, // token we're swapping to
+      exactAmountIn, // exact amount we're swapping
+      minAmountOut, // minimum amount we want to receive
+      deadline, // deadline for the swap
+      wethIsEth, // whether we're dealing with ETH
+      '0x' // no additional data
+    );
+
+    // check if the virtual balances are close from expected
+    const actualVirtualBalances = await pool.getLastVirtualBalances();
+
+    expect(actualVirtualBalances.length).to.be.equal(2);
+    expectEqualWithError(actualVirtualBalances[0], expectedVirtualBalances[0], virtualBalancesError);
+    expectEqualWithError(actualVirtualBalances[1], expectedVirtualBalances[1], virtualBalancesError);
   });
 });

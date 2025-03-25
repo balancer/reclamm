@@ -32,7 +32,7 @@ export function getVirtualBalances(
   centerednessMargin: bigint,
   sqrtPriceRatioState: SqrtPriceRatioState
 ): [bigint[], boolean] {
-  let virtualBalances = lastVirtualBalances;
+  let virtualBalances = [...lastVirtualBalances];
 
   if (lastTimestamp == currentTimestamp) {
     return [virtualBalances, false];
@@ -55,22 +55,12 @@ export function getVirtualBalances(
     currentTimestamp > sqrtPriceRatioState.startTime &&
     (currentTimestamp < sqrtPriceRatioState.endTime || lastTimestamp < sqrtPriceRatioState.endTime)
   ) {
-    const centeredness = calculateCenteredness(balancesScaled18, lastVirtualBalances);
-    const centerednessFactor = isPoolAboveCenter ? fpDivDown(fp(1), centeredness) : centeredness;
-
-    const a = fpMulDown(currentSqrtPriceRatio, currentSqrtPriceRatio) - fp(1);
-    const b = fpMulDown(balancesScaled18[1], fp(1) + centerednessFactor);
-    const c = fpMulDown(fpMulDown(balancesScaled18[1], balancesScaled18[1]), centerednessFactor);
-
-    virtualBalances[1] = fpDivDown(
-      b + BigInt(Math.sqrt(Number(fp(1) * (fpMulDown(b, b) + fpMulDown(fp(4), fpMulDown(a, c)))))),
-      fpMulDown(fp(2), a)
+    virtualBalances = calculateVirtualBalancesUpdatingPriceRatio(
+      currentSqrtPriceRatio,
+      balancesScaled18,
+      lastVirtualBalances,
+      isPoolAboveCenter
     );
-    virtualBalances[0] = fpDivDown(
-      fpDivDown(fpMulDown(balancesScaled18[0], virtualBalances[1]), balancesScaled18[1]),
-      centerednessFactor
-    );
-
     changed = true;
   }
 
@@ -99,6 +89,47 @@ export function getVirtualBalances(
   }
 
   return [virtualBalances, changed];
+}
+
+export function calculateVirtualBalancesUpdatingPriceRatio(
+  currentSqrtPriceRatio: bigint,
+  balancesScaled18: bigint[],
+  lastVirtualBalances: bigint[],
+  isPoolAboveCenter: boolean
+): bigint[] {
+  let virtualBalances = [...lastVirtualBalances];
+
+  const centeredness = calculateCenteredness(balancesScaled18, lastVirtualBalances);
+
+  if (isPoolAboveCenter) {
+    const a = fpMulDown(currentSqrtPriceRatio, currentSqrtPriceRatio) - fp(1);
+    const b = fpMulDown(balancesScaled18[0], fp(1) + centeredness);
+    const c = fpMulDown(fpMulDown(balancesScaled18[0], balancesScaled18[0]), centeredness);
+
+    virtualBalances[0] = fpDivDown(
+      b + BigInt(Math.sqrt(Number(fp(1) * (fpMulDown(b, b) + fpMulDown(fp(4), fpMulDown(a, c)))))),
+      fpMulDown(fp(2), a)
+    );
+    virtualBalances[1] = fpDivDown(
+      fpDivDown(fpMulDown(balancesScaled18[1], virtualBalances[0]), balancesScaled18[0]),
+      centeredness
+    );
+  } else {
+    const a = fpMulDown(currentSqrtPriceRatio, currentSqrtPriceRatio) - fp(1);
+    const b = fpMulDown(balancesScaled18[1], fp(1) + centeredness);
+    const c = fpMulDown(fpMulDown(balancesScaled18[1], balancesScaled18[1]), centeredness);
+
+    virtualBalances[1] = fpDivDown(
+      b + BigInt(Math.sqrt(Number(fp(1) * (fpMulDown(b, b) + fpMulDown(fp(4), fpMulDown(a, c)))))),
+      fpMulDown(fp(2), a)
+    );
+    virtualBalances[0] = fpDivDown(
+      fpDivDown(fpMulDown(balancesScaled18[0], virtualBalances[1]), balancesScaled18[1]),
+      centeredness
+    );
+  }
+
+  return virtualBalances;
 }
 
 export function computeInvariant(
@@ -226,15 +257,7 @@ export function isAboveCenter(balancesScaled18: bigint[], virtualBalances: bigin
   if (balancesScaled18[1] == 0n) {
     return true;
   } else {
-    const fpBalancesScaled18 = new Array(2);
-    const fpVirtualBalances = new Array(2);
-
-    fpBalancesScaled18[0] = toFp(balancesScaled18[0]);
-    fpBalancesScaled18[1] = toFp(balancesScaled18[1]);
-    fpVirtualBalances[0] = toFp(virtualBalances[0]);
-    fpVirtualBalances[1] = toFp(virtualBalances[1]);
-
-    return fpBalancesScaled18[0].div(fpBalancesScaled18[1]) > fpVirtualBalances[0].div(fpVirtualBalances[1]);
+    return fpDivDown(balancesScaled18[0], balancesScaled18[1]) > fpDivDown(virtualBalances[0], virtualBalances[1]);
   }
 }
 
