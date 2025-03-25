@@ -218,7 +218,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
             pool,
             dai,
             usdc,
-            _INITIAL_BALANCE_B - _MIN_TOKEN_BALANCE,
+            _INITIAL_BALANCE_B - _MIN_TOKEN_BALANCE + 1,
             UINT256_MAX,
             UINT256_MAX,
             false,

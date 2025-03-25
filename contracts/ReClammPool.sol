@@ -326,7 +326,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         currentBalancesScaled18[indexIn] += amountInScaled18;
         currentBalancesScaled18[indexOut] -= amountOutScaled18;
 
-        if (currentBalancesScaled18[indexOut] <= _MIN_TOKEN_BALANCE_SCALED18) {
+        if (currentBalancesScaled18[indexOut] < _MIN_TOKEN_BALANCE_SCALED18) {
             // If one of the token balances is below the minimum, the price ratio update is unreliable.
             revert TokenBalanceTooLow();
         }
