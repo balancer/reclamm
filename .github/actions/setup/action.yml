@@ -21,13 +21,13 @@ runs:
       id: cache-modules
       with:
         path: './node_modules/*'
-        key: yarn-pool-${{ hashFiles('./yarn.lock') }}
+        key: yarn-pool-${{ hashFiles('./yarn.lock') }}-${{ hashFiles('submodule-hash.txt') }}
     - name: Cache library pkg
       uses: actions/cache@v4
       id: cache-lib-pkg
       with:
         path: './lib/balancer-v3-monorepo/pkg'
-        key: lib-pkg-temp-${{ hashFiles('./submodule-hash.txt') }}
+        key: lib-pkg-${{ hashFiles('./yarn.lock') }}-${{ hashFiles('submodule-hash.txt') }}
     - name: Install lcov
       shell: bash
       run: sudo apt-get install lcov
