@@ -35,7 +35,7 @@ interface IReClammPool is IBasePool {
 
     event CenterednessMarginUpdated(uint256 centerednessMargin);
 
-    function getLastVirtualBalances() external view returns (uint256[] memory virtualBalances);
+    function getCurrentVirtualBalances() external view returns (uint256[] memory currentVirtualBalances);
 
     function getLastTimestamp() external view returns (uint256);
 

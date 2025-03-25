@@ -142,7 +142,7 @@ export function computeInvariant(
   sqrtPriceRatioState: SqrtPriceRatioState,
   rounding: Rounding
 ): bigint {
-  const [virtualBalances, _] = getCurrentVirtualBalances(
+  const [currentVirtualBalances, _] = getCurrentVirtualBalances(
     balancesScaled18,
     lastVirtualBalances,
     timeConstant,
@@ -152,7 +152,7 @@ export function computeInvariant(
     sqrtPriceRatioState
   );
 
-  return pureComputeInvariant(balancesScaled18, virtualBalances, rounding);
+  return pureComputeInvariant(balancesScaled18, currentVirtualBalances, rounding);
 }
 
 export function pureComputeInvariant(

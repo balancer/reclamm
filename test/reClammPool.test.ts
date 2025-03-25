@@ -176,7 +176,7 @@ describe('ReClammPool', function () {
       .swapSingleTokenExactIn(pool, tokenA, tokenB, exactAmountIn, minAmountOut, deadline, wethIsEth, '0x');
 
     const [, , , poolBalancesAfterSwap] = await vault.getPoolTokenInfo(pool);
-    const lastVirtualBalances = await pool.getLastVirtualBalances();
+    const virtualBalancesAfterSwap = await pool.getCurrentVirtualBalances();
     const lastTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
 
     // Pass 1 hour
@@ -184,9 +184,9 @@ describe('ReClammPool', function () {
     await ethers.provider.send('evm_mine');
 
     // calculate the expected virtual balances in the next swap
-    const [expectedVirtualBalances] = getCurrentVirtualBalances(
+    const [expectedFinalVirtualBalances] = getCurrentVirtualBalances(
       poolBalancesAfterSwap,
-      lastVirtualBalances,
+      virtualBalancesAfterSwap,
       parseIncreaseDayRate(INCREASE_DAY_RATE),
       lastTimestamp,
       lastTimestamp + 60 * 60 + 1,
@@ -212,10 +212,10 @@ describe('ReClammPool', function () {
     );
 
     // check if the virtual balances are close from expected
-    const actualVirtualBalances = await pool.getLastVirtualBalances();
+    const actualFinalVirtualBalances = await pool.getCurrentVirtualBalances();
 
-    expect(actualVirtualBalances.length).to.be.equal(2);
-    expectEqualWithError(actualVirtualBalances[0], expectedVirtualBalances[0], virtualBalancesError);
-    expectEqualWithError(actualVirtualBalances[1], expectedVirtualBalances[1], virtualBalancesError);
+    expect(actualFinalVirtualBalances.length).to.be.equal(2);
+    expectEqualWithError(actualFinalVirtualBalances[0], expectedFinalVirtualBalances[0], virtualBalancesError);
+    expectEqualWithError(actualFinalVirtualBalances[1], expectedFinalVirtualBalances[1], virtualBalancesError);
   });
 });
