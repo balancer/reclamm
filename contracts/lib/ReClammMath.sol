@@ -21,6 +21,12 @@ struct SqrtPriceRatioState {
 library ReClammMath {
     using FixedPoint for uint256;
 
+    /// @dev The swap result is bigger than the real balance of the token.
+    error AmountOutBiggerThanBalance();
+
+    /// @dev The swap result is negative due to a rounding issue.
+    error NegativeAmountOut();
+
     // We want, after 1 day (86400 seconds) that the pool is out of range, to double the price (or reduce by 50%)
     // with PriceShiftDailyRate = 100%. So, we want to be able to move the virtual balances by the same rate.
     // Therefore, after one day:
@@ -85,12 +91,17 @@ library ReClammMath {
 
         if (tokenOutPoolAmount > totalBalances[tokenOutIndex]) {
             // If the amount of `tokenOut` remaining in the pool post-swap is greater than the total balance of
-            // `tokenOut`, that means the pool is heavily unbalanced, and `tokenIn` is extremely undervalued.
-            // Set the swap result to 0 in this case.
-            return 0;
+            // `tokenOut`, that means the swap result is negative due to a rounding issue.
+            revert NegativeAmountOut();
         }
 
-        return totalBalances[tokenOutIndex] - tokenOutPoolAmount;
+        uint256 amountOut = totalBalances[tokenOutIndex] - tokenOutPoolAmount;
+        if (amountOut > balancesScaled18[tokenOutIndex]) {
+            // Amount out cannot be bigger than the real balance of the token.
+            revert AmountOutBiggerThanBalance();
+        }
+
+        return amountOut;
     }
 
     function calculateInGivenOut(
@@ -100,6 +111,11 @@ library ReClammMath {
         uint256 tokenOutIndex,
         uint256 amountGivenScaled18
     ) internal pure returns (uint256) {
+        if (amountGivenScaled18 > balancesScaled18[tokenOutIndex]) {
+            // Amount in cannot be bigger than the real balance of the token.
+            revert AmountOutBiggerThanBalance();
+        }
+
         uint256[] memory totalBalances = new uint256[](balancesScaled18.length);
 
         totalBalances[0] = balancesScaled18[0] + virtualBalances[0];

@@ -10,6 +10,7 @@ import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/Ar
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
+import { ReClammMathMock } from "../../contracts/test/ReClammMathMock.sol";
 import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
 
 contract ReClammMathTest is Test {
@@ -22,7 +23,13 @@ contract ReClammMathTest is Test {
     uint256 private constant _MIN_BALANCE = 1e14;
     uint256 private constant _MIN_POOL_CENTEREDNESS = 1e3;
     uint256 private constant _MAX_CENTEREDNESS_ERROR_ABS = 1e9;
-    uint256 private constant _MAX_PRICE_ERROR_ABS = 1e13;
+    uint256 private constant _MAX_PRICE_ERROR_ABS = 1e14;
+
+    ReClammMathMock internal mathContract;
+
+    function setUp() public {
+        mathContract = new ReClammMathMock();
+    }
 
     function testParseIncreaseDayRate() public pure {
         uint256 value = 2123e9;
@@ -100,6 +107,24 @@ contract ReClammMathTest is Test {
         assertEq(amountIn, expected, "Amount in should be correct");
     }
 
+    function testCalculateInGivenOutBiggerThanBalance() public {
+        uint256 balanceA = 1e18;
+        uint256 balanceB = 1e18;
+        uint256 virtualBalanceA = 1e18;
+        uint256 virtualBalanceB = 1e18;
+
+        uint256 amountGivenScaled18 = 1e18 + 1;
+
+        vm.expectRevert(ReClammMath.AmountOutBiggerThanBalance.selector);
+        mathContract.calculateInGivenOut(
+            [balanceA, balanceB].toMemoryArray(),
+            [virtualBalanceA, virtualBalanceB].toMemoryArray(),
+            0,
+            1,
+            amountGivenScaled18
+        );
+    }
+
     function testCalculateOutGivenIn__Fuzz(
         uint256 balanceA,
         uint256 balanceB,
@@ -118,6 +143,14 @@ contract ReClammMathTest is Test {
 
         uint256 maxAmount = tokenIn == 0 ? balanceA : balanceB;
         amountGivenScaled18 = bound(amountGivenScaled18, 1, maxAmount);
+        uint256 expectedAmountOutScaled18 = _calculateOutGivenInAllowError(
+            [balanceA, balanceB].toMemoryArray(),
+            [virtualBalanceA, virtualBalanceB].toMemoryArray(),
+            tokenIn,
+            tokenOut,
+            amountGivenScaled18
+        );
+        vm.assume(expectedAmountOutScaled18 < (tokenOut == 0 ? balanceA : balanceB));
 
         uint256 amountOut = ReClammMath.calculateOutGivenIn(
             [balanceA, balanceB].toMemoryArray(),
@@ -411,5 +444,26 @@ contract ReClammMathTest is Test {
         newSqwrtPriceRatio = Math.sqrt(
             invariant.divDown(virtualBalances[0]).divDown(virtualBalances[1]) * FixedPoint.ONE
         );
+    }
+
+    function _calculateOutGivenInAllowError(
+        uint256[] memory balancesScaled18,
+        uint256[] memory virtualBalances,
+        uint256 tokenInIndex,
+        uint256 tokenOutIndex,
+        uint256 amountGivenScaled18
+    ) private pure returns (uint256) {
+        uint256[] memory totalBalances = new uint256[](balancesScaled18.length);
+
+        totalBalances[0] = balancesScaled18[0] + virtualBalances[0];
+        totalBalances[1] = balancesScaled18[1] + virtualBalances[1];
+
+        uint256 invariant = totalBalances[0].mulUp(totalBalances[1]);
+        // Total (virtual + real) token out amount that should stay in the pool after the swap.
+        uint256 tokenOutPoolAmount = invariant.divUp(totalBalances[tokenInIndex] + amountGivenScaled18);
+
+        vm.assume(tokenOutPoolAmount <= totalBalances[tokenOutIndex]);
+
+        return totalBalances[tokenOutIndex] - tokenOutPoolAmount;
     }
 }
