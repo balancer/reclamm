@@ -12,10 +12,6 @@ runs:
     - name: Forge install
       shell: bash
       run: forge install
-    - name: Hash submodule commit env
-      id: hash-submodule-env
-      shell: bash
-      run: echo "$(git submodule status)"
     - name: Hash submodule commit
       id: hash-submodule
       shell: bash
