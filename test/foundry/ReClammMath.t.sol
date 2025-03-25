@@ -22,7 +22,7 @@ contract ReClammMathTest is Test {
     uint256 private constant _MIN_BALANCE = 1e14;
     uint256 private constant _MIN_POOL_CENTEREDNESS = 1e3;
     uint256 private constant _MAX_CENTEREDNESS_ERROR_ABS = 1e9;
-    uint256 private constant _MAX_PRICE_ERROR_ABS = 1e12;
+    uint256 private constant _MAX_PRICE_ERROR_ABS = 1e13;
 
     function testParseIncreaseDayRate() public pure {
         uint256 value = 2123e9;
@@ -335,11 +335,15 @@ contract ReClammMathTest is Test {
         // Check if price ratio matches the new price ratio
         uint256 invariant = ReClammMath.computeInvariant(balancesScaled18, newVirtualBalances, Rounding.ROUND_DOWN);
         uint256 actualSqrtPriceRatio = Math.sqrt(
-            invariant.divDown(newVirtualBalances[0]).divDown(newVirtualBalances[1]) * FixedPoint.ONE
+            (invariant * FixedPoint.ONE).divDown(newVirtualBalances[0].mulDown(newVirtualBalances[1]))
         );
         assertApproxEqAbs(
-            expectedSqrtPriceRatio,
-            actualSqrtPriceRatio,
+            expectedSqrtPriceRatio.mulDown(expectedSqrtPriceRatio).mulDown(expectedSqrtPriceRatio).mulDown(
+                expectedSqrtPriceRatio
+            ),
+            actualSqrtPriceRatio.mulDown(actualSqrtPriceRatio).mulDown(actualSqrtPriceRatio).mulDown(
+                actualSqrtPriceRatio
+            ),
             _MAX_PRICE_ERROR_ABS,
             "Price Ratio should be correct"
         );

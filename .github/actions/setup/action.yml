@@ -27,7 +27,7 @@ runs:
       id: cache-lib-pkg
       with:
         path: './lib/balancer-v3-monorepo/pkg'
-        key: lib-pkg-${{ hashFiles('./submodule-hash.txt') }}
+        key: lib-pkg-temp-${{ hashFiles('./submodule-hash.txt') }}
     - name: Install lcov
       shell: bash
       run: sudo apt-get install lcov
