@@ -218,6 +218,7 @@ library ReClammMath {
         uint256 priceRatio = currentSqrtPriceRatio.mulDown(currentSqrtPriceRatio);
 
         if (isPoolAboveCenter) {
+            // Vb = Vb * (1 - timeConstant)^(Tcurr - Tlast)
             virtualBalances[1] = virtualBalances[1].mulDown(
                 LogExpMath.pow(FixedPoint.ONE - timeConstant, (currentTimestamp - lastTimestamp) * FixedPoint.ONE)
             );
