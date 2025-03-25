@@ -22,7 +22,7 @@ contract ReClammRoundingTest is Test {
     uint256 constant MAX_TIME_CONSTANT = FixedPoint.ONE - 1;
 
     uint256 constant MIN_SWAP_FEE = 0;
-    // Max swap fee of 50%. In practice this is way too high for a static fee anyways.
+    // Max swap fee of 50%. In practice this is way too high for a static fee.
     uint256 constant MAX_SWAP_FEE = 50e16;
 
     ReClammMathMock mathMock;
