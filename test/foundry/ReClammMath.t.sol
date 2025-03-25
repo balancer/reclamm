@@ -197,6 +197,27 @@ contract ReClammMathTest is Test {
         );
     }
 
+    function testCalculateOutGivenInNegativeAmountOut() public {
+        // This specific case was found by fuzzing. Rounding the numbers to 1e6 * 1e18 do not revert, because the
+        // negative amount is caused by rounding, so exact numbers make the function to succeed.
+        uint256 balanceA = 999999999901321691778599;
+        uint256 balanceB = 100000000000001;
+        uint256 virtualBalanceA = 999999999900433052945972;
+        uint256 virtualBalanceB = 1e14;
+
+        // This trade will return a negative amount out due to rounding.
+        uint256 amountGivenScaled18 = 3;
+
+        vm.expectRevert(ReClammMath.NegativeAmountOut.selector);
+        mathContract.calculateOutGivenIn(
+            [balanceA, balanceB].toMemoryArray(),
+            [virtualBalanceA, virtualBalanceB].toMemoryArray(),
+            0,
+            1,
+            amountGivenScaled18
+        );
+    }
+
     function testIsPoolInRange__Fuzz(
         uint256 balance0,
         uint256 balance1,
