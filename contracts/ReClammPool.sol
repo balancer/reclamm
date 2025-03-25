@@ -27,11 +27,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 private constant _MIN_SWAP_FEE_PERCENTAGE = 0;
     uint256 private constant _MAX_SWAP_FEE_PERCENTAGE = 10e16; // 10%
 
-    // Invariant growth limit: non-proportional add cannot cause the invariant to increase by more than this ratio.
-    uint256 internal constant _MAX_INVARIANT_RATIO = 300e16; // 300%
-    // Invariant shrink limit: non-proportional remove cannot cause the invariant to decrease by less than this ratio.
-    uint256 internal constant _MIN_INVARIANT_RATIO = 70e16; // 70%
-
     // A pool is "centered" when it holds equal (non-zero) value in both real token balances. In this state, the ratio
     // of the real balances equals the ratio of the virtual balances, and the value of the centeredness measure is
     // FixedPoint.ONE.
@@ -234,12 +229,16 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IUnbalancedLiquidityInvariantRatioBounds
     function getMinimumInvariantRatio() external pure returns (uint256) {
-        return _MIN_INVARIANT_RATIO;
+        // The invariant ratio bounds are required by `IBasePool`, but are unused in this pool type, as liquidity can
+        // only be added or removed proportionally.
+        return 0;
     }
 
     /// @inheritdoc IUnbalancedLiquidityInvariantRatioBounds
     function getMaximumInvariantRatio() external pure returns (uint256) {
-        return _MAX_INVARIANT_RATIO;
+        // The invariant ratio bounds are required by `IBasePool`, but are unused in this pool type, as liquidity can
+        // only be added or removed proportionally.
+        return 0;
     }
 
     /// @inheritdoc IReClammPool
