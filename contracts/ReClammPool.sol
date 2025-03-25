@@ -40,7 +40,7 @@ contract ReClammPool is
     // Invariant shrink limit: non-proportional remove cannot cause the invariant to decrease by less than this ratio.
     uint256 internal constant _MIN_INVARIANT_RATIO = 70e16; // 70%
 
-    uint256 private constant _MIN_TOKEN_BALANCE = 1e14;
+    uint256 private constant _MIN_TOKEN_BALANCE_SCALED18 = 1e14;
     uint256 private constant _MIN_POOL_CENTEREDNESS = 1e3;
 
     SqrtPriceRatioState private _sqrtPriceRatioState;
@@ -212,8 +212,8 @@ contract ReClammPool is
         _setVirtualBalances(virtualBalances);
 
         if (
-            balancesScaled18[0].mulDown(proportion.complement()) < _MIN_TOKEN_BALANCE ||
-            balancesScaled18[1].mulDown(proportion.complement()) < _MIN_TOKEN_BALANCE
+            balancesScaled18[0].mulDown(proportion.complement()) < _MIN_TOKEN_BALANCE_SCALED18 ||
+            balancesScaled18[1].mulDown(proportion.complement()) < _MIN_TOKEN_BALANCE_SCALED18
         ) {
             // If one of the token balances is below 1e18, the update of price ratio is not accurate.
             revert LowTokenBalance();
@@ -282,7 +282,7 @@ contract ReClammPool is
         currentBalancesScaled18[indexIn] += amountInScaled18;
         currentBalancesScaled18[indexOut] -= amountOutScaled18;
 
-        if (currentBalancesScaled18[indexOut] <= _MIN_TOKEN_BALANCE) {
+        if (currentBalancesScaled18[indexOut] <= _MIN_TOKEN_BALANCE_SCALED18) {
             // If one of the token balances is below 1e18, the update of price ratio is not accurate.
             revert LowTokenBalance();
         }
