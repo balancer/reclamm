@@ -241,7 +241,7 @@ contract ReClammLiquidityTest is BaseReClammTest {
         uint256 exactBptAmountOut,
         uint256 initialDaiBalance,
         uint256 initialUsdcBalance,
-        uint256 bobSwapAmount
+        uint256 bobSwapAmountOut
     ) public {
         // Set initial pool balances
         _setPoolBalances(initialDaiBalance, initialUsdcBalance);
@@ -264,29 +264,22 @@ contract ReClammLiquidityTest is BaseReClammTest {
         vm.prank(alice);
         router.addLiquidityProportional(pool, maxAmountsIn, exactBptAmountOut, false, "");
 
+        (, , uint256[] memory balancesScaled18, ) = vault.getPoolTokenInfo(pool);
+
         // Perform Bob's swap (DAI -> USDC)
-        bobSwapAmount = bound(bobSwapAmount, 1e6, dai.balanceOf(bob));
+        bobSwapAmountOut = bound(bobSwapAmountOut, 1e6, balancesScaled18[usdcIdx] - _MIN_TOKEN_BALANCE - 1);
         vm.startPrank(bob);
-        router.swapSingleTokenExactIn(
-            pool,
-            dai,
-            usdc,
-            bobSwapAmount,
-            0, // min amount out
-            type(uint256).max, // deadline
-            false, // wethIsEth
-            "" // userData
-        );
         router.swapSingleTokenExactOut(
             pool,
-            usdc,
             dai,
-            bobSwapAmount,
-            type(uint128).max, // max amount out
-            type(uint256).max, // deadline
-            false, // wethIsEth
-            "" // userData
+            usdc,
+            bobSwapAmountOut,
+            type(uint256).max,
+            type(uint256).max,
+            false,
+            ""
         );
+        router.swapSingleTokenExactIn(pool, usdc, dai, bobSwapAmountOut, 0, type(uint256).max, false, "");
         vm.stopPrank();
 
         // Remove the same amount of liquidity
