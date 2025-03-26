@@ -21,6 +21,12 @@ interface IReClammPool is IBasePool {
     /// @dev The function is not implemented.
     error NotImplemented();
 
+    /// @dev The token balance is too low after a user operation.
+    error TokenBalanceTooLow();
+
+    /// @dev The pool centeredness is too low after a swap.
+    error PoolCenterednessTooLow();
+
     event SqrtPriceRatioUpdated(uint96 startSqrtPriceRatio, uint96 endSqrtPriceRatio, uint32 startTime, uint32 endTime);
 
     event VirtualBalancesUpdated(uint256[] virtualBalances);
@@ -29,7 +35,7 @@ interface IReClammPool is IBasePool {
 
     event CenterednessMarginUpdated(uint256 centerednessMargin);
 
-    function getLastVirtualBalances() external view returns (uint256[] memory virtualBalances);
+    function getCurrentVirtualBalances() external view returns (uint256[] memory currentVirtualBalances);
 
     function getLastTimestamp() external view returns (uint256);
 

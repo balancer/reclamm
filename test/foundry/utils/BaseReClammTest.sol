@@ -5,6 +5,7 @@ pragma solidity ^0.8.24;
 import "forge-std/Test.sol";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import { PoolRoleAccounts, LiquidityManagement } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
@@ -15,7 +16,6 @@ import { InputHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { PoolFactoryMock } from "@balancer-labs/v3-vault/contracts/test/PoolFactoryMock.sol";
-import { GyroPoolMath } from "@balancer-labs/v3-pool-gyro/contracts/lib/GyroPoolMath.sol";
 import { BaseVaultTest } from "@balancer-labs/v3-vault/test/foundry/utils/BaseVaultTest.sol";
 
 import { ReClammPoolContractsDeployer } from "./ReClammPoolContractsDeployer.sol";
@@ -32,7 +32,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
 
     uint256 internal constant _INITIAL_PROTOCOL_FEE_PERCENTAGE = 1e16;
     uint256 internal constant _DEFAULT_SWAP_FEE = 0; // 0%
-    string internal constant _POOL_VERSION = "Acl Amm Pool v1";
+    string internal constant _POOL_VERSION = "ReClamm Pool v1";
 
     uint256 internal constant _DEFAULT_INCREASE_DAY_RATE = 100e16; // 100%
     uint96 internal constant _DEFAULT_SQRT_PRICE_RATIO = 1.41421356e18; // Price Range of 4 (fourth square root is 1.41)
@@ -59,9 +59,9 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
         (daiIdx, usdcIdx) = getSortedIndexes(address(dai), address(usdc));
     }
 
-    function setPriceRange(uint256 priceRange) internal {
-        uint256 priceRatio = GyroPoolMath.sqrt(priceRange, 5);
-        _sqrtPriceRatio = SafeCast.toUint96(GyroPoolMath.sqrt(priceRatio, 5));
+    function setPriceRange(uint256 priceRatio) internal {
+        priceRatio = Math.sqrt(priceRatio * FixedPoint.ONE);
+        _sqrtPriceRatio = SafeCast.toUint96(Math.sqrt(priceRatio * FixedPoint.ONE));
     }
 
     function setSqrtPriceRatio(uint96 newSqrtPriceRatio) internal {
@@ -96,7 +96,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
         address[] memory tokens,
         string memory label
     ) internal override returns (address newPool, bytes memory poolArgs) {
-        string memory name = "Acl Amm Pool";
+        string memory name = "ReClamm Pool";
         string memory symbol = "RECLAMMPOOL";
 
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens.asIERC20());
