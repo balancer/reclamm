@@ -3,6 +3,8 @@
 
 pragma solidity ^0.8.24;
 
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+
 import { ISwapFeePercentageBounds } from "@balancer-labs/v3-interfaces/contracts/vault/ISwapFeePercentageBounds.sol";
 import "@balancer-labs/v3-interfaces/contracts/vault/IUnbalancedLiquidityInvariantRatioBounds.sol";
 import { IBasePool } from "@balancer-labs/v3-interfaces/contracts/vault/IBasePool.sol";
@@ -22,6 +24,7 @@ import { SqrtPriceRatioState, ReClammMath } from "./lib/ReClammMath.sol";
 
 contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthentication, Version, BaseHooks {
     using FixedPoint for uint256;
+    using SafeCast for uint256;
 
     // uint256 private constant _MIN_SWAP_FEE_PERCENTAGE = 0.001e16; // 0.001%
     uint256 internal constant _MIN_SWAP_FEE_PERCENTAGE = 0;
@@ -39,10 +42,15 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 internal constant _MIN_POOL_CENTEREDNESS = 1e3;
 
     SqrtPriceRatioState internal _sqrtPriceRatioState;
-    uint256 internal _lastTimestamp;
+    uint32 internal _lastTimestamp;
     uint256 internal _timeConstant;
     uint256 internal _centerednessMargin;
     uint256[] internal _lastVirtualBalances;
+
+    modifier withUpdatedTimestamp() {
+        _updateTimestamp();
+        _;
+    }
 
     constructor(
         ReClammPoolParams memory params,
@@ -65,8 +73,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                 balancesScaled18,
                 _lastVirtualBalances,
                 _timeConstant,
-                uint32(_lastTimestamp),
-                uint32(block.timestamp),
+                _lastTimestamp,
+                block.timestamp.toUint32(),
                 _centerednessMargin,
                 _sqrtPriceRatioState,
                 rounding
@@ -83,10 +91,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     function onSwap(PoolSwapParams memory request) public virtual returns (uint256 amountCalculatedScaled18) {
         (uint256[] memory currentVirtualBalances, bool changed) = _getCurrentVirtualBalances(request.balancesScaled18);
 
-        _lastTimestamp = block.timestamp;
-
         if (changed) {
             _setLastVirtualBalances(currentVirtualBalances);
+        } else {
+            _updateTimestamp();
         }
 
         // Calculate swap result.
@@ -151,9 +159,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     function onBeforeInitialize(
         uint256[] memory balancesScaled18,
         bytes memory
-    ) public override onlyVault returns (bool) {
-        _lastTimestamp = block.timestamp;
-
+    ) public override onlyVault withUpdatedTimestamp returns (bool) {
         uint256 currentSqrtPriceRatio = _calculateCurrentSqrtPriceRatio();
         uint256[] memory virtualBalances = ReClammMath.initializeVirtualBalances(
             balancesScaled18,
@@ -250,7 +256,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function getLastTimestamp() external view returns (uint256) {
+    function getLastTimestamp() external view returns (uint32) {
         return _lastTimestamp;
     }
 
@@ -326,6 +332,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _centerednessMargin = centerednessMargin;
 
         emit CenterednessMarginUpdated(centerednessMargin);
+    }
+
+    function _updateTimestamp() internal {
+        _lastTimestamp = block.timestamp.toUint32();
     }
 
     function _ensureValidPoolStateAfterSwap(
