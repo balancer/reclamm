@@ -5,7 +5,7 @@ import { sharedBeforeEach } from '@balancer-labs/v3-common/sharedBeforeEach';
 import { Router } from '@balancer-labs/v3-vault/typechain-types/contracts/Router';
 import { ERC20TestToken } from '@balancer-labs/v3-solidity-utils/typechain-types/contracts/test/ERC20TestToken';
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/dist/src/signer-with-address';
-import { FP_ZERO, fp } from '@balancer-labs/v3-helpers/src/numbers';
+import { FP_ZERO, bn, fp } from '@balancer-labs/v3-helpers/src/numbers';
 import {
   MAX_UINT256,
   MAX_UINT160,
@@ -37,7 +37,9 @@ describe('ReClammPool', function () {
   const POOL_SWAP_FEE = fp(0.01);
   const TOKEN_AMOUNT = fp(100);
 
-  const INITIAL_BALANCES = [2n * TOKEN_AMOUNT, TOKEN_AMOUNT];
+  const INITIAL_BALANCE_A = TOKEN_AMOUNT;
+  const INITIAL_BALANCE_B = 2n * TOKEN_AMOUNT;
+  const MIN_POOL_BALANCE = fp(0.0001);
 
   const SWAP_FEE = fp(0.01); // 1%
   const SQRT_PRICE_RATIO = fp(2); // The ratio between max and min price is 16 (2^4)
@@ -61,6 +63,11 @@ describe('ReClammPool', function () {
   let tokenAAddress: string;
   let tokenBAddress: string;
 
+  let tokenAIdx: number;
+  let tokenBIdx: number;
+
+  let initialBalances: bigint[] = [];
+
   before('setup signers', async () => {
     [, alice, bob] = await ethers.getSigners();
   });
@@ -77,6 +84,17 @@ describe('ReClammPool', function () {
 
     tokenAAddress = await tokenA.getAddress();
     tokenBAddress = await tokenB.getAddress();
+
+    if (tokenAAddress.localeCompare(tokenBAddress) < 0) {
+      tokenAIdx = 0;
+      tokenBIdx = 1;
+    } else {
+      tokenAIdx = 1;
+      tokenBIdx = 0;
+    }
+
+    initialBalances[tokenAIdx] = INITIAL_BALANCE_A;
+    initialBalances[tokenBIdx] = INITIAL_BALANCE_B;
   });
 
   sharedBeforeEach('create and initialize pool', async () => {
@@ -112,7 +130,7 @@ describe('ReClammPool', function () {
       await permit2.connect(bob).approve(token, router, MAX_UINT160, MAX_UINT48);
     }
 
-    await expect(await router.connect(bob).initialize(pool, poolTokens, INITIAL_BALANCES, FP_ZERO, false, '0x'))
+    await expect(await router.connect(bob).initialize(pool, poolTokens, initialBalances, FP_ZERO, false, '0x'))
       .to.emit(vault, 'PoolInitialized')
       .withArgs(pool);
   });
@@ -150,11 +168,11 @@ describe('ReClammPool', function () {
     const [tokensFromVault, , balancesFromVault] = await vault.getPoolTokenInfo(pool);
 
     expect(tokensFromVault).to.deep.equal(tokensFromPool);
-    expect(balancesFromVault).to.deep.equal(INITIAL_BALANCES);
+    expect(balancesFromVault).to.deep.equal(initialBalances);
   });
 
   it('cannot be initialized twice', async () => {
-    await expect(router.connect(alice).initialize(pool, poolTokens, INITIAL_BALANCES, FP_ZERO, false, '0x'))
+    await expect(router.connect(alice).initialize(pool, poolTokens, initialBalances, FP_ZERO, false, '0x'))
       .to.be.revertedWithCustomError(vault, 'PoolAlreadyInitialized')
       .withArgs(await pool.getAddress());
   });
@@ -164,16 +182,16 @@ describe('ReClammPool', function () {
     expect(await factory.getPools()).to.be.deep.eq([await pool.getAddress()]);
   });
 
-  it('should change the virtual balances as expected', async () => {
+  it('should move virtual balances correctly (out of range > center)', async () => {
     // Very big swap, putting the pool right at the edge.
-    const exactAmountIn = 2n * TOKEN_AMOUNT;
-    const minAmountOut = FP_ZERO;
+    const exactAmountOut = INITIAL_BALANCE_B - MIN_POOL_BALANCE - 1n;
+    const maxAmountIn = MAX_UINT256;
     const deadline = MAX_UINT256;
     const wethIsEth = false;
 
     await router
       .connect(bob)
-      .swapSingleTokenExactIn(pool, tokenA, tokenB, exactAmountIn, minAmountOut, deadline, wethIsEth, '0x');
+      .swapSingleTokenExactOut(pool, tokenA, tokenB, exactAmountOut, maxAmountIn, deadline, wethIsEth, '0x');
 
     const [, , , poolBalancesAfterSwap] = await vault.getPoolTokenInfo(pool);
     const virtualBalancesAfterSwap = await pool.getCurrentVirtualBalances();
@@ -199,17 +217,64 @@ describe('ReClammPool', function () {
       }
     );
 
-    // make the next swap
-    await router.connect(bob).swapSingleTokenExactIn(
-      pool, // pool address
-      tokenB, // token we're swapping from
-      tokenA, // token we're swapping to
-      exactAmountIn, // exact amount we're swapping
-      minAmountOut, // minimum amount we want to receive
-      deadline, // deadline for the swap
-      wethIsEth, // whether we're dealing with ETH
-      '0x' // no additional data
+    expect(expectedFinalVirtualBalances[tokenAIdx]).to.be.greaterThan(virtualBalancesAfterSwap[tokenAIdx]);
+    expect(expectedFinalVirtualBalances[tokenBIdx]).to.be.lessThan(virtualBalancesAfterSwap[tokenBIdx]);
+
+    // Swap in the other direction
+    await router
+      .connect(bob)
+      .swapSingleTokenExactOut(pool, tokenB, tokenA, INITIAL_BALANCE_A, MAX_UINT256, deadline, wethIsEth, '0x');
+
+    // check if the virtual balances are close from expected
+    const actualFinalVirtualBalances = await pool.getCurrentVirtualBalances();
+
+    expect(actualFinalVirtualBalances.length).to.be.equal(2);
+    expectEqualWithError(actualFinalVirtualBalances[0], expectedFinalVirtualBalances[0], virtualBalancesError);
+    expectEqualWithError(actualFinalVirtualBalances[1], expectedFinalVirtualBalances[1], virtualBalancesError);
+  });
+
+  it('should move virtual balances correctly (out of range < center)', async () => {
+    // Very big swap, putting the pool right at the edge.
+    const exactAmountOut = INITIAL_BALANCE_A - MIN_POOL_BALANCE - 1n;
+    const maxAmountIn = MAX_UINT256;
+    const deadline = MAX_UINT256;
+    const wethIsEth = false;
+
+    await router
+      .connect(bob)
+      .swapSingleTokenExactOut(pool, tokenB, tokenA, exactAmountOut, maxAmountIn, deadline, wethIsEth, '0x');
+
+    const [, , , poolBalancesAfterSwap] = await vault.getPoolTokenInfo(pool);
+    const virtualBalancesAfterSwap = await pool.getCurrentVirtualBalances();
+    const lastTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
+
+    // Pass 1 hour
+    await ethers.provider.send('evm_increaseTime', [60 * 60]);
+    await ethers.provider.send('evm_mine');
+
+    // calculate the expected virtual balances in the next swap
+    const [expectedFinalVirtualBalances] = getCurrentVirtualBalances(
+      poolBalancesAfterSwap,
+      virtualBalancesAfterSwap,
+      parseIncreaseDayRate(INCREASE_DAY_RATE),
+      lastTimestamp,
+      lastTimestamp + 60 * 60 + 1,
+      CENTEREDNESS_MARGIN,
+      {
+        startTime: 0,
+        endTime: 0,
+        startSqrtPriceRatio: SQRT_PRICE_RATIO,
+        endSqrtPriceRatio: SQRT_PRICE_RATIO,
+      }
     );
+
+    expect(expectedFinalVirtualBalances[tokenAIdx]).to.be.lessThan(virtualBalancesAfterSwap[tokenAIdx]);
+    expect(expectedFinalVirtualBalances[tokenBIdx]).to.be.greaterThan(virtualBalancesAfterSwap[tokenBIdx]);
+
+    // Swap in the other direction
+    await router
+      .connect(bob)
+      .swapSingleTokenExactOut(pool, tokenA, tokenB, INITIAL_BALANCE_B, MAX_UINT256, deadline, wethIsEth, '0x');
 
     // check if the virtual balances are close from expected
     const actualFinalVirtualBalances = await pool.getCurrentVirtualBalances();

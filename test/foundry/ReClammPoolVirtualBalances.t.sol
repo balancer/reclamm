@@ -195,7 +195,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     }
 
     function testSwapExactOut_Fuzz(uint256 exactAmountOut) public {
-        exactAmountOut = bound(exactAmountOut, 1e6, _INITIAL_BALANCE_B);
+        exactAmountOut = bound(exactAmountOut, 1e6, _INITIAL_BALANCE_B - _MIN_TOKEN_BALANCE - 1);
 
         uint256[] memory virtualBalances = _calculateVirtualBalances();
         uint256 invariantBefore = _getCurrentInvariant();
