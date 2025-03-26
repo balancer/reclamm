@@ -17,7 +17,7 @@ import { Version } from "@balancer-labs/v3-solidity-utils/contracts/helpers/Vers
 import { ReClammPoolMock } from "./ReClammPoolMock.sol";
 import { ReClammPoolParams } from "../interfaces/IReClammPool.sol";
 
-/// @notice Acl Amm Pool Mock factory.
+/// @notice ReClammPool Mock factory.
 contract ReClammPoolFactoryMock is IPoolVersion, BasePoolFactory, Version {
     string private _poolVersion;
 
@@ -62,7 +62,7 @@ contract ReClammPoolFactoryMock is IPoolVersion, BasePoolFactory, Version {
             revert StandardPoolWithCreator();
         }
 
-        // The Acl Amm Pool only supports 2 tokens.
+        // The ReClammPool only supports 2 tokens.
         if (tokens.length > 2) {
             revert IVaultErrors.MaxTokens();
         }
