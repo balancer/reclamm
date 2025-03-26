@@ -81,21 +81,12 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IBasePool
     function onSwap(PoolSwapParams memory request) public virtual returns (uint256 amountCalculatedScaled18) {
-        // Calculate virtual balances.
-        (uint256[] memory currentVirtualBalances, bool changed) = ReClammMath.getCurrentVirtualBalances(
-            request.balancesScaled18,
-            _lastVirtualBalances,
-            _timeConstant,
-            uint32(_lastTimestamp),
-            uint32(block.timestamp),
-            _centerednessMargin,
-            _sqrtPriceRatioState
-        );
+        (uint256[] memory currentVirtualBalances, bool changed) = _getCurrentVirtualBalances(request.balancesScaled18);
 
         _lastTimestamp = block.timestamp;
 
         if (changed) {
-            _setVirtualBalances(currentVirtualBalances);
+            _setLastVirtualBalances(currentVirtualBalances);
         }
 
         // Calculate swap result.
@@ -168,7 +159,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             balancesScaled18,
             currentSqrtPriceRatio
         );
-        _setVirtualBalances(virtualBalances);
+        _setLastVirtualBalances(virtualBalances);
 
         return true;
     }
@@ -180,15 +171,17 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         AddLiquidityKind,
         uint256[] memory,
         uint256 minBptAmountOut,
-        uint256[] memory,
+        uint256[] memory balancesScaled18,
         bytes memory
     ) public override onlyVault returns (bool) {
         uint256 totalSupply = _vault.totalSupply(pool);
         uint256 proportion = minBptAmountOut.divUp(totalSupply);
-        uint256[] memory currentVirtualBalances = _getCurrentVirtualBalances();
+
+        (uint256[] memory currentVirtualBalances, ) = _getCurrentVirtualBalances(balancesScaled18);
         currentVirtualBalances[0] = currentVirtualBalances[0].mulUp(FixedPoint.ONE + proportion);
         currentVirtualBalances[1] = currentVirtualBalances[1].mulUp(FixedPoint.ONE + proportion);
-        _setVirtualBalances(currentVirtualBalances);
+        _setLastVirtualBalances(currentVirtualBalances);
+
         return true;
     }
 
@@ -204,10 +197,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     ) public override onlyVault returns (bool) {
         uint256 totalSupply = _vault.totalSupply(pool);
         uint256 proportion = maxBptAmountIn.divUp(totalSupply);
-        uint256[] memory currentVirtualBalances = _getCurrentVirtualBalances();
+
+        (uint256[] memory currentVirtualBalances, ) = _getCurrentVirtualBalances(balancesScaled18);
         currentVirtualBalances[0] = currentVirtualBalances[0].mulDown(FixedPoint.ONE - proportion);
         currentVirtualBalances[1] = currentVirtualBalances[1].mulDown(FixedPoint.ONE - proportion);
-        _setVirtualBalances(currentVirtualBalances);
+        _setLastVirtualBalances(currentVirtualBalances);
 
         if (
             balancesScaled18[0].mulDown(proportion.complement()) < _MIN_TOKEN_BALANCE_SCALED18 ||
@@ -245,18 +239,19 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function getCurrentVirtualBalances() external view returns (uint256[] memory) {
-        return _getCurrentVirtualBalances();
-    }
-
-    /// @inheritdoc IReClammPool
-    function getLastTimestamp() external view returns (uint256) {
-        return _lastTimestamp;
+    function getCurrentVirtualBalances() external view returns (uint256[] memory currentVirtualBalances) {
+        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
+        (currentVirtualBalances, ) = _getCurrentVirtualBalances(balancesScaled18);
     }
 
     /// @inheritdoc IReClammPool
     function getCurrentSqrtPriceRatio() external view override returns (uint96) {
         return _calculateCurrentSqrtPriceRatio();
+    }
+
+    /// @inheritdoc IReClammPool
+    function getLastTimestamp() external view returns (uint256) {
+        return _lastTimestamp;
     }
 
     /// @inheritdoc IReClammPool
@@ -270,7 +265,29 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IReClammPool
     function setIncreaseDayRate(uint256 newIncreaseDayRate) external onlySwapFeeManagerOrGovernance(address(this)) {
-        _setIncreaseDayRate(newIncreaseDayRate);
+        // Update virtual balances before updating the daily rate.
+        _setIncreaseDayRateAndUpdateVirtualBalances(newIncreaseDayRate);
+    }
+
+    function _getCurrentVirtualBalances(
+        uint256[] memory balancesScaled18
+    ) internal view returns (uint256[] memory currentVirtualBalances, bool changed) {
+        (currentVirtualBalances, changed) = ReClammMath.getCurrentVirtualBalances(
+            balancesScaled18,
+            _lastVirtualBalances,
+            _timeConstant,
+            uint32(_lastTimestamp),
+            uint32(block.timestamp),
+            _centerednessMargin,
+            _sqrtPriceRatioState
+        );
+    }
+
+    function _setLastVirtualBalances(uint256[] memory virtualBalances) internal {
+        _lastTimestamp = block.timestamp;
+        _lastVirtualBalances = virtualBalances;
+
+        emit VirtualBalancesUpdated(virtualBalances);
     }
 
     function _setSqrtPriceRatio(uint96 endSqrtPriceRatio, uint32 startTime, uint32 endTime) internal {
@@ -287,29 +304,22 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         emit SqrtPriceRatioUpdated(startSqrtPriceRatio, endSqrtPriceRatio, startTime, endTime);
     }
 
-    function _calculateCurrentSqrtPriceRatio() internal view returns (uint96) {
-        SqrtPriceRatioState memory sqrtPriceRatioState = _sqrtPriceRatioState;
+    function _setIncreaseDayRateAndUpdateVirtualBalances(uint256 increaseDayRate) internal {
+        // Update virtual balances with current daily rate.
+        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
+        (uint256[] memory currentVirtualBalances, bool changed) = _getCurrentVirtualBalances(balancesScaled18);
+        if (changed) {
+            _setLastVirtualBalances(currentVirtualBalances);
+        }
 
-        return
-            ReClammMath.calculateSqrtPriceRatio(
-                uint32(block.timestamp),
-                sqrtPriceRatioState.startSqrtPriceRatio,
-                sqrtPriceRatioState.endSqrtPriceRatio,
-                sqrtPriceRatioState.startTime,
-                sqrtPriceRatioState.endTime
-            );
+        // Update time constant.
+        _setIncreaseDayRate(increaseDayRate);
     }
 
     function _setIncreaseDayRate(uint256 increaseDayRate) internal {
         _timeConstant = ReClammMath.parseIncreaseDayRate(increaseDayRate);
 
         emit IncreaseDayRateUpdated(increaseDayRate);
-    }
-
-    function _setVirtualBalances(uint256[] memory virtualBalances) internal {
-        _lastVirtualBalances = virtualBalances;
-
-        emit VirtualBalancesUpdated(virtualBalances);
     }
 
     function _setCenterednessMargin(uint256 centerednessMargin) internal {
@@ -342,18 +352,16 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         }
     }
 
-    function _getCurrentVirtualBalances() internal view returns (uint256[] memory currentVirtualBalances) {
-        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
+    function _calculateCurrentSqrtPriceRatio() internal view returns (uint96) {
+        SqrtPriceRatioState memory sqrtPriceRatioState = _sqrtPriceRatioState;
 
-        // Calculate virtual balances
-        (currentVirtualBalances, ) = ReClammMath.getCurrentVirtualBalances(
-            balancesScaled18,
-            _lastVirtualBalances,
-            _timeConstant,
-            uint32(_lastTimestamp),
-            uint32(block.timestamp),
-            _centerednessMargin,
-            _sqrtPriceRatioState
-        );
+        return
+            ReClammMath.calculateSqrtPriceRatio(
+                uint32(block.timestamp),
+                sqrtPriceRatioState.startSqrtPriceRatio,
+                sqrtPriceRatioState.endSqrtPriceRatio,
+                sqrtPriceRatioState.startTime,
+                sqrtPriceRatioState.endTime
+            );
     }
 }
