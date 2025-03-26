@@ -20,6 +20,7 @@ contract ReClammRoundingTest is Test {
     uint256 constant MIN_SQRT_PRICE_RATIO = 10e12 + FixedPoint.ONE; // 1.00001
     uint256 constant MAX_SQRT_PRICE_RATIO = 1000e18;
     uint256 constant MAX_TIME_CONSTANT = FixedPoint.ONE - 1;
+    uint256 internal constant _MIN_TOKEN_BALANCE = 1e14;
 
     uint256 constant MIN_SWAP_FEE = 0;
     // Max swap fee of 50%. In practice this is way too high for a static fee.
@@ -64,9 +65,18 @@ contract ReClammRoundingTest is Test {
             balances[i] = bound(balancesRaw[i], MIN_BALANCE, MAX_AMOUNT);
         }
         sqrtPriceRatio = uint96(bound(sqrtPriceRatio, MIN_SQRT_PRICE_RATIO, MAX_SQRT_PRICE_RATIO));
-        amountGivenScaled18 = bound(amountGivenScaled18, MIN_AMOUNT, balances[tokenOutIndex]);
 
         uint256[] memory virtualBalances = mathMock.initializeVirtualBalances(balances, sqrtPriceRatio);
+
+        // Calculate maxAmountIn to make sure the transaction won't revert.
+        uint256 maxAmountIn = mathMock.calculateInGivenOut(
+            balances,
+            virtualBalances,
+            tokenInIndex,
+            tokenOutIndex,
+            balances[tokenOutIndex] - _MIN_TOKEN_BALANCE - 1
+        );
+        amountGivenScaled18 = bound(amountGivenScaled18, MIN_AMOUNT, maxAmountIn);
 
         mathMock.setSqrtPriceRatioState(
             SqrtPriceRatioState({
@@ -119,7 +129,7 @@ contract ReClammRoundingTest is Test {
             balances[i] = bound(balancesRaw[i], MIN_BALANCE, MAX_AMOUNT);
         }
         sqrtPriceRatio = uint96(bound(sqrtPriceRatio, MIN_SQRT_PRICE_RATIO, MAX_SQRT_PRICE_RATIO));
-        amountGivenScaled18 = bound(amountGivenScaled18, MIN_AMOUNT, balances[tokenOutIndex]);
+        amountGivenScaled18 = bound(amountGivenScaled18, MIN_AMOUNT, balances[tokenOutIndex] - _MIN_TOKEN_BALANCE - 1);
 
         uint256[] memory virtualBalances = mathMock.initializeVirtualBalances(balances, sqrtPriceRatio);
 
@@ -131,7 +141,7 @@ contract ReClammRoundingTest is Test {
                 endTime: 0
             })
         );
-        uint256 amountIn = mathMock.calculateOutGivenIn(
+        uint256 amountIn = mathMock.calculateInGivenOut(
             balances,
             virtualBalances,
             tokenInIndex,
@@ -142,14 +152,14 @@ contract ReClammRoundingTest is Test {
         uint256 roundedUpAmountOut = amountGivenScaled18 + 1;
         uint256 roundedDownAmountOut = amountGivenScaled18 - 1;
 
-        uint256 amountInRoundedUp = mathMock.calculateOutGivenIn(
+        uint256 amountInRoundedUp = mathMock.calculateInGivenOut(
             balances,
             virtualBalances,
             tokenInIndex,
             tokenOutIndex,
             roundedUpAmountOut
         );
-        uint256 amountInRoundedDown = mathMock.calculateOutGivenIn(
+        uint256 amountInRoundedDown = mathMock.calculateInGivenOut(
             balances,
             virtualBalances,
             tokenInIndex,
@@ -157,7 +167,7 @@ contract ReClammRoundingTest is Test {
             roundedDownAmountOut
         );
 
-        assertGe(amountInRoundedUp, amountIn, "amountInRoundedUp < amountIn (calculateOutGivenIn)");
-        assertLe(amountInRoundedDown, amountIn, "amountInRoundedDown > amountIn (calculateOutGivenIn)");
+        assertGe(amountInRoundedUp, amountIn, "amountInRoundedUp < amountIn (calculateInGivenOut)");
+        assertLe(amountInRoundedDown, amountIn, "amountInRoundedDown > amountIn (calculateInGivenOut)");
     }
 }
