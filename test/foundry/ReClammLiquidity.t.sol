@@ -18,7 +18,7 @@ contract ReClammLiquidityTest is BaseReClammTest {
     uint256 constant _MAX_CENTEREDNESS_ERROR_ABS = 1e5;
     uint256 constant _MIN_TOKEN_BALANCE = 1e14;
 
-    function testAddLiquidity_Fuzz(
+    function testAddLiquidity__Fuzz(
         uint256 exactBptAmountOut,
         uint256 initialDaiBalance,
         uint256 initialUsdcBalance
@@ -114,7 +114,7 @@ contract ReClammLiquidityTest is BaseReClammTest {
         );
     }
 
-    function testRemoveLiquidity_Fuzz(
+    function testRemoveLiquidity__Fuzz(
         uint256 exactBptAmountIn,
         uint256 initialDaiBalance,
         uint256 initialUsdcBalance
@@ -196,7 +196,7 @@ contract ReClammLiquidityTest is BaseReClammTest {
         );
     }
 
-    function testAddRemoveLiquidityProportional_Fuzz(
+    function testAddRemoveLiquidityProportional__Fuzz(
         uint256 exactBptAmountOut,
         uint256 initialDaiBalance,
         uint256 initialUsdcBalance
@@ -237,7 +237,7 @@ contract ReClammLiquidityTest is BaseReClammTest {
         assertLe(aliceUsdcBalanceAfter, aliceUsdcBalanceBefore, "USDC balance should not be greater than initial");
     }
 
-    function testAddSwapRemoveLiquidityProportional_Fuzz(
+    function testAddSwapRemoveLiquidityProportional__Fuzz(
         uint256 exactBptAmountOut,
         uint256 initialDaiBalance,
         uint256 initialUsdcBalance,

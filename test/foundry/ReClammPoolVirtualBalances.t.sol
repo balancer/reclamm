@@ -194,7 +194,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         assertEq(newVirtualBalances[1], oldVirtualBalances[1], "Virtual B balances do not match");
     }
 
-    function testSwapExactOut_Fuzz(uint256 exactAmountOut) public {
+    function testSwapExactOut__Fuzz(uint256 exactAmountOut) public {
         exactAmountOut = bound(exactAmountOut, 1e6, _INITIAL_BALANCE_B - _MIN_TOKEN_BALANCE - 1);
 
         uint256[] memory virtualBalances = _calculateVirtualBalances();
@@ -211,7 +211,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         assertEq(currentVirtualBalances[1], virtualBalances[1], "Virtual B balances don't equal");
     }
 
-    function testAddLiquidity_Fuzz(uint256 exactBptAmountOut) public {
+    function testAddLiquidity__Fuzz(uint256 exactBptAmountOut) public {
         exactBptAmountOut = bound(exactBptAmountOut, 1e18, 10_000e18);
 
         uint256 invariantBefore = _getCurrentInvariant();
