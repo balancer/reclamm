@@ -27,8 +27,8 @@ export function getCurrentVirtualBalances(
   balancesScaled18: bigint[],
   lastVirtualBalances: bigint[],
   timeConstant: bigint,
-  lastTimestamp: number,
-  currentTimestamp: number,
+  lastTimestamp: bigint,
+  currentTimestamp: bigint,
   centerednessMargin: bigint,
   sqrtPriceRatioState: SqrtPriceRatioState
 ): [bigint[], boolean] {

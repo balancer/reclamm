@@ -19,7 +19,7 @@ import TypesConverter from '@balancer-labs/v3-helpers/src/models/types/TypesConv
 import { buildTokenConfig } from '@balancer-labs/v3-helpers/src/models/tokens/tokenConfig';
 import { ReClammPool, ReClammPoolFactory } from '../typechain-types';
 import { actionId } from '@balancer-labs/v3-helpers/src/models/misc/actions';
-import { MONTH } from '@balancer-labs/v3-helpers/src/time';
+import { advanceTime, currentTimestamp, HOUR, MONTH } from '@balancer-labs/v3-helpers/src/time';
 import * as expectEvent from '@balancer-labs/v3-helpers/src/test/expectEvent';
 import { sortAddresses } from '@balancer-labs/v3-helpers/src/models/tokens/sortingHelper';
 import { deployPermit2 } from '@balancer-labs/v3-vault/test/Permit2Deployer';
@@ -85,13 +85,7 @@ describe('ReClammPool', function () {
     tokenAAddress = await tokenA.getAddress();
     tokenBAddress = await tokenB.getAddress();
 
-    if (tokenAAddress.localeCompare(tokenBAddress) < 0) {
-      tokenAIdx = 0;
-      tokenBIdx = 1;
-    } else {
-      tokenAIdx = 1;
-      tokenBIdx = 0;
-    }
+    [tokenAIdx, tokenBIdx] = tokenAAddress.localeCompare(tokenBAddress) < 0 ? [0, 1] : [1, 0];
 
     initialBalances[tokenAIdx] = INITIAL_BALANCE_A;
     initialBalances[tokenBIdx] = INITIAL_BALANCE_B;
@@ -220,12 +214,12 @@ describe('ReClammPool', function () {
     expect(expectedFinalVirtualBalances[tokenAIdx]).to.be.greaterThan(virtualBalancesAfterSwap[tokenAIdx]);
     expect(expectedFinalVirtualBalances[tokenBIdx]).to.be.lessThan(virtualBalancesAfterSwap[tokenBIdx]);
 
-    // Swap in the other direction
+    // Swap in the other direction.
     await router
       .connect(bob)
       .swapSingleTokenExactOut(pool, tokenB, tokenA, INITIAL_BALANCE_A, MAX_UINT256, deadline, wethIsEth, '0x');
 
-    // check if the virtual balances are close from expected
+    // Check whether the virtual balances are close to their expected values.
     const actualFinalVirtualBalances = await pool.getCurrentVirtualBalances();
 
     expect(actualFinalVirtualBalances.length).to.be.equal(2);
@@ -246,19 +240,18 @@ describe('ReClammPool', function () {
 
     const [, , , poolBalancesAfterSwap] = await vault.getPoolTokenInfo(pool);
     const virtualBalancesAfterSwap = await pool.getCurrentVirtualBalances();
-    const lastTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
 
-    // Pass 1 hour
-    await ethers.provider.send('evm_increaseTime', [60 * 60]);
-    await ethers.provider.send('evm_mine');
+    const lastTimestamp = await currentTimestamp();
+    await advanceTime(HOUR);
+    const expectedTimestamp = lastTimestamp + BigInt(HOUR) + 1n;
 
-    // calculate the expected virtual balances in the next swap
+    // Calculate the expected virtual balances in the next swap.
     const [expectedFinalVirtualBalances] = getCurrentVirtualBalances(
       poolBalancesAfterSwap,
       virtualBalancesAfterSwap,
       parseIncreaseDayRate(INCREASE_DAY_RATE),
       lastTimestamp,
-      lastTimestamp + 60 * 60 + 1,
+      expectedTimestamp,
       CENTEREDNESS_MARGIN,
       {
         startTime: 0,
@@ -271,12 +264,12 @@ describe('ReClammPool', function () {
     expect(expectedFinalVirtualBalances[tokenAIdx]).to.be.lessThan(virtualBalancesAfterSwap[tokenAIdx]);
     expect(expectedFinalVirtualBalances[tokenBIdx]).to.be.greaterThan(virtualBalancesAfterSwap[tokenBIdx]);
 
-    // Swap in the other direction
+    // Swap in the other direction.
     await router
       .connect(bob)
       .swapSingleTokenExactOut(pool, tokenA, tokenB, INITIAL_BALANCE_B, MAX_UINT256, deadline, wethIsEth, '0x');
 
-    // check if the virtual balances are close from expected
+    // Check whether the virtual balances are close to their expected values.
     const actualFinalVirtualBalances = await pool.getCurrentVirtualBalances();
 
     expect(actualFinalVirtualBalances.length).to.be.equal(2);
