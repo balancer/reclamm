@@ -4,6 +4,8 @@
 pragma solidity ^0.8.24;
 
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+
 import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
@@ -19,30 +21,44 @@ struct SqrtPriceRatioState {
 library ReClammMath {
     using FixedPoint for uint256;
 
-    // Constant to increase the price by a factor 2 if increase rate is 100%.
+    /// @dev The swap result is bigger than the real balance of the token.
+    error AmountOutBiggerThanBalance();
+
+    /// @dev The swap result is negative due to a rounding issue.
+    error NegativeAmountOut();
+
+    // We want, after 1 day (86400 seconds) that the pool is out of range, to double the price (or reduce by 50%)
+    // with PriceShiftDailyRate = 100%. So, we want to be able to move the virtual balances by the same rate.
+    // Therefore, after one day:
+    //
+    // 1. `Vnext = 2*Vcurrent`
+    // 2. In the equation `Vnext = Vcurrent * (1 - tau)^(n+1)`, isolate tau.
+    // 3. Replace `Vnext` with `2*Vcurrent` and `n` with `86400` to get `tau = 1 - pow(2, 1/(86400+1))`.
+    // 4. Since `tau = priceShiftDailyRate/x`, then `x = priceShiftDailyRate/tau`. Since priceShiftDailyRate = 100%,
+    //    then `x = 100%/(1 - pow(2, 1/(86400+1)))`, which is 124649.
     uint256 private constant _SECONDS_PER_DAY_WITH_ADJUSTMENT = 124649;
 
     function computeInvariant(
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
-        uint256 c,
+        uint256 timeConstant,
         uint32 lastTimestamp,
         uint32 currentTimestamp,
         uint256 centerednessMargin,
         SqrtPriceRatioState storage sqrtPriceRatioState,
         Rounding rounding
     ) internal pure returns (uint256) {
-        (uint256[] memory virtualBalances, ) = getVirtualBalances(
+        (uint256[] memory currentVirtualBalances, ) = getCurrentVirtualBalances(
             balancesScaled18,
             lastVirtualBalances,
-            c,
+            timeConstant,
             lastTimestamp,
             currentTimestamp,
             centerednessMargin,
             sqrtPriceRatioState
         );
 
-        return computeInvariant(balancesScaled18, virtualBalances, rounding);
+        return computeInvariant(balancesScaled18, currentVirtualBalances, rounding);
     }
 
     function computeInvariant(
@@ -64,18 +80,28 @@ library ReClammMath {
         uint256 tokenOutIndex,
         uint256 amountGivenScaled18
     ) internal pure returns (uint256) {
-        uint256[] memory finalBalances = new uint256[](balancesScaled18.length);
+        uint256[] memory totalBalances = new uint256[](balancesScaled18.length);
 
-        finalBalances[0] = balancesScaled18[0] + virtualBalances[0];
-        finalBalances[1] = balancesScaled18[1] + virtualBalances[1];
+        totalBalances[0] = balancesScaled18[0] + virtualBalances[0];
+        totalBalances[1] = balancesScaled18[1] + virtualBalances[1];
 
-        uint256 invariant = finalBalances[0].mulUp(finalBalances[1]);
+        uint256 invariant = totalBalances[0].mulUp(totalBalances[1]);
+        // Total (virtual + real) token out amount that should stay in the pool after the swap.
+        uint256 tokenOutPoolAmount = invariant.divUp(totalBalances[tokenInIndex] + amountGivenScaled18);
 
-        uint256 amountOut = finalBalances[tokenOutIndex] -
-            invariant.divUp(finalBalances[tokenInIndex] + amountGivenScaled18);
+        if (tokenOutPoolAmount > totalBalances[tokenOutIndex]) {
+            // If the amount of `tokenOut` remaining in the pool post-swap is greater than the total balance of
+            // `tokenOut`, that means the swap result is negative due to a rounding issue.
+            revert NegativeAmountOut();
+        }
 
-        // The swap result should not be bigger than the real balance of the token out.
-        return amountOut > balancesScaled18[tokenOutIndex] ? balancesScaled18[tokenOutIndex] : amountOut;
+        uint256 amountOut = totalBalances[tokenOutIndex] - tokenOutPoolAmount;
+        if (amountOut > balancesScaled18[tokenOutIndex]) {
+            // Amount out cannot be bigger than the real balance of the token.
+            revert AmountOutBiggerThanBalance();
+        }
+
+        return amountOut;
     }
 
     function calculateInGivenOut(
@@ -85,14 +111,19 @@ library ReClammMath {
         uint256 tokenOutIndex,
         uint256 amountGivenScaled18
     ) internal pure returns (uint256) {
-        uint256[] memory finalBalances = new uint256[](balancesScaled18.length);
+        if (amountGivenScaled18 > balancesScaled18[tokenOutIndex]) {
+            // Amount in cannot be bigger than the real balance of the token.
+            revert AmountOutBiggerThanBalance();
+        }
 
-        finalBalances[0] = balancesScaled18[0] + virtualBalances[0];
-        finalBalances[1] = balancesScaled18[1] + virtualBalances[1];
+        uint256[] memory totalBalances = new uint256[](balancesScaled18.length);
 
-        uint256 invariant = finalBalances[0].mulUp(finalBalances[1]);
+        totalBalances[0] = balancesScaled18[0] + virtualBalances[0];
+        totalBalances[1] = balancesScaled18[1] + virtualBalances[1];
 
-        return invariant.divUp(finalBalances[tokenOutIndex] - amountGivenScaled18) - finalBalances[tokenInIndex];
+        uint256 invariant = totalBalances[0].mulUp(totalBalances[1]);
+
+        return invariant.divUp(totalBalances[tokenOutIndex] - amountGivenScaled18) - totalBalances[tokenInIndex];
     }
 
     function initializeVirtualBalances(
@@ -104,24 +135,24 @@ library ReClammMath {
         virtualBalances[1] = balancesScaled18[1].divDown(sqrtPriceRatio - FixedPoint.ONE);
     }
 
-    function getVirtualBalances(
+    function getCurrentVirtualBalances(
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
-        uint256 c,
+        uint256 timeConstant,
         uint32 lastTimestamp,
         uint32 currentTimestamp,
         uint256 centerednessMargin,
         SqrtPriceRatioState storage sqrtPriceRatioState
-    ) internal pure returns (uint256[] memory virtualBalances, bool changed) {
+    ) internal pure returns (uint256[] memory currentVirtualBalances, bool changed) {
         // TODO Review rounding
-
-        virtualBalances = lastVirtualBalances;
 
         // If the last timestamp is the same as the current timestamp, virtual balances were already reviewed in the
         // current block.
         if (lastTimestamp == currentTimestamp) {
-            return (virtualBalances, false);
+            return (lastVirtualBalances, false);
         }
+
+        currentVirtualBalances = lastVirtualBalances;
 
         SqrtPriceRatioState memory _sqrtPriceRatioState = sqrtPriceRatioState;
 
@@ -134,58 +165,92 @@ library ReClammMath {
             _sqrtPriceRatioState.endTime
         );
 
+        bool isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances);
+
         if (
             _sqrtPriceRatioState.startTime != 0 &&
             currentTimestamp > _sqrtPriceRatioState.startTime &&
             (currentTimestamp < _sqrtPriceRatioState.endTime || lastTimestamp < _sqrtPriceRatioState.endTime)
         ) {
-            uint256 lastSqrtPriceRatio = calculateSqrtPriceRatio(
-                lastTimestamp,
-                _sqrtPriceRatioState.startSqrtPriceRatio,
-                _sqrtPriceRatioState.endSqrtPriceRatio,
-                _sqrtPriceRatioState.startTime,
-                _sqrtPriceRatioState.endTime
-            );
-
-            // Ra_center = Va * (lastSqrtPriceRatio - 1)
-            uint256 rACenter = lastVirtualBalances[0].mulDown(lastSqrtPriceRatio - FixedPoint.ONE);
-
-            // Va = Ra_center / (currentSqrtPriceRatio - 1)
-            virtualBalances[0] = rACenter.divDown(currentSqrtPriceRatio - FixedPoint.ONE);
-
-            uint256 currentInvariant = computeInvariant(balancesScaled18, lastVirtualBalances, Rounding.ROUND_DOWN);
-
-            // Vb = currentInvariant / (currentPriceRatio * Va)
-            virtualBalances[1] = currentInvariant.divDown(
-                currentSqrtPriceRatio.mulDown(currentSqrtPriceRatio).mulDown(virtualBalances[0])
+            currentVirtualBalances = calculateVirtualBalancesUpdatingPriceRatio(
+                currentSqrtPriceRatio,
+                balancesScaled18,
+                lastVirtualBalances,
+                isPoolAboveCenter
             );
 
             changed = true;
         }
 
-        if (isPoolInRange(balancesScaled18, lastVirtualBalances, centerednessMargin) == false) {
-            uint256 priceRatio = currentSqrtPriceRatio.mulDown(currentSqrtPriceRatio);
-
-            if (isAboveCenter(balancesScaled18, lastVirtualBalances)) {
-                virtualBalances[1] = lastVirtualBalances[1].mulDown(
-                    LogExpMath.pow(FixedPoint.ONE - c, (currentTimestamp - lastTimestamp) * FixedPoint.ONE)
-                );
-                // Va = (Ra * (Vb + Rb)) / (((priceRatio - 1) * Vb) - Rb)
-                virtualBalances[0] = (balancesScaled18[0].mulDown(virtualBalances[1] + balancesScaled18[1])).divDown(
-                    (priceRatio - FixedPoint.ONE).mulDown(virtualBalances[1]) - balancesScaled18[1]
-                );
-            } else {
-                virtualBalances[0] = lastVirtualBalances[0].mulDown(
-                    LogExpMath.pow(FixedPoint.ONE - c, (currentTimestamp - lastTimestamp) * FixedPoint.ONE)
-                );
-                // Vb = (Rb * (Va + Ra)) / (((priceRatio - 1) * Va) - Ra)
-                virtualBalances[1] = (balancesScaled18[1].mulDown(virtualBalances[0] + balancesScaled18[0])).divDown(
-                    (priceRatio - FixedPoint.ONE).mulDown(virtualBalances[0]) - balancesScaled18[0]
-                );
-            }
+        if (isPoolInRange(balancesScaled18, currentVirtualBalances, centerednessMargin) == false) {
+            currentVirtualBalances = calculateVirtualBalancesOutOfRange(
+                currentSqrtPriceRatio,
+                balancesScaled18,
+                currentVirtualBalances,
+                isPoolAboveCenter,
+                timeConstant,
+                currentTimestamp,
+                lastTimestamp
+            );
 
             changed = true;
         }
+    }
+
+    function calculateVirtualBalancesUpdatingPriceRatio(
+        uint256 currentSqrtPriceRatio,
+        uint256[] memory balancesScaled18,
+        uint256[] memory lastVirtualBalances,
+        bool isPoolAboveCenter
+    ) internal pure returns (uint256[] memory virtualBalances) {
+        uint256 indexTokenUndervalued = isPoolAboveCenter ? 0 : 1;
+        uint256 indexTokenOvervalued = isPoolAboveCenter ? 1 : 0;
+
+        virtualBalances = new uint256[](2);
+
+        uint256 poolCenteredness = calculateCenteredness(balancesScaled18, lastVirtualBalances);
+
+        uint256 a = currentSqrtPriceRatio.mulDown(currentSqrtPriceRatio) - FixedPoint.ONE;
+        uint256 b = balancesScaled18[indexTokenUndervalued].mulDown(FixedPoint.ONE + poolCenteredness);
+        uint256 c = balancesScaled18[indexTokenUndervalued].mulDown(balancesScaled18[indexTokenUndervalued]).mulDown(
+            poolCenteredness
+        );
+        virtualBalances[indexTokenUndervalued] = (b + Math.sqrt((b.mulDown(b) + 4 * a.mulDown(c)) * FixedPoint.ONE))
+            .divDown(2 * a);
+        virtualBalances[indexTokenOvervalued] = (
+            balancesScaled18[indexTokenOvervalued].mulDown(virtualBalances[indexTokenUndervalued])
+        ).divDown(balancesScaled18[indexTokenUndervalued]).divDown(poolCenteredness);
+    }
+
+    function calculateVirtualBalancesOutOfRange(
+        uint256 currentSqrtPriceRatio,
+        uint256[] memory balancesScaled18,
+        uint256[] memory virtualBalances,
+        bool isPoolAboveCenter,
+        uint256 timeConstant,
+        uint32 currentTimestamp,
+        uint32 lastTimestamp
+    ) internal pure returns (uint256[] memory) {
+        uint256 priceRatio = currentSqrtPriceRatio.mulDown(currentSqrtPriceRatio);
+
+        uint256 indexTokenUndervalued = isPoolAboveCenter ? 0 : 1;
+        uint256 indexTokenOvervalued = isPoolAboveCenter ? 1 : 0;
+
+        // Vb = Vb * (1 - timeConstant)^(Tcurr - Tlast)
+        virtualBalances[indexTokenOvervalued] = virtualBalances[indexTokenOvervalued].mulDown(
+            LogExpMath.pow(FixedPoint.ONE - timeConstant, (currentTimestamp - lastTimestamp) * FixedPoint.ONE)
+        );
+        // Va = (Ra * (Vb + Rb)) / (((priceRatio - 1) * Vb) - Rb)
+        virtualBalances[indexTokenUndervalued] = (
+            balancesScaled18[indexTokenUndervalued].mulDown(
+                virtualBalances[indexTokenOvervalued] + balancesScaled18[indexTokenOvervalued]
+            )
+        ).divDown(
+                (priceRatio - FixedPoint.ONE).mulDown(virtualBalances[indexTokenOvervalued]) -
+                    balancesScaled18[indexTokenOvervalued]
+            );
+
+        return virtualBalances;
     }
 
     function isPoolInRange(
@@ -205,13 +270,13 @@ library ReClammMath {
             return 0;
         } else if (isAboveCenter(balancesScaled18, virtualBalances)) {
             return
-                balancesScaled18[1].mulDown(virtualBalances[0]).divDown(
-                    balancesScaled18[0].mulDown(virtualBalances[1])
+                balancesScaled18[1].mulDown(virtualBalances[0]).divDown(balancesScaled18[0]).divDown(
+                    virtualBalances[1]
                 );
         } else {
             return
-                balancesScaled18[0].mulDown(virtualBalances[1]).divDown(
-                    balancesScaled18[1].mulDown(virtualBalances[0])
+                balancesScaled18[0].mulDown(virtualBalances[1]).divDown(balancesScaled18[1]).divDown(
+                    virtualBalances[0]
                 );
         }
     }

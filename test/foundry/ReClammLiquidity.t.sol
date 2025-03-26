@@ -6,15 +6,17 @@ import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/Fixe
 import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultErrors.sol";
 import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
+import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
+import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
-import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
 
 contract ReClammLiquidityTest is BaseReClammTest {
     using FixedPoint for uint256;
 
     uint256 constant _MAX_PRICE_ERROR_ABS = 5;
-    uint256 constant _MAX_CENTEREDNESS_ERROR_ABS = 1e9;
+    uint256 constant _MAX_CENTEREDNESS_ERROR_ABS = 1e5;
+    uint256 constant _MIN_TOKEN_BALANCE = 1e14;
 
     function testAddLiquidity_Fuzz(
         uint256 exactBptAmountOut,
@@ -30,13 +32,13 @@ contract ReClammLiquidityTest is BaseReClammTest {
         maxAmountsIn[daiIdx] = dai.balanceOf(alice);
         maxAmountsIn[usdcIdx] = usdc.balanceOf(alice);
 
-        uint256[] memory virtualBalancesBefore = ReClammPool(pool).getLastVirtualBalances();
+        uint256[] memory virtualBalancesBefore = ReClammPool(pool).getCurrentVirtualBalances();
         (, , uint256[] memory balancesBefore, ) = vault.getPoolTokenInfo(pool);
 
         vm.prank(alice);
         router.addLiquidityProportional(pool, maxAmountsIn, exactBptAmountOut, false, "");
 
-        uint256[] memory virtualBalancesAfter = ReClammPool(pool).getLastVirtualBalances();
+        uint256[] memory virtualBalancesAfter = ReClammPool(pool).getCurrentVirtualBalances();
         (, , uint256[] memory balancesAfter, ) = vault.getPoolTokenInfo(pool);
 
         // Check if virtual balances were correctly updated.
@@ -126,13 +128,13 @@ contract ReClammLiquidityTest is BaseReClammTest {
         minAmountsOut[daiIdx] = 0;
         minAmountsOut[usdcIdx] = 0;
 
-        uint256[] memory virtualBalancesBefore = ReClammPool(pool).getLastVirtualBalances();
+        uint256[] memory virtualBalancesBefore = ReClammPool(pool).getCurrentVirtualBalances();
         (, , uint256[] memory balancesBefore, ) = vault.getPoolTokenInfo(pool);
 
         vm.prank(lp);
         router.removeLiquidityProportional(pool, exactBptAmountIn, minAmountsOut, false, "");
 
-        uint256[] memory virtualBalancesAfter = ReClammPool(pool).getLastVirtualBalances();
+        uint256[] memory virtualBalancesAfter = ReClammPool(pool).getCurrentVirtualBalances();
         (, , uint256[] memory balancesAfter, ) = vault.getPoolTokenInfo(pool);
 
         // Check if virtual balances were correctly updated.
@@ -326,8 +328,10 @@ contract ReClammLiquidityTest is BaseReClammTest {
     }
 
     function _setPoolBalances(uint256 initialDaiBalance, uint256 initialUsdcBalance) internal {
-        initialDaiBalance = bound(initialDaiBalance, 1e10, dai.balanceOf(address(vault)));
-        initialUsdcBalance = bound(initialUsdcBalance, 1e10, usdc.balanceOf(address(vault)));
+        // Setting initial balances to be at least 10 * min token balance, so LP can remove 90% of the liquidity
+        // without reverting.
+        initialDaiBalance = bound(initialDaiBalance, 10 * _MIN_TOKEN_BALANCE, dai.balanceOf(address(vault)));
+        initialUsdcBalance = bound(initialUsdcBalance, 10 * _MIN_TOKEN_BALANCE, usdc.balanceOf(address(vault)));
 
         uint256[] memory initialBalances = new uint256[](2);
         initialBalances[daiIdx] = initialDaiBalance;

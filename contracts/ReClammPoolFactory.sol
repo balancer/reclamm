@@ -18,7 +18,7 @@ import { ReClammPool } from "./ReClammPool.sol";
 import { ReClammPoolParams } from "./interfaces/IReClammPool.sol";
 
 /**
- * @notice Acl Amm Pool factory.
+ * @notice ReClammPool factory.
  */
 contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
     string private _poolVersion;
@@ -64,7 +64,7 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
             revert StandardPoolWithCreator();
         }
 
-        // The Acl Amm Pool only supports 2 tokens.
+        // The ReClammPool only supports 2 tokens.
         if (tokens.length > 2) {
             revert IVaultErrors.MaxTokens();
         }
