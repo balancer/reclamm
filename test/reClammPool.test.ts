@@ -189,11 +189,10 @@ describe('ReClammPool', function () {
 
     const [, , , poolBalancesAfterSwap] = await vault.getPoolTokenInfo(pool);
     const virtualBalancesAfterSwap = await pool.getCurrentVirtualBalances();
-    const lastTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
 
-    // Pass 1 hour
-    await ethers.provider.send('evm_increaseTime', [60 * 60]);
-    await ethers.provider.send('evm_mine');
+    const lastTimestamp = await currentTimestamp();
+    await advanceTime(HOUR);
+    const expectedTimestamp = lastTimestamp + BigInt(HOUR) + 1n;
 
     // calculate the expected virtual balances in the next swap
     const [expectedFinalVirtualBalances] = getCurrentVirtualBalances(
@@ -201,7 +200,7 @@ describe('ReClammPool', function () {
       virtualBalancesAfterSwap,
       parseIncreaseDayRate(INCREASE_DAY_RATE),
       lastTimestamp,
-      lastTimestamp + 60 * 60 + 1,
+      expectedTimestamp,
       CENTEREDNESS_MARGIN,
       {
         startTime: 0,
