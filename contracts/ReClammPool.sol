@@ -24,8 +24,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     using FixedPoint for uint256;
 
     // uint256 private constant _MIN_SWAP_FEE_PERCENTAGE = 0.001e16; // 0.001%
-    uint256 private constant _MIN_SWAP_FEE_PERCENTAGE = 0;
-    uint256 private constant _MAX_SWAP_FEE_PERCENTAGE = 10e16; // 10%
+    uint256 internal constant _MIN_SWAP_FEE_PERCENTAGE = 0;
+    uint256 internal constant _MAX_SWAP_FEE_PERCENTAGE = 10e16; // 10%
 
     // A pool is "centered" when it holds equal (non-zero) value in both real token balances. In this state, the ratio
     // of the real balances equals the ratio of the virtual balances, and the value of the centeredness measure is
@@ -35,14 +35,14 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     // centeredness is the divisor in many calculations, zero values would revert, and even near-zero values are
     // problematic. Imposing this limit on centeredness (i.e., reverting if an operation would cause the centeredness
     // to decrease below this threshold) keeps the math well-behaved.
-    uint256 private constant _MIN_TOKEN_BALANCE_SCALED18 = 1e14;
-    uint256 private constant _MIN_POOL_CENTEREDNESS = 1e3;
+    uint256 internal constant _MIN_TOKEN_BALANCE_SCALED18 = 1e14;
+    uint256 internal constant _MIN_POOL_CENTEREDNESS = 1e3;
 
-    SqrtPriceRatioState private _sqrtPriceRatioState;
-    uint256 private _lastTimestamp;
-    uint256 private _timeConstant;
-    uint256 private _centerednessMargin;
-    uint256[] private _lastVirtualBalances;
+    SqrtPriceRatioState internal _sqrtPriceRatioState;
+    uint256 internal _lastTimestamp;
+    uint256 internal _timeConstant;
+    uint256 internal _centerednessMargin;
+    uint256[] internal _lastVirtualBalances;
 
     constructor(
         ReClammPoolParams memory params,
