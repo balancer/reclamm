@@ -232,7 +232,7 @@ library ReClammMath {
 
         bool isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances);
 
-        // If the price ratio is updating, update
+        // If the price ratio is updating, shrink/expand the price interval by recalculating the virtual balances.
         if (
             _sqrtPriceRatioState.startTime != 0 &&
             currentTimestamp > _sqrtPriceRatioState.startTime &&
@@ -248,6 +248,7 @@ library ReClammMath {
             changed = true;
         }
 
+        // If the pool is out of range, track the market price by moving the price interval.
         if (isPoolInRange(balancesScaled18, currentVirtualBalances, centerednessMargin) == false) {
             currentVirtualBalances = calculateVirtualBalancesOutOfRange(
                 currentSqrtPriceRatio,
@@ -263,6 +264,17 @@ library ReClammMath {
         }
     }
 
+    /**
+     * @notice Calculate the virtual balances of the pool when the price ratio is updating.
+     * @dev This function will shrink/expand the price interval by recalculating the virtual balances. It'll keep the
+     * current pool centeredness and token prices.
+     *
+     * @param currentSqrtPriceRatio The current sqrt price ratio of the pool
+     * @param balancesScaled18 Current pool balances, sorted in token registration order
+     * @param lastVirtualBalances The last virtual balances, sorted in token registration order
+     * @param isPoolAboveCenter Whether the pool is above or below the center
+     * @return virtualBalances The new virtual balances of the pool
+     */
     function calculateVirtualBalancesUpdatingPriceRatio(
         uint256 currentSqrtPriceRatio,
         uint256[] memory balancesScaled18,
@@ -288,6 +300,20 @@ library ReClammMath {
         ).divDown(balancesScaled18[indexTokenUndervalued]).divDown(poolCenteredness);
     }
 
+    /**
+     * @notice Calculate the virtual balances of the pool when the pool is out of range.
+     * @dev This function will track the market price by moving the price interval. It will increase the pool
+     * centeredness and change the token prices.
+     *
+     * @param currentSqrtPriceRatio The current sqrt price ratio of the pool
+     * @param balancesScaled18 Current pool balances, sorted in token registration order
+     * @param virtualBalances The last virtual balances, sorted in token registration order
+     * @param isPoolAboveCenter Whether the pool is above or below the center
+     * @param timeConstant IncreaseDayRate divided by 124649
+     * @param currentTimestamp The current timestamp
+     * @param lastTimestamp The timestamp of the last user interaction with the pool
+     * @return virtualBalances The new virtual balances of the pool
+     */
     function calculateVirtualBalancesOutOfRange(
         uint256 currentSqrtPriceRatio,
         uint256[] memory balancesScaled18,
@@ -299,8 +325,9 @@ library ReClammMath {
     ) internal pure returns (uint256[] memory) {
         uint256 priceRatio = currentSqrtPriceRatio.mulDown(currentSqrtPriceRatio);
 
-        uint256 indexTokenUndervalued = isPoolAboveCenter ? 0 : 1;
+        // The token overvalued is the one with low token balance (therefore, rarer and more valuable).
         uint256 indexTokenOvervalued = isPoolAboveCenter ? 1 : 0;
+        uint256 indexTokenUndervalued = isPoolAboveCenter ? 0 : 1;
 
         // Vb = Vb * (1 - timeConstant)^(Tcurr - Tlast)
         virtualBalances[indexTokenOvervalued] = virtualBalances[indexTokenOvervalued].mulDown(
@@ -319,6 +346,14 @@ library ReClammMath {
         return virtualBalances;
     }
 
+    /**
+     * @notice Check if the pool is in range.
+     * @dev The pool is in range if the centeredness is greater than the centeredness margin.
+     * @param balancesScaled18 Current pool balances, sorted in token registration order
+     * @param virtualBalances The last virtual balances, sorted in token registration order
+     * @param centerednessMargin A limit of the pool centeredness that defines if pool is out of range
+     * @return isInRange Whether the pool is in range
+     */
     function isPoolInRange(
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances,
@@ -328,6 +363,16 @@ library ReClammMath {
         return centeredness >= centerednessMargin;
     }
 
+    /**
+     * @notice Calculate the centeredness of the pool.
+     * @dev The centeredness is calculated as the ratio of the real balances divided by the ratio of the virtual
+     * balances. It's a number between 0 and 100%, where 100% means that the token prices are centered and 0%
+     * means that the token prices are at the edge of the price interval.
+     *
+     * @param balancesScaled18 Current pool balances, sorted in token registration order
+     * @param virtualBalances The last virtual balances, sorted in token registration order
+     * @return poolCenteredness The centeredness of the pool
+     */
     function calculateCenteredness(
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances
@@ -347,6 +392,18 @@ library ReClammMath {
         }
     }
 
+    /**
+     * @notice Calculate the sqrt price ratio of the pool.
+     * @dev This function will interpolate the sqrt price ratio of the pool based on the current time, the start and
+     * end sqrt price ratios and the start and end times.
+     *
+     * @param currentTime The current timestamp
+     * @param startSqrtPriceRatio The start sqrt price ratio of the pool
+     * @param endSqrtPriceRatio The end sqrt price ratio of the pool
+     * @param startTime The timestamp of the last user interaction with the pool
+     * @param endTime The timestamp of the next user interaction with the pool
+     * @return sqrtPriceRatio The sqrt price ratio of the pool
+     */
     function calculateSqrtPriceRatio(
         uint32 currentTime,
         uint96 startSqrtPriceRatio,
@@ -372,6 +429,13 @@ library ReClammMath {
             );
     }
 
+    /**
+     * @notice Check if the pool is above center.
+     * @dev The pool is above center if the ratio of the real balances is greater than the ratio of the virtual balances.
+     * @param balancesScaled18 Current pool balances, sorted in token registration order
+     * @param virtualBalances The last virtual balances, sorted in token registration order
+     * @return isAboveCenter Whether the pool is above center
+     */
     function isAboveCenter(
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances
@@ -383,6 +447,11 @@ library ReClammMath {
         }
     }
 
+    /**
+     * @notice Parse the increase day rate to a time constant.
+     * @param increaseDayRate The increase day rate
+     * @return timeConstant The time constant
+     */
     function parseIncreaseDayRate(uint256 increaseDayRate) internal pure returns (uint256) {
         // Divide daily rate by a number of seconds per day (plus some adjustment)
         return increaseDayRate / _SECONDS_PER_DAY_WITH_ADJUSTMENT;
