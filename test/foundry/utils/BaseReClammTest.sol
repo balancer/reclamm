@@ -32,7 +32,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
 
     uint256 internal constant _INITIAL_PROTOCOL_FEE_PERCENTAGE = 1e16;
     uint256 internal constant _DEFAULT_SWAP_FEE = 0; // 0%
-    string internal constant _POOL_VERSION = "Acl Amm Pool v1";
+    string internal constant _POOL_VERSION = "ReClamm Pool v1";
 
     uint256 internal constant _DEFAULT_INCREASE_DAY_RATE = 100e16; // 100%
     uint96 internal constant _DEFAULT_SQRT_PRICE_RATIO = 1.41421356e18; // Price Range of 4 (fourth square root is 1.41)
@@ -96,7 +96,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
         address[] memory tokens,
         string memory label
     ) internal override returns (address newPool, bytes memory poolArgs) {
-        string memory name = "Acl Amm Pool";
+        string memory name = "ReClamm Pool";
         string memory symbol = "RECLAMMPOOL";
 
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens.asIERC20());
