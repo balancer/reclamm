@@ -37,6 +37,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     uint256 internal constant _DEFAULT_INCREASE_DAY_RATE = 100e16; // 100%
     uint96 internal constant _DEFAULT_SQRT_PRICE_RATIO = 1.41421356e18; // Price Range of 4 (fourth square root is 1.41)
     uint256 internal constant _DEFAULT_CENTEREDNESS_MARGIN = 20e16; // 20%
+    uint256 internal constant _MIN_TOKEN_BALANCE = 1e14;
 
     uint96 private _sqrtPriceRatio = _DEFAULT_SQRT_PRICE_RATIO;
     uint256 private _increaseDayRate = _DEFAULT_INCREASE_DAY_RATE;
@@ -136,5 +137,21 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
         vm.startPrank(lp);
         _initPool(pool, _initialBalances, 0);
         vm.stopPrank();
+    }
+
+    function _setPoolBalances(
+        uint256 initialDaiBalance,
+        uint256 initialUsdcBalance
+    ) internal returns (uint256[] memory initialBalances) {
+        // Setting initial balances to be at least 10 * min token balance, so LP can remove 90% of the liquidity
+        // without reverting.
+        initialDaiBalance = bound(initialDaiBalance, 10 * _MIN_TOKEN_BALANCE, dai.balanceOf(address(vault)));
+        initialUsdcBalance = bound(initialUsdcBalance, 10 * _MIN_TOKEN_BALANCE, usdc.balanceOf(address(vault)));
+
+        initialBalances = new uint256[](2);
+        initialBalances[daiIdx] = initialDaiBalance;
+        initialBalances[usdcIdx] = initialUsdcBalance;
+
+        vault.manualSetPoolBalances(pool, initialBalances, initialBalances);
     }
 }

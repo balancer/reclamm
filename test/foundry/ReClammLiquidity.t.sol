@@ -16,7 +16,6 @@ contract ReClammLiquidityTest is BaseReClammTest {
 
     uint256 constant _MAX_PRICE_ERROR_ABS = 5;
     uint256 constant _MAX_CENTEREDNESS_ERROR_ABS = 1e5;
-    uint256 constant _MIN_TOKEN_BALANCE = 1e14;
 
     function testAddLiquidity_Fuzz(
         uint256 exactBptAmountOut,
@@ -63,7 +62,7 @@ contract ReClammLiquidityTest is BaseReClammTest {
         uint256 initialUsdcBalance
     ) public {
         uint256[] memory initialBalancesScaled18 = _setPoolBalances(initialDaiBalance, initialUsdcBalance);
-        _setLastTimestamp(block.timestamp);
+        ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
 
         // Pass 6 hour
         vm.warp(block.timestamp + 6 * 3600);
@@ -165,7 +164,7 @@ contract ReClammLiquidityTest is BaseReClammTest {
         uint256 initialUsdcBalance
     ) public {
         uint256[] memory initialBalancesScaled18 = _setPoolBalances(initialDaiBalance, initialUsdcBalance);
-        _setLastTimestamp(block.timestamp);
+        ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
 
         // Pass 6 hour
         vm.warp(block.timestamp + 6 * 3600);
@@ -259,25 +258,5 @@ contract ReClammLiquidityTest is BaseReClammTest {
         uint256 centerednessBefore = ReClammMath.calculateCenteredness(balancesBefore, virtualBalancesBefore);
         uint256 centerednessAfter = ReClammMath.calculateCenteredness(balancesAfter, virtualBalancesAfter);
         assertApproxEqAbs(centerednessAfter, centerednessBefore, _MAX_CENTEREDNESS_ERROR_ABS, "Centeredness changed");
-    }
-
-    function _setPoolBalances(
-        uint256 initialDaiBalance,
-        uint256 initialUsdcBalance
-    ) internal returns (uint256[] memory initialBalances) {
-        // Setting initial balances to be at least 10 * min token balance, so LP can remove 90% of the liquidity
-        // without reverting.
-        initialDaiBalance = bound(initialDaiBalance, 10 * _MIN_TOKEN_BALANCE, dai.balanceOf(address(vault)));
-        initialUsdcBalance = bound(initialUsdcBalance, 10 * _MIN_TOKEN_BALANCE, usdc.balanceOf(address(vault)));
-
-        initialBalances = new uint256[](2);
-        initialBalances[daiIdx] = initialDaiBalance;
-        initialBalances[usdcIdx] = initialUsdcBalance;
-
-        vault.manualSetPoolBalances(pool, initialBalances, initialBalances);
-    }
-
-    function _setLastTimestamp(uint256 timestamp) internal {
-        ReClammPoolMock(pool).setLastTimestamp(timestamp);
     }
 }
