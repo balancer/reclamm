@@ -256,17 +256,17 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function getLastTimestamp() external view returns (uint32) {
-        return _lastTimestamp;
-    }
-
-    /// @inheritdoc IReClammPool
     function setSqrtPriceRatio(
         uint96 newSqrtPriceRatio,
         uint32 startTime,
         uint32 endTime
     ) external onlySwapFeeManagerOrGovernance(address(this)) {
         _setSqrtPriceRatio(newSqrtPriceRatio, startTime, endTime);
+    }
+
+    /// @inheritdoc IReClammPool
+    function getLastTimestamp() external view returns (uint32) {
+        return _lastTimestamp;
     }
 
     /// @inheritdoc IReClammPool
