@@ -282,15 +282,14 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             balancesScaled18,
             _lastVirtualBalances,
             _timeConstant,
-            uint32(_lastTimestamp),
-            uint32(block.timestamp),
+            _lastTimestamp,
+            block.timestamp.toUint32(),
             _centerednessMargin,
             _sqrtPriceRatioState
         );
     }
 
-    function _setLastVirtualBalances(uint256[] memory virtualBalances) internal {
-        _lastTimestamp = block.timestamp;
+    function _setLastVirtualBalances(uint256[] memory virtualBalances) internal withUpdatedTimestamp {
         _lastVirtualBalances = virtualBalances;
 
         emit VirtualBalancesUpdated(virtualBalances);
