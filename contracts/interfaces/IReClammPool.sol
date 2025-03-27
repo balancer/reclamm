@@ -10,7 +10,7 @@ struct ReClammPoolParams {
     string symbol;
     string version;
     uint256 priceShiftDailyRate;
-    uint96 sqrtPriceRatio;
+    uint96 fourthRootPriceRatio;
     uint64 centerednessMargin;
 }
 
@@ -27,9 +27,9 @@ interface IReClammPool is IBasePool {
     /// @dev The pool centeredness is too low after a swap.
     error PoolCenterednessTooLow();
 
-    event SqrtPriceRatioUpdated(
-        uint256 startSqrtPriceRatio,
-        uint256 endSqrtPriceRatio,
+    event FourthRootPriceRatioUpdated(
+        uint256 startFourthRootPriceRatio,
+        uint256 endFourthRootPriceRatio,
         uint256 startTime,
         uint256 endTime
     );
@@ -44,9 +44,9 @@ interface IReClammPool is IBasePool {
 
     function getLastTimestamp() external view returns (uint32);
 
-    function getCurrentSqrtPriceRatio() external view returns (uint96);
+    function getCurrentFourthRootPriceRatio() external view returns (uint96);
 
-    function setSqrtPriceRatio(uint256 newSqrtPriceRatio, uint256 startTime, uint256 endTime) external;
+    function setPriceRatioState(uint256 newFourthRootPriceRatio, uint256 startTime, uint256 endTime) external;
 
     function setPriceShiftDailyRate(uint256 newPriceShiftDailyRate) external;
 }

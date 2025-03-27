@@ -6,7 +6,7 @@ import {
   calculateCenteredness,
   calculateInGivenOut,
   calculateOutGivenIn,
-  calculateSqrtPriceRatio,
+  calculateFourthRootPriceRatio,
   computeInvariant,
   getCurrentVirtualBalances,
   initializeVirtualBalances,
@@ -125,10 +125,10 @@ describe('ReClammMath', function () {
   context('initializeVirtualBalances', () => {
     it('should return the correct value', async () => {
       const balancesScaled18 = [bn(200e18), bn(300e18)];
-      const sqrtPriceRatio = bn(100e18);
+      const fourthRootPriceRatio = bn(100e18);
 
-      const res = await mathLib.initializeVirtualBalances(balancesScaled18, sqrtPriceRatio);
-      const jsRes = initializeVirtualBalances(balancesScaled18, sqrtPriceRatio);
+      const res = await mathLib.initializeVirtualBalances(balancesScaled18, fourthRootPriceRatio);
+      const jsRes = initializeVirtualBalances(balancesScaled18, fourthRootPriceRatio);
       expect(res.length).to.equal(jsRes.length);
       expect(res[0]).to.equal(jsRes[0]);
       expect(res[1]).to.equal(jsRes[1]);
@@ -177,110 +177,110 @@ describe('ReClammMath', function () {
     });
   });
 
-  context('calculateSqrtPriceRatio', () => {
-    it('should return endSqrtPriceRatioFp when currentTime > endTime', async () => {
+  context('calculateFourthRootPriceRatio', () => {
+    it('should return endFourthRootPriceRatioFp when currentTime > endTime', async () => {
       const currentTime = 100;
-      const startSqrtPriceRatioFp = bn(100e18);
-      const endSqrtPriceRatioFp = bn(300e18);
+      const startFourthRootPriceRatioFp = bn(100e18);
+      const endFourthRootPriceRatioFp = bn(300e18);
       const startTime = 1;
       const endTime = 50;
 
-      const contractResult = await mathLib.calculateSqrtPriceRatio(
+      const contractResult = await mathLib.calculateFourthRootPriceRatio(
         currentTime,
-        startSqrtPriceRatioFp,
-        endSqrtPriceRatioFp,
+        startFourthRootPriceRatioFp,
+        endFourthRootPriceRatioFp,
         startTime,
         endTime
       );
-      const mathResult = calculateSqrtPriceRatio(
+      const mathResult = calculateFourthRootPriceRatio(
         currentTime,
-        startSqrtPriceRatioFp,
-        endSqrtPriceRatioFp,
+        startFourthRootPriceRatioFp,
+        endFourthRootPriceRatioFp,
         startTime,
         endTime
       );
 
       expect(contractResult).to.equal(mathResult);
-      expect(contractResult).to.equal(endSqrtPriceRatioFp);
+      expect(contractResult).to.equal(endFourthRootPriceRatioFp);
     });
 
-    it('should return startSqrtPriceRatioFp when currentTime < startTime', async () => {
+    it('should return startFourthRootPriceRatioFp when currentTime < startTime', async () => {
       const currentTime = 0;
-      const startSqrtPriceRatioFp = bn(100e18);
-      const endSqrtPriceRatioFp = bn(300e18);
+      const startFourthRootPriceRatioFp = bn(100e18);
+      const endFourthRootPriceRatioFp = bn(300e18);
       const startTime = 1;
       const endTime = 50;
 
-      const contractResult = await mathLib.calculateSqrtPriceRatio(
+      const contractResult = await mathLib.calculateFourthRootPriceRatio(
         currentTime,
-        startSqrtPriceRatioFp,
-        endSqrtPriceRatioFp,
+        startFourthRootPriceRatioFp,
+        endFourthRootPriceRatioFp,
         startTime,
         endTime
       );
-      const mathResult = calculateSqrtPriceRatio(
+      const mathResult = calculateFourthRootPriceRatio(
         currentTime,
-        startSqrtPriceRatioFp,
-        endSqrtPriceRatioFp,
+        startFourthRootPriceRatioFp,
+        endFourthRootPriceRatioFp,
         startTime,
         endTime
       );
 
       expect(contractResult).to.equal(mathResult);
-      expect(contractResult).to.equal(startSqrtPriceRatioFp);
+      expect(contractResult).to.equal(startFourthRootPriceRatioFp);
     });
 
-    it('should return endSqrtPriceRatioFp when startSqrtPriceRatioFp == endSqrtPriceRatioFp', async () => {
+    it('should return endFourthRootPriceRatioFp when startFourthRootPriceRatioFp == endFourthRootPriceRatioFp', async () => {
       const currentTime = 25;
-      const startSqrtPriceRatioFp = bn(100e18);
-      const endSqrtPriceRatioFp = bn(100e18);
+      const startFourthRootPriceRatioFp = bn(100e18);
+      const endFourthRootPriceRatioFp = bn(100e18);
       const startTime = 1;
       const endTime = 50;
 
-      const contractResult = await mathLib.calculateSqrtPriceRatio(
+      const contractResult = await mathLib.calculateFourthRootPriceRatio(
         currentTime,
-        startSqrtPriceRatioFp,
-        endSqrtPriceRatioFp,
+        startFourthRootPriceRatioFp,
+        endFourthRootPriceRatioFp,
         startTime,
         endTime
       );
-      const mathResult = calculateSqrtPriceRatio(
+      const mathResult = calculateFourthRootPriceRatio(
         currentTime,
-        startSqrtPriceRatioFp,
-        endSqrtPriceRatioFp,
+        startFourthRootPriceRatioFp,
+        endFourthRootPriceRatioFp,
         startTime,
         endTime
       );
 
       expect(contractResult).to.equal(mathResult);
-      expect(contractResult).to.equal(endSqrtPriceRatioFp);
+      expect(contractResult).to.equal(endFourthRootPriceRatioFp);
     });
 
     it('should return the correct value when currentTime < endTime && currentTime > startTime', async () => {
       const currentTime = 25;
-      const startSqrtPriceRatioFp = bn(100e18);
-      const endSqrtPriceRatioFp = bn(300e18);
+      const startFourthRootPriceRatioFp = bn(100e18);
+      const endFourthRootPriceRatioFp = bn(300e18);
       const startTime = 1;
       const endTime = 50;
 
-      const contractResult = await mathLib.calculateSqrtPriceRatio(
+      const contractResult = await mathLib.calculateFourthRootPriceRatio(
         currentTime,
-        startSqrtPriceRatioFp,
-        endSqrtPriceRatioFp,
+        startFourthRootPriceRatioFp,
+        endFourthRootPriceRatioFp,
         startTime,
         endTime
       );
-      const mathResult = calculateSqrtPriceRatio(
+      const mathResult = calculateFourthRootPriceRatio(
         currentTime,
-        startSqrtPriceRatioFp,
-        endSqrtPriceRatioFp,
+        startFourthRootPriceRatioFp,
+        endFourthRootPriceRatioFp,
         startTime,
         endTime
       );
 
       expectEqualWithError(contractResult, mathResult, EXPECTED_RELATIVE_ERROR);
-      expect(contractResult).to.not.equal(startSqrtPriceRatioFp);
-      expect(contractResult).to.not.equal(endSqrtPriceRatioFp);
+      expect(contractResult).to.not.equal(startFourthRootPriceRatioFp);
+      expect(contractResult).to.not.equal(endFourthRootPriceRatioFp);
     });
   });
 
@@ -292,17 +292,17 @@ describe('ReClammMath', function () {
       lastTimestamp: number,
       currentTimestamp: number,
       centerednessMargin: bigint,
-      sqrtPriceRatioState: {
+      priceRatioState: {
         startTime: number;
         endTime: number;
-        startSqrtPriceRatio: bigint;
-        endSqrtPriceRatio: bigint;
+        startFourthRootPriceRatio: bigint;
+        endFourthRootPriceRatio: bigint;
       },
       expectChange: boolean
     ): Promise<{
       virtualBalances: bigint[];
     }> => {
-      await (await mathLib.setSqrtPriceRatioState(sqrtPriceRatioState)).wait();
+      await (await mathLib.setPriceRatioState(priceRatioState)).wait();
 
       const contractCurrentVirtualBalances = await mathLib.getCurrentVirtualBalances(
         balancesScaled18,
@@ -320,7 +320,7 @@ describe('ReClammMath', function () {
         lastTimestamp,
         currentTimestamp,
         centerednessMargin,
-        sqrtPriceRatioState
+        priceRatioState
       );
 
       expect(contractCurrentVirtualBalances[0].length).to.equal(javascriptCurrentVirtualBalances[0].length);
@@ -343,18 +343,18 @@ describe('ReClammMath', function () {
 
     it('q is updating & isPoolInRange == true && lastTimestamp < startTime', async () => {
       const balancesScaled18 = [bn(200e18), bn(300e18)];
-      const startSqrtPriceRatio = bn(1.5e18);
-      const endSqrtPriceRatio = bn(2e18);
-      const lastVirtualBalances = initializeVirtualBalances(balancesScaled18, startSqrtPriceRatio);
+      const startFourthRootPriceRatio = bn(1.5e18);
+      const endFourthRootPriceRatio = bn(2e18);
+      const lastVirtualBalances = initializeVirtualBalances(balancesScaled18, startFourthRootPriceRatio);
       const timeConstant = bn(1e18);
       const lastTimestamp = 5;
       const currentTimestamp = 20;
       const centerednessMargin = 20n;
-      const sqrtPriceRatioState = {
+      const priceRatioState = {
         startTime: 10,
         endTime: 50,
-        startSqrtPriceRatio: startSqrtPriceRatio,
-        endSqrtPriceRatio: endSqrtPriceRatio,
+        startFourthRootPriceRatio: startFourthRootPriceRatio,
+        endFourthRootPriceRatio: endFourthRootPriceRatio,
       };
 
       const contractVirtualBalances = await computeCheckAndReturnContractVirtualBalances(
@@ -364,7 +364,7 @@ describe('ReClammMath', function () {
         lastTimestamp,
         currentTimestamp,
         centerednessMargin,
-        sqrtPriceRatioState,
+        priceRatioState,
         true
       );
 
@@ -375,18 +375,18 @@ describe('ReClammMath', function () {
 
     it('q is updating & isPoolInRange == true && lastTimestamp > startTime', async () => {
       const balancesScaled18 = [bn(200e18), bn(300e18)];
-      const startSqrtPriceRatio = bn(1.5e18);
-      const endSqrtPriceRatio = bn(2e18);
-      const lastVirtualBalances = initializeVirtualBalances(balancesScaled18, startSqrtPriceRatio);
+      const startFourthRootPriceRatio = bn(1.5e18);
+      const endFourthRootPriceRatio = bn(2e18);
+      const lastVirtualBalances = initializeVirtualBalances(balancesScaled18, startFourthRootPriceRatio);
       const timeConstant = bn(1e18);
       const lastTimestamp = 15;
       const currentTimestamp = 20;
       const centerednessMargin = 0n;
-      const sqrtPriceRatioState = {
+      const priceRatioState = {
         startTime: 10,
         endTime: 50,
-        startSqrtPriceRatio: startSqrtPriceRatio,
-        endSqrtPriceRatio: endSqrtPriceRatio,
+        startFourthRootPriceRatio: startFourthRootPriceRatio,
+        endFourthRootPriceRatio: endFourthRootPriceRatio,
       };
 
       const res = await computeCheckAndReturnContractVirtualBalances(
@@ -396,7 +396,7 @@ describe('ReClammMath', function () {
         lastTimestamp,
         currentTimestamp,
         centerednessMargin,
-        sqrtPriceRatioState,
+        priceRatioState,
         true
       );
 
@@ -405,17 +405,17 @@ describe('ReClammMath', function () {
 
     it('q is not updating & isPoolInRange == false && isAboveCenter == true', async () => {
       const balancesScaled18 = [bn(200e18), bn(200e18)];
-      const startSqrtPriceRatio = bn(1.5e18);
+      const startFourthRootPriceRatio = bn(1.5e18);
       const lastVirtualBalances = [bn(200e18), balancesScaled18[1] * 2n];
       const timeConstant = bn(0);
       const lastTimestamp = 15;
       const currentTimestamp = 20;
       const centerednessMargin = bn(1e18);
-      const sqrtPriceRatioState = {
+      const priceRatioState = {
         startTime: 0,
         endTime: 0,
-        startSqrtPriceRatio: startSqrtPriceRatio,
-        endSqrtPriceRatio: startSqrtPriceRatio,
+        startFourthRootPriceRatio: startFourthRootPriceRatio,
+        endFourthRootPriceRatio: startFourthRootPriceRatio,
       };
 
       expect(await mathLib.isAboveCenter(balancesScaled18, lastVirtualBalances)).to.equal(true);
@@ -428,24 +428,24 @@ describe('ReClammMath', function () {
         lastTimestamp,
         currentTimestamp,
         centerednessMargin,
-        sqrtPriceRatioState,
+        priceRatioState,
         true
       );
     });
 
     it('q is not updating & isPoolInRange == false && isAboveCenter == false', async () => {
       const balancesScaled18 = [bn(200e18), bn(200e18)];
-      const startSqrtPriceRatio = bn(1.5e18);
-      const lastVirtualBalances = initializeVirtualBalances(balancesScaled18, startSqrtPriceRatio);
+      const startFourthRootPriceRatio = bn(1.5e18);
+      const lastVirtualBalances = initializeVirtualBalances(balancesScaled18, startFourthRootPriceRatio);
       const timeConstant = bn(0);
       const lastTimestamp = 15;
       const currentTimestamp = 20;
       const centerednessMargin = bn(2e18);
-      const sqrtPriceRatioState = {
+      const priceRatioState = {
         startTime: 0,
         endTime: 0,
-        startSqrtPriceRatio: startSqrtPriceRatio,
-        endSqrtPriceRatio: startSqrtPriceRatio,
+        startFourthRootPriceRatio: startFourthRootPriceRatio,
+        endFourthRootPriceRatio: startFourthRootPriceRatio,
       };
 
       expect(await mathLib.isAboveCenter(balancesScaled18, lastVirtualBalances)).to.equal(false);
@@ -458,7 +458,7 @@ describe('ReClammMath', function () {
         lastTimestamp,
         currentTimestamp,
         centerednessMargin,
-        sqrtPriceRatioState,
+        priceRatioState,
         true
       );
     });
@@ -487,22 +487,22 @@ describe('ReClammMath', function () {
   context('computeInvariant', () => {
     it('should return the correct value (roundUp)', async () => {
       const balancesScaled18 = [bn(200e18), bn(200e18)];
-      const startSqrtPriceRatio = bn(1.5e18);
-      const lastVirtualBalances = initializeVirtualBalances(balancesScaled18, startSqrtPriceRatio);
+      const startFourthRootPriceRatio = bn(1.5e18);
+      const lastVirtualBalances = initializeVirtualBalances(balancesScaled18, startFourthRootPriceRatio);
       const timeConstant = bn(0);
       const lastTimestamp = 15;
       const currentTimestamp = 20;
       const centerednessMargin = bn(1e18);
-      const sqrtPriceRatioState = {
+      const priceRatioState = {
         startTime: 0,
         endTime: 0,
-        startSqrtPriceRatio: startSqrtPriceRatio,
-        endSqrtPriceRatio: startSqrtPriceRatio,
+        startFourthRootPriceRatio: startFourthRootPriceRatio,
+        endFourthRootPriceRatio: startFourthRootPriceRatio,
       };
 
       const rounding = Rounding.ROUND_UP;
 
-      await (await mathLib.setSqrtPriceRatioState(sqrtPriceRatioState)).wait();
+      await (await mathLib.setPriceRatioState(priceRatioState)).wait();
 
       const res = await mathLib.computeInvariant(
         balancesScaled18,
@@ -520,7 +520,7 @@ describe('ReClammMath', function () {
         lastTimestamp,
         currentTimestamp,
         centerednessMargin,
-        sqrtPriceRatioState,
+        priceRatioState,
         rounding
       );
 
@@ -529,22 +529,22 @@ describe('ReClammMath', function () {
 
     it('should return the correct value (roundDown)', async () => {
       const balancesScaled18 = [bn(200e18), bn(200e18)];
-      const startSqrtPriceRatio = bn(1.5e18);
-      const lastVirtualBalances = initializeVirtualBalances(balancesScaled18, startSqrtPriceRatio);
+      const startFourthRootPriceRatio = bn(1.5e18);
+      const lastVirtualBalances = initializeVirtualBalances(balancesScaled18, startFourthRootPriceRatio);
       const timeConstant = bn(0);
       const lastTimestamp = 15;
       const currentTimestamp = 20;
       const centerednessMargin = bn(1e18);
-      const sqrtPriceRatioState = {
+      const priceRatioState = {
         startTime: 0,
         endTime: 0,
-        startSqrtPriceRatio: startSqrtPriceRatio,
-        endSqrtPriceRatio: startSqrtPriceRatio,
+        startFourthRootPriceRatio: startFourthRootPriceRatio,
+        endFourthRootPriceRatio: startFourthRootPriceRatio,
       };
 
       const rounding = Rounding.ROUND_DOWN;
 
-      await (await mathLib.setSqrtPriceRatioState(sqrtPriceRatioState)).wait();
+      await (await mathLib.setPriceRatioState(priceRatioState)).wait();
 
       const res = await mathLib.computeInvariant(
         balancesScaled18,
@@ -562,7 +562,7 @@ describe('ReClammMath', function () {
         lastTimestamp,
         currentTimestamp,
         centerednessMargin,
-        sqrtPriceRatioState,
+        priceRatioState,
         rounding
       );
 

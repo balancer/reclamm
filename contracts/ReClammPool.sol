@@ -20,7 +20,7 @@ import { PoolInfo } from "@balancer-labs/v3-pool-utils/contracts/PoolInfo.sol";
 import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
 
 import { ReClammPoolParams, IReClammPool } from "./interfaces/IReClammPool.sol";
-import { SqrtPriceRatioState, ReClammMath } from "./lib/ReClammMath.sol";
+import { PriceRatioState, ReClammMath } from "./lib/ReClammMath.sol";
 
 contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthentication, Version, BaseHooks {
     using SafeCast for *;
@@ -42,7 +42,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 internal constant _MIN_TOKEN_BALANCE_SCALED18 = 1e14;
     uint256 internal constant _MIN_POOL_CENTEREDNESS = 1e3;
 
-    SqrtPriceRatioState internal _sqrtPriceRatioState;
+    PriceRatioState internal _priceRatioState;
     uint32 internal _lastTimestamp;
     uint128 internal _timeConstant;
     uint64 internal _centerednessMargin;
@@ -64,7 +64,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     {
         _setPriceShiftDailyRate(params.priceShiftDailyRate);
         _setCenterednessMargin(params.centerednessMargin);
-        _setSqrtPriceRatio(params.sqrtPriceRatio, 0, block.timestamp);
+        _setPriceRatioState(params.fourthRootPriceRatio, 0, block.timestamp);
     }
 
     /// @inheritdoc IBasePool
@@ -77,7 +77,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                 _lastTimestamp,
                 block.timestamp.toUint32(),
                 _centerednessMargin,
-                _sqrtPriceRatioState,
+                _priceRatioState,
                 rounding
             );
     }
@@ -161,10 +161,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256[] memory balancesScaled18,
         bytes memory
     ) public override onlyVault withUpdatedTimestamp returns (bool) {
-        uint256 currentSqrtPriceRatio = _calculateCurrentSqrtPriceRatio();
+        uint256 currentFourthRootPriceRatio = _calculateCurrentFourthRootPriceRatio();
         uint256[] memory virtualBalances = ReClammMath.initializeVirtualBalances(
             balancesScaled18,
-            currentSqrtPriceRatio
+            currentFourthRootPriceRatio
         );
         _setLastVirtualBalances(virtualBalances);
 
@@ -257,17 +257,17 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function getCurrentSqrtPriceRatio() external view override returns (uint96) {
-        return _calculateCurrentSqrtPriceRatio();
+    function getCurrentFourthRootPriceRatio() external view override returns (uint96) {
+        return _calculateCurrentFourthRootPriceRatio();
     }
 
     /// @inheritdoc IReClammPool
-    function setSqrtPriceRatio(
-        uint256 newSqrtPriceRatio,
+    function setPriceRatioState(
+        uint256 newFourthRootPriceRatio,
         uint256 startTime,
         uint256 endTime
     ) external onlySwapFeeManagerOrGovernance(address(this)) {
-        _setSqrtPriceRatio(newSqrtPriceRatio, startTime, endTime);
+        _setPriceRatioState(newFourthRootPriceRatio, startTime, endTime);
     }
 
     /// @inheritdoc IReClammPool
@@ -288,7 +288,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             _lastTimestamp,
             block.timestamp.toUint32(),
             _centerednessMargin,
-            _sqrtPriceRatioState
+            _priceRatioState
         );
     }
 
@@ -298,18 +298,18 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         emit VirtualBalancesUpdated(virtualBalances);
     }
 
-    function _setSqrtPriceRatio(uint256 endSqrtPriceRatio, uint256 startTime, uint256 endTime) internal {
+    function _setPriceRatioState(uint256 endFourthRootPriceRatio, uint256 startTime, uint256 endTime) internal {
         if (startTime > endTime) {
             revert GradualUpdateTimeTravel(startTime, endTime);
         }
 
-        uint96 startSqrtPriceRatio = _calculateCurrentSqrtPriceRatio();
-        _sqrtPriceRatioState.startSqrtPriceRatio = startSqrtPriceRatio;
-        _sqrtPriceRatioState.endSqrtPriceRatio = endSqrtPriceRatio.toUint96();
-        _sqrtPriceRatioState.startTime = startTime.toUint32();
-        _sqrtPriceRatioState.endTime = endTime.toUint32();
+        uint96 startFourthRootPriceRatio = _calculateCurrentFourthRootPriceRatio();
+        _priceRatioState.startFourthRootPriceRatio = startFourthRootPriceRatio;
+        _priceRatioState.endFourthRootPriceRatio = endFourthRootPriceRatio.toUint96();
+        _priceRatioState.startTime = startTime.toUint32();
+        _priceRatioState.endTime = endTime.toUint32();
 
-        emit SqrtPriceRatioUpdated(startSqrtPriceRatio, endSqrtPriceRatio, startTime, endTime);
+        emit FourthRootPriceRatioUpdated(startFourthRootPriceRatio, endFourthRootPriceRatio, startTime, endTime);
     }
 
     function _setPriceShiftDailyRateAndUpdateVirtualBalances(uint256 priceShiftDailyRate) internal {
@@ -364,16 +364,16 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         }
     }
 
-    function _calculateCurrentSqrtPriceRatio() internal view returns (uint96) {
-        SqrtPriceRatioState memory sqrtPriceRatioState = _sqrtPriceRatioState;
+    function _calculateCurrentFourthRootPriceRatio() internal view returns (uint96) {
+        PriceRatioState memory priceRatioState = _priceRatioState;
 
         return
-            ReClammMath.calculateSqrtPriceRatio(
+            ReClammMath.calculateFourthRootPriceRatio(
                 block.timestamp.toUint32(),
-                sqrtPriceRatioState.startSqrtPriceRatio,
-                sqrtPriceRatioState.endSqrtPriceRatio,
-                sqrtPriceRatioState.startTime,
-                sqrtPriceRatioState.endTime
+                priceRatioState.startFourthRootPriceRatio,
+                priceRatioState.endFourthRootPriceRatio,
+                priceRatioState.startTime,
+                priceRatioState.endTime
             );
     }
 }
