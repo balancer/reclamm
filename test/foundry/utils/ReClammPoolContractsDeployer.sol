@@ -29,7 +29,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
         string symbol;
         uint256 defaultIncreaseDayRate;
         uint256 defaultCenterednessMargin;
-        uint96 defaultSqrtPriceRatio;
+        uint96 defaultFourthRootPriceRatio;
         string poolVersion;
         string factoryVersion;
     }
@@ -45,7 +45,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
             symbol: "RECLAMMPOOL",
             defaultIncreaseDayRate: 100e16, // 100%
             defaultCenterednessMargin: 10e16, // 10%
-            defaultSqrtPriceRatio: 1.41421356e18, // Price Range of 4 (fourth square root is 1.41)
+            defaultFourthRootPriceRatio: 1.41421356e18, // Price Range of 4 (fourth square root is 1.41)
             poolVersion: "ReClamm Pool v1",
             factoryVersion: "ReClamm Pool Factory v1"
         });
@@ -77,7 +77,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
             roleAccounts,
             0,
             defaultParams.defaultIncreaseDayRate,
-            defaultParams.defaultSqrtPriceRatio,
+            defaultParams.defaultFourthRootPriceRatio,
             SafeCast.toUint64(defaultParams.defaultCenterednessMargin),
             bytes32(_saltIndex++)
         );
@@ -90,7 +90,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
                 symbol: defaultParams.symbol,
                 version: defaultParams.poolVersion,
                 increaseDayRate: defaultParams.defaultIncreaseDayRate,
-                sqrtPriceRatio: defaultParams.defaultSqrtPriceRatio,
+                fourthRootPriceRatio: defaultParams.defaultFourthRootPriceRatio,
                 centerednessMargin: SafeCast.toUint64(defaultParams.defaultCenterednessMargin)
             }),
             vault

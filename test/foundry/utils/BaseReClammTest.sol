@@ -39,7 +39,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     uint64 internal constant _DEFAULT_CENTEREDNESS_MARGIN = 20e16; // 20%
     uint256 internal constant _MIN_TOKEN_BALANCE = 1e14;
 
-    uint96 private _sqrtPriceRatio = _DEFAULT_SQRT_PRICE_RATIO;
+    uint96 private _fourthRootPriceRatio = _DEFAULT_SQRT_PRICE_RATIO;
     uint256 private _increaseDayRate = _DEFAULT_INCREASE_DAY_RATE;
     uint256[] private _initialBalances = new uint256[](2);
 
@@ -62,15 +62,15 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
 
     function setPriceRange(uint256 priceRatio) internal {
         priceRatio = Math.sqrt(priceRatio * FixedPoint.ONE);
-        _sqrtPriceRatio = SafeCast.toUint96(Math.sqrt(priceRatio * FixedPoint.ONE));
+        _fourthRootPriceRatio = SafeCast.toUint96(Math.sqrt(priceRatio * FixedPoint.ONE));
     }
 
-    function setSqrtPriceRatio(uint96 newSqrtPriceRatio) internal {
-        _sqrtPriceRatio = newSqrtPriceRatio;
+    function setFourthRootPriceRatio(uint96 newFourthRootPriceRatio) internal {
+        _fourthRootPriceRatio = newFourthRootPriceRatio;
     }
 
-    function sqrtPriceRatio() internal view returns (uint96) {
-        return _sqrtPriceRatio;
+    function fourthRootPriceRatio() internal view returns (uint96) {
+        return _fourthRootPriceRatio;
     }
 
     function setIncreaseDayRate(uint256 increaseDayRate) internal {
@@ -113,7 +113,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
             roleAccounts,
             _DEFAULT_SWAP_FEE,
             _DEFAULT_INCREASE_DAY_RATE,
-            sqrtPriceRatio(),
+            fourthRootPriceRatio(),
             _DEFAULT_CENTEREDNESS_MARGIN,
             bytes32(saltNumber++)
         );
@@ -126,7 +126,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
                 symbol: symbol,
                 version: _POOL_VERSION,
                 increaseDayRate: _DEFAULT_INCREASE_DAY_RATE,
-                sqrtPriceRatio: sqrtPriceRatio(),
+                fourthRootPriceRatio: fourthRootPriceRatio(),
                 centerednessMargin: _DEFAULT_CENTEREDNESS_MARGIN
             }),
             vault

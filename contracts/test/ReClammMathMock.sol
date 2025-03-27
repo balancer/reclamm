@@ -3,13 +3,13 @@
 pragma solidity ^0.8.24;
 
 import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
-import { SqrtPriceRatioState, ReClammMath } from "../lib/ReClammMath.sol";
+import { FourthRootPriceRatioState, ReClammMath } from "../lib/ReClammMath.sol";
 
 contract ReClammMathMock {
-    SqrtPriceRatioState private _sqrtPriceRatioState;
+    FourthRootPriceRatioState private _fourthRootPriceRatioState;
 
-    function setSqrtPriceRatioState(SqrtPriceRatioState memory sqrtPriceRatioState) external {
-        _sqrtPriceRatioState = sqrtPriceRatioState;
+    function setFourthRootPriceRatioState(FourthRootPriceRatioState memory fourthRootPriceRatioState) external {
+        _fourthRootPriceRatioState = fourthRootPriceRatioState;
     }
 
     function computeInvariant(
@@ -29,7 +29,7 @@ contract ReClammMathMock {
                 lastTimestamp,
                 currentTimestamp,
                 centerednessMargin,
-                _sqrtPriceRatioState,
+                _fourthRootPriceRatioState,
                 rounding
             );
     }
@@ -78,9 +78,9 @@ contract ReClammMathMock {
 
     function initializeVirtualBalances(
         uint256[] memory balancesScaled18,
-        uint256 sqrtPriceRatio
+        uint256 fourthRootPriceRatio
     ) external pure returns (uint256[] memory virtualBalances) {
-        return ReClammMath.initializeVirtualBalances(balancesScaled18, sqrtPriceRatio);
+        return ReClammMath.initializeVirtualBalances(balancesScaled18, fourthRootPriceRatio);
     }
 
     function getCurrentVirtualBalances(
@@ -99,7 +99,7 @@ contract ReClammMathMock {
                 lastTimestamp,
                 currentTimestamp,
                 centerednessMargin,
-                _sqrtPriceRatioState
+                _fourthRootPriceRatioState
             );
     }
 
@@ -118,18 +118,18 @@ contract ReClammMathMock {
         return ReClammMath.calculateCenteredness(balancesScaled18, virtualBalances);
     }
 
-    function calculateSqrtPriceRatio(
+    function calculateFourthRootPriceRatio(
         uint32 currentTime,
-        uint96 startSqrtPriceRatio,
-        uint96 endSqrtPriceRatio,
+        uint96 startFourthRootPriceRatio,
+        uint96 endFourthRootPriceRatio,
         uint32 startTime,
         uint32 endTime
     ) external pure returns (uint256) {
         return
-            ReClammMath.calculateSqrtPriceRatio(
+            ReClammMath.calculateFourthRootPriceRatio(
                 currentTime,
-                startSqrtPriceRatio,
-                endSqrtPriceRatio,
+                startFourthRootPriceRatio,
+                endFourthRootPriceRatio,
                 startTime,
                 endTime
             );

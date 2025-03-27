@@ -205,8 +205,8 @@ describe('ReClammPool', function () {
       {
         startTime: 0,
         endTime: 0,
-        startSqrtPriceRatio: SQRT_PRICE_RATIO,
-        endSqrtPriceRatio: SQRT_PRICE_RATIO,
+        startFourthRootPriceRatio: SQRT_PRICE_RATIO,
+        endFourthRootPriceRatio: SQRT_PRICE_RATIO,
       }
     );
 
@@ -255,8 +255,8 @@ describe('ReClammPool', function () {
       {
         startTime: 0,
         endTime: 0,
-        startSqrtPriceRatio: SQRT_PRICE_RATIO,
-        endSqrtPriceRatio: SQRT_PRICE_RATIO,
+        startFourthRootPriceRatio: SQRT_PRICE_RATIO,
+        endFourthRootPriceRatio: SQRT_PRICE_RATIO,
       }
     );
 
