@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 
 import "forge-std/Test.sol";
 
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
@@ -77,7 +78,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
             0,
             defaultParams.defaultIncreaseDayRate,
             defaultParams.defaultSqrtPriceRatio,
-            defaultParams.defaultCenterednessMargin,
+            SafeCast.toUint64(defaultParams.defaultCenterednessMargin),
             bytes32(_saltIndex++)
         );
         vm.label(newPool, label);
@@ -90,7 +91,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
                 version: defaultParams.poolVersion,
                 increaseDayRate: defaultParams.defaultIncreaseDayRate,
                 sqrtPriceRatio: defaultParams.defaultSqrtPriceRatio,
-                centerednessMargin: defaultParams.defaultCenterednessMargin
+                centerednessMargin: SafeCast.toUint64(defaultParams.defaultCenterednessMargin)
             }),
             vault
         );
