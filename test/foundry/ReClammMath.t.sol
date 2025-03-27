@@ -50,7 +50,7 @@ contract ReClammMathTest is BaseReClammTest {
     ) public pure {
         balance0 = bound(balance0, 0, _MAX_TOKEN_BALANCE);
         balance1 = bound(balance1, 0, _MAX_TOKEN_BALANCE);
-        sqrtPriceRatio = SafeCast.toUint96(bound(sqrtPriceRatio, FixedPoint.ONE + 1, type(uint96).max));
+        fourthRootPriceRatio = SafeCast.toUint96(bound(fourthRootPriceRatio, FixedPoint.ONE + 1, type(uint96).max));
 
         uint256[] memory balancesScaled18 = new uint256[](2);
         balancesScaled18[0] = balance0;
@@ -366,7 +366,7 @@ contract ReClammMathTest is BaseReClammTest {
         balance1 = bound(balance1, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
         virtualBalance0 = bound(virtualBalance0, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
         virtualBalance1 = bound(virtualBalance1, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
-        expectedSqrtPriceRatio = SafeCast.toUint96(bound(expectedSqrtPriceRatio, 1.1e18, 10e18));
+        expectedFourthRootPriceRatio = SafeCast.toUint96(bound(expectedFourthRootPriceRatio, 1.1e18, 10e18));
 
         uint256[] memory balancesScaled18 = new uint256[](2);
         balancesScaled18[0] = balance0;

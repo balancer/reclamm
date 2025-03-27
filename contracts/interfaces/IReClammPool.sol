@@ -60,7 +60,9 @@ interface IReClammPool is IBasePool {
 
     /**
      * @notice Returns the current fourth root of price ratio.
-     * @dev The current fourth root of price ratio is an interpolation of the price ratio between the start and end time.
+     * @dev The current fourth root of price ratio is an interpolation of the price ratio between the start and end
+     * time.
+     *
      * @return currentFourthRootPriceRatio The current fourth root of price ratio.
      */
     function getCurrentFourthRootPriceRatio() external view returns (uint96);

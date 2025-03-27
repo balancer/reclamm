@@ -49,7 +49,7 @@ library ReClammMath {
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @param currentTimestamp The current timestamp
      * @param centerednessMargin A limit of the pool centeredness that defines if pool is out of range
-     * @param sqrtPriceRatioState A struct containing start and end price ratios and a time interval
+     * @param priceRatioState A struct containing start and end price ratios and a time interval
      * @param rounding Rounding direction to consider when computing the invariant
      * @return invariant The invariant of the pool.
      */
@@ -176,7 +176,7 @@ library ReClammMath {
      * @notice Calculate the initial virtual balances of the pool.
      * @dev The initial virtual balances are calculated based on the initial sqrt price ratio and the initial balances.
      * @param balancesScaled18 Current pool balances, sorted in token registration order
-     * @param sqrtPriceRatio The initial sqrt price ratio of the pool
+     * @param fourthRootPriceRatio The initial sqrt price ratio of the pool
      * @return virtualBalances The initial virtual balances of the pool
      */
     function initializeVirtualBalances(
@@ -202,7 +202,7 @@ library ReClammMath {
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @param currentTimestamp The current timestamp
      * @param centerednessMargin A limit of the pool centeredness that defines if pool is out of range
-     * @param sqrtPriceRatioState A struct containing start and end price ratios and a time interval
+     * @param priceRatioState A struct containing start and end price ratios and a time interval
      * @return currentVirtualBalances The current virtual balances of the pool
      * @return changed Whether the virtual balances have changed and must be updated in the pool
      */
@@ -234,7 +234,6 @@ library ReClammMath {
         PriceRatioState memory _priceRatioState = priceRatioState;
 
         uint256 currentFourthRootPriceRatio = calculateFourthRootPriceRatio(
-        uint256 currentSqrtPriceRatio = calculateSqrtPriceRatio(
             currentTimestamp,
             _priceRatioState.startFourthRootPriceRatio,
             _priceRatioState.endFourthRootPriceRatio,
@@ -249,9 +248,6 @@ library ReClammMath {
             _priceRatioState.startTime != 0 &&
             currentTimestamp > _priceRatioState.startTime &&
             lastTimestamp < _priceRatioState.endTime
-            _sqrtPriceRatioState.startTime != 0 &&
-            currentTimestamp > _sqrtPriceRatioState.startTime &&
-            lastTimestamp < _sqrtPriceRatioState.endTime
         ) {
             currentVirtualBalances = calculateVirtualBalancesUpdatingPriceRatio(
                 currentFourthRootPriceRatio,
@@ -292,7 +288,7 @@ library ReClammMath {
      * Replace [3] in [2]. Then, isolate one of the V's. Replace the isolated V in [1]. You will get a quadratic
      * equation, used in this function.
      *
-     * @param currentSqrtPriceRatio The current sqrt price ratio of the pool
+     * @param currentFourthRootPriceRatio The current sqrt price ratio of the pool
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param lastVirtualBalances The last virtual balances, sorted in token registration order
      * @param isPoolAboveCenter Whether the pool is above or below the center
@@ -315,7 +311,7 @@ library ReClammMath {
         uint256 poolCenteredness = calculateCenteredness(balancesScaled18, lastVirtualBalances);
 
         // Terms of quadratic equation.
-        uint256 a = currentSqrtPriceRatio.mulDown(currentSqrtPriceRatio) - FixedPoint.ONE;
+        uint256 a = currentFourthRootPriceRatio.mulDown(currentFourthRootPriceRatio) - FixedPoint.ONE;
         uint256 b = balanceTokenUndervalued.mulDown(FixedPoint.ONE + poolCenteredness);
         uint256 c = balanceTokenUndervalued.mulDown(balanceTokenUndervalued).mulDown(poolCenteredness);
 
@@ -333,7 +329,7 @@ library ReClammMath {
      * @dev This function will track the market price by moving the price interval. It will increase the pool
      * centeredness and change the token prices.
      *
-     * @param currentSqrtPriceRatio The current sqrt price ratio of the pool
+     * @param currentFourthRootPriceRatio The current sqrt price ratio of the pool
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param virtualBalances The last virtual balances, sorted in token registration order
      * @param isPoolAboveCenter Whether the pool is above or below the center
@@ -424,13 +420,13 @@ library ReClammMath {
      * end sqrt price ratios and the start and end times.
      *
      * @param currentTime The current timestamp
-     * @param startSqrtPriceRatio The start sqrt price ratio of the pool
-     * @param endSqrtPriceRatio The end sqrt price ratio of the pool
+     * @param startFourthRootPriceRatio The start sqrt price ratio of the pool
+     * @param endFourthRootPriceRatio The end sqrt price ratio of the pool
      * @param startTime The timestamp of the last user interaction with the pool
      * @param endTime The timestamp of the next user interaction with the pool
-     * @return sqrtPriceRatio The sqrt price ratio of the pool
+     * @return fourthRootPriceRatio The sqrt price ratio of the pool
      */
-    function calculateSqrtPriceRatio(
+    function calculateFourthRootPriceRatio(
         uint32 currentTime,
         uint96 startFourthRootPriceRatio,
         uint96 endFourthRootPriceRatio,

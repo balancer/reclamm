@@ -37,7 +37,7 @@ contract ReClammRoundingTest is BaseReClammTest {
             balances[i] = bound(balancesRaw[i], _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
         }
 
-        sqrtPriceRatio = uint96(bound(sqrtPriceRatio, _MIN_SQRT_PRICE_RATIO, _MAX_SQRT_PRICE_RATIO));
+        fourthRootPriceRatio = uint96(bound(fourthRootPriceRatio, _MIN_SQRT_PRICE_RATIO, _MAX_SQRT_PRICE_RATIO));
 
         uint256[] memory virtualBalances = mathMock.initializeVirtualBalances(balances, fourthRootPriceRatio);
 
@@ -63,7 +63,7 @@ contract ReClammRoundingTest is BaseReClammTest {
         for (uint256 i = 0; i < balances.length; ++i) {
             balances[i] = bound(balancesRaw[i], _MIN_TOKEN_BALANCE + 1, _MAX_TOKEN_BALANCE);
         }
-        sqrtPriceRatio = uint96(bound(sqrtPriceRatio, _MIN_SQRT_PRICE_RATIO, _MAX_SQRT_PRICE_RATIO));
+        fourthRootPriceRatio = uint96(bound(fourthRootPriceRatio, _MIN_SQRT_PRICE_RATIO, _MAX_SQRT_PRICE_RATIO));
 
         uint256[] memory virtualBalances = mathMock.initializeVirtualBalances(balances, fourthRootPriceRatio);
 
@@ -78,10 +78,10 @@ contract ReClammRoundingTest is BaseReClammTest {
 
         vm.assume(_MIN_SWAP_AMOUNT <= maxAmountIn);
         amountGivenScaled18 = bound(amountGivenScaled18, _MIN_SWAP_AMOUNT, maxAmountIn);
-        mathMock.setSqrtPriceRatioState(
-            SqrtPriceRatioState({
-                startSqrtPriceRatio: sqrtPriceRatio,
-                endSqrtPriceRatio: sqrtPriceRatio,
+        mathMock.setPriceRatioState(
+            PriceRatioState({
+                startFourthRootPriceRatio: fourthRootPriceRatio,
+                endFourthRootPriceRatio: fourthRootPriceRatio,
                 startTime: 0,
                 endTime: 0
             })
@@ -128,7 +128,7 @@ contract ReClammRoundingTest is BaseReClammTest {
         for (uint256 i = 0; i < balances.length; ++i) {
             balances[i] = bound(balancesRaw[i], _MIN_TOKEN_BALANCE + 1, _MAX_TOKEN_BALANCE);
         }
-        sqrtPriceRatio = uint96(bound(sqrtPriceRatio, _MIN_SQRT_PRICE_RATIO, _MAX_SQRT_PRICE_RATIO));
+        fourthRootPriceRatio = uint96(bound(fourthRootPriceRatio, _MIN_SQRT_PRICE_RATIO, _MAX_SQRT_PRICE_RATIO));
 
         vm.assume(_MIN_SWAP_AMOUNT <= balances[tokenOutIndex] - _MIN_TOKEN_BALANCE - 1);
         amountGivenScaled18 = bound(
@@ -137,7 +137,7 @@ contract ReClammRoundingTest is BaseReClammTest {
             balances[tokenOutIndex] - _MIN_TOKEN_BALANCE - 1
         );
 
-        uint256[] memory virtualBalances = mathMock.initializeVirtualBalances(balances, sqrtPriceRatio);
+        uint256[] memory virtualBalances = mathMock.initializeVirtualBalances(balances, fourthRootPriceRatio);
 
         mathMock.setPriceRatioState(
             PriceRatioState({

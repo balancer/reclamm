@@ -156,7 +156,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256[] memory balancesScaled18,
         bytes memory
     ) public override onlyVault returns (bool) {
-        uint256 currentSqrtPriceRatio = _calculateCurrentSqrtPriceRatio();
+        uint256 currentFourthRootPriceRatio = _calculateCurrentFourthRootPriceRatio();
         uint256[] memory virtualBalances = ReClammMath.initializeVirtualBalances(
             balancesScaled18,
             currentFourthRootPriceRatio
@@ -321,7 +321,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _priceRatioState.startTime = startTime.toUint32();
         _priceRatioState.endTime = endTime.toUint32();
 
-        emit FourthRootPriceRatioUpdated(startFourthRootPriceRatio, endFourthRootPriceRatio, startTime, endTime);
+        emit PriceRatioStateUpdated(startFourthRootPriceRatio, endFourthRootPriceRatio, startTime, endTime);
     }
 
     function _setPriceShiftDailyRateAndUpdateVirtualBalances(uint256 priceShiftDailyRate) internal {
@@ -404,17 +404,17 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
      * @dev This function uses the current timestamp and the sqrt price ratio state to calculate the current sqrt
      * price ratio, interpolating start and end price ratios between the start and end times.
      *
-     * @return currentSqrtPriceRatio The current sqrt price ratio.
+     * @return currentFourthRootPriceRatio The current sqrt price ratio.
      */
-    function _calculateCurrentSqrtPriceRatio() internal view returns (uint96 currentSqrtPriceRatio) {
-        SqrtPriceRatioState memory sqrtPriceRatioState = _sqrtPriceRatioState;
+    function _calculateCurrentFourthRootPriceRatio() internal view returns (uint96 currentFourthRootPriceRatio) {
+        PriceRatioState memory priceRatioState = _priceRatioState;
 
-        currentSqrtPriceRatio = ReClammMath.calculateSqrtPriceRatio(
+        currentFourthRootPriceRatio = ReClammMath.calculateFourthRootPriceRatio(
             block.timestamp.toUint32(),
-            sqrtPriceRatioState.startSqrtPriceRatio,
-            sqrtPriceRatioState.endSqrtPriceRatio,
-            sqrtPriceRatioState.startTime,
-            sqrtPriceRatioState.endTime
+            priceRatioState.startFourthRootPriceRatio,
+            priceRatioState.endFourthRootPriceRatio,
+            priceRatioState.startTime,
+            priceRatioState.endTime
         );
     }
 }

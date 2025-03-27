@@ -29,7 +29,7 @@ contract ReClammPoolTest is BaseReClammTest {
         uint96 startFourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
         vm.prank(admin);
         vm.expectEmit();
-        emit IReClammPool.FourthRootPriceRatioUpdated(
+        emit IReClammPool.PriceRatioStateUpdated(
             startFourthRootPriceRatio,
             newFourthRootPriceRatio,
             startTime,
