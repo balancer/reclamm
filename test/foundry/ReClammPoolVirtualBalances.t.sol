@@ -25,7 +25,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     function setUp() public virtual override {
         setPriceRange(_PRICE_RANGE);
         setInitialBalances(_INITIAL_BALANCE_A, _INITIAL_BALANCE_B);
-        setIncreaseDayRate(0);
+        setPriceShiftDailyRate(0);
         super.setUp();
     }
 
