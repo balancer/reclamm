@@ -189,15 +189,15 @@ contract ReClammLiquidityTest is BaseReClammTest {
         (, , uint256[] memory balancesAfter, ) = vault.getPoolTokenInfo(pool);
 
         // Check if virtual balances were correctly updated.
-        uint256 proportion = exactBptAmountIn.divUp(totalSupply);
+        uint256 proportion = exactBptAmountIn.divDown(totalSupply);
         assertEq(
             virtualBalancesAfter[daiIdx],
-            virtualBalancesBefore[daiIdx].mulDown(FixedPoint.ONE - proportion),
+            virtualBalancesBefore[daiIdx].mulUp(FixedPoint.ONE - proportion),
             "DAI virtual balance does not match"
         );
         assertEq(
             virtualBalancesAfter[usdcIdx],
-            virtualBalancesBefore[usdcIdx].mulDown(FixedPoint.ONE - proportion),
+            virtualBalancesBefore[usdcIdx].mulUp(FixedPoint.ONE - proportion),
             "USDC virtual balance does not match"
         );
 
@@ -236,15 +236,15 @@ contract ReClammLiquidityTest is BaseReClammTest {
         uint256[] memory virtualBalancesAfter = ReClammPool(pool).getCurrentVirtualBalances();
 
         // Check if virtual balances were correctly updated.
-        uint256 proportion = exactBptAmountIn.divUp(totalSupply);
+        uint256 proportion = exactBptAmountIn.divDown(totalSupply);
         assertEq(
             virtualBalancesAfter[daiIdx],
-            virtualBalancesBefore[daiIdx].mulDown(FixedPoint.ONE - proportion),
+            virtualBalancesBefore[daiIdx].mulUp(FixedPoint.ONE - proportion),
             "DAI virtual balance does not match"
         );
         assertEq(
             virtualBalancesAfter[usdcIdx],
-            virtualBalancesBefore[usdcIdx].mulDown(FixedPoint.ONE - proportion),
+            virtualBalancesBefore[usdcIdx].mulUp(FixedPoint.ONE - proportion),
             "USDC virtual balance does not match"
         );
 
@@ -259,8 +259,8 @@ contract ReClammLiquidityTest is BaseReClammTest {
         _setPoolBalances(100 * _MIN_TOKEN_BALANCE, 100 * _MIN_TOKEN_BALANCE);
 
         uint256 totalSupply = vault.totalSupply(pool);
-        // 99% of the total supply + 1, so the LP is leaving less than _MIN_TOKEN_BALANCE in the pool.
-        uint256 exactBptAmountIn = (99 * totalSupply) / 100 + 1;
+        // 99.1% of the total supply, so the LP is leaving less than _MIN_TOKEN_BALANCE in the pool.
+        uint256 exactBptAmountIn = (991 * totalSupply) / 1000;
 
         uint256[] memory minAmountsOut = new uint256[](2);
         minAmountsOut[daiIdx] = 0;

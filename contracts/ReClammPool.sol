@@ -181,10 +181,17 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256[] memory balancesScaled18,
         bytes memory
     ) public override onlyVault returns (bool) {
+        // This hook makes sure that the virtual balances are increased in the same proportion as the real balances
+        // after adding liquidity. This is needed to keep the pool centeredness and price ratio constant.
+
         uint256 totalSupply = _vault.totalSupply(pool);
+        // Rounding proportion up, which will round the virtual balances up.
         uint256 proportion = minBptAmountOut.divUp(totalSupply);
 
         (uint256[] memory currentVirtualBalances, ) = _getCurrentVirtualBalances(balancesScaled18);
+        // When adding/removing liquidity, round up the virtual balances. This will result in a higher invariant,
+        // which favors the vault in swap operations. The virtual balances are not used to calculate a proportional
+        // add/remove result.
         currentVirtualBalances[0] = currentVirtualBalances[0].mulUp(FixedPoint.ONE + proportion);
         currentVirtualBalances[1] = currentVirtualBalances[1].mulUp(FixedPoint.ONE + proportion);
         _setLastVirtualBalances(currentVirtualBalances);
@@ -202,12 +209,19 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256[] memory balancesScaled18,
         bytes memory
     ) public override onlyVault returns (bool) {
+        // This hook makes sure that the virtual balances are decreased in the same proportion as the real balances
+        // after removing liquidity. This is needed to keep the pool centeredness and price ratio constant.
+
         uint256 totalSupply = _vault.totalSupply(pool);
-        uint256 proportion = maxBptAmountIn.divUp(totalSupply);
+        // Rounding proportion down, which will round the virtual balances up.
+        uint256 proportion = maxBptAmountIn.divDown(totalSupply);
 
         (uint256[] memory currentVirtualBalances, ) = _getCurrentVirtualBalances(balancesScaled18);
-        currentVirtualBalances[0] = currentVirtualBalances[0].mulDown(FixedPoint.ONE - proportion);
-        currentVirtualBalances[1] = currentVirtualBalances[1].mulDown(FixedPoint.ONE - proportion);
+        // When adding/removing liquidity, round up the virtual balances. This will result in a higher invariant,
+        // which favors the vault in swap operations. The virtual balances are not used to calculate a proportional
+        // add/remove result.
+        currentVirtualBalances[0] = currentVirtualBalances[0].mulUp(FixedPoint.ONE - proportion);
+        currentVirtualBalances[1] = currentVirtualBalances[1].mulUp(FixedPoint.ONE - proportion);
         _setLastVirtualBalances(currentVirtualBalances);
 
         if (
