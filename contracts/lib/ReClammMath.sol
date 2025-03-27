@@ -27,6 +27,9 @@ library ReClammMath {
     /// @dev The swap result is negative due to a rounding issue.
     error NegativeAmountOut();
 
+    /// @dev The last timestamp is greater than the current timestamp.
+    error LastTimestampGreaterThanCurrentTimestamp();
+
     // We want, after 1 day (86400 seconds) that the pool is out of range, to double the price (or reduce by 50%)
     // with PriceShiftDailyRate = 100%. So, we want to be able to move the virtual balances by the same rate.
     // Therefore, after one day:
@@ -214,6 +217,12 @@ library ReClammMath {
     ) internal pure returns (uint256[] memory currentVirtualBalances, bool changed) {
         // TODO Review rounding
 
+        if (lastTimestamp > currentTimestamp) {
+            // The last timestamp should be in the past, so the current timestamp must always be equal or greater than
+            // last timestamp.
+            revert LastTimestampGreaterThanCurrentTimestamp();
+        }
+
         // If the last timestamp is the same as the current timestamp, virtual balances were already reviewed in the
         // current block.
         if (lastTimestamp == currentTimestamp) {
@@ -238,7 +247,7 @@ library ReClammMath {
         if (
             _sqrtPriceRatioState.startTime != 0 &&
             currentTimestamp > _sqrtPriceRatioState.startTime &&
-            (currentTimestamp < _sqrtPriceRatioState.endTime || lastTimestamp < _sqrtPriceRatioState.endTime)
+            lastTimestamp < _sqrtPriceRatioState.endTime
         ) {
             currentVirtualBalances = calculateVirtualBalancesUpdatingPriceRatio(
                 currentSqrtPriceRatio,
