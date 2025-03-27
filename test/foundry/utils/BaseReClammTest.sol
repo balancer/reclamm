@@ -35,7 +35,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     string internal constant _POOL_VERSION = "ReClamm Pool v1";
 
     uint256 internal constant _DEFAULT_PRICE_SHIFT_DAILY_RATE = 100e16; // 100%
-    uint96 internal constant _DEFAULT_SQRT_PRICE_RATIO = 1.41421356e18; // Price Range of 4 (fourth square root is 1.41)
+    uint96 internal constant _DEFAULT_FOURTH_ROOT_PRICE_RATIO = 1.41421356e18; // Price Range of 4 (fourth square root is 1.41)
     uint64 internal constant _DEFAULT_CENTEREDNESS_MARGIN = 20e16; // 20%
 
     // 0.0001 tokens.
@@ -43,7 +43,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     // 1 billion tokens.
     uint256 internal constant _MAX_TOKEN_BALANCE = 1e9 * 1e18;
 
-    uint96 private _fourthRootPriceRatio = _DEFAULT_SQRT_PRICE_RATIO;
+    uint96 private _fourthRootPriceRatio = _DEFAULT_FOURTH_ROOT_PRICE_RATIO;
     uint256 private _priceShiftDailyRate = _DEFAULT_PRICE_SHIFT_DAILY_RATE;
     uint256[] private _initialBalances = new uint256[](2);
 

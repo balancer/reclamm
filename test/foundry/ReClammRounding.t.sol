@@ -16,8 +16,8 @@ contract ReClammRoundingTest is BaseReClammTest {
 
     uint256 internal constant _MIN_SWAP_AMOUNT = 1e12;
 
-    uint256 internal constant _MIN_SQRT_PRICE_RATIO = 1.000001e18; // 1.000001
-    uint256 internal constant _MAX_SQRT_PRICE_RATIO = 10e18;
+    uint256 internal constant _MIN_FOURTH_ROOT_PRICE_RATIO = 1.000001e18; // 1.000001
+    uint256 internal constant _MAX_FOURTH_ROOT_PRICE_RATIO = 10e18;
     uint256 internal constant _MAX_TIME_CONSTANT = FixedPoint.ONE - 1;
 
     uint256 internal constant _MIN_SWAP_FEE = 0;
@@ -37,7 +37,9 @@ contract ReClammRoundingTest is BaseReClammTest {
             balances[i] = bound(balancesRaw[i], _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
         }
 
-        fourthRootPriceRatio = uint96(bound(fourthRootPriceRatio, _MIN_SQRT_PRICE_RATIO, _MAX_SQRT_PRICE_RATIO));
+        fourthRootPriceRatio = uint96(
+            bound(fourthRootPriceRatio, _MIN_FOURTH_ROOT_PRICE_RATIO, _MAX_FOURTH_ROOT_PRICE_RATIO)
+        );
 
         uint256[] memory virtualBalances = mathMock.initializeVirtualBalances(balances, fourthRootPriceRatio);
 
@@ -63,7 +65,9 @@ contract ReClammRoundingTest is BaseReClammTest {
         for (uint256 i = 0; i < balances.length; ++i) {
             balances[i] = bound(balancesRaw[i], _MIN_TOKEN_BALANCE + 1, _MAX_TOKEN_BALANCE);
         }
-        fourthRootPriceRatio = uint96(bound(fourthRootPriceRatio, _MIN_SQRT_PRICE_RATIO, _MAX_SQRT_PRICE_RATIO));
+        fourthRootPriceRatio = uint96(
+            bound(fourthRootPriceRatio, _MIN_FOURTH_ROOT_PRICE_RATIO, _MAX_FOURTH_ROOT_PRICE_RATIO)
+        );
 
         uint256[] memory virtualBalances = mathMock.initializeVirtualBalances(balances, fourthRootPriceRatio);
 
@@ -128,7 +132,9 @@ contract ReClammRoundingTest is BaseReClammTest {
         for (uint256 i = 0; i < balances.length; ++i) {
             balances[i] = bound(balancesRaw[i], _MIN_TOKEN_BALANCE + 1, _MAX_TOKEN_BALANCE);
         }
-        fourthRootPriceRatio = uint96(bound(fourthRootPriceRatio, _MIN_SQRT_PRICE_RATIO, _MAX_SQRT_PRICE_RATIO));
+        fourthRootPriceRatio = uint96(
+            bound(fourthRootPriceRatio, _MIN_FOURTH_ROOT_PRICE_RATIO, _MAX_FOURTH_ROOT_PRICE_RATIO)
+        );
 
         vm.assume(_MIN_SWAP_AMOUNT <= balances[tokenOutIndex] - _MIN_TOKEN_BALANCE - 1);
         amountGivenScaled18 = bound(

@@ -17,7 +17,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
     function testGetCurrentFourthRootPriceRatio() public view {
         uint256 fourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
-        assertEq(fourthRootPriceRatio, _DEFAULT_SQRT_PRICE_RATIO, "Invalid default fourthRootPriceRatio");
+        assertEq(fourthRootPriceRatio, _DEFAULT_FOURTH_ROOT_PRICE_RATIO, "Invalid default fourthRootPriceRatio");
     }
 
     function testSetFourthRootPriceRatio() public {
