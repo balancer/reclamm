@@ -23,6 +23,7 @@ import { ReClammPoolParams, IReClammPool } from "./interfaces/IReClammPool.sol";
 import { SqrtPriceRatioState, ReClammMath } from "./lib/ReClammMath.sol";
 
 contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthentication, Version, BaseHooks {
+    using SafeCast for *;
     using FixedPoint for uint256;
     using SafeCast for uint256;
 
@@ -41,11 +42,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 internal constant _MIN_TOKEN_BALANCE_SCALED18 = 1e14;
     uint256 internal constant _MIN_POOL_CENTEREDNESS = 1e3;
 
-    SqrtPriceRatioState internal _sqrtPriceRatioState;
-    uint32 internal _lastTimestamp;
-    uint256 internal _timeConstant;
-    uint256 internal _centerednessMargin;
-    uint256[] internal _lastVirtualBalances;
+    SqrtPriceRatioState private _sqrtPriceRatioState;
+    uint32 private _lastTimestamp;
+    uint128 private _timeConstant;
+    uint64 private _centerednessMargin;
+    uint256[] private _lastVirtualBalances;
 
     modifier withUpdatedTimestamp() {
         _updateTimestamp();
@@ -63,7 +64,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     {
         _setIncreaseDayRate(params.increaseDayRate);
         _setCenterednessMargin(params.centerednessMargin);
-        _setSqrtPriceRatio(params.sqrtPriceRatio, 0, uint32(block.timestamp));
+        _setSqrtPriceRatio(params.sqrtPriceRatio, 0, block.timestamp);
     }
 
     /// @inheritdoc IBasePool
@@ -262,9 +263,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IReClammPool
     function setSqrtPriceRatio(
-        uint96 newSqrtPriceRatio,
-        uint32 startTime,
-        uint32 endTime
+        uint256 newSqrtPriceRatio,
+        uint256 startTime,
+        uint256 endTime
     ) external onlySwapFeeManagerOrGovernance(address(this)) {
         _setSqrtPriceRatio(newSqrtPriceRatio, startTime, endTime);
     }
@@ -295,16 +296,16 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         emit VirtualBalancesUpdated(virtualBalances);
     }
 
-    function _setSqrtPriceRatio(uint96 endSqrtPriceRatio, uint32 startTime, uint32 endTime) internal {
+    function _setSqrtPriceRatio(uint256 endSqrtPriceRatio, uint256 startTime, uint256 endTime) internal {
         if (startTime > endTime) {
             revert GradualUpdateTimeTravel(startTime, endTime);
         }
 
         uint96 startSqrtPriceRatio = _calculateCurrentSqrtPriceRatio();
         _sqrtPriceRatioState.startSqrtPriceRatio = startSqrtPriceRatio;
-        _sqrtPriceRatioState.endSqrtPriceRatio = endSqrtPriceRatio;
-        _sqrtPriceRatioState.startTime = startTime;
-        _sqrtPriceRatioState.endTime = endTime;
+        _sqrtPriceRatioState.endSqrtPriceRatio = endSqrtPriceRatio.toUint96();
+        _sqrtPriceRatioState.startTime = startTime.toUint32();
+        _sqrtPriceRatioState.endTime = endTime.toUint32();
 
         emit SqrtPriceRatioUpdated(startSqrtPriceRatio, endSqrtPriceRatio, startTime, endTime);
     }
@@ -328,7 +329,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     function _setCenterednessMargin(uint256 centerednessMargin) internal {
-        _centerednessMargin = centerednessMargin;
+        _centerednessMargin = centerednessMargin.toUint64();
 
         emit CenterednessMarginUpdated(centerednessMargin);
     }
@@ -366,7 +367,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         return
             ReClammMath.calculateSqrtPriceRatio(
-                uint32(block.timestamp),
+                block.timestamp.toUint32(),
                 sqrtPriceRatioState.startSqrtPriceRatio,
                 sqrtPriceRatioState.endSqrtPriceRatio,
                 sqrtPriceRatioState.startTime,

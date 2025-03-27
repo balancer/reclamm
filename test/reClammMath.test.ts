@@ -114,7 +114,7 @@ describe('ReClammMath', function () {
     it('centeredness < centerednessMargin', async () => {
       const balances = [bn(100e18), bn(100e18)];
       const virtualBalances = [bn(110e18), bn(100e18)];
-      const centerednessMargin = bn(100e18);
+      const centerednessMargin = bn(1e18);
 
       const res = await mathLib.isPoolInRange(balances, virtualBalances, centerednessMargin);
       expect(res).to.equal(isPoolInRange(balances, virtualBalances, centerednessMargin));
@@ -410,7 +410,7 @@ describe('ReClammMath', function () {
       const timeConstant = bn(0);
       const lastTimestamp = 15;
       const currentTimestamp = 20;
-      const centerednessMargin = bn(100e18);
+      const centerednessMargin = bn(1e18);
       const sqrtPriceRatioState = {
         startTime: 0,
         endTime: 0,
@@ -440,7 +440,7 @@ describe('ReClammMath', function () {
       const timeConstant = bn(0);
       const lastTimestamp = 15;
       const currentTimestamp = 20;
-      const centerednessMargin = bn(100e18);
+      const centerednessMargin = bn(2e18);
       const sqrtPriceRatioState = {
         startTime: 0,
         endTime: 0,
@@ -492,7 +492,7 @@ describe('ReClammMath', function () {
       const timeConstant = bn(0);
       const lastTimestamp = 15;
       const currentTimestamp = 20;
-      const centerednessMargin = bn(100e18);
+      const centerednessMargin = bn(1e18);
       const sqrtPriceRatioState = {
         startTime: 0,
         endTime: 0,
@@ -534,7 +534,7 @@ describe('ReClammMath', function () {
       const timeConstant = bn(0);
       const lastTimestamp = 15;
       const currentTimestamp = 20;
-      const centerednessMargin = bn(100e18);
+      const centerednessMargin = bn(1e18);
       const sqrtPriceRatioState = {
         startTime: 0,
         endTime: 0,

@@ -18,7 +18,7 @@ contract ReClammPoolMock is ReClammPool {
         return _lastVirtualBalances;
     }
 
-    function setCenterednessMargin(uint256 newCenterednessMargin) external {
+    function setCenterednessMargin(uint64 newCenterednessMargin) external {
         _setCenterednessMargin(newCenterednessMargin);
     }
 

@@ -55,7 +55,7 @@ contract ReClammPoolFactoryMock is IPoolVersion, BasePoolFactory, Version {
         uint256 swapFeePercentage,
         uint256 increaseDayRate,
         uint96 sqrtPriceRatio,
-        uint256 centerednessMargin,
+        uint64 centerednessMargin,
         bytes32 salt
     ) external returns (address pool) {
         if (roleAccounts.poolCreator != address(0)) {
