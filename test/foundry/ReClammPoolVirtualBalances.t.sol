@@ -19,7 +19,6 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     using ArrayHelpers for *;
 
     uint256 private constant _PRICE_RANGE = 2e18; // Max price is 2x min price.
-    uint256 private constant _MIN_TOKEN_BALANCE = 1e14;
     uint256 private constant _INITIAL_BALANCE_A = 1_000_000e18;
     uint256 private constant _INITIAL_BALANCE_B = 100_000e18;
 

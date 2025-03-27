@@ -42,7 +42,7 @@ interface IReClammPool is IBasePool {
 
     function getCurrentVirtualBalances() external view returns (uint256[] memory currentVirtualBalances);
 
-    function getLastTimestamp() external view returns (uint256);
+    function getLastTimestamp() external view returns (uint32);
 
     function getCurrentSqrtPriceRatio() external view returns (uint96);
 
