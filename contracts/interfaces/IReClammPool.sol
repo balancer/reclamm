@@ -74,7 +74,6 @@ interface IReClammPool is IBasePool {
      * @param startTime The start time.
      * @param endTime The end time.
      */
-    function setSqrtPriceRatio(uint96 newSqrtPriceRatio, uint32 startTime, uint32 endTime) external;
     function setSqrtPriceRatio(uint256 newSqrtPriceRatio, uint256 startTime, uint256 endTime) external;
 
     /**
