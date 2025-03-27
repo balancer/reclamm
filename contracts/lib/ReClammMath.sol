@@ -453,7 +453,9 @@ library ReClammMath {
 
     /**
      * @notice Check if the pool is above center.
-     * @dev The pool is above center if the ratio of the real balances is greater than the ratio of the virtual balances.
+     * @dev The pool is above center if the ratio of the real balances is greater than the ratio of the virtual 
+     * balances.
+     * 
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param virtualBalances The last virtual balances, sorted in token registration order
      * @return isAboveCenter Whether the pool is above center
