@@ -4,24 +4,104 @@ pragma solidity ^0.8.24;
 
 import "forge-std/Test.sol";
 
-import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
+import { IVaultMock } from "@balancer-labs/v3-interfaces/contracts/test/IVaultMock.sol";
+import { PoolRoleAccounts } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
+import { IRateProvider } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/helpers/IRateProvider.sol";
 import { BaseContractsDeployer } from "@balancer-labs/v3-solidity-utils/test/foundry/utils/BaseContractsDeployer.sol";
+import { CastingHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/CastingHelpers.sol";
 
 import { ReClammPoolFactory } from "../../../contracts/ReClammPoolFactory.sol";
 import { ReClammPoolFactoryMock } from "../../../contracts/test/ReClammPoolFactoryMock.sol";
+import { ReClammPoolParams } from "../../../contracts/interfaces/IReClammPool.sol";
 /**
- * @dev This contract contains functions for deploying mocks and contracts related to the "Acl Amm Pool". These
+ * @dev This contract contains functions for deploying mocks and contracts related to the "ReClamm Pool". These
  * functions should have support for reusing artifacts from the hardhat compilation.
  */
 contract ReClammPoolContractsDeployer is BaseContractsDeployer {
+    using CastingHelpers for address[];
+
+    struct DefaultDeployParams {
+        string name;
+        string symbol;
+        uint256 defaultIncreaseDayRate;
+        uint256 defaultCenterednessMargin;
+        uint96 defaultSqrtPriceRatio;
+        string poolVersion;
+        string factoryVersion;
+    }
+
     string private artifactsRootDir = "artifacts/";
+    DefaultDeployParams private defaultParams;
+
+    uint256 private _saltIndex = 0;
 
     constructor() {
+        defaultParams = DefaultDeployParams({
+            name: "ReClamm Pool",
+            symbol: "RECLAMMPOOL",
+            defaultIncreaseDayRate: 100e16, // 100%
+            defaultCenterednessMargin: 10e16, // 10%
+            defaultSqrtPriceRatio: 1.41421356e18, // Price Range of 4 (fourth square root is 1.41)
+            poolVersion: "ReClamm Pool v1",
+            factoryVersion: "ReClamm Pool Factory v1"
+        });
+
         // if this external artifact path exists, it means we are running outside of this repo
         if (vm.exists("artifacts/@balancer-labs/v3-pool-reClamm/")) {
             artifactsRootDir = "artifacts/@balancer-labs/v3-pool-reClamm/";
         }
+    }
+
+    function createReClammPool(
+        address[] memory tokens,
+        string memory label,
+        IVaultMock vault,
+        address poolCreator
+    ) internal returns (address newPool, bytes memory poolArgs) {
+        string memory poolVersion = "ReClamm Pool v1";
+        string memory factoryVersion = "ReClamm Pool Factory v1";
+
+        ReClammPoolFactory poolFactory = deployReClammPoolFactory(vault, 1 days, factoryVersion, poolVersion);
+        PoolRoleAccounts memory roleAccounts;
+
+        IERC20[] memory _tokens = tokens.asIERC20();
+
+        newPool = ReClammPoolFactory(poolFactory).create(
+            defaultParams.name,
+            defaultParams.symbol,
+            vault.buildTokenConfig(_tokens),
+            roleAccounts,
+            0,
+            defaultParams.defaultIncreaseDayRate,
+            defaultParams.defaultSqrtPriceRatio,
+            SafeCast.toUint64(defaultParams.defaultCenterednessMargin),
+            bytes32(_saltIndex++)
+        );
+        vm.label(newPool, label);
+
+        // poolArgs is used to check pool deployment address with create2.
+        poolArgs = abi.encode(
+            ReClammPoolParams({
+                name: defaultParams.name,
+                symbol: defaultParams.symbol,
+                version: defaultParams.poolVersion,
+                increaseDayRate: defaultParams.defaultIncreaseDayRate,
+                sqrtPriceRatio: defaultParams.defaultSqrtPriceRatio,
+                centerednessMargin: SafeCast.toUint64(defaultParams.defaultCenterednessMargin)
+            }),
+            vault
+        );
+
+        // Cannot set the pool creator directly on a standard Balancer stable pool factory.
+        vault.manualSetPoolCreator(newPool, poolCreator);
+    }
+
+    function deployReClammPoolFactoryWithDefaultParams(IVault vault) internal returns (ReClammPoolFactory) {
+        return deployReClammPoolFactory(vault, 1 days, defaultParams.factoryVersion, defaultParams.poolVersion);
     }
 
     function deployReClammPoolFactory(
