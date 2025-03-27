@@ -54,15 +54,15 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(fourthRootPriceRatio, newFourthRootPriceRatio, "FourthRootPriceRatio does not match new value");
     }
 
-    function testSetIncreaseDayRate() public {
-        uint256 newIncreaseDayRate = 200e16;
+    function testSetPriceShiftDailyRate() public {
+        uint256 newPriceShiftDailyRate = 200e16;
         vm.prank(admin);
         vm.expectEmit();
-        emit IReClammPool.IncreaseDayRateUpdated(newIncreaseDayRate);
-        ReClammPool(pool).setIncreaseDayRate(newIncreaseDayRate);
+        emit IReClammPool.PriceShiftDailyRateUpdated(newPriceShiftDailyRate);
+        ReClammPool(pool).setPriceShiftDailyRate(newPriceShiftDailyRate);
     }
 
-    function testSetIncreaseDayRateUpdatingVirtualBalance() public {
+    function testSetPriceShiftDailyRateUpdatingVirtualBalance() public {
         _setPoolBalances(1e14, 100e18);
         ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
 
@@ -71,11 +71,11 @@ contract ReClammPoolTest is BaseReClammTest {
 
         uint256[] memory virtualBalancesBefore = ReClammPool(pool).getCurrentVirtualBalances();
 
-        uint256 newIncreaseDayRate = 200e16;
+        uint256 newPriceShiftDailyRate = 200e16;
         vm.prank(admin);
         vm.expectEmit();
-        emit IReClammPool.IncreaseDayRateUpdated(newIncreaseDayRate);
-        ReClammPool(pool).setIncreaseDayRate(newIncreaseDayRate);
+        emit IReClammPool.PriceShiftDailyRateUpdated(newPriceShiftDailyRate);
+        ReClammPool(pool).setPriceShiftDailyRate(newPriceShiftDailyRate);
 
         assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp was not updated");
 

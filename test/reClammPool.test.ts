@@ -26,7 +26,7 @@ import { deployPermit2 } from '@balancer-labs/v3-vault/test/Permit2Deployer';
 import { IPermit2 } from '@balancer-labs/v3-vault/typechain-types/permit2/src/interfaces/IPermit2';
 import { PoolConfigStructOutput } from '@balancer-labs/v3-interfaces/typechain-types/contracts/vault/IVault';
 import { TokenConfigStruct } from '../typechain-types/@balancer-labs/v3-interfaces/contracts/vault/IVault';
-import { getCurrentVirtualBalances, parseIncreaseDayRate } from './utils/reClammMath';
+import { getCurrentVirtualBalances, parsePriceShiftDailyRate } from './utils/reClammMath';
 import { expectEqualWithError } from './utils/relativeError';
 
 describe('ReClammPool', function () {
@@ -43,7 +43,7 @@ describe('ReClammPool', function () {
 
   const SWAP_FEE = fp(0.01); // 1%
   const SQRT_PRICE_RATIO = fp(2); // The ratio between max and min price is 16 (2^4)
-  const INCREASE_DAY_RATE = fp(1); // 100%. Price interval can double or reduce by half each day
+  const PRICE_SHIFT_DAILY_RATE = fp(1); // 100%. Price interval can double or reduce by half each day
   // 20%. If pool centeredness is less than margin, price interval will track the market price.
   const CENTEREDNESS_MARGIN = fp(0.2);
 
@@ -105,7 +105,7 @@ describe('ReClammPool', function () {
       tokenConfig,
       { pauseManager: ZERO_ADDRESS, swapFeeManager: ZERO_ADDRESS, poolCreator: ZERO_ADDRESS },
       SWAP_FEE,
-      INCREASE_DAY_RATE,
+      PRICE_SHIFT_DAILY_RATE,
       SQRT_PRICE_RATIO,
       CENTEREDNESS_MARGIN,
       ZERO_BYTES32
@@ -198,7 +198,7 @@ describe('ReClammPool', function () {
     const [expectedFinalVirtualBalances] = getCurrentVirtualBalances(
       poolBalancesAfterSwap,
       virtualBalancesAfterSwap,
-      parseIncreaseDayRate(INCREASE_DAY_RATE),
+      parsePriceShiftDailyRate(PRICE_SHIFT_DAILY_RATE),
       lastTimestamp,
       expectedTimestamp,
       CENTEREDNESS_MARGIN,
@@ -248,7 +248,7 @@ describe('ReClammPool', function () {
     const [expectedFinalVirtualBalances] = getCurrentVirtualBalances(
       poolBalancesAfterSwap,
       virtualBalancesAfterSwap,
-      parseIncreaseDayRate(INCREASE_DAY_RATE),
+      parsePriceShiftDailyRate(PRICE_SHIFT_DAILY_RATE),
       lastTimestamp,
       expectedTimestamp,
       CENTEREDNESS_MARGIN,

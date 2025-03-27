@@ -9,7 +9,7 @@ struct ReClammPoolParams {
     string name;
     string symbol;
     string version;
-    uint256 increaseDayRate;
+    uint256 priceShiftDailyRate;
     uint96 fourthRootPriceRatio;
     uint64 centerednessMargin;
 }
@@ -36,7 +36,7 @@ interface IReClammPool is IBasePool {
 
     event VirtualBalancesUpdated(uint256[] virtualBalances);
 
-    event IncreaseDayRateUpdated(uint256 increaseDayRate);
+    event PriceShiftDailyRateUpdated(uint256 priceShiftDailyRate);
 
     event CenterednessMarginUpdated(uint256 centerednessMargin);
 
@@ -48,5 +48,5 @@ interface IReClammPool is IBasePool {
 
     function setFourthRootPriceRatio(uint256 newFourthRootPriceRatio, uint256 startTime, uint256 endTime) external;
 
-    function setIncreaseDayRate(uint256 newIncreaseDayRate) external;
+    function setPriceShiftDailyRate(uint256 newPriceShiftDailyRate) external;
 }

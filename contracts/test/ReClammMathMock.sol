@@ -142,7 +142,7 @@ contract ReClammMathMock {
         return ReClammMath.isAboveCenter(balancesScaled18, virtualBalances);
     }
 
-    function parseIncreaseDayRate(uint256 increaseDayRate) external pure returns (uint256) {
-        return ReClammMath.parseIncreaseDayRate(increaseDayRate);
+    function parsePriceShiftDailyRate(uint256 priceShiftDailyRate) external pure returns (uint256) {
+        return ReClammMath.parsePriceShiftDailyRate(priceShiftDailyRate);
     }
 }

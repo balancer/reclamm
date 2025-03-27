@@ -12,7 +12,7 @@ import {
   initializeVirtualBalances,
   isAboveCenter,
   isPoolInRange,
-  parseIncreaseDayRate,
+  parsePriceShiftDailyRate,
   pureComputeInvariant,
   Rounding,
 } from './utils/reClammMath';
@@ -27,12 +27,12 @@ describe('ReClammMath', function () {
     mathLib = await deploy('ReClammMathMock');
   });
 
-  context('parseIncreaseDayRate', () => {
+  context('parsePriceShiftDailyRate', () => {
     it('should return the correct value', async () => {
-      const increaseDayRate = bn(1000e18);
-      const contractResult = await mathLib.parseIncreaseDayRate(increaseDayRate);
+      const priceShiftDailyRate = bn(1000e18);
+      const contractResult = await mathLib.parsePriceShiftDailyRate(priceShiftDailyRate);
 
-      expect(contractResult).to.equal(parseIncreaseDayRate(increaseDayRate));
+      expect(contractResult).to.equal(parsePriceShiftDailyRate(priceShiftDailyRate));
     });
   });
 

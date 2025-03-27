@@ -40,7 +40,7 @@ contract ReClammPoolFactoryMock is IPoolVersion, BasePoolFactory, Version {
      * @param name The name of the pool
      * @param symbol The symbol of the pool
      * @param tokens An array of descriptors for the tokens the pool will manage
-     * @param increaseDayRate The allowed change in a virtual balance per day
+     * @param priceShiftDailyRate The allowed change in a virtual balance per day
      * @param fourthRootPriceRatio The fourth root of the price ratio
      * @param centerednessMargin How far the price can be from the center before the price range starts to move
      * @param roleAccounts Addresses the Vault will allow to change certain pool settings
@@ -53,7 +53,7 @@ contract ReClammPoolFactoryMock is IPoolVersion, BasePoolFactory, Version {
         TokenConfig[] memory tokens,
         PoolRoleAccounts memory roleAccounts,
         uint256 swapFeePercentage,
-        uint256 increaseDayRate,
+        uint256 priceShiftDailyRate,
         uint96 fourthRootPriceRatio,
         uint64 centerednessMargin,
         bytes32 salt
@@ -77,7 +77,7 @@ contract ReClammPoolFactoryMock is IPoolVersion, BasePoolFactory, Version {
                     name: name,
                     symbol: symbol,
                     version: _poolVersion,
-                    increaseDayRate: increaseDayRate,
+                    priceShiftDailyRate: priceShiftDailyRate,
                     fourthRootPriceRatio: fourthRootPriceRatio,
                     centerednessMargin: centerednessMargin
                 }),
