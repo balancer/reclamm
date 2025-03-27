@@ -361,6 +361,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256 indexOut
     ) internal pure {
         currentBalancesScaled18[indexIn] += amountInScaled18;
+        // The swap functions `calculateOutGivenIn` and `calculateInGivenOut` ensure that the amountOutScaled18 is
+        // never greater than the balance of the token being swapped out. Therefore, the math below will never underflow.
+        // Still, using checked math since the reason for it to not revert is outside of this function.
         currentBalancesScaled18[indexOut] -= amountOutScaled18;
 
         if (currentBalancesScaled18[indexOut] < _MIN_TOKEN_BALANCE_SCALED18) {
