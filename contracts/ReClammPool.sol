@@ -48,11 +48,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint64 internal _centerednessMargin;
     uint256[] internal _lastVirtualBalances;
 
-    modifier withUpdatedTimestamp() {
-        _updateTimestamp();
-        _;
-    }
-
     constructor(
         ReClammPoolParams memory params,
         IVault vault
@@ -94,9 +89,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         if (changed) {
             _setLastVirtualBalances(currentVirtualBalances);
-        } else {
-            _updateTimestamp();
         }
+
+        _updateTimestamp();
 
         // Calculate swap result.
         if (request.kind == SwapKind.EXACT_IN) {
@@ -160,13 +155,14 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     function onBeforeInitialize(
         uint256[] memory balancesScaled18,
         bytes memory
-    ) public override onlyVault withUpdatedTimestamp returns (bool) {
+    ) public override onlyVault returns (bool) {
         uint256 currentSqrtPriceRatio = _calculateCurrentSqrtPriceRatio();
         uint256[] memory virtualBalances = ReClammMath.initializeVirtualBalances(
             balancesScaled18,
             currentSqrtPriceRatio
         );
         _setLastVirtualBalances(virtualBalances);
+        _updateTimestamp();
 
         return true;
     }
@@ -195,6 +191,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         currentVirtualBalances[0] = currentVirtualBalances[0].mulUp(FixedPoint.ONE + proportion);
         currentVirtualBalances[1] = currentVirtualBalances[1].mulUp(FixedPoint.ONE + proportion);
         _setLastVirtualBalances(currentVirtualBalances);
+        _updateTimestamp();
 
         return true;
     }
@@ -223,6 +220,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         currentVirtualBalances[0] = currentVirtualBalances[0].mulUp(FixedPoint.ONE - proportion);
         currentVirtualBalances[1] = currentVirtualBalances[1].mulUp(FixedPoint.ONE - proportion);
         _setLastVirtualBalances(currentVirtualBalances);
+        _updateTimestamp();
 
         if (
             balancesScaled18[0].mulDown(proportion.complement()) < _MIN_TOKEN_BALANCE_SCALED18 ||
@@ -304,7 +302,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         );
     }
 
-    function _setLastVirtualBalances(uint256[] memory virtualBalances) internal withUpdatedTimestamp {
+    function _setLastVirtualBalances(uint256[] memory virtualBalances) internal {
         _lastVirtualBalances = virtualBalances;
 
         emit VirtualBalancesUpdated(virtualBalances);
@@ -331,6 +329,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         if (changed) {
             _setLastVirtualBalances(currentVirtualBalances);
         }
+        _updateTimestamp();
 
         // Update time constant.
         _setIncreaseDayRate(increaseDayRate);
@@ -342,16 +341,35 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         emit IncreaseDayRateUpdated(increaseDayRate);
     }
 
+    /**
+     * @notice Sets the centeredness margin when the pool is created.
+     * @param centerednessMargin A percentage (0-100%) below which the pool is considered out of range.
+     */
     function _setCenterednessMargin(uint256 centerednessMargin) internal {
         _centerednessMargin = centerednessMargin.toUint64();
 
         emit CenterednessMarginUpdated(centerednessMargin);
     }
 
+    /// @notice Updates the last timestamp to the current timestamp.
     function _updateTimestamp() internal {
         _lastTimestamp = block.timestamp.toUint32();
     }
 
+    /**
+     * @notice Ensures the pool state is valid after a swap.
+     * @dev This function ensures that the balance of each token is greater than the minimum balance after a swap.
+     * Also, it checks if the pool centeredness is above the minimum centeredness (the pool is not too unbalanced).
+     * A pool with balances near the minimum/maximum price points can trigger big rounding errors, which cause
+     * imprecisions in the calculation of swaps.
+     *
+     * @param currentBalancesScaled18 The current balances of the pool, sorted by registration order
+     * @param currentVirtualBalances The current virtual balances of the pool, sorted by registration order
+     * @param amountInScaled18 Amount of tokenIn (entering the Vault)
+     * @param amountOutScaled18 Amount of tokenOut (leaving the Vault)
+     * @param indexIn The zero-based index of tokenIn
+     * @param indexOut The zero-based index of tokenOut
+     */
     function _ensureValidPoolStateAfterSwap(
         uint256[] memory currentBalancesScaled18,
         uint256[] memory currentVirtualBalances,
@@ -379,16 +397,22 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         }
     }
 
-    function _calculateCurrentSqrtPriceRatio() internal view returns (uint96) {
+    /**
+     * @notice Returns the current sqrt price ratio.
+     * @dev This function uses the current timestamp and the sqrt price ratio state to calculate the current sqrt
+     * price ratio, interpolating start and end price ratios between the start and end times.
+     *
+     * @return currentSqrtPriceRatio The current sqrt price ratio.
+     */
+    function _calculateCurrentSqrtPriceRatio() internal view returns (uint96 currentSqrtPriceRatio) {
         SqrtPriceRatioState memory sqrtPriceRatioState = _sqrtPriceRatioState;
 
-        return
-            ReClammMath.calculateSqrtPriceRatio(
-                block.timestamp.toUint32(),
-                sqrtPriceRatioState.startSqrtPriceRatio,
-                sqrtPriceRatioState.endSqrtPriceRatio,
-                sqrtPriceRatioState.startTime,
-                sqrtPriceRatioState.endTime
-            );
+        currentSqrtPriceRatio = ReClammMath.calculateSqrtPriceRatio(
+            block.timestamp.toUint32(),
+            sqrtPriceRatioState.startSqrtPriceRatio,
+            sqrtPriceRatioState.endSqrtPriceRatio,
+            sqrtPriceRatioState.startTime,
+            sqrtPriceRatioState.endTime
+        );
     }
 }
