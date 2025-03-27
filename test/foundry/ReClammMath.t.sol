@@ -46,7 +46,7 @@ contract ReClammMathTest is BaseReClammTest {
     function testInitializeVirtualBalances__Fuzz(
         uint256 balance0,
         uint256 balance1,
-        uint96 sqrtPriceRatio
+        uint96 fourthRootPriceRatio
     ) public pure {
         balance0 = bound(balance0, 0, _MAX_TOKEN_BALANCE);
         balance1 = bound(balance1, 0, _MAX_TOKEN_BALANCE);
@@ -56,16 +56,19 @@ contract ReClammMathTest is BaseReClammTest {
         balancesScaled18[0] = balance0;
         balancesScaled18[1] = balance1;
 
-        uint256[] memory virtualBalances = ReClammMath.initializeVirtualBalances(balancesScaled18, sqrtPriceRatio);
+        uint256[] memory virtualBalances = ReClammMath.initializeVirtualBalances(
+            balancesScaled18,
+            fourthRootPriceRatio
+        );
 
         assertEq(
             virtualBalances[0],
-            balance0.divDown(sqrtPriceRatio - FixedPoint.ONE),
+            balance0.divDown(fourthRootPriceRatio - FixedPoint.ONE),
             "Virtual balance 0 should be correct"
         );
         assertEq(
             virtualBalances[1],
-            balance1.divDown(sqrtPriceRatio - FixedPoint.ONE),
+            balance1.divDown(fourthRootPriceRatio - FixedPoint.ONE),
             "Virtual balance 1 should be correct"
         );
     }
@@ -306,10 +309,10 @@ contract ReClammMathTest is BaseReClammTest {
         }
     }
 
-    function testCalculateSqrtPriceRatio__Fuzz(
+    function testCalculateFourthRootPriceRatio__Fuzz(
         uint32 currentTime,
-        uint96 startSqrtPriceRatio,
-        uint96 endSqrtPriceRatio,
+        uint96 startFourthRootPriceRatio,
+        uint96 endFourthRootPriceRatio,
         uint32 startTime,
         uint32 endTime
     ) public pure {
@@ -317,37 +320,37 @@ contract ReClammMathTest is BaseReClammTest {
         startTime = SafeCast.toUint32(bound(startTime, 1, endTime - 1));
         currentTime = SafeCast.toUint32(bound(currentTime, startTime, endTime));
 
-        endSqrtPriceRatio = SafeCast.toUint96(bound(endSqrtPriceRatio, FixedPoint.ONE, type(uint96).max));
-        startSqrtPriceRatio = SafeCast.toUint96(bound(endSqrtPriceRatio, FixedPoint.ONE, type(uint96).max));
+        endFourthRootPriceRatio = SafeCast.toUint96(bound(endFourthRootPriceRatio, FixedPoint.ONE, type(uint96).max));
+        startFourthRootPriceRatio = SafeCast.toUint96(bound(endFourthRootPriceRatio, FixedPoint.ONE, type(uint96).max));
 
-        uint96 sqrtPriceRatio = ReClammMath.calculateSqrtPriceRatio(
+        uint96 fourthRootPriceRatio = ReClammMath.calculateFourthRootPriceRatio(
             currentTime,
-            startSqrtPriceRatio,
-            endSqrtPriceRatio,
+            startFourthRootPriceRatio,
+            endFourthRootPriceRatio,
             startTime,
             endTime
         );
 
         currentTime++;
-        uint256 nextSqrtPriceRatio = ReClammMath.calculateSqrtPriceRatio(
+        uint256 nextFourthRootPriceRatio = ReClammMath.calculateFourthRootPriceRatio(
             currentTime,
-            startSqrtPriceRatio,
-            endSqrtPriceRatio,
+            startFourthRootPriceRatio,
+            endFourthRootPriceRatio,
             startTime,
             endTime
         );
 
-        if (startSqrtPriceRatio >= endSqrtPriceRatio) {
+        if (startFourthRootPriceRatio >= endFourthRootPriceRatio) {
             assertLe(
-                nextSqrtPriceRatio,
-                sqrtPriceRatio,
-                "Next sqrtPriceRatio should be less than current sqrtPriceRatio"
+                nextFourthRootPriceRatio,
+                fourthRootPriceRatio,
+                "Next fourthRootPriceRatio should be less than current fourthRootPriceRatio"
             );
         } else {
             assertGe(
-                nextSqrtPriceRatio,
-                sqrtPriceRatio,
-                "Next sqrtPriceRatio should be greater than current sqrtPriceRatio"
+                nextFourthRootPriceRatio,
+                fourthRootPriceRatio,
+                "Next fourthRootPriceRatio should be greater than current fourthRootPriceRatio"
             );
         }
     }
@@ -357,7 +360,7 @@ contract ReClammMathTest is BaseReClammTest {
         uint256 balance1,
         uint256 virtualBalance0,
         uint256 virtualBalance1,
-        uint256 expectedSqrtPriceRatio
+        uint256 expectedFourthRootPriceRatio
     ) public pure {
         balance0 = bound(balance0, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
         balance1 = bound(balance1, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
@@ -385,7 +388,7 @@ contract ReClammMathTest is BaseReClammTest {
         vm.assume(oldCenteredness > _MIN_POOL_CENTEREDNESS);
 
         uint256[] memory newVirtualBalances = ReClammMath.calculateVirtualBalancesUpdatingPriceRatio(
-            expectedSqrtPriceRatio,
+            expectedFourthRootPriceRatio,
             balancesScaled18,
             lastVirtualBalances,
             isPoolAboveCenter
@@ -404,73 +407,90 @@ contract ReClammMathTest is BaseReClammTest {
 
         // Check if price ratio matches the new price ratio
         uint256 invariant = ReClammMath.computeInvariant(balancesScaled18, newVirtualBalances, Rounding.ROUND_DOWN);
-        uint256 actualSqrtPriceRatio = Math.sqrt(
+        uint256 actualFourthRootPriceRatio = Math.sqrt(
             (invariant * FixedPoint.ONE).divDown(newVirtualBalances[0].mulDown(newVirtualBalances[1]))
         );
-        assertApproxEqAbs(
-            expectedSqrtPriceRatio.mulDown(expectedSqrtPriceRatio).mulDown(expectedSqrtPriceRatio).mulDown(
-                expectedSqrtPriceRatio
-            ),
-            actualSqrtPriceRatio.mulDown(actualSqrtPriceRatio).mulDown(actualSqrtPriceRatio).mulDown(
-                actualSqrtPriceRatio
-            ),
-            _MAX_PRICE_ERROR_ABS,
-            "Price Ratio should be correct"
-        );
+
+        uint256 expectedPriceRatio = expectedFourthRootPriceRatio
+            .mulDown(expectedFourthRootPriceRatio)
+            .mulDown(expectedFourthRootPriceRatio)
+            .mulDown(expectedFourthRootPriceRatio);
+
+        uint256 actualPriceRatio = actualFourthRootPriceRatio
+            .mulDown(actualFourthRootPriceRatio)
+            .mulDown(actualFourthRootPriceRatio)
+            .mulDown(actualFourthRootPriceRatio);
+
+        assertApproxEqAbs(expectedPriceRatio, actualPriceRatio, _MAX_PRICE_ERROR_ABS, "Price Ratio should be correct");
     }
 
-    function testCalculateSqrtPriceRatioWhenCurrentTimeIsAfterEndTime() public pure {
-        uint96 startSqrtPriceRatio = 100;
-        uint96 endSqrtPriceRatio = 200;
+    function testCalculateFourthRootPriceRatioWhenCurrentTimeIsAfterEndTime() public pure {
+        uint96 startFourthRootPriceRatio = 100;
+        uint96 endFourthRootPriceRatio = 200;
         uint32 startTime = 0;
         uint32 endTime = 50;
         uint32 currentTime = 100;
 
-        uint96 sqrtPriceRatio = ReClammMath.calculateSqrtPriceRatio(
+        uint96 fourthRootPriceRatio = ReClammMath.calculateFourthRootPriceRatio(
             currentTime,
-            startSqrtPriceRatio,
-            endSqrtPriceRatio,
+            startFourthRootPriceRatio,
+            endFourthRootPriceRatio,
             startTime,
             endTime
         );
 
-        assertEq(sqrtPriceRatio, endSqrtPriceRatio, "SqrtPriceRatio should be equal to endSqrtPriceRatio");
+        assertEq(
+            fourthRootPriceRatio,
+            endFourthRootPriceRatio,
+            "FourthRootPriceRatio should be equal to endFourthRootPriceRatio"
+        );
     }
 
-    function testCalculateSqrtPriceRatioWhenCurrentTimeIsBeforeStartTime() public pure {
-        uint96 startSqrtPriceRatio = 100;
-        uint96 endSqrtPriceRatio = 200;
+    function testCalculateFourthRootPriceRatioWhenCurrentTimeIsBeforeStartTime() public pure {
+        uint96 startFourthRootPriceRatio = 100;
+        uint96 endFourthRootPriceRatio = 200;
         uint32 startTime = 50;
         uint32 endTime = 100;
         uint32 currentTime = 0;
 
-        uint96 sqrtPriceRatio = ReClammMath.calculateSqrtPriceRatio(
+        uint96 fourthRootPriceRatio = ReClammMath.calculateFourthRootPriceRatio(
             currentTime,
-            startSqrtPriceRatio,
-            endSqrtPriceRatio,
+            startFourthRootPriceRatio,
+            endFourthRootPriceRatio,
             startTime,
             endTime
         );
 
-        assertEq(sqrtPriceRatio, startSqrtPriceRatio, "SqrtPriceRatio should be equal to startSqrtPriceRatio");
+        assertEq(
+            fourthRootPriceRatio,
+            startFourthRootPriceRatio,
+            "FourthRootPriceRatio should be equal to startFourthRootPriceRatio"
+        );
     }
 
-    function testCalculateSqrtPriceRatioWhenStartSqrtPriceRatioIsEqualToEndSqrtPriceRatio() public pure {
-        uint96 startSqrtPriceRatio = 100;
-        uint96 endSqrtPriceRatio = 100;
+    function testCalculateFourthRootPriceRatioWhenStartFourthRootPriceRatioIsEqualToEndFourthRootPriceRatio()
+        public
+        pure
+    {
+        uint96 startFourthRootPriceRatio = 100;
+        uint96 endFourthRootPriceRatio = 100;
         uint32 startTime = 0;
         uint32 endTime = 100;
         uint32 currentTime = 50;
 
-        uint96 sqrtPriceRatio = ReClammMath.calculateSqrtPriceRatio(
+        uint96 fourthRootPriceRatio = ReClammMath.calculateFourthRootPriceRatio(
             currentTime,
-            startSqrtPriceRatio,
-            endSqrtPriceRatio,
+            startFourthRootPriceRatio,
+            endFourthRootPriceRatio,
             startTime,
             endTime
         );
 
-        assertEq(sqrtPriceRatio, endSqrtPriceRatio, "SqrtPriceRatio should be equal to endSqrtPriceRatio");
+        assertEq(
+            fourthRootPriceRatio,
+            endFourthRootPriceRatio,
+            "FourthRootPriceRatio should be equal to endFourthRootPriceRatio"
+        );
     }
 
     function _calculateCurrentPriceRatio(

@@ -7,7 +7,7 @@ import "forge-std/Test.sol";
 import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 
-import { SqrtPriceRatioState } from "../../contracts/lib/ReClammMath.sol";
+import { PriceRatioState } from "../../contracts/lib/ReClammMath.sol";
 import { ReClammMathMock } from "../../contracts/test/ReClammMathMock.sol";
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
 
@@ -31,7 +31,7 @@ contract ReClammRoundingTest is BaseReClammTest {
         mathMock = new ReClammMathMock();
     }
 
-    function testPureComputeInvariant__Fuzz(uint256[2] memory balancesRaw, uint256 sqrtPriceRatio) public view {
+    function testPureComputeInvariant__Fuzz(uint256[2] memory balancesRaw, uint256 fourthRootPriceRatio) public view {
         uint256[] memory balances = new uint256[](balancesRaw.length);
         for (uint256 i = 0; i < balances.length; ++i) {
             balances[i] = bound(balancesRaw[i], _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
@@ -39,7 +39,7 @@ contract ReClammRoundingTest is BaseReClammTest {
 
         sqrtPriceRatio = uint96(bound(sqrtPriceRatio, _MIN_SQRT_PRICE_RATIO, _MAX_SQRT_PRICE_RATIO));
 
-        uint256[] memory virtualBalances = mathMock.initializeVirtualBalances(balances, sqrtPriceRatio);
+        uint256[] memory virtualBalances = mathMock.initializeVirtualBalances(balances, fourthRootPriceRatio);
 
         uint256 invariantRoundedUp = mathMock.computeInvariant(balances, virtualBalances, Rounding.ROUND_UP);
         uint256 invariantRoundedDown = mathMock.computeInvariant(balances, virtualBalances, Rounding.ROUND_DOWN);
@@ -53,7 +53,7 @@ contract ReClammRoundingTest is BaseReClammTest {
 
     function testCalculateOutGivenIn__Fuzz(
         uint256[2] calldata balancesRaw,
-        uint96 sqrtPriceRatio,
+        uint96 fourthRootPriceRatio,
         bool isTokenAIn,
         uint256 amountGivenScaled18
     ) external {
@@ -65,7 +65,7 @@ contract ReClammRoundingTest is BaseReClammTest {
         }
         sqrtPriceRatio = uint96(bound(sqrtPriceRatio, _MIN_SQRT_PRICE_RATIO, _MAX_SQRT_PRICE_RATIO));
 
-        uint256[] memory virtualBalances = mathMock.initializeVirtualBalances(balances, sqrtPriceRatio);
+        uint256[] memory virtualBalances = mathMock.initializeVirtualBalances(balances, fourthRootPriceRatio);
 
         // Calculate maxAmountIn to make sure the transaction won't revert.
         uint256 maxAmountIn = mathMock.calculateInGivenOut(
@@ -118,7 +118,7 @@ contract ReClammRoundingTest is BaseReClammTest {
 
     function testCalculateInGivenOut__Fuzz(
         uint256[2] calldata balancesRaw,
-        uint96 sqrtPriceRatio,
+        uint96 fourthRootPriceRatio,
         bool isTokenAIn,
         uint256 amountGivenScaled18
     ) external {
@@ -139,10 +139,10 @@ contract ReClammRoundingTest is BaseReClammTest {
 
         uint256[] memory virtualBalances = mathMock.initializeVirtualBalances(balances, sqrtPriceRatio);
 
-        mathMock.setSqrtPriceRatioState(
-            SqrtPriceRatioState({
-                startSqrtPriceRatio: sqrtPriceRatio,
-                endSqrtPriceRatio: sqrtPriceRatio,
+        mathMock.setPriceRatioState(
+            PriceRatioState({
+                startFourthRootPriceRatio: fourthRootPriceRatio,
+                endFourthRootPriceRatio: fourthRootPriceRatio,
                 startTime: 0,
                 endTime: 0
             })

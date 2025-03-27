@@ -10,7 +10,7 @@ struct ReClammPoolParams {
     string symbol;
     string version;
     uint256 priceShiftDailyRate;
-    uint96 sqrtPriceRatio;
+    uint96 fourthRootPriceRatio;
     uint64 centerednessMargin;
 }
 
@@ -27,10 +27,10 @@ interface IReClammPool is IBasePool {
     /// @dev The pool centeredness is too low after a swap.
     error PoolCenterednessTooLow();
 
-    /// @dev The Price Ratio was Updated.
-    event SqrtPriceRatioUpdated(
-        uint256 startSqrtPriceRatio,
-        uint256 endSqrtPriceRatio,
+    /// @dev The Price Ratio State was updated.
+    event PriceRatioStateUpdated(
+        uint256 startFourthRootPriceRatio,
+        uint256 endFourthRootPriceRatio,
         uint256 startTime,
         uint256 endTime
     );
@@ -59,22 +59,22 @@ interface IReClammPool is IBasePool {
     function getLastTimestamp() external view returns (uint32);
 
     /**
-     * @notice Returns the current price ratio.
-     * @dev The current price ratio is an interpolation of the price ratio between the start and end time.
-     * @return currentSqrtPriceRatio The current price ratio.
+     * @notice Returns the current fourth root of price ratio.
+     * @dev The current fourth root of price ratio is an interpolation of the price ratio between the start and end time.
+     * @return currentFourthRootPriceRatio The current fourth root of price ratio.
      */
-    function getCurrentSqrtPriceRatio() external view returns (uint96 currentSqrtPriceRatio);
+    function getCurrentFourthRootPriceRatio() external view returns (uint96);
 
     /**
-     * @notice Updates the price ratio.
-     * @dev The price ratio is updated by interpolating between the start and end time. The start price ratio is the
+     * @notice Updates the price ratio state.
+     * @dev The price ratio is calculated by interpolating between the start and end time. The start price ratio is the
      * current price ratio of the pool.
      *
-     * @param newSqrtPriceRatio The new price ratio.
+     * @param newFourthRootPriceRatio The new price ratio.
      * @param startTime The start time.
      * @param endTime The end time.
      */
-    function setSqrtPriceRatio(uint256 newSqrtPriceRatio, uint256 startTime, uint256 endTime) external;
+    function setPriceRatioState(uint256 newFourthRootPriceRatio, uint256 startTime, uint256 endTime) external;
 
     /**
      * @notice Updates the price shift daily rate.
