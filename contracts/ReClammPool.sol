@@ -57,7 +57,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         BasePoolAuthentication(vault, msg.sender)
         Version(params.version)
     {
-        _setIncreaseDayRate(params.increaseDayRate);
+        _setPriceShiftDailyRate(params.priceShiftDailyRate);
         _setCenterednessMargin(params.centerednessMargin);
         _setSqrtPriceRatio(params.sqrtPriceRatio, 0, block.timestamp);
     }
@@ -283,9 +283,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function setIncreaseDayRate(uint256 newIncreaseDayRate) external onlySwapFeeManagerOrGovernance(address(this)) {
+    function setPriceShiftDailyRate(
+        uint256 newPriceShiftDailyRate
+    ) external onlySwapFeeManagerOrGovernance(address(this)) {
         // Update virtual balances before updating the daily rate.
-        _setIncreaseDayRateAndUpdateVirtualBalances(newIncreaseDayRate);
+        _setPriceShiftDailyRateAndUpdateVirtualBalances(newPriceShiftDailyRate);
     }
 
     function _getCurrentVirtualBalances(
@@ -322,7 +324,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         emit SqrtPriceRatioUpdated(startSqrtPriceRatio, endSqrtPriceRatio, startTime, endTime);
     }
 
-    function _setIncreaseDayRateAndUpdateVirtualBalances(uint256 increaseDayRate) internal {
+    function _setPriceShiftDailyRateAndUpdateVirtualBalances(uint256 priceShiftDailyRate) internal {
         // Update virtual balances with current daily rate.
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
         (uint256[] memory currentVirtualBalances, bool changed) = _getCurrentVirtualBalances(balancesScaled18);
@@ -332,13 +334,13 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _updateTimestamp();
 
         // Update time constant.
-        _setIncreaseDayRate(increaseDayRate);
+        _setPriceShiftDailyRate(priceShiftDailyRate);
     }
 
-    function _setIncreaseDayRate(uint256 increaseDayRate) internal {
-        _timeConstant = ReClammMath.parseIncreaseDayRate(increaseDayRate);
+    function _setPriceShiftDailyRate(uint256 priceShiftDailyRate) internal {
+        _timeConstant = ReClammMath.parsePriceShiftDailyRate(priceShiftDailyRate);
 
-        emit IncreaseDayRateUpdated(increaseDayRate);
+        emit PriceShiftDailyRateUpdated(priceShiftDailyRate);
     }
 
     /**

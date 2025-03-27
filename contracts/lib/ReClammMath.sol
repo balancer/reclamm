@@ -472,12 +472,12 @@ library ReClammMath {
     }
 
     /**
-     * @notice Parse the increase day rate to a time constant.
-     * @param increaseDayRate The increase day rate
+     * @notice Parse the price shift daily rate to a time constant.
+     * @param priceShiftDailyRate The price shift daily rate
      * @return timeConstant The time constant
      */
-    function parseIncreaseDayRate(uint256 increaseDayRate) internal pure returns (uint128) {
+    function parsePriceShiftDailyRate(uint256 priceShiftDailyRate) internal pure returns (uint128) {
         // Divide daily rate by a number of seconds per day (plus some adjustment)
-        return SafeCast.toUint128(increaseDayRate / _SECONDS_PER_DAY_WITH_ADJUSTMENT);
+        return SafeCast.toUint128(priceShiftDailyRate / _SECONDS_PER_DAY_WITH_ADJUSTMENT);
     }
 }

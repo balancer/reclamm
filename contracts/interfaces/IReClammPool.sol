@@ -9,7 +9,7 @@ struct ReClammPoolParams {
     string name;
     string symbol;
     string version;
-    uint256 increaseDayRate;
+    uint256 priceShiftDailyRate;
     uint96 sqrtPriceRatio;
     uint64 centerednessMargin;
 }
@@ -38,8 +38,8 @@ interface IReClammPool is IBasePool {
     /// @dev The Virtual Balances were updated after a user interaction.
     event VirtualBalancesUpdated(uint256[] virtualBalances);
 
-    /// @dev The Increase Daily Rate was updated.
-    event IncreaseDayRateUpdated(uint256 increaseDayRate);
+    /// @dev The Price Shift Daily Rate was updated.
+    event PriceShiftDailyRateUpdated(uint256 priceShiftDailyRate);
 
     /// @dev The Centeredness Margin was updated.
     event CenterednessMarginUpdated(uint256 centerednessMargin);
@@ -77,11 +77,11 @@ interface IReClammPool is IBasePool {
     function setSqrtPriceRatio(uint256 newSqrtPriceRatio, uint256 startTime, uint256 endTime) external;
 
     /**
-     * @notice Updates the increase daily rate.
+     * @notice Updates the price shift daily rate.
      * @dev This function is considered a user interaction, and therefore recalculates the virtual balances and sets
      * the last timestamp.
      *
-     * @param newIncreaseDayRate The new increase daily rate.
+     * @param newPriceShiftDailyRate The new price shift daily rate
      */
-    function setIncreaseDayRate(uint256 newIncreaseDayRate) external;
+    function setPriceShiftDailyRate(uint256 newPriceShiftDailyRate) external;
 }
