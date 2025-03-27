@@ -169,12 +169,7 @@ contract ReClammMathTest is BaseReClammTest {
         uint256 invariant = finalBalances[0].mulUp(finalBalances[1]);
 
         uint256 tokenOutPoolAmount = invariant.divUp(finalBalances[tokenIn] + amountGivenScaled18);
-        uint256 expected;
-        if (tokenOutPoolAmount > finalBalances[tokenOut]) {
-            expected = 0;
-        } else {
-            expected = finalBalances[tokenOut] - tokenOutPoolAmount;
-        }
+        uint256 expected = finalBalances[tokenOut] - tokenOutPoolAmount;
 
         assertEq(amountOut, expected, "Amount out should be correct");
     }
