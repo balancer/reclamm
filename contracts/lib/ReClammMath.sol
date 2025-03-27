@@ -300,8 +300,8 @@ library ReClammMath {
         uint256[] memory lastVirtualBalances,
         bool isPoolAboveCenter
     ) internal pure returns (uint256[] memory virtualBalances) {
-        uint256 indexTokenUndervalued = isPoolAboveCenter ? 0 : 1;
-        uint256 indexTokenOvervalued = isPoolAboveCenter ? 1 : 0;
+        // The token overvalued is the one with low token balance (therefore, rarer and more valuable).
+        (uint256 indexTokenUndervalued, uint256 indexTokenOvervalued) = isPoolAboveCenter ? (0, 1) : (1, 0);
         uint256 balanceTokenUndervalued = balancesScaled18[indexTokenUndervalued];
         uint256 balanceTokenOvervalued = balancesScaled18[indexTokenOvervalued];
 
@@ -350,8 +350,7 @@ library ReClammMath {
         uint256 priceRatio = currentSqrtPriceRatio.mulDown(currentSqrtPriceRatio);
 
         // The token overvalued is the one with low token balance (therefore, rarer and more valuable).
-        uint256 indexTokenOvervalued = isPoolAboveCenter ? 1 : 0;
-        uint256 indexTokenUndervalued = isPoolAboveCenter ? 0 : 1;
+        (uint256 indexTokenUndervalued, uint256 indexTokenOvervalued) = isPoolAboveCenter ? (0, 1) : (1, 0);
 
         // Vb = Vb * (1 - timeConstant)^(Tcurr - Tlast)
         virtualBalances[indexTokenOvervalued] = virtualBalances[indexTokenOvervalued].mulDown(
@@ -403,17 +402,16 @@ library ReClammMath {
     ) internal pure returns (uint256) {
         if (balancesScaled18[0] == 0 || balancesScaled18[1] == 0) {
             return 0;
-        } else if (isAboveCenter(balancesScaled18, virtualBalances)) {
-            return
-                balancesScaled18[1].mulDown(virtualBalances[0]).divDown(balancesScaled18[0]).divDown(
-                    virtualBalances[1]
-                );
-        } else {
-            return
-                balancesScaled18[0].mulDown(virtualBalances[1]).divDown(balancesScaled18[1]).divDown(
-                    virtualBalances[0]
-                );
         }
+
+        bool isPoolAboveCenter = isAboveCenter(balancesScaled18, virtualBalances);
+
+        // The token overvalued is the one with low token balance (therefore, rarer and more valuable).
+        (uint256 indexTokenUndervalued, uint256 indexTokenOvervalued) = isPoolAboveCenter ? (0, 1) : (1, 0);
+
+        return
+            ((balancesScaled18[indexTokenOvervalued] * virtualBalances[indexTokenUndervalued]) /
+                balancesScaled18[indexTokenUndervalued]).divDown(virtualBalances[indexTokenOvervalued]);
     }
 
     /**
