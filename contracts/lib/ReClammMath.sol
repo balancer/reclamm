@@ -155,7 +155,7 @@ library ReClammMath {
         uint256 amountOutScaled18
     ) internal pure returns (uint256 amountInScaled18) {
         if (amountOutScaled18 > balancesScaled18[tokenOutIndex]) {
-            // Amount in cannot be bigger than the real balance of the token.
+            // Amount out cannot be bigger than the real balance of the token in the pool.
             revert AmountOutBiggerThanBalance();
         }
 
