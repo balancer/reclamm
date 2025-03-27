@@ -105,21 +105,22 @@ library ReClammMath {
      * @param virtualBalances The last virtual balances, sorted in token registration order
      * @param tokenInIndex Index of the token being swapped in
      * @param tokenOutIndex Index of the token being swapped out
-     * @param amountGivenScaled18 The exact amount of `tokenIn` (i.e., the amount given in an ExactIn swap)
-     * @return amountCalculatedScaled18 The calculated amount of `tokenOut` returned in an ExactIn swap
+     * @param amountInScaled18 The exact amount of `tokenIn` (i.e., the amount given in an ExactIn swap)
+     * @return amountOutScaled18 The calculated amount of `tokenOut` returned in an ExactIn swap
      */
     function calculateOutGivenIn(
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances,
         uint256 tokenInIndex,
         uint256 tokenOutIndex,
-        uint256 amountGivenScaled18
-    ) internal pure returns (uint256 amountCalculatedScaled18) {
+        uint256 amountInScaled18
+    ) internal pure returns (uint256 amountOutScaled18) {
         // Round up, so the swapper absorbs rounding imprecisions (rounds in favor of the vault).
         uint256 invariant = computeInvariant(balancesScaled18, virtualBalances, Rounding.ROUND_UP);
-        // Total (virtual + real) token out amount that should stay in the pool after the swap.
+        // Total (virtual + real) token out amount that should stay in the pool after the swap. Rounding division up,
+        // which will round the token out amount down, favoring the vault.
         uint256 tokenOutPoolAmount = invariant.divUp(
-            balancesScaled18[tokenInIndex] + virtualBalances[tokenInIndex] + amountGivenScaled18
+            balancesScaled18[tokenInIndex] + virtualBalances[tokenInIndex] + amountInScaled18
         );
 
         uint256 totalBalancesTokenOut = balancesScaled18[tokenOutIndex] + virtualBalances[tokenOutIndex];
@@ -130,8 +131,8 @@ library ReClammMath {
             revert NegativeAmountOut();
         }
 
-        amountCalculatedScaled18 = totalBalancesTokenOut - tokenOutPoolAmount;
-        if (amountCalculatedScaled18 > balancesScaled18[tokenOutIndex]) {
+        amountOutScaled18 = totalBalancesTokenOut - tokenOutPoolAmount;
+        if (amountOutScaled18 > balancesScaled18[tokenOutIndex]) {
             // Amount out cannot be bigger than the real balance of the token.
             revert AmountOutBiggerThanBalance();
         }
@@ -143,17 +144,17 @@ library ReClammMath {
      * @param virtualBalances The last virtual balances, sorted in token registration order
      * @param tokenInIndex Index of the token being swapped in
      * @param tokenOutIndex Index of the token being swapped out
-     * @param amountGivenScaled18 The exact amount of `tokenOut` (i.e., the amount given in an ExactOut swap)
-     * @return amountCalculatedScaled18 The calculated amount of `tokenIn` returned in an ExactOut swap
+     * @param amountOutScaled18 The exact amount of `tokenOut` (i.e., the amount given in an ExactOut swap)
+     * @return amountInScaled18 The calculated amount of `tokenIn` returned in an ExactOut swap
      */
     function calculateInGivenOut(
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances,
         uint256 tokenInIndex,
         uint256 tokenOutIndex,
-        uint256 amountGivenScaled18
-    ) internal pure returns (uint256) {
-        if (amountGivenScaled18 > balancesScaled18[tokenOutIndex]) {
+        uint256 amountOutScaled18
+    ) internal pure returns (uint256 amountInScaled18) {
+        if (amountOutScaled18 > balancesScaled18[tokenOutIndex]) {
             // Amount in cannot be bigger than the real balance of the token.
             revert AmountOutBiggerThanBalance();
         }
@@ -161,8 +162,9 @@ library ReClammMath {
         // Round up, so the swapper absorbs rounding imprecisions (rounds in favor of the vault).
         uint256 invariant = computeInvariant(balancesScaled18, virtualBalances, Rounding.ROUND_UP);
 
-        return
-            invariant.divUp(balancesScaled18[tokenOutIndex] + virtualBalances[tokenOutIndex] - amountGivenScaled18) -
+        // Rounding division up, which will round the token in amount up, favoring the vault.
+        amountInScaled18 =
+            invariant.divUp(balancesScaled18[tokenOutIndex] + virtualBalances[tokenOutIndex] - amountOutScaled18) -
             balancesScaled18[tokenInIndex] -
             virtualBalances[tokenInIndex];
     }
