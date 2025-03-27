@@ -20,7 +20,7 @@ import { PoolInfo } from "@balancer-labs/v3-pool-utils/contracts/PoolInfo.sol";
 import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
 
 import { ReClammPoolParams, IReClammPool } from "./interfaces/IReClammPool.sol";
-import { FourthRootPriceRatioState, ReClammMath } from "./lib/ReClammMath.sol";
+import { PriceRatioState, ReClammMath } from "./lib/ReClammMath.sol";
 
 contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthentication, Version, BaseHooks {
     using SafeCast for *;
@@ -42,7 +42,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 internal constant _MIN_TOKEN_BALANCE_SCALED18 = 1e14;
     uint256 internal constant _MIN_POOL_CENTEREDNESS = 1e3;
 
-    FourthRootPriceRatioState internal _fourthRootPriceRatioState;
+    PriceRatioState internal _priceRatioState;
     uint32 internal _lastTimestamp;
     uint128 internal _timeConstant;
     uint64 internal _centerednessMargin;
@@ -64,7 +64,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     {
         _setPriceShiftDailyRate(params.priceShiftDailyRate);
         _setCenterednessMargin(params.centerednessMargin);
-        _setFourthRootPriceRatio(params.fourthRootPriceRatio, 0, block.timestamp);
+        _setPriceRatioState(params.fourthRootPriceRatio, 0, block.timestamp);
     }
 
     /// @inheritdoc IBasePool
@@ -77,7 +77,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                 _lastTimestamp,
                 block.timestamp.toUint32(),
                 _centerednessMargin,
-                _fourthRootPriceRatioState,
+                _priceRatioState,
                 rounding
             );
     }
@@ -262,12 +262,12 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function setFourthRootPriceRatio(
+    function setPriceRatioState(
         uint256 newFourthRootPriceRatio,
         uint256 startTime,
         uint256 endTime
     ) external onlySwapFeeManagerOrGovernance(address(this)) {
-        _setFourthRootPriceRatio(newFourthRootPriceRatio, startTime, endTime);
+        _setPriceRatioState(newFourthRootPriceRatio, startTime, endTime);
     }
 
     /// @inheritdoc IReClammPool
@@ -288,7 +288,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             _lastTimestamp,
             block.timestamp.toUint32(),
             _centerednessMargin,
-            _fourthRootPriceRatioState
+            _priceRatioState
         );
     }
 
@@ -298,16 +298,16 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         emit VirtualBalancesUpdated(virtualBalances);
     }
 
-    function _setFourthRootPriceRatio(uint256 endFourthRootPriceRatio, uint256 startTime, uint256 endTime) internal {
+    function _setPriceRatioState(uint256 endFourthRootPriceRatio, uint256 startTime, uint256 endTime) internal {
         if (startTime > endTime) {
             revert GradualUpdateTimeTravel(startTime, endTime);
         }
 
         uint96 startFourthRootPriceRatio = _calculateCurrentFourthRootPriceRatio();
-        _fourthRootPriceRatioState.startFourthRootPriceRatio = startFourthRootPriceRatio;
-        _fourthRootPriceRatioState.endFourthRootPriceRatio = endFourthRootPriceRatio.toUint96();
-        _fourthRootPriceRatioState.startTime = startTime.toUint32();
-        _fourthRootPriceRatioState.endTime = endTime.toUint32();
+        _priceRatioState.startFourthRootPriceRatio = startFourthRootPriceRatio;
+        _priceRatioState.endFourthRootPriceRatio = endFourthRootPriceRatio.toUint96();
+        _priceRatioState.startTime = startTime.toUint32();
+        _priceRatioState.endTime = endTime.toUint32();
 
         emit FourthRootPriceRatioUpdated(startFourthRootPriceRatio, endFourthRootPriceRatio, startTime, endTime);
     }
@@ -365,15 +365,15 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     function _calculateCurrentFourthRootPriceRatio() internal view returns (uint96) {
-        FourthRootPriceRatioState memory fourthRootPriceRatioState = _fourthRootPriceRatioState;
+        PriceRatioState memory priceRatioState = _priceRatioState;
 
         return
             ReClammMath.calculateFourthRootPriceRatio(
                 block.timestamp.toUint32(),
-                fourthRootPriceRatioState.startFourthRootPriceRatio,
-                fourthRootPriceRatioState.endFourthRootPriceRatio,
-                fourthRootPriceRatioState.startTime,
-                fourthRootPriceRatioState.endTime
+                priceRatioState.startFourthRootPriceRatio,
+                priceRatioState.endFourthRootPriceRatio,
+                priceRatioState.startTime,
+                priceRatioState.endTime
             );
     }
 }

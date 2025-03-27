@@ -35,7 +35,7 @@ contract ReClammPoolTest is BaseReClammTest {
             startTime,
             endTime
         );
-        ReClammPool(pool).setFourthRootPriceRatio(newFourthRootPriceRatio, startTime, endTime);
+        ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, startTime, endTime);
 
         skip(duration / 2);
         uint96 fourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();

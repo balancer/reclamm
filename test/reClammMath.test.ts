@@ -292,7 +292,7 @@ describe('ReClammMath', function () {
       lastTimestamp: number,
       currentTimestamp: number,
       centerednessMargin: bigint,
-      fourthRootPriceRatioState: {
+      priceRatioState: {
         startTime: number;
         endTime: number;
         startFourthRootPriceRatio: bigint;
@@ -302,7 +302,7 @@ describe('ReClammMath', function () {
     ): Promise<{
       virtualBalances: bigint[];
     }> => {
-      await (await mathLib.setFourthRootPriceRatioState(fourthRootPriceRatioState)).wait();
+      await (await mathLib.setPriceRatioState(priceRatioState)).wait();
 
       const contractCurrentVirtualBalances = await mathLib.getCurrentVirtualBalances(
         balancesScaled18,
@@ -320,7 +320,7 @@ describe('ReClammMath', function () {
         lastTimestamp,
         currentTimestamp,
         centerednessMargin,
-        fourthRootPriceRatioState
+        priceRatioState
       );
 
       expect(contractCurrentVirtualBalances[0].length).to.equal(javascriptCurrentVirtualBalances[0].length);
@@ -350,7 +350,7 @@ describe('ReClammMath', function () {
       const lastTimestamp = 5;
       const currentTimestamp = 20;
       const centerednessMargin = 20n;
-      const fourthRootPriceRatioState = {
+      const priceRatioState = {
         startTime: 10,
         endTime: 50,
         startFourthRootPriceRatio: startFourthRootPriceRatio,
@@ -364,7 +364,7 @@ describe('ReClammMath', function () {
         lastTimestamp,
         currentTimestamp,
         centerednessMargin,
-        fourthRootPriceRatioState,
+        priceRatioState,
         true
       );
 
@@ -382,7 +382,7 @@ describe('ReClammMath', function () {
       const lastTimestamp = 15;
       const currentTimestamp = 20;
       const centerednessMargin = 0n;
-      const fourthRootPriceRatioState = {
+      const priceRatioState = {
         startTime: 10,
         endTime: 50,
         startFourthRootPriceRatio: startFourthRootPriceRatio,
@@ -396,7 +396,7 @@ describe('ReClammMath', function () {
         lastTimestamp,
         currentTimestamp,
         centerednessMargin,
-        fourthRootPriceRatioState,
+        priceRatioState,
         true
       );
 
@@ -411,7 +411,7 @@ describe('ReClammMath', function () {
       const lastTimestamp = 15;
       const currentTimestamp = 20;
       const centerednessMargin = bn(1e18);
-      const fourthRootPriceRatioState = {
+      const priceRatioState = {
         startTime: 0,
         endTime: 0,
         startFourthRootPriceRatio: startFourthRootPriceRatio,
@@ -428,7 +428,7 @@ describe('ReClammMath', function () {
         lastTimestamp,
         currentTimestamp,
         centerednessMargin,
-        fourthRootPriceRatioState,
+        priceRatioState,
         true
       );
     });
@@ -441,7 +441,7 @@ describe('ReClammMath', function () {
       const lastTimestamp = 15;
       const currentTimestamp = 20;
       const centerednessMargin = bn(2e18);
-      const fourthRootPriceRatioState = {
+      const priceRatioState = {
         startTime: 0,
         endTime: 0,
         startFourthRootPriceRatio: startFourthRootPriceRatio,
@@ -458,7 +458,7 @@ describe('ReClammMath', function () {
         lastTimestamp,
         currentTimestamp,
         centerednessMargin,
-        fourthRootPriceRatioState,
+        priceRatioState,
         true
       );
     });
@@ -493,7 +493,7 @@ describe('ReClammMath', function () {
       const lastTimestamp = 15;
       const currentTimestamp = 20;
       const centerednessMargin = bn(1e18);
-      const fourthRootPriceRatioState = {
+      const priceRatioState = {
         startTime: 0,
         endTime: 0,
         startFourthRootPriceRatio: startFourthRootPriceRatio,
@@ -502,7 +502,7 @@ describe('ReClammMath', function () {
 
       const rounding = Rounding.ROUND_UP;
 
-      await (await mathLib.setFourthRootPriceRatioState(fourthRootPriceRatioState)).wait();
+      await (await mathLib.setPriceRatioState(priceRatioState)).wait();
 
       const res = await mathLib.computeInvariant(
         balancesScaled18,
@@ -520,7 +520,7 @@ describe('ReClammMath', function () {
         lastTimestamp,
         currentTimestamp,
         centerednessMargin,
-        fourthRootPriceRatioState,
+        priceRatioState,
         rounding
       );
 
@@ -535,7 +535,7 @@ describe('ReClammMath', function () {
       const lastTimestamp = 15;
       const currentTimestamp = 20;
       const centerednessMargin = bn(1e18);
-      const fourthRootPriceRatioState = {
+      const priceRatioState = {
         startTime: 0,
         endTime: 0,
         startFourthRootPriceRatio: startFourthRootPriceRatio,
@@ -544,7 +544,7 @@ describe('ReClammMath', function () {
 
       const rounding = Rounding.ROUND_DOWN;
 
-      await (await mathLib.setFourthRootPriceRatioState(fourthRootPriceRatioState)).wait();
+      await (await mathLib.setPriceRatioState(priceRatioState)).wait();
 
       const res = await mathLib.computeInvariant(
         balancesScaled18,
@@ -562,7 +562,7 @@ describe('ReClammMath', function () {
         lastTimestamp,
         currentTimestamp,
         centerednessMargin,
-        fourthRootPriceRatioState,
+        priceRatioState,
         rounding
       );
 

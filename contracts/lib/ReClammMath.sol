@@ -11,7 +11,7 @@ import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultType
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { LogExpMath } from "@balancer-labs/v3-solidity-utils/contracts/math/LogExpMath.sol";
 
-struct FourthRootPriceRatioState {
+struct PriceRatioState {
     uint96 startFourthRootPriceRatio;
     uint96 endFourthRootPriceRatio;
     uint32 startTime;
@@ -45,7 +45,7 @@ library ReClammMath {
         uint32 lastTimestamp,
         uint32 currentTimestamp,
         uint64 centerednessMargin,
-        FourthRootPriceRatioState storage fourthRootPriceRatioState,
+        PriceRatioState storage priceRatioState,
         Rounding rounding
     ) internal pure returns (uint256) {
         (uint256[] memory currentVirtualBalances, ) = getCurrentVirtualBalances(
@@ -55,7 +55,7 @@ library ReClammMath {
             lastTimestamp,
             currentTimestamp,
             centerednessMargin,
-            fourthRootPriceRatioState
+            priceRatioState
         );
 
         return computeInvariant(balancesScaled18, currentVirtualBalances, rounding);
@@ -142,7 +142,7 @@ library ReClammMath {
         uint32 lastTimestamp,
         uint32 currentTimestamp,
         uint64 centerednessMargin,
-        FourthRootPriceRatioState storage fourthRootPriceRatioState
+        PriceRatioState storage priceRatioState
     ) internal pure returns (uint256[] memory currentVirtualBalances, bool changed) {
         // TODO Review rounding
 
@@ -154,24 +154,24 @@ library ReClammMath {
 
         currentVirtualBalances = lastVirtualBalances;
 
-        FourthRootPriceRatioState memory _fourthRootPriceRatioState = fourthRootPriceRatioState;
+        PriceRatioState memory _priceRatioState = priceRatioState;
 
         // Calculate currentFourthRootPriceRatio
         uint256 currentFourthRootPriceRatio = calculateFourthRootPriceRatio(
             currentTimestamp,
-            _fourthRootPriceRatioState.startFourthRootPriceRatio,
-            _fourthRootPriceRatioState.endFourthRootPriceRatio,
-            _fourthRootPriceRatioState.startTime,
-            _fourthRootPriceRatioState.endTime
+            _priceRatioState.startFourthRootPriceRatio,
+            _priceRatioState.endFourthRootPriceRatio,
+            _priceRatioState.startTime,
+            _priceRatioState.endTime
         );
 
         bool isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances);
 
         if (
-            _fourthRootPriceRatioState.startTime != 0 &&
-            currentTimestamp > _fourthRootPriceRatioState.startTime &&
-            (currentTimestamp < _fourthRootPriceRatioState.endTime ||
-                lastTimestamp < _fourthRootPriceRatioState.endTime)
+            _priceRatioState.startTime != 0 &&
+            currentTimestamp > _priceRatioState.startTime &&
+            (currentTimestamp < _priceRatioState.endTime ||
+                lastTimestamp < _priceRatioState.endTime)
         ) {
             currentVirtualBalances = calculateVirtualBalancesUpdatingPriceRatio(
                 currentFourthRootPriceRatio,

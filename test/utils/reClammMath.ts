@@ -16,7 +16,7 @@ export enum Rounding {
   ROUND_DOWN,
 }
 
-type FourthRootPriceRatioState = {
+type PriceRatioState = {
   startTime: number;
   endTime: number;
   startFourthRootPriceRatio: bigint;
@@ -30,7 +30,7 @@ export function getCurrentVirtualBalances(
   lastTimestamp: bigint,
   currentTimestamp: bigint,
   centerednessMargin: bigint,
-  fourthRootPriceRatioState: FourthRootPriceRatioState
+  priceRatioState: PriceRatioState
 ): [bigint[], boolean] {
   let virtualBalances = [...lastVirtualBalances];
 
@@ -42,18 +42,18 @@ export function getCurrentVirtualBalances(
 
   const currentFourthRootPriceRatio = calculateFourthRootPriceRatio(
     currentTimestamp,
-    fourthRootPriceRatioState.startFourthRootPriceRatio,
-    fourthRootPriceRatioState.endFourthRootPriceRatio,
-    fourthRootPriceRatioState.startTime,
-    fourthRootPriceRatioState.endTime
+    priceRatioState.startFourthRootPriceRatio,
+    priceRatioState.endFourthRootPriceRatio,
+    priceRatioState.startTime,
+    priceRatioState.endTime
   );
 
   const isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances);
 
   if (
-    fourthRootPriceRatioState.startTime != 0 &&
-    currentTimestamp > fourthRootPriceRatioState.startTime &&
-    (currentTimestamp < fourthRootPriceRatioState.endTime || lastTimestamp < fourthRootPriceRatioState.endTime)
+    priceRatioState.startTime != 0 &&
+    currentTimestamp > priceRatioState.startTime &&
+    (currentTimestamp < priceRatioState.endTime || lastTimestamp < priceRatioState.endTime)
   ) {
     virtualBalances = calculateVirtualBalancesUpdatingPriceRatio(
       currentFourthRootPriceRatio,
@@ -139,7 +139,7 @@ export function computeInvariant(
   lastTimestamp: number,
   currentTimestamp: number,
   centerednessMargin: bigint,
-  fourthRootPriceRatioState: FourthRootPriceRatioState,
+  priceRatioState: PriceRatioState,
   rounding: Rounding
 ): bigint {
   const [currentVirtualBalances, _] = getCurrentVirtualBalances(
@@ -149,7 +149,7 @@ export function computeInvariant(
     lastTimestamp,
     currentTimestamp,
     centerednessMargin,
-    fourthRootPriceRatioState
+    priceRatioState
   );
 
   return pureComputeInvariant(balancesScaled18, currentVirtualBalances, rounding);

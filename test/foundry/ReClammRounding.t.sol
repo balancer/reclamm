@@ -7,7 +7,7 @@ import "forge-std/Test.sol";
 import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 
-import { FourthRootPriceRatioState } from "../../contracts/lib/ReClammMath.sol";
+import { PriceRatioState } from "../../contracts/lib/ReClammMath.sol";
 import { ReClammMathMock } from "../../contracts/test/ReClammMathMock.sol";
 
 contract ReClammRoundingTest is Test {
@@ -78,8 +78,8 @@ contract ReClammRoundingTest is Test {
         );
         amountGivenScaled18 = bound(amountGivenScaled18, MIN_AMOUNT, maxAmountIn);
 
-        mathMock.setFourthRootPriceRatioState(
-            FourthRootPriceRatioState({
+        mathMock.setPriceRatioState(
+            PriceRatioState({
                 startFourthRootPriceRatio: fourthRootPriceRatio,
                 endFourthRootPriceRatio: fourthRootPriceRatio,
                 startTime: 0,
@@ -133,8 +133,8 @@ contract ReClammRoundingTest is Test {
 
         uint256[] memory virtualBalances = mathMock.initializeVirtualBalances(balances, fourthRootPriceRatio);
 
-        mathMock.setFourthRootPriceRatioState(
-            FourthRootPriceRatioState({
+        mathMock.setPriceRatioState(
+            PriceRatioState({
                 startFourthRootPriceRatio: fourthRootPriceRatio,
                 endFourthRootPriceRatio: fourthRootPriceRatio,
                 startTime: 0,

@@ -3,13 +3,13 @@
 pragma solidity ^0.8.24;
 
 import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
-import { FourthRootPriceRatioState, ReClammMath } from "../lib/ReClammMath.sol";
+import { PriceRatioState, ReClammMath } from "../lib/ReClammMath.sol";
 
 contract ReClammMathMock {
-    FourthRootPriceRatioState private _fourthRootPriceRatioState;
+    PriceRatioState private _priceRatioState;
 
-    function setFourthRootPriceRatioState(FourthRootPriceRatioState memory fourthRootPriceRatioState) external {
-        _fourthRootPriceRatioState = fourthRootPriceRatioState;
+    function setPriceRatioState(PriceRatioState memory priceRatioState) external {
+        _priceRatioState = priceRatioState;
     }
 
     function computeInvariant(
@@ -29,7 +29,7 @@ contract ReClammMathMock {
                 lastTimestamp,
                 currentTimestamp,
                 centerednessMargin,
-                _fourthRootPriceRatioState,
+                _priceRatioState,
                 rounding
             );
     }
@@ -99,7 +99,7 @@ contract ReClammMathMock {
                 lastTimestamp,
                 currentTimestamp,
                 centerednessMargin,
-                _fourthRootPriceRatioState
+                _priceRatioState
             );
     }
 

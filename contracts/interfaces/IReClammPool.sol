@@ -46,7 +46,7 @@ interface IReClammPool is IBasePool {
 
     function getCurrentFourthRootPriceRatio() external view returns (uint96);
 
-    function setFourthRootPriceRatio(uint256 newFourthRootPriceRatio, uint256 startTime, uint256 endTime) external;
+    function setPriceRatioState(uint256 newFourthRootPriceRatio, uint256 startTime, uint256 endTime) external;
 
     function setPriceShiftDailyRate(uint256 newPriceShiftDailyRate) external;
 }
