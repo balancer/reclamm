@@ -3,6 +3,8 @@
 
 pragma solidity ^0.8.24;
 
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+
 import { ISwapFeePercentageBounds } from "@balancer-labs/v3-interfaces/contracts/vault/ISwapFeePercentageBounds.sol";
 import "@balancer-labs/v3-interfaces/contracts/vault/IUnbalancedLiquidityInvariantRatioBounds.sol";
 import { IBasePool } from "@balancer-labs/v3-interfaces/contracts/vault/IBasePool.sol";
@@ -29,6 +31,7 @@ contract ReClammPool is
     Version,
     BaseHooks
 {
+    using SafeCast for *;
     using FixedPoint for uint256;
 
     // uint256 private constant _MIN_SWAP_FEE_PERCENTAGE = 0.001e16; // 0.001%
@@ -57,7 +60,7 @@ contract ReClammPool is
     {
         _setIncreaseDayRate(params.increaseDayRate);
         _setCenterednessMargin(params.centerednessMargin);
-        _setSqrtPriceRatio(params.sqrtPriceRatio, 0, uint32(block.timestamp));
+        _setSqrtPriceRatio(params.sqrtPriceRatio, 0, block.timestamp);
     }
 
     /// @inheritdoc IBasePool
@@ -68,7 +71,7 @@ contract ReClammPool is
                 _virtualBalances,
                 _timeConstant,
                 _lastTimestamp,
-                uint32(block.timestamp),
+                block.timestamp.toUint32(),
                 _centerednessMargin,
                 _sqrtPriceRatioState,
                 rounding
@@ -83,18 +86,20 @@ contract ReClammPool is
 
     /// @inheritdoc IBasePool
     function onSwap(PoolSwapParams memory request) public virtual returns (uint256) {
+        uint32 currentTimestamp = block.timestamp.toUint32();
+
         // Calculate virtual balances
         (uint256[] memory virtualBalances, bool changed) = ReClammMath.getVirtualBalances(
             request.balancesScaled18,
             _virtualBalances,
             _timeConstant,
             _lastTimestamp,
-            uint32(block.timestamp),
+            currentTimestamp,
             _centerednessMargin,
             _sqrtPriceRatioState
         );
 
-        _lastTimestamp = uint32(block.timestamp);
+        _lastTimestamp = currentTimestamp;
 
         if (changed) {
             _setVirtualBalances(virtualBalances);
@@ -144,7 +149,7 @@ contract ReClammPool is
         uint256[] memory balancesScaled18,
         bytes memory
     ) public override onlyVault returns (bool) {
-        _lastTimestamp = uint32(block.timestamp);
+        _lastTimestamp = block.timestamp.toUint32();
 
         uint256 currentSqrtPriceRatio = _calculateCurrentSqrtPriceRatio();
         uint256[] memory virtualBalances = ReClammMath.initializeVirtualBalances(
@@ -231,9 +236,9 @@ contract ReClammPool is
 
     /// @inheritdoc IReClammPool
     function setSqrtPriceRatio(
-        uint96 newSqrtPriceRatio,
-        uint32 startTime,
-        uint32 endTime
+        uint256 newSqrtPriceRatio,
+        uint256 startTime,
+        uint256 endTime
     ) external onlySwapFeeManagerOrGovernance(address(this)) {
         _setSqrtPriceRatio(newSqrtPriceRatio, startTime, endTime);
     }
@@ -243,16 +248,16 @@ contract ReClammPool is
         _setIncreaseDayRate(newIncreaseDayRate);
     }
 
-    function _setSqrtPriceRatio(uint96 endSqrtPriceRatio, uint32 startTime, uint32 endTime) internal {
+    function _setSqrtPriceRatio(uint256 endSqrtPriceRatio, uint256 startTime, uint256 endTime) internal {
         if (startTime > endTime) {
             revert GradualUpdateTimeTravel(startTime, endTime);
         }
 
         uint96 startSqrtPriceRatio = _calculateCurrentSqrtPriceRatio();
         _sqrtPriceRatioState.startSqrtPriceRatio = startSqrtPriceRatio;
-        _sqrtPriceRatioState.endSqrtPriceRatio = endSqrtPriceRatio;
-        _sqrtPriceRatioState.startTime = startTime;
-        _sqrtPriceRatioState.endTime = endTime;
+        _sqrtPriceRatioState.endSqrtPriceRatio = endSqrtPriceRatio.toUint96();
+        _sqrtPriceRatioState.startTime = startTime.toUint32();
+        _sqrtPriceRatioState.endTime = endTime.toUint32();
 
         emit SqrtPriceRatioUpdated(startSqrtPriceRatio, endSqrtPriceRatio, startTime, endTime);
     }
@@ -262,7 +267,7 @@ contract ReClammPool is
 
         return
             ReClammMath.calculateSqrtPriceRatio(
-                uint32(block.timestamp),
+                block.timestamp.toUint32(),
                 sqrtPriceRatioState.startSqrtPriceRatio,
                 sqrtPriceRatioState.endSqrtPriceRatio,
                 sqrtPriceRatioState.startTime,
@@ -276,8 +281,8 @@ contract ReClammPool is
         emit IncreaseDayRateUpdated(increaseDayRate);
     }
 
-    function _setCenterednessMargin(uint64 centerednessMargin) internal {
-        _centerednessMargin = centerednessMargin;
+    function _setCenterednessMargin(uint256 centerednessMargin) internal {
+        _centerednessMargin = centerednessMargin.toUint64();
 
         emit CenterednessMarginUpdated(centerednessMargin);
     }
@@ -297,7 +302,7 @@ contract ReClammPool is
             _virtualBalances,
             _timeConstant,
             _lastTimestamp,
-            uint32(block.timestamp),
+            block.timestamp.toUint32(),
             _centerednessMargin,
             _sqrtPriceRatioState
         );

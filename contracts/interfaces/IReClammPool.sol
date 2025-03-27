@@ -21,7 +21,12 @@ interface IReClammPool is IBasePool {
     /// @dev The function is not implemented.
     error NotImplemented();
 
-    event SqrtPriceRatioUpdated(uint96 startSqrtPriceRatio, uint96 endSqrtPriceRatio, uint32 startTime, uint32 endTime);
+    event SqrtPriceRatioUpdated(
+        uint256 startSqrtPriceRatio,
+        uint256 endSqrtPriceRatio,
+        uint256 startTime,
+        uint256 endTime
+    );
 
     event VirtualBalancesUpdated(uint256[] virtualBalances);
 
@@ -35,7 +40,7 @@ interface IReClammPool is IBasePool {
 
     function getCurrentSqrtPriceRatio() external view returns (uint96);
 
-    function setSqrtPriceRatio(uint96 newSqrtPriceRatio, uint32 startTime, uint32 endTime) external;
+    function setSqrtPriceRatio(uint256 newSqrtPriceRatio, uint256 startTime, uint256 endTime) external;
 
     function setIncreaseDayRate(uint256 newIncreaseDayRate) external;
 }
