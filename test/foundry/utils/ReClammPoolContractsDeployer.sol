@@ -27,7 +27,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
     struct DefaultDeployParams {
         string name;
         string symbol;
-        uint256 defaultIncreaseDayRate;
+        uint256 defaultPriceShiftDailyRate;
         uint256 defaultCenterednessMargin;
         uint96 defaultSqrtPriceRatio;
         string poolVersion;
@@ -43,7 +43,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
         defaultParams = DefaultDeployParams({
             name: "ReClamm Pool",
             symbol: "RECLAMMPOOL",
-            defaultIncreaseDayRate: 100e16, // 100%
+            defaultPriceShiftDailyRate: 100e16, // 100%
             defaultCenterednessMargin: 10e16, // 10%
             defaultSqrtPriceRatio: 1.41421356e18, // Price Range of 4 (fourth square root is 1.41)
             poolVersion: "ReClamm Pool v1",
@@ -76,7 +76,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
             vault.buildTokenConfig(_tokens),
             roleAccounts,
             0,
-            defaultParams.defaultIncreaseDayRate,
+            defaultParams.defaultPriceShiftDailyRate,
             defaultParams.defaultSqrtPriceRatio,
             SafeCast.toUint64(defaultParams.defaultCenterednessMargin),
             bytes32(_saltIndex++)
@@ -89,7 +89,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
                 name: defaultParams.name,
                 symbol: defaultParams.symbol,
                 version: defaultParams.poolVersion,
-                increaseDayRate: defaultParams.defaultIncreaseDayRate,
+                priceShiftDailyRate: defaultParams.defaultPriceShiftDailyRate,
                 sqrtPriceRatio: defaultParams.defaultSqrtPriceRatio,
                 centerednessMargin: SafeCast.toUint64(defaultParams.defaultCenterednessMargin)
             }),
