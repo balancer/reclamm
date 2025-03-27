@@ -277,8 +277,16 @@ library ReClammMath {
 
     /**
      * @notice Calculate the virtual balances of the pool when the price ratio is updating.
-     * @dev This function will shrink/expand the price interval by recalculating the virtual balances. It'll keep the
-     * current pool centeredness and token prices.
+     * @dev This function uses a Bhaskara formula to shrink/expand the price interval by recalculating the virtual
+     * balances. It'll keep the pool centeredness constant and track the desired price ratio. To reach this formula,
+     * we need to solve the following equations:
+     *
+     * 1. centeredness = (Ra * Vb) / (Rb * Va)
+     * 2. PriceRatio = invariant^2/(Va * Vb)^2 (maxPrice / minPrice)
+     * 3. invariant = (Va + Ra) * (Vb + Rb)
+     *
+     * Replace [3] in [2]. Then, isolate one of the V's. Replace the isolated V in [1]. You will get a quadratic
+     * equation, used in this function.
      *
      * @param currentSqrtPriceRatio The current sqrt price ratio of the pool
      * @param balancesScaled18 Current pool balances, sorted in token registration order
@@ -294,21 +302,20 @@ library ReClammMath {
     ) internal pure returns (uint256[] memory virtualBalances) {
         uint256 indexTokenUndervalued = isPoolAboveCenter ? 0 : 1;
         uint256 indexTokenOvervalued = isPoolAboveCenter ? 1 : 0;
+        uint256 balancesTokenUndervalued = balancesScaled18[indexTokenUndervalued];
+        uint256 balancesTokenOvervalued = balancesScaled18[indexTokenOvervalued];
 
         virtualBalances = new uint256[](2);
 
         uint256 poolCenteredness = calculateCenteredness(balancesScaled18, lastVirtualBalances);
 
         uint256 a = currentSqrtPriceRatio.mulDown(currentSqrtPriceRatio) - FixedPoint.ONE;
-        uint256 b = balancesScaled18[indexTokenUndervalued].mulDown(FixedPoint.ONE + poolCenteredness);
-        uint256 c = balancesScaled18[indexTokenUndervalued].mulDown(balancesScaled18[indexTokenUndervalued]).mulDown(
-            poolCenteredness
-        );
+        uint256 b = balancesTokenUndervalued.mulDown(FixedPoint.ONE + poolCenteredness);
+        uint256 c = balancesTokenUndervalued.mulDown(balancesTokenUndervalued).mulDown(poolCenteredness);
         virtualBalances[indexTokenUndervalued] = (b + Math.sqrt((b.mulDown(b) + 4 * a.mulDown(c)) * FixedPoint.ONE))
             .divDown(2 * a);
-        virtualBalances[indexTokenOvervalued] = (
-            balancesScaled18[indexTokenOvervalued].mulDown(virtualBalances[indexTokenUndervalued])
-        ).divDown(balancesScaled18[indexTokenUndervalued]).divDown(poolCenteredness);
+        virtualBalances[indexTokenOvervalued] = ((balancesTokenOvervalued * virtualBalances[indexTokenUndervalued]) /
+            balancesTokenUndervalued).divDown(poolCenteredness);
     }
 
     /**
