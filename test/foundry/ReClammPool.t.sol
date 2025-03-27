@@ -57,10 +57,33 @@ contract ReClammPoolTest is BaseReClammTest {
         ReClammPool(pool).setIncreaseDayRate(newIncreaseDayRate);
     }
 
+    function testSetIncreaseDayRateUpdatingVirtualBalance() public {
+        _setPoolBalances(1e14, 100e18);
+        ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
+
+        // Pass 6 hour
+        vm.warp(block.timestamp + 6 * 3600);
+
+        uint256[] memory virtualBalancesBefore = ReClammPool(pool).getCurrentVirtualBalances();
+
+        uint256 newIncreaseDayRate = 200e16;
+        vm.prank(admin);
+        vm.expectEmit();
+        emit IReClammPool.IncreaseDayRateUpdated(newIncreaseDayRate);
+        ReClammPool(pool).setIncreaseDayRate(newIncreaseDayRate);
+
+        assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp was not updated");
+
+        uint256[] memory lastVirtualBalances = ReClammPoolMock(pool).getLastVirtualBalances();
+
+        assertEq(lastVirtualBalances[daiIdx], virtualBalancesBefore[daiIdx], "DAI virtual balance does not match");
+        assertEq(lastVirtualBalances[usdcIdx], virtualBalancesBefore[usdcIdx], "USDC virtual balance does not match");
+    }
+
     function testSetCenterednessMargin() public {
         // ReCLAMM pools do not have a way to set the margin, so this function uses a mocked version that exposes a
         // private function.
-        uint256 newCenterednessMargin = 50e16;
+        uint64 newCenterednessMargin = 50e16;
         vm.prank(admin);
         vm.expectEmit();
         emit IReClammPool.CenterednessMarginUpdated(newCenterednessMargin);

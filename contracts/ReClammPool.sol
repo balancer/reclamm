@@ -3,6 +3,8 @@
 
 pragma solidity ^0.8.24;
 
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+
 import { ISwapFeePercentageBounds } from "@balancer-labs/v3-interfaces/contracts/vault/ISwapFeePercentageBounds.sol";
 import "@balancer-labs/v3-interfaces/contracts/vault/IUnbalancedLiquidityInvariantRatioBounds.sol";
 import { IBasePool } from "@balancer-labs/v3-interfaces/contracts/vault/IBasePool.sol";
@@ -21,11 +23,13 @@ import { ReClammPoolParams, IReClammPool } from "./interfaces/IReClammPool.sol";
 import { SqrtPriceRatioState, ReClammMath } from "./lib/ReClammMath.sol";
 
 contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthentication, Version, BaseHooks {
+    using SafeCast for *;
     using FixedPoint for uint256;
+    using SafeCast for uint256;
 
     // uint256 private constant _MIN_SWAP_FEE_PERCENTAGE = 0.001e16; // 0.001%
-    uint256 private constant _MIN_SWAP_FEE_PERCENTAGE = 0;
-    uint256 private constant _MAX_SWAP_FEE_PERCENTAGE = 10e16; // 10%
+    uint256 internal constant _MIN_SWAP_FEE_PERCENTAGE = 0;
+    uint256 internal constant _MAX_SWAP_FEE_PERCENTAGE = 10e16; // 10%
 
     // A pool is "centered" when it holds equal (non-zero) value in both real token balances. In this state, the ratio
     // of the real balances equals the ratio of the virtual balances, and the value of the centeredness measure is
@@ -35,14 +39,19 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     // centeredness is the divisor in many calculations, zero values would revert, and even near-zero values are
     // problematic. Imposing this limit on centeredness (i.e., reverting if an operation would cause the centeredness
     // to decrease below this threshold) keeps the math well-behaved.
-    uint256 private constant _MIN_TOKEN_BALANCE_SCALED18 = 1e14;
-    uint256 private constant _MIN_POOL_CENTEREDNESS = 1e3;
+    uint256 internal constant _MIN_TOKEN_BALANCE_SCALED18 = 1e14;
+    uint256 internal constant _MIN_POOL_CENTEREDNESS = 1e3;
 
-    SqrtPriceRatioState private _sqrtPriceRatioState;
-    uint256 private _lastTimestamp;
-    uint256 private _timeConstant;
-    uint256 private _centerednessMargin;
-    uint256[] private _lastVirtualBalances;
+    SqrtPriceRatioState internal _sqrtPriceRatioState;
+    uint32 internal _lastTimestamp;
+    uint128 internal _timeConstant;
+    uint64 internal _centerednessMargin;
+    uint256[] internal _lastVirtualBalances;
+
+    modifier withUpdatedTimestamp() {
+        _updateTimestamp();
+        _;
+    }
 
     constructor(
         ReClammPoolParams memory params,
@@ -55,7 +64,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     {
         _setIncreaseDayRate(params.increaseDayRate);
         _setCenterednessMargin(params.centerednessMargin);
-        _setSqrtPriceRatio(params.sqrtPriceRatio, 0, uint32(block.timestamp));
+        _setSqrtPriceRatio(params.sqrtPriceRatio, 0, block.timestamp);
     }
 
     /// @inheritdoc IBasePool
@@ -65,8 +74,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                 balancesScaled18,
                 _lastVirtualBalances,
                 _timeConstant,
-                uint32(_lastTimestamp),
-                uint32(block.timestamp),
+                _lastTimestamp,
+                block.timestamp.toUint32(),
                 _centerednessMargin,
                 _sqrtPriceRatioState,
                 rounding
@@ -81,21 +90,12 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IBasePool
     function onSwap(PoolSwapParams memory request) public virtual returns (uint256 amountCalculatedScaled18) {
-        // Calculate virtual balances.
-        (uint256[] memory currentVirtualBalances, bool changed) = ReClammMath.getCurrentVirtualBalances(
-            request.balancesScaled18,
-            _lastVirtualBalances,
-            _timeConstant,
-            uint32(_lastTimestamp),
-            uint32(block.timestamp),
-            _centerednessMargin,
-            _sqrtPriceRatioState
-        );
-
-        _lastTimestamp = block.timestamp;
+        (uint256[] memory currentVirtualBalances, bool changed) = _getCurrentVirtualBalances(request.balancesScaled18);
 
         if (changed) {
-            _setVirtualBalances(currentVirtualBalances);
+            _setLastVirtualBalances(currentVirtualBalances);
+        } else {
+            _updateTimestamp();
         }
 
         // Calculate swap result.
@@ -160,15 +160,13 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     function onBeforeInitialize(
         uint256[] memory balancesScaled18,
         bytes memory
-    ) public override onlyVault returns (bool) {
-        _lastTimestamp = block.timestamp;
-
+    ) public override onlyVault withUpdatedTimestamp returns (bool) {
         uint256 currentSqrtPriceRatio = _calculateCurrentSqrtPriceRatio();
         uint256[] memory virtualBalances = ReClammMath.initializeVirtualBalances(
             balancesScaled18,
             currentSqrtPriceRatio
         );
-        _setVirtualBalances(virtualBalances);
+        _setLastVirtualBalances(virtualBalances);
 
         return true;
     }
@@ -180,15 +178,17 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         AddLiquidityKind,
         uint256[] memory,
         uint256 minBptAmountOut,
-        uint256[] memory,
+        uint256[] memory balancesScaled18,
         bytes memory
     ) public override onlyVault returns (bool) {
         uint256 totalSupply = _vault.totalSupply(pool);
         uint256 proportion = minBptAmountOut.divUp(totalSupply);
-        uint256[] memory currentVirtualBalances = _getCurrentVirtualBalances();
+
+        (uint256[] memory currentVirtualBalances, ) = _getCurrentVirtualBalances(balancesScaled18);
         currentVirtualBalances[0] = currentVirtualBalances[0].mulUp(FixedPoint.ONE + proportion);
         currentVirtualBalances[1] = currentVirtualBalances[1].mulUp(FixedPoint.ONE + proportion);
-        _setVirtualBalances(currentVirtualBalances);
+        _setLastVirtualBalances(currentVirtualBalances);
+
         return true;
     }
 
@@ -204,10 +204,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     ) public override onlyVault returns (bool) {
         uint256 totalSupply = _vault.totalSupply(pool);
         uint256 proportion = maxBptAmountIn.divUp(totalSupply);
-        uint256[] memory currentVirtualBalances = _getCurrentVirtualBalances();
+
+        (uint256[] memory currentVirtualBalances, ) = _getCurrentVirtualBalances(balancesScaled18);
         currentVirtualBalances[0] = currentVirtualBalances[0].mulDown(FixedPoint.ONE - proportion);
         currentVirtualBalances[1] = currentVirtualBalances[1].mulDown(FixedPoint.ONE - proportion);
-        _setVirtualBalances(currentVirtualBalances);
+        _setLastVirtualBalances(currentVirtualBalances);
 
         if (
             balancesScaled18[0].mulDown(proportion.complement()) < _MIN_TOKEN_BALANCE_SCALED18 ||
@@ -245,12 +246,13 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function getCurrentVirtualBalances() external view returns (uint256[] memory) {
-        return _getCurrentVirtualBalances();
+    function getCurrentVirtualBalances() external view returns (uint256[] memory currentVirtualBalances) {
+        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
+        (currentVirtualBalances, ) = _getCurrentVirtualBalances(balancesScaled18);
     }
 
     /// @inheritdoc IReClammPool
-    function getLastTimestamp() external view returns (uint256) {
+    function getLastTimestamp() external view returns (uint32) {
         return _lastTimestamp;
     }
 
@@ -261,43 +263,63 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IReClammPool
     function setSqrtPriceRatio(
-        uint96 newSqrtPriceRatio,
-        uint32 startTime,
-        uint32 endTime
+        uint256 newSqrtPriceRatio,
+        uint256 startTime,
+        uint256 endTime
     ) external onlySwapFeeManagerOrGovernance(address(this)) {
         _setSqrtPriceRatio(newSqrtPriceRatio, startTime, endTime);
     }
 
     /// @inheritdoc IReClammPool
     function setIncreaseDayRate(uint256 newIncreaseDayRate) external onlySwapFeeManagerOrGovernance(address(this)) {
-        _setIncreaseDayRate(newIncreaseDayRate);
+        // Update virtual balances before updating the daily rate.
+        _setIncreaseDayRateAndUpdateVirtualBalances(newIncreaseDayRate);
     }
 
-    function _setSqrtPriceRatio(uint96 endSqrtPriceRatio, uint32 startTime, uint32 endTime) internal {
+    function _getCurrentVirtualBalances(
+        uint256[] memory balancesScaled18
+    ) internal view returns (uint256[] memory currentVirtualBalances, bool changed) {
+        (currentVirtualBalances, changed) = ReClammMath.getCurrentVirtualBalances(
+            balancesScaled18,
+            _lastVirtualBalances,
+            _timeConstant,
+            _lastTimestamp,
+            block.timestamp.toUint32(),
+            _centerednessMargin,
+            _sqrtPriceRatioState
+        );
+    }
+
+    function _setLastVirtualBalances(uint256[] memory virtualBalances) internal withUpdatedTimestamp {
+        _lastVirtualBalances = virtualBalances;
+
+        emit VirtualBalancesUpdated(virtualBalances);
+    }
+
+    function _setSqrtPriceRatio(uint256 endSqrtPriceRatio, uint256 startTime, uint256 endTime) internal {
         if (startTime > endTime) {
             revert GradualUpdateTimeTravel(startTime, endTime);
         }
 
         uint96 startSqrtPriceRatio = _calculateCurrentSqrtPriceRatio();
         _sqrtPriceRatioState.startSqrtPriceRatio = startSqrtPriceRatio;
-        _sqrtPriceRatioState.endSqrtPriceRatio = endSqrtPriceRatio;
-        _sqrtPriceRatioState.startTime = startTime;
-        _sqrtPriceRatioState.endTime = endTime;
+        _sqrtPriceRatioState.endSqrtPriceRatio = endSqrtPriceRatio.toUint96();
+        _sqrtPriceRatioState.startTime = startTime.toUint32();
+        _sqrtPriceRatioState.endTime = endTime.toUint32();
 
         emit SqrtPriceRatioUpdated(startSqrtPriceRatio, endSqrtPriceRatio, startTime, endTime);
     }
 
-    function _calculateCurrentSqrtPriceRatio() internal view returns (uint96) {
-        SqrtPriceRatioState memory sqrtPriceRatioState = _sqrtPriceRatioState;
+    function _setIncreaseDayRateAndUpdateVirtualBalances(uint256 increaseDayRate) internal {
+        // Update virtual balances with current daily rate.
+        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
+        (uint256[] memory currentVirtualBalances, bool changed) = _getCurrentVirtualBalances(balancesScaled18);
+        if (changed) {
+            _setLastVirtualBalances(currentVirtualBalances);
+        }
 
-        return
-            ReClammMath.calculateSqrtPriceRatio(
-                uint32(block.timestamp),
-                sqrtPriceRatioState.startSqrtPriceRatio,
-                sqrtPriceRatioState.endSqrtPriceRatio,
-                sqrtPriceRatioState.startTime,
-                sqrtPriceRatioState.endTime
-            );
+        // Update time constant.
+        _setIncreaseDayRate(increaseDayRate);
     }
 
     function _setIncreaseDayRate(uint256 increaseDayRate) internal {
@@ -306,16 +328,14 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         emit IncreaseDayRateUpdated(increaseDayRate);
     }
 
-    function _setVirtualBalances(uint256[] memory virtualBalances) internal {
-        _lastVirtualBalances = virtualBalances;
-
-        emit VirtualBalancesUpdated(virtualBalances);
-    }
-
     function _setCenterednessMargin(uint256 centerednessMargin) internal {
-        _centerednessMargin = centerednessMargin;
+        _centerednessMargin = centerednessMargin.toUint64();
 
         emit CenterednessMarginUpdated(centerednessMargin);
+    }
+
+    function _updateTimestamp() internal {
+        _lastTimestamp = block.timestamp.toUint32();
     }
 
     function _ensureValidPoolStateAfterSwap(
@@ -342,18 +362,16 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         }
     }
 
-    function _getCurrentVirtualBalances() internal view returns (uint256[] memory currentVirtualBalances) {
-        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
+    function _calculateCurrentSqrtPriceRatio() internal view returns (uint96) {
+        SqrtPriceRatioState memory sqrtPriceRatioState = _sqrtPriceRatioState;
 
-        // Calculate virtual balances
-        (currentVirtualBalances, ) = ReClammMath.getCurrentVirtualBalances(
-            balancesScaled18,
-            _lastVirtualBalances,
-            _timeConstant,
-            uint32(_lastTimestamp),
-            uint32(block.timestamp),
-            _centerednessMargin,
-            _sqrtPriceRatioState
-        );
+        return
+            ReClammMath.calculateSqrtPriceRatio(
+                block.timestamp.toUint32(),
+                sqrtPriceRatioState.startSqrtPriceRatio,
+                sqrtPriceRatioState.endSqrtPriceRatio,
+                sqrtPriceRatioState.startTime,
+                sqrtPriceRatioState.endTime
+            );
     }
 }

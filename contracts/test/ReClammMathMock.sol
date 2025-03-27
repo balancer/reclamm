@@ -18,7 +18,7 @@ contract ReClammMathMock {
         uint256 c,
         uint32 lastTimestamp,
         uint32 currentTimestamp,
-        uint256 centerednessMargin,
+        uint64 centerednessMargin,
         Rounding rounding
     ) external view returns (uint256) {
         return
@@ -89,7 +89,7 @@ contract ReClammMathMock {
         uint256 c,
         uint32 lastTimestamp,
         uint32 currentTimestamp,
-        uint256 centerednessMargin
+        uint64 centerednessMargin
     ) external view returns (uint256[] memory virtualBalances, bool changed) {
         return
             ReClammMath.getCurrentVirtualBalances(
