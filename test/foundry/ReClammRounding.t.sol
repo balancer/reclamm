@@ -52,7 +52,7 @@ contract ReClammRoundingTest is Test {
         );
     }
 
-    function testCalculateOutGivenIn___Fuzz(
+    function testCalculateOutGivenIn__Fuzz(
         uint256[2] calldata balancesRaw,
         uint96 sqrtPriceRatio,
         bool isTokenAIn,
@@ -116,7 +116,7 @@ contract ReClammRoundingTest is Test {
         assertLe(amountOutRoundedDown, amountOut, "amountOutRoundedDown > amountOut (calculateOutGivenIn)");
     }
 
-    function testCalculateInGivenOut___Fuzz(
+    function testCalculateInGivenOut__Fuzz(
         uint256[2] calldata balancesRaw,
         uint96 sqrtPriceRatio,
         bool isTokenAIn,

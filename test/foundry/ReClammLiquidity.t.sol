@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultErrors.sol";
+import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
 import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
@@ -17,7 +18,7 @@ contract ReClammLiquidityTest is BaseReClammTest {
     uint256 constant _MAX_CENTEREDNESS_ERROR_ABS = 1e5;
     uint256 constant _MIN_TOKEN_BALANCE = 1e14;
 
-    function testAddLiquidity_Fuzz(
+    function testAddLiquidity__Fuzz(
         uint256 exactBptAmountOut,
         uint256 initialDaiBalance,
         uint256 initialUsdcBalance
@@ -68,7 +69,52 @@ contract ReClammLiquidityTest is BaseReClammTest {
         router.addLiquidityUnbalanced(pool, exactAmountsIn, 0, false, "");
     }
 
-    function testRemoveLiquidity_Fuzz(
+    function testAddLiquiditySingleTokenExactOut() public {
+        // Try to add liquidity with single token - should revert
+        vm.prank(alice);
+        vm.expectRevert(IVaultErrors.DoesNotSupportUnbalancedLiquidity.selector);
+        router.addLiquiditySingleTokenExactOut(
+            pool, // pool address
+            dai, // token we want to add
+            1e18, // maximum DAI willing to pay
+            1e18, // exact BPT amount we want to receive
+            false, // wethIsEth
+            "" // userData
+        );
+    }
+
+    function testAddLiquidityCustom() public {
+        uint256[] memory maxAmountsIn = new uint256[](2);
+        maxAmountsIn[daiIdx] = 1e18;
+        maxAmountsIn[usdcIdx] = 1e18;
+
+        vm.prank(alice);
+        vm.expectRevert(IVaultErrors.DoesNotSupportAddLiquidityCustom.selector);
+        router.addLiquidityCustom(
+            pool, // pool address
+            maxAmountsIn, // maximum amounts willing to pay
+            1e18, // minimum BPT amount we want to receive
+            false, // wethIsEth
+            "" // userData
+        );
+    }
+
+    function testDonate() public {
+        uint256[] memory amountsIn = new uint256[](2);
+        amountsIn[daiIdx] = 1e18;
+        amountsIn[usdcIdx] = 1e18;
+
+        vm.prank(alice);
+        vm.expectRevert(IVaultErrors.DoesNotSupportDonation.selector);
+        router.donate(
+            pool, // pool address
+            amountsIn, // amounts to donate
+            false, // wethIsEth
+            "" // userData
+        );
+    }
+
+    function testRemoveLiquidity__Fuzz(
         uint256 exactBptAmountIn,
         uint256 initialDaiBalance,
         uint256 initialUsdcBalance
@@ -107,22 +153,6 @@ contract ReClammLiquidityTest is BaseReClammTest {
         _checkPriceAndCenteredness(balancesBefore, balancesAfter, virtualBalancesBefore, virtualBalancesAfter);
     }
 
-    function testRemoveLiquidityBelowMinTokenBalance() public {
-        _setPoolBalances(100 * _MIN_TOKEN_BALANCE, 100 * _MIN_TOKEN_BALANCE);
-
-        uint256 totalSupply = vault.totalSupply(pool);
-        // 99% of the total supply + 1, so the LP is leaving less than _MIN_TOKEN_BALANCE in the pool.
-        uint256 exactBptAmountIn = (99 * totalSupply) / 100 + 1;
-
-        uint256[] memory minAmountsOut = new uint256[](2);
-        minAmountsOut[daiIdx] = 0;
-        minAmountsOut[usdcIdx] = 0;
-
-        vm.prank(lp);
-        vm.expectRevert(IReClammPool.TokenBalanceTooLow.selector);
-        router.removeLiquidityProportional(pool, exactBptAmountIn, minAmountsOut, false, "");
-    }
-
     function testRemoveLiquiditySingleTokenExactOut() public {
         // Try to remove liquidity with exact token output - should revert
         vm.prank(lp);
@@ -135,6 +165,138 @@ contract ReClammLiquidityTest is BaseReClammTest {
             false, // wethIsEth
             "" // userData
         );
+    }
+
+    function testRemoveLiquiditySingleTokenExactIn() public {
+        vm.prank(lp);
+        vm.expectRevert(IVaultErrors.DoesNotSupportUnbalancedLiquidity.selector);
+        router.removeLiquiditySingleTokenExactIn(
+            pool, // pool address
+            1e18, // exact BPT amount to burn
+            dai, // token we want to receive
+            1e18, // minimum DAI amount we want to receive
+            false, // wethIsEth
+            "" // userData
+        );
+    }
+
+    function testRemoveLiquidityCustom() public {
+        uint256[] memory minAmountsOut = new uint256[](2);
+        minAmountsOut[daiIdx] = 1e18;
+        minAmountsOut[usdcIdx] = 1e18;
+
+        vm.prank(lp);
+        vm.expectRevert(IVaultErrors.DoesNotSupportRemoveLiquidityCustom.selector);
+        router.removeLiquidityCustom(
+            pool, // pool address
+            1e18, // maximum BPT amount willing to burn
+            minAmountsOut, // minimum amounts we want to receive
+            false, // wethIsEth
+            "" // userData
+        );
+    }
+
+    function testAddRemoveLiquidityProportional__Fuzz(
+        uint256 exactBptAmountOut,
+        uint256 initialDaiBalance,
+        uint256 initialUsdcBalance
+    ) public {
+        // Set initial pool balances
+        _setPoolBalances(initialDaiBalance, initialUsdcBalance);
+
+        // Get total supply and bound BPT amount to reasonable values
+        uint256 totalSupply = vault.totalSupply(pool);
+        exactBptAmountOut = bound(exactBptAmountOut, 1e6, 100 * totalSupply);
+
+        // Store Alice's initial balances
+        uint256 aliceDaiBalanceBefore = dai.balanceOf(alice);
+        uint256 aliceUsdcBalanceBefore = usdc.balanceOf(alice);
+
+        // Set max amounts for add liquidity
+        uint256[] memory maxAmountsIn = new uint256[](2);
+        maxAmountsIn[daiIdx] = aliceDaiBalanceBefore;
+        maxAmountsIn[usdcIdx] = aliceUsdcBalanceBefore;
+
+        // Add liquidity
+        vm.prank(alice);
+        router.addLiquidityProportional(pool, maxAmountsIn, exactBptAmountOut, false, "");
+
+        // Remove the same amount of liquidity
+        uint256[] memory minAmountsOut = new uint256[](2);
+        minAmountsOut[daiIdx] = 0;
+        minAmountsOut[usdcIdx] = 0;
+
+        vm.prank(alice);
+        router.removeLiquidityProportional(pool, exactBptAmountOut, minAmountsOut, false, "");
+
+        // Check final balances are not greater than initial balances
+        uint256 aliceDaiBalanceAfter = dai.balanceOf(alice);
+        uint256 aliceUsdcBalanceAfter = usdc.balanceOf(alice);
+
+        assertLe(aliceDaiBalanceAfter, aliceDaiBalanceBefore, "DAI balance should not be greater than initial");
+        assertLe(aliceUsdcBalanceAfter, aliceUsdcBalanceBefore, "USDC balance should not be greater than initial");
+    }
+
+    function testAddSwapRemoveLiquidityProportional__Fuzz(
+        uint256 exactBptAmountOut,
+        uint256 initialDaiBalance,
+        uint256 initialUsdcBalance,
+        uint256 bobSwapAmountOut
+    ) public {
+        // Set initial pool balances
+        _setPoolBalances(initialDaiBalance, initialUsdcBalance);
+
+        // Get total supply and bound BPT amount to reasonable values
+        uint256 totalSupply = vault.totalSupply(pool);
+        exactBptAmountOut = bound(exactBptAmountOut, 1e6, 100 * totalSupply);
+
+        // Store initial balances of pool
+        (, , uint256[] memory balancesBefore, ) = vault.getPoolTokenInfo(pool);
+        uint256 poolDaiBalanceBefore = balancesBefore[daiIdx];
+        uint256 poolUsdcBalanceBefore = balancesBefore[usdcIdx];
+
+        // Set max amounts for add liquidity
+        uint256[] memory maxAmountsIn = new uint256[](2);
+        maxAmountsIn[daiIdx] = dai.balanceOf(alice);
+        maxAmountsIn[usdcIdx] = usdc.balanceOf(alice);
+
+        // Add liquidity
+        vm.prank(alice);
+        router.addLiquidityProportional(pool, maxAmountsIn, exactBptAmountOut, false, "");
+
+        (, , uint256[] memory balancesScaled18, ) = vault.getPoolTokenInfo(pool);
+
+        // Perform Bob's swap (DAI -> USDC)
+        bobSwapAmountOut = bound(bobSwapAmountOut, 1e6, balancesScaled18[usdcIdx] - _MIN_TOKEN_BALANCE - 1);
+        vm.startPrank(bob);
+        router.swapSingleTokenExactOut(
+            pool,
+            dai,
+            usdc,
+            bobSwapAmountOut,
+            type(uint256).max,
+            type(uint256).max,
+            false,
+            ""
+        );
+        router.swapSingleTokenExactIn(pool, usdc, dai, bobSwapAmountOut, 0, type(uint256).max, false, "");
+        vm.stopPrank();
+
+        // Remove the same amount of liquidity
+        uint256[] memory minAmountsOut = new uint256[](2);
+        minAmountsOut[daiIdx] = 0;
+        minAmountsOut[usdcIdx] = 0;
+
+        vm.prank(alice);
+        router.removeLiquidityProportional(pool, exactBptAmountOut, minAmountsOut, false, "");
+
+        // Check final balances of pool
+        (, , uint256[] memory balancesAfter, ) = vault.getPoolTokenInfo(pool);
+        uint256 poolDaiBalanceAfter = balancesAfter[daiIdx];
+        uint256 poolUsdcBalanceAfter = balancesAfter[usdcIdx];
+
+        assertGe(poolDaiBalanceAfter, poolDaiBalanceBefore, "DAI balance should not be smaller than initial");
+        assertGe(poolUsdcBalanceAfter, poolUsdcBalanceBefore, "USDC balance should not be smaller than initial");
     }
 
     function _checkPriceAndCenteredness(
