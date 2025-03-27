@@ -174,9 +174,11 @@ library ReClammMath {
 
     /**
      * @notice Calculate the initial virtual balances of the pool.
-     * @dev The initial virtual balances are calculated based on the initial sqrt price ratio and the initial balances.
+     * @dev The initial virtual balances are calculated based on the initial fourth root of price ratio and the
+     * initial balances.
+     *
      * @param balancesScaled18 Current pool balances, sorted in token registration order
-     * @param fourthRootPriceRatio The initial sqrt price ratio of the pool
+     * @param fourthRootPriceRatio The initial fourth root of price ratio of the pool
      * @return virtualBalances The initial virtual balances of the pool
      */
     function initializeVirtualBalances(
@@ -192,8 +194,9 @@ library ReClammMath {
      * @notice Calculate the current virtual balances of the pool.
      * @dev If the pool is in range or the price ratio is not updating, the virtual balances do not change and
      * lastVirtualBalances are returned. Otherwise, follow these three steps:
-     * 1. Calculate the current sqrt price ratio.
-     * 2. Shrink/Expand the price interval considering the current sqrt price ratio. (if price ratio is updating)
+     * 1. Calculate the current fourth root of price ratio.
+     * 2. Shrink/Expand the price interval considering the current fourth root of price ratio. (if price ratio is
+     *    updating)
      * 3. Track the market price by moving the price interval. (if pool is out of range)
      *
      * @param balancesScaled18 Current pool balances, sorted in token registration order
@@ -288,7 +291,7 @@ library ReClammMath {
      * Replace [3] in [2]. Then, isolate one of the V's. Replace the isolated V in [1]. You will get a quadratic
      * equation, used in this function.
      *
-     * @param currentFourthRootPriceRatio The current sqrt price ratio of the pool
+     * @param currentFourthRootPriceRatio The current fourth root of price ratio of the pool
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param lastVirtualBalances The last virtual balances, sorted in token registration order
      * @param isPoolAboveCenter Whether the pool is above or below the center
@@ -329,7 +332,7 @@ library ReClammMath {
      * @dev This function will track the market price by moving the price interval. It will increase the pool
      * centeredness and change the token prices.
      *
-     * @param currentFourthRootPriceRatio The current sqrt price ratio of the pool
+     * @param currentFourthRootPriceRatio The current fourth root of price ratio of the pool
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param virtualBalances The last virtual balances, sorted in token registration order
      * @param isPoolAboveCenter Whether the pool is above or below the center
@@ -415,16 +418,16 @@ library ReClammMath {
     }
 
     /**
-     * @notice Calculate the sqrt price ratio of the pool.
-     * @dev This function will interpolate the sqrt price ratio of the pool based on the current time, the start and
-     * end sqrt price ratios and the start and end times.
+     * @notice Calculate the fourth root of price ratio of the pool.
+     * @dev This function will interpolate the fourth root of price ratio of the pool based on the current time,
+     * the start and end fourth root of price ratio and the start and end times.
      *
      * @param currentTime The current timestamp
-     * @param startFourthRootPriceRatio The start sqrt price ratio of the pool
-     * @param endFourthRootPriceRatio The end sqrt price ratio of the pool
+     * @param startFourthRootPriceRatio The start fourth root of price ratio of the pool
+     * @param endFourthRootPriceRatio The end fourth root of price ratio of the pool
      * @param startTime The timestamp of the last user interaction with the pool
      * @param endTime The timestamp of the next user interaction with the pool
-     * @return fourthRootPriceRatio The sqrt price ratio of the pool
+     * @return fourthRootPriceRatio The fourth root of price ratio of the pool
      */
     function calculateFourthRootPriceRatio(
         uint32 currentTime,

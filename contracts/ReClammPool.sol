@@ -400,11 +400,12 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /**
-     * @notice Returns the current sqrt price ratio.
-     * @dev This function uses the current timestamp and the sqrt price ratio state to calculate the current sqrt
-     * price ratio, interpolating start and end price ratios between the start and end times.
+     * @notice Returns the current fourth root of price ratio.
+     * @dev This function uses the current timestamp and the fourth root of price ratio state to calculate the current
+     * fourth root of price ratio, interpolating start and end fourth root of price ratio between the start and end
+     * times.
      *
-     * @return currentFourthRootPriceRatio The current sqrt price ratio.
+     * @return currentFourthRootPriceRatio The current fourth root of price ratio.
      */
     function _calculateCurrentFourthRootPriceRatio() internal view returns (uint96 currentFourthRootPriceRatio) {
         PriceRatioState memory priceRatioState = _priceRatioState;
