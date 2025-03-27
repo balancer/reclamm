@@ -302,20 +302,26 @@ library ReClammMath {
     ) internal pure returns (uint256[] memory virtualBalances) {
         uint256 indexTokenUndervalued = isPoolAboveCenter ? 0 : 1;
         uint256 indexTokenOvervalued = isPoolAboveCenter ? 1 : 0;
-        uint256 balancesTokenUndervalued = balancesScaled18[indexTokenUndervalued];
-        uint256 balancesTokenOvervalued = balancesScaled18[indexTokenOvervalued];
+        uint256 balanceTokenUndervalued = balancesScaled18[indexTokenUndervalued];
+        uint256 balanceTokenOvervalued = balancesScaled18[indexTokenOvervalued];
 
         virtualBalances = new uint256[](2);
 
+        // Calculate the current pool centeredness, which will remain constant.
         uint256 poolCenteredness = calculateCenteredness(balancesScaled18, lastVirtualBalances);
 
+        // Terms of quadratic equation.
         uint256 a = currentSqrtPriceRatio.mulDown(currentSqrtPriceRatio) - FixedPoint.ONE;
-        uint256 b = balancesTokenUndervalued.mulDown(FixedPoint.ONE + poolCenteredness);
-        uint256 c = balancesTokenUndervalued.mulDown(balancesTokenUndervalued).mulDown(poolCenteredness);
-        virtualBalances[indexTokenUndervalued] = (b + Math.sqrt((b.mulDown(b) + 4 * a.mulDown(c)) * FixedPoint.ONE))
-            .divDown(2 * a);
-        virtualBalances[indexTokenOvervalued] = ((balancesTokenOvervalued * virtualBalances[indexTokenUndervalued]) /
-            balancesTokenUndervalued).divDown(poolCenteredness);
+        uint256 b = balanceTokenUndervalued.mulDown(FixedPoint.ONE + poolCenteredness);
+        uint256 c = balanceTokenUndervalued.mulDown(balanceTokenUndervalued).mulDown(poolCenteredness);
+
+        uint256 virtualBalanceUndervalued = (b + Math.sqrt((b.mulDown(b) + 4 * a.mulDown(c)) * FixedPoint.ONE)).divDown(
+            2 * a
+        );
+        // Avoid using FixedPoint math to improve the precision of the result.
+        virtualBalances[indexTokenOvervalued] = ((balanceTokenOvervalued * virtualBalanceUndervalued) /
+            balanceTokenUndervalued).divDown(poolCenteredness);
+        virtualBalances[indexTokenUndervalued] = virtualBalanceUndervalued;
     }
 
     /**
