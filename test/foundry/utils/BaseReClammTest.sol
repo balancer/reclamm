@@ -140,18 +140,18 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     }
 
     function _setPoolBalances(
-        uint256 initialDaiBalance,
-        uint256 initialUsdcBalance
-    ) internal returns (uint256[] memory initialBalances) {
-        // Setting initial balances to be at least 10 * min token balance, so LP can remove 90% of the liquidity
+        uint256 daiBalance,
+        uint256 usdcBalance
+    ) internal returns (uint256[] memory newPoolBalances) {
+        // Setting balances to be at least 10 * min token balance, so LP can remove 90% of the liquidity
         // without reverting.
-        initialDaiBalance = bound(initialDaiBalance, 10 * _MIN_TOKEN_BALANCE, dai.balanceOf(address(vault)));
-        initialUsdcBalance = bound(initialUsdcBalance, 10 * _MIN_TOKEN_BALANCE, usdc.balanceOf(address(vault)));
+        daiBalance = bound(daiBalance, 10 * _MIN_TOKEN_BALANCE, dai.balanceOf(address(vault)));
+        usdcBalance = bound(usdcBalance, 10 * _MIN_TOKEN_BALANCE, usdc.balanceOf(address(vault)));
 
-        initialBalances = new uint256[](2);
-        initialBalances[daiIdx] = initialDaiBalance;
-        initialBalances[usdcIdx] = initialUsdcBalance;
+        newPoolBalances = new uint256[](2);
+        newPoolBalances[daiIdx] = daiBalance;
+        newPoolBalances[usdcIdx] = usdcBalance;
 
-        vault.manualSetPoolBalances(pool, initialBalances, initialBalances);
+        vault.manualSetPoolBalances(pool, newPoolBalances, newPoolBalances);
     }
 }

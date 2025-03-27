@@ -58,7 +58,7 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function testSetIncreaseDayRateUpdatingVirtualBalance() public {
-        uint256[] memory initialBalancesScaled18 = _setPoolBalances(1e14, 100e18);
+        _setPoolBalances(1e14, 100e18);
         ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
 
         // Pass 6 hour

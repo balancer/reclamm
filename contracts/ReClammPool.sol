@@ -42,11 +42,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 internal constant _MIN_TOKEN_BALANCE_SCALED18 = 1e14;
     uint256 internal constant _MIN_POOL_CENTEREDNESS = 1e3;
 
-    SqrtPriceRatioState private _sqrtPriceRatioState;
-    uint32 private _lastTimestamp;
-    uint128 private _timeConstant;
-    uint64 private _centerednessMargin;
-    uint256[] private _lastVirtualBalances;
+    SqrtPriceRatioState internal _sqrtPriceRatioState;
+    uint32 internal _lastTimestamp;
+    uint128 internal _timeConstant;
+    uint64 internal _centerednessMargin;
+    uint256[] internal _lastVirtualBalances;
 
     modifier withUpdatedTimestamp() {
         _updateTimestamp();
