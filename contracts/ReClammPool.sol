@@ -278,6 +278,13 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _setPriceShiftDailyRateAndUpdateVirtualBalances(newPriceShiftDailyRate);
     }
 
+    /// @inheritdoc IReClammPool
+    function setCenterednessMargin(
+        uint256 newCenterednessMargin
+    ) external onlySwapFeeManagerOrGovernance(address(this)) {
+        _setCenterednessMarginAndUpdateVirtualBalances(newCenterednessMargin);
+    }
+
     function _getCurrentVirtualBalances(
         uint256[] memory balancesScaled18
     ) internal view returns (uint256[] memory currentVirtualBalances, bool changed) {
@@ -328,6 +335,20 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _timeConstant = ReClammMath.parsePriceShiftDailyRate(priceShiftDailyRate);
 
         emit PriceShiftDailyRateUpdated(priceShiftDailyRate);
+    }
+
+    function _setCenterednessMarginAndUpdateVirtualBalances(uint256 centerednessMargin) internal {
+        // Update virtual balances with current daily rate.
+        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
+        (uint256[] memory currentVirtualBalances, bool changed) = _getCurrentVirtualBalances(balancesScaled18);
+        if (changed) {
+            _setLastVirtualBalances(currentVirtualBalances);
+        }
+
+        _updateTimestamp();
+
+        // Update time constant.
+        _setCenterednessMargin(centerednessMargin);
     }
 
     function _setCenterednessMargin(uint256 centerednessMargin) internal {

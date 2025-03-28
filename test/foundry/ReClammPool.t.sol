@@ -70,6 +70,18 @@ contract ReClammPoolTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 * 3600);
 
         uint256[] memory virtualBalancesBefore = ReClammPool(pool).getCurrentVirtualBalances();
+        uint256[] memory lastVirtualBalancesBeforeSet = ReClammPoolMock(pool).getLastVirtualBalances();
+
+        assertNotEq(
+            virtualBalancesBefore[daiIdx],
+            lastVirtualBalancesBeforeSet[daiIdx],
+            "DAI virtual balance does not match"
+        );
+        assertNotEq(
+            virtualBalancesBefore[usdcIdx],
+            lastVirtualBalancesBeforeSet[usdcIdx],
+            "USDC virtual balance does not match"
+        );
 
         uint256 newPriceShiftDailyRate = 200e16;
         vm.prank(admin);
@@ -86,12 +98,47 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function testSetCenterednessMargin() public {
-        // ReCLAMM pools do not have a way to set the margin, so this function uses a mocked version that exposes a
-        // private function.
         uint64 newCenterednessMargin = 50e16;
         vm.prank(admin);
         vm.expectEmit();
         emit IReClammPool.CenterednessMarginUpdated(newCenterednessMargin);
-        ReClammPoolMock(pool).setCenterednessMargin(newCenterednessMargin);
+        ReClammPool(pool).setCenterednessMargin(newCenterednessMargin);
+    }
+
+    function testSetCenterednessMarginUpdatingVirtualBalance() public {
+        // Move the pool to the edge of the price interval, so the virtual balances will change over time.
+        _setPoolBalances(_MIN_TOKEN_BALANCE, 100e18);
+        ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
+
+        // Pass 6 hours.
+        vm.warp(block.timestamp + 6 * 3600);
+
+        // Check what the current virtual balances should be.
+        uint256[] memory virtualBalancesBefore = ReClammPool(pool).getCurrentVirtualBalances();
+        uint256[] memory lastVirtualBalancesBeforeSet = ReClammPoolMock(pool).getLastVirtualBalances();
+
+        assertNotEq(
+            virtualBalancesBefore[daiIdx],
+            lastVirtualBalancesBeforeSet[daiIdx],
+            "DAI virtual balance does not match"
+        );
+        assertNotEq(
+            virtualBalancesBefore[usdcIdx],
+            lastVirtualBalancesBeforeSet[usdcIdx],
+            "USDC virtual balance does not match"
+        );
+
+        uint256 newCenterednessMargin = 50e16;
+        vm.prank(admin);
+        vm.expectEmit();
+        emit IReClammPool.CenterednessMarginUpdated(newCenterednessMargin);
+        ReClammPool(pool).setCenterednessMargin(newCenterednessMargin);
+
+        assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp was not updated");
+
+        uint256[] memory lastVirtualBalances = ReClammPoolMock(pool).getLastVirtualBalances();
+
+        assertEq(lastVirtualBalances[daiIdx], virtualBalancesBefore[daiIdx], "DAI virtual balance does not match");
+        assertEq(lastVirtualBalances[usdcIdx], virtualBalancesBefore[usdcIdx], "USDC virtual balance does not match");
     }
 }

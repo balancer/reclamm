@@ -18,10 +18,6 @@ contract ReClammPoolMock is ReClammPool {
         return _lastVirtualBalances;
     }
 
-    function setCenterednessMargin(uint64 newCenterednessMargin) external {
-        _setCenterednessMargin(newCenterednessMargin);
-    }
-
     function setLastTimestamp(uint256 newLastTimestamp) external {
         _lastTimestamp = SafeCast.toUint32(newLastTimestamp);
     }
