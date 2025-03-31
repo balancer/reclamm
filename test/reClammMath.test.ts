@@ -1,7 +1,9 @@
 import { Contract } from 'ethers';
 import { deploy } from '@balancer-labs/v3-helpers/src/contract';
+import { ethers } from 'hardhat';
+
 import { expect } from 'chai';
-import { bn } from '@balancer-labs/v3-helpers/src/numbers';
+import { bn, fp, fpDivDown } from '@balancer-labs/v3-helpers/src/numbers';
 import {
   calculateCenteredness,
   calculateInGivenOut,
@@ -17,6 +19,35 @@ import {
   Rounding,
 } from './utils/reClammMath';
 import { expectEqualWithError } from './utils/relativeError';
+
+const TIME_CONSTANT = fp(1) / 124000n;
+const CENTEREDNESS_MARGIN = fp(0.2);
+const BALANCES_IN_RANGE = [fp(1), fp(1)];
+const BALANCES_OUT_OF_RANGE = [fp(1), bn(1e15)];
+const INITIAL_VIRTUAL_BALANCES = [fp(1), fp(1)];
+
+const getTimestampFromLastBlock = async (): Promise<number> => {
+  const blockNumBefore = await ethers.provider.getBlockNumber();
+  const blockBefore = await ethers.provider.getBlock(blockNumBefore);
+  return blockBefore.timestamp;
+};
+
+const getPriceRatioState = async (
+  endTimeOffset = 0
+): Promise<{
+  startTime: number;
+  endTime: number;
+  startFourthRootPriceRatio: bigint;
+  endFourthRootPriceRatio: bigint;
+}> => {
+  const currentTimestamp = await getTimestampFromLastBlock();
+  return {
+    startTime: currentTimestamp - 1000,
+    endTime: currentTimestamp - 500 + endTimeOffset,
+    startFourthRootPriceRatio: bn(1.5e18),
+    endFourthRootPriceRatio: bn(2e18),
+  };
+};
 
 describe('ReClammMath', function () {
   const EXPECTED_RELATIVE_ERROR = 1e-12;
@@ -104,20 +135,18 @@ describe('ReClammMath', function () {
     it('centeredness >= centerednessMargin', async () => {
       const balances = [bn(100e18), bn(100e18)];
       const virtualBalances = [bn(90e18), bn(100e18)];
-      const centerednessMargin = bn(0);
 
-      const res = await mathLib.isPoolInRange(balances, virtualBalances, centerednessMargin);
-      expect(res).to.equal(isPoolInRange(balances, virtualBalances, centerednessMargin));
+      const res = await mathLib.isPoolInRange(balances, virtualBalances, CENTEREDNESS_MARGIN);
+      expect(res).to.equal(isPoolInRange(balances, virtualBalances, CENTEREDNESS_MARGIN));
       expect(res).to.equal(true);
     });
 
     it('centeredness < centerednessMargin', async () => {
-      const balances = [bn(100e18), bn(100e18)];
-      const virtualBalances = [bn(110e18), bn(100e18)];
-      const centerednessMargin = bn(1e18);
+      const balances = [bn(100e18), bn(1e14)];
+      const virtualBalances = [bn(100e18), bn(100e18)];
 
-      const res = await mathLib.isPoolInRange(balances, virtualBalances, centerednessMargin);
-      expect(res).to.equal(isPoolInRange(balances, virtualBalances, centerednessMargin));
+      const res = await mathLib.isPoolInRange(balances, virtualBalances, CENTEREDNESS_MARGIN);
+      expect(res).to.equal(isPoolInRange(balances, virtualBalances, CENTEREDNESS_MARGIN));
       expect(res).to.equal(false);
     });
   });
@@ -288,10 +317,7 @@ describe('ReClammMath', function () {
     const computeCheckAndReturnContractVirtualBalances = async (
       balancesScaled18: bigint[],
       lastVirtualBalances: bigint[],
-      timeConstant: bigint,
       lastTimestamp: number,
-      currentTimestamp: number,
-      centerednessMargin: bigint,
       priceRatioState: {
         startTime: number;
         endTime: number;
@@ -307,19 +333,20 @@ describe('ReClammMath', function () {
       const contractCurrentVirtualBalances = await mathLib.getCurrentVirtualBalances(
         balancesScaled18,
         lastVirtualBalances,
-        timeConstant,
+        TIME_CONSTANT,
         lastTimestamp,
-        currentTimestamp,
-        centerednessMargin
+        CENTEREDNESS_MARGIN
       );
+
+      const blockTimestamp = await getTimestampFromLastBlock();
 
       const javascriptCurrentVirtualBalances = getCurrentVirtualBalances(
         balancesScaled18,
         lastVirtualBalances,
-        timeConstant,
+        TIME_CONSTANT,
         lastTimestamp,
-        currentTimestamp,
-        centerednessMargin,
+        blockTimestamp,
+        CENTEREDNESS_MARGIN,
         priceRatioState
       );
 
@@ -342,122 +369,83 @@ describe('ReClammMath', function () {
     };
 
     it('q is updating & isPoolInRange == true && lastTimestamp < startTime', async () => {
-      const balancesScaled18 = [bn(200e18), bn(300e18)];
-      const startFourthRootPriceRatio = bn(1.5e18);
-      const endFourthRootPriceRatio = bn(2e18);
-      const lastVirtualBalances = initializeVirtualBalances(balancesScaled18, startFourthRootPriceRatio);
-      const timeConstant = bn(1e18);
-      const lastTimestamp = 5;
-      const currentTimestamp = 20;
-      const centerednessMargin = 20n;
-      const priceRatioState = {
-        startTime: 10,
-        endTime: 50,
-        startFourthRootPriceRatio: startFourthRootPriceRatio,
-        endFourthRootPriceRatio: endFourthRootPriceRatio,
-      };
+      // Price ratio is updating. (priceRatioState.endTime > currentTimestamp)
+      const priceRatioState = await getPriceRatioState(1000);
+      const lastTimestamp = priceRatioState.startTime - 100;
+
+      const balancesScaled18 = BALANCES_IN_RANGE;
+      const lastVirtualBalances = INITIAL_VIRTUAL_BALANCES;
 
       const contractVirtualBalances = await computeCheckAndReturnContractVirtualBalances(
         balancesScaled18,
         lastVirtualBalances,
-        timeConstant,
         lastTimestamp,
-        currentTimestamp,
-        centerednessMargin,
         priceRatioState,
         true
       );
 
       expect(
-        await mathLib.isPoolInRange(balancesScaled18, contractVirtualBalances.virtualBalances, centerednessMargin)
+        await mathLib.isPoolInRange(balancesScaled18, contractVirtualBalances.virtualBalances, CENTEREDNESS_MARGIN)
       ).to.equal(true);
     });
 
     it('q is updating & isPoolInRange == true && lastTimestamp > startTime', async () => {
-      const balancesScaled18 = [bn(200e18), bn(300e18)];
-      const startFourthRootPriceRatio = bn(1.5e18);
-      const endFourthRootPriceRatio = bn(2e18);
-      const lastVirtualBalances = initializeVirtualBalances(balancesScaled18, startFourthRootPriceRatio);
-      const timeConstant = bn(1e18);
-      const lastTimestamp = 15;
-      const currentTimestamp = 20;
-      const centerednessMargin = 0n;
-      const priceRatioState = {
-        startTime: 10,
-        endTime: 50,
-        startFourthRootPriceRatio: startFourthRootPriceRatio,
-        endFourthRootPriceRatio: endFourthRootPriceRatio,
-      };
+      const priceRatioState = await getPriceRatioState();
+
+      const balancesScaled18 = BALANCES_IN_RANGE;
+      const lastVirtualBalances = INITIAL_VIRTUAL_BALANCES;
+
+      // Price ratio is updating.
+      const lastTimestamp = priceRatioState.startTime + 20;
 
       const res = await computeCheckAndReturnContractVirtualBalances(
         balancesScaled18,
         lastVirtualBalances,
-        timeConstant,
         lastTimestamp,
-        currentTimestamp,
-        centerednessMargin,
         priceRatioState,
         true
       );
 
-      expect(await mathLib.isPoolInRange(balancesScaled18, res.virtualBalances, centerednessMargin)).to.equal(true);
+      expect(await mathLib.isPoolInRange(balancesScaled18, res.virtualBalances, CENTEREDNESS_MARGIN)).to.equal(true);
     });
 
     it('q is not updating & isPoolInRange == false && isAboveCenter == true', async () => {
-      const balancesScaled18 = [bn(200e18), bn(200e18)];
-      const startFourthRootPriceRatio = bn(1.5e18);
-      const lastVirtualBalances = [bn(200e18), balancesScaled18[1] * 2n];
-      const timeConstant = bn(0);
-      const lastTimestamp = 15;
-      const currentTimestamp = 20;
-      const centerednessMargin = bn(1e18);
-      const priceRatioState = {
-        startTime: 0,
-        endTime: 0,
-        startFourthRootPriceRatio: startFourthRootPriceRatio,
-        endFourthRootPriceRatio: startFourthRootPriceRatio,
-      };
+      const priceRatioState = await getPriceRatioState();
+
+      const balancesScaled18 = BALANCES_OUT_OF_RANGE;
+      const lastVirtualBalances = INITIAL_VIRTUAL_BALANCES;
+
+      // Price ratio is not updating.
+      const lastTimestamp = priceRatioState.endTime + 50;
 
       expect(await mathLib.isAboveCenter(balancesScaled18, lastVirtualBalances)).to.equal(true);
-      expect(await mathLib.isPoolInRange(balancesScaled18, lastVirtualBalances, centerednessMargin)).to.equal(false);
+      expect(await mathLib.isPoolInRange(balancesScaled18, lastVirtualBalances, CENTEREDNESS_MARGIN)).to.equal(false);
 
       await computeCheckAndReturnContractVirtualBalances(
         balancesScaled18,
         lastVirtualBalances,
-        timeConstant,
         lastTimestamp,
-        currentTimestamp,
-        centerednessMargin,
         priceRatioState,
         true
       );
     });
 
     it('q is not updating & isPoolInRange == false && isAboveCenter == false', async () => {
-      const balancesScaled18 = [bn(200e18), bn(200e18)];
-      const startFourthRootPriceRatio = bn(1.5e18);
-      const lastVirtualBalances = initializeVirtualBalances(balancesScaled18, startFourthRootPriceRatio);
-      const timeConstant = bn(0);
-      const lastTimestamp = 15;
-      const currentTimestamp = 20;
-      const centerednessMargin = bn(2e18);
-      const priceRatioState = {
-        startTime: 0,
-        endTime: 0,
-        startFourthRootPriceRatio: startFourthRootPriceRatio,
-        endFourthRootPriceRatio: startFourthRootPriceRatio,
-      };
+      const priceRatioState = await getPriceRatioState();
+
+      const balancesScaled18 = [BALANCES_OUT_OF_RANGE[1], BALANCES_OUT_OF_RANGE[0]];
+      const lastVirtualBalances = INITIAL_VIRTUAL_BALANCES;
+
+      // Price ratio is not updating.
+      const lastTimestamp = priceRatioState.endTime + 50;
 
       expect(await mathLib.isAboveCenter(balancesScaled18, lastVirtualBalances)).to.equal(false);
-      expect(await mathLib.isPoolInRange(balancesScaled18, lastVirtualBalances, centerednessMargin)).to.equal(false);
+      expect(await mathLib.isPoolInRange(balancesScaled18, lastVirtualBalances, CENTEREDNESS_MARGIN)).to.equal(false);
 
       await computeCheckAndReturnContractVirtualBalances(
         balancesScaled18,
         lastVirtualBalances,
-        timeConstant,
         lastTimestamp,
-        currentTimestamp,
-        centerednessMargin,
         priceRatioState,
         true
       );
@@ -486,19 +474,12 @@ describe('ReClammMath', function () {
 
   context('computeInvariant', () => {
     it('should return the correct value (roundUp)', async () => {
-      const balancesScaled18 = [bn(200e18), bn(200e18)];
-      const startFourthRootPriceRatio = bn(1.5e18);
-      const lastVirtualBalances = initializeVirtualBalances(balancesScaled18, startFourthRootPriceRatio);
-      const timeConstant = bn(0);
-      const lastTimestamp = 15;
-      const currentTimestamp = 20;
-      const centerednessMargin = bn(1e18);
-      const priceRatioState = {
-        startTime: 0,
-        endTime: 0,
-        startFourthRootPriceRatio: startFourthRootPriceRatio,
-        endFourthRootPriceRatio: startFourthRootPriceRatio,
-      };
+      // Price ratio is updating. (priceRatioState.endTime > currentTimestamp)
+      const priceRatioState = await getPriceRatioState(1000);
+      const lastTimestamp = priceRatioState.startTime - 100;
+
+      const balancesScaled18 = BALANCES_IN_RANGE;
+      const lastVirtualBalances = INITIAL_VIRTUAL_BALANCES;
 
       const rounding = Rounding.ROUND_UP;
 
@@ -507,40 +488,37 @@ describe('ReClammMath', function () {
       const res = await mathLib.computeInvariant(
         balancesScaled18,
         lastVirtualBalances,
-        timeConstant,
+        TIME_CONSTANT,
         lastTimestamp,
-        currentTimestamp,
-        centerednessMargin,
+        CENTEREDNESS_MARGIN,
         rounding
       );
+
+      // Make sure the timestamp used for offchain calculations matches the one used by the lib.
+      const currentTimestamp = await getTimestampFromLastBlock();
+
       const jsRes = computeInvariant(
         balancesScaled18,
         lastVirtualBalances,
-        timeConstant,
+        TIME_CONSTANT,
         lastTimestamp,
         currentTimestamp,
-        centerednessMargin,
+        CENTEREDNESS_MARGIN,
         priceRatioState,
         rounding
       );
 
-      expect(res).to.equal(jsRes);
+      // Small error, due to pow function implementation.
+      expectEqualWithError(res, jsRes, 1e-16);
     });
 
     it('should return the correct value (roundDown)', async () => {
-      const balancesScaled18 = [bn(200e18), bn(200e18)];
-      const startFourthRootPriceRatio = bn(1.5e18);
-      const lastVirtualBalances = initializeVirtualBalances(balancesScaled18, startFourthRootPriceRatio);
-      const timeConstant = bn(0);
-      const lastTimestamp = 15;
-      const currentTimestamp = 20;
-      const centerednessMargin = bn(1e18);
-      const priceRatioState = {
-        startTime: 0,
-        endTime: 0,
-        startFourthRootPriceRatio: startFourthRootPriceRatio,
-        endFourthRootPriceRatio: startFourthRootPriceRatio,
-      };
+      // Price ratio is updating. (priceRatioState.endTime > currentTimestamp)
+      const priceRatioState = await getPriceRatioState(1000);
+      const lastTimestamp = priceRatioState.startTime - 100;
+
+      const balancesScaled18 = BALANCES_IN_RANGE;
+      const lastVirtualBalances = INITIAL_VIRTUAL_BALANCES;
 
       const rounding = Rounding.ROUND_DOWN;
 
@@ -549,24 +527,28 @@ describe('ReClammMath', function () {
       const res = await mathLib.computeInvariant(
         balancesScaled18,
         lastVirtualBalances,
-        timeConstant,
+        TIME_CONSTANT,
         lastTimestamp,
-        currentTimestamp,
-        centerednessMargin,
+        CENTEREDNESS_MARGIN,
         rounding
       );
+
+      // Make sure the timestamp used for offchain calculations matches the one used by the lib.
+      const currentTimestamp = await getTimestampFromLastBlock();
+
       const jsRes = computeInvariant(
         balancesScaled18,
         lastVirtualBalances,
-        timeConstant,
+        TIME_CONSTANT,
         lastTimestamp,
         currentTimestamp,
-        centerednessMargin,
+        CENTEREDNESS_MARGIN,
         priceRatioState,
         rounding
       );
 
-      expect(res).to.equal(jsRes);
+      // Small error, due to pow function implementation.
+      expectEqualWithError(res, jsRes, 1e-16);
     });
   });
 });
