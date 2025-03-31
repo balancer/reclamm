@@ -70,7 +70,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                 _lastVirtualBalances,
                 _timeConstant,
                 _lastTimestamp,
-                block.timestamp.toUint32(),
                 _centerednessMargin,
                 _priceRatioState,
                 rounding
@@ -298,7 +297,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             _lastVirtualBalances,
             _timeConstant,
             _lastTimestamp,
-            block.timestamp.toUint32(),
             _centerednessMargin,
             _priceRatioState
         );

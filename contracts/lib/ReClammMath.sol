@@ -20,6 +20,7 @@ struct PriceRatioState {
 
 library ReClammMath {
     using FixedPoint for uint256;
+    using SafeCast for *;
 
     /// @dev The swap result is bigger than the real balance of the token.
     error AmountOutBiggerThanBalance();
@@ -47,7 +48,6 @@ library ReClammMath {
      * @param lastVirtualBalances The last virtual balances, sorted in token registration order
      * @param timeConstant IncreaseDayRate divided by 124649
      * @param lastTimestamp The timestamp of the last user interaction with the pool
-     * @param currentTimestamp The current timestamp
      * @param centerednessMargin A symmetrical measure of how closely an unbalanced pool can approach the limits of the
      * price range before it is considered out of range
      * @param priceRatioState A struct containing start and end price ratios and a time interval
@@ -59,17 +59,15 @@ library ReClammMath {
         uint256[] memory lastVirtualBalances,
         uint256 timeConstant,
         uint32 lastTimestamp,
-        uint32 currentTimestamp,
         uint64 centerednessMargin,
         PriceRatioState storage priceRatioState,
         Rounding rounding
-    ) internal pure returns (uint256 invariant) {
+    ) internal view returns (uint256 invariant) {
         (uint256[] memory currentVirtualBalances, ) = getCurrentVirtualBalances(
             balancesScaled18,
             lastVirtualBalances,
             timeConstant,
             lastTimestamp,
-            currentTimestamp,
             centerednessMargin,
             priceRatioState
         );
@@ -204,7 +202,6 @@ library ReClammMath {
      * @param lastVirtualBalances The last virtual balances, sorted in token registration order
      * @param timeConstant IncreaseDayRate divided by 124649
      * @param lastTimestamp The timestamp of the last user interaction with the pool
-     * @param currentTimestamp The current timestamp
      * @param centerednessMargin A limit of the pool centeredness that defines if pool is out of range
      * @param priceRatioState A struct containing start and end price ratios and a time interval
      * @return currentVirtualBalances The current virtual balances of the pool
@@ -215,11 +212,12 @@ library ReClammMath {
         uint256[] memory lastVirtualBalances,
         uint256 timeConstant,
         uint32 lastTimestamp,
-        uint32 currentTimestamp,
         uint64 centerednessMargin,
         PriceRatioState storage priceRatioState
-    ) internal pure returns (uint256[] memory currentVirtualBalances, bool changed) {
+    ) internal view returns (uint256[] memory currentVirtualBalances, bool changed) {
         // TODO Review rounding
+
+        uint32 currentTimestamp = block.timestamp.toUint32();
 
         if (lastTimestamp > currentTimestamp) {
             // The last timestamp should be in the past, so the current timestamp must always be equal or greater than
@@ -449,11 +447,10 @@ library ReClammMath {
         uint256 exponent = uint256(currentTime - startTime).divDown(endTime - startTime);
 
         return
-            SafeCast.toUint96(
-                uint256(startFourthRootPriceRatio).mulDown(LogExpMath.pow(endFourthRootPriceRatio, exponent)).divDown(
-                    LogExpMath.pow(startFourthRootPriceRatio, exponent)
-                )
-            );
+            uint256(startFourthRootPriceRatio)
+                .mulDown(LogExpMath.pow(endFourthRootPriceRatio, exponent))
+                .divDown(LogExpMath.pow(startFourthRootPriceRatio, exponent))
+                .toUint96();
     }
 
     /**
@@ -483,6 +480,6 @@ library ReClammMath {
      */
     function parsePriceShiftDailyRate(uint256 priceShiftDailyRate) internal pure returns (uint128) {
         // Divide daily rate by a number of seconds per day (plus some adjustment)
-        return SafeCast.toUint128(priceShiftDailyRate / _SECONDS_PER_DAY_WITH_ADJUSTMENT);
+        return (priceShiftDailyRate / _SECONDS_PER_DAY_WITH_ADJUSTMENT).toUint128();
     }
 }
