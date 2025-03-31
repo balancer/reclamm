@@ -27,7 +27,7 @@ interface IReClammPool is IBasePool {
     /// @dev The pool centeredness is too low after a swap.
     error PoolCenterednessTooLow();
 
-    /// @dev The Price Ratio State was updated.
+    /// @notice The Price Ratio State was updated.
     event PriceRatioStateUpdated(
         uint256 startFourthRootPriceRatio,
         uint256 endFourthRootPriceRatio,
@@ -47,23 +47,23 @@ interface IReClammPool is IBasePool {
     /**
      * @notice Returns the current virtual balances.
      * @dev The current virtual balances are calculated based on the last virtual balances. If the pool is in range
-     * and price ratio is not updating, the virtual balances will not change. If pool is out of range and/or price
-     * ratio is updating, this function will calculate the new virtual balances based on the timestamp of the last user
-     * interaction.
+     * and the price ratio is not updating, the virtual balances will not change. If the pool is out of range or the
+     * price ratio is updating, this function will calculate the new virtual balances based on the timestamp of the
+     * last user interaction. Note that virtual balances are always scaled18 values.
      *
-     * @return currentVirtualBalances The current virtual balances.
+     * @return currentVirtualBalances The current virtual balances
      */
     function getCurrentVirtualBalances() external view returns (uint256[] memory currentVirtualBalances);
 
-    /// @notice Returns the last timestamp.
+    /// @notice Returns the timestamp of the last user interaction.
     function getLastTimestamp() external view returns (uint32);
 
     /**
      * @notice Returns the current fourth root of price ratio.
      * @dev The current fourth root of price ratio is an interpolation of the price ratio between the start and end
-     * time.
+     * values in the price ratio state, using the percentage elapsed between the start and end times.
      *
-     * @return currentFourthRootPriceRatio The current fourth root of price ratio.
+     * @return currentFourthRootPriceRatio The current fourth root of price ratio
      */
     function getCurrentFourthRootPriceRatio() external view returns (uint96);
 

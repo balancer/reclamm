@@ -345,7 +345,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /**
      * @notice Sets the centeredness margin when the pool is created.
-     * @param centerednessMargin A percentage (0-100%) below which the pool is considered out of range.
+     * @param centerednessMargin A percentage (0-100%) below which the pool is considered out of range
      */
     function _setCenterednessMargin(uint256 centerednessMargin) internal {
         _centerednessMargin = centerednessMargin.toUint64();
@@ -361,12 +361,12 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     /**
      * @notice Ensures the pool state is valid after a swap.
      * @dev This function ensures that the balance of each token is greater than the minimum balance after a swap.
-     * Also, it checks if the pool centeredness is above the minimum centeredness (the pool is not too unbalanced).
-     * A pool with balances near the minimum/maximum price points can trigger big rounding errors, which cause
-     * imprecisions in the calculation of swaps.
+     * It further verifies that the pool does not end up too unbalanced, by ensuring the pool centeredness is above
+     * the minimum. A unbalanced pool, with balances near the minimum/maximum price points, can result in large
+     * rounding errors in the swap calculations.
      *
-     * @param currentBalancesScaled18 The current balances of the pool, sorted by registration order
-     * @param currentVirtualBalances The current virtual balances of the pool, sorted by registration order
+     * @param currentBalancesScaled18 The current balances of the pool, sorted in token registration order
+     * @param currentVirtualBalances The current virtual balances of the pool, sorted in token registration order
      * @param amountInScaled18 Amount of tokenIn (entering the Vault)
      * @param amountOutScaled18 Amount of tokenOut (leaving the Vault)
      * @param indexIn The zero-based index of tokenIn
@@ -383,7 +383,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         currentBalancesScaled18[indexIn] += amountInScaled18;
         // The swap functions `calculateOutGivenIn` and `calculateInGivenOut` ensure that the amountOutScaled18 is
         // never greater than the balance of the token being swapped out. Therefore, the math below will never
-        // underflow. Still, using checked math since the reason for it to not revert is outside of this function.
+        // underflow. Nevertheless, since these considerations involve code outside this function, it is safest
+        // to still use checked math here.
         currentBalancesScaled18[indexOut] -= amountOutScaled18;
 
         if (currentBalancesScaled18[indexOut] < _MIN_TOKEN_BALANCE_SCALED18) {
@@ -401,11 +402,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /**
      * @notice Returns the current fourth root of price ratio.
-     * @dev This function uses the current timestamp and the fourth root of price ratio state to calculate the current
-     * fourth root of price ratio, interpolating start and end fourth root of price ratio between the start and end
-     * times.
+     * @dev This function uses the current timestamp and full price ratio state to compute the current fourth root
+     * price ratio value by linear interpolation between the start and end times and values.
      *
-     * @return currentFourthRootPriceRatio The current fourth root of price ratio.
+     * @return currentFourthRootPriceRatio The current fourth root of price ratio
      */
     function _calculateCurrentFourthRootPriceRatio() internal view returns (uint96 currentFourthRootPriceRatio) {
         PriceRatioState memory priceRatioState = _priceRatioState;

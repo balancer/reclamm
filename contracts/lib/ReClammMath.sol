@@ -48,10 +48,11 @@ library ReClammMath {
      * @param timeConstant IncreaseDayRate divided by 124649
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @param currentTimestamp The current timestamp
-     * @param centerednessMargin A limit of the pool centeredness that defines if pool is out of range
+     * @param centerednessMargin A symmetrical measure of how closely an unbalanced pool can approach the limits of the
+     * price range before it is considered out of range
      * @param priceRatioState A struct containing start and end price ratios and a time interval
      * @param rounding Rounding direction to consider when computing the invariant
-     * @return invariant The invariant of the pool.
+     * @return invariant The invariant of the pool
      */
     function computeInvariant(
         uint256[] memory balancesScaled18,
@@ -281,17 +282,17 @@ library ReClammMath {
     /**
      * @notice Calculate the virtual balances of the pool when the price ratio is updating.
      * @dev This function uses a Bhaskara formula to shrink/expand the price interval by recalculating the virtual
-     * balances. It'll keep the pool centeredness constant and track the desired price ratio. To reach this formula,
-     * we need to solve the following equations:
+     * balances. It'll keep the pool centeredness constant, and track the desired price ratio. To derive this formula,
+     * we need to solve the following simultaneous equations:
      *
      * 1. centeredness = (Ra * Vb) / (Rb * Va)
      * 2. PriceRatio = invariant^2/(Va * Vb)^2 (maxPrice / minPrice)
      * 3. invariant = (Va + Ra) * (Vb + Rb)
      *
-     * Replace [3] in [2]. Then, isolate one of the V's. Replace the isolated V in [1]. You will get a quadratic
-     * equation, used in this function.
+     * Substitute [3] in [2]. Then, isolate one of the V's. Finally, replace the isolated V in [1]. We get a quadrati
+     * equation that will be solved in this function.
      *
-     * @param currentFourthRootPriceRatio The current fourth root of price ratio of the pool
+     * @param currentFourthRootPriceRatio The current fourth root of the price ratio of the pool
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param lastVirtualBalances The last virtual balances, sorted in token registration order
      * @param isPoolAboveCenter Whether the pool is above or below the center
@@ -303,7 +304,7 @@ library ReClammMath {
         uint256[] memory lastVirtualBalances,
         bool isPoolAboveCenter
     ) internal pure returns (uint256[] memory virtualBalances) {
-        // The token overvalued is the one with low token balance (therefore, rarer and more valuable).
+        // The overvalued token is the one with a lower token balance (therefore, rarer and more valuable).
         (uint256 indexTokenUndervalued, uint256 indexTokenOvervalued) = isPoolAboveCenter ? (0, 1) : (1, 0);
         uint256 balanceTokenUndervalued = balancesScaled18[indexTokenUndervalued];
         uint256 balanceTokenOvervalued = balancesScaled18[indexTokenOvervalued];
@@ -313,7 +314,7 @@ library ReClammMath {
         // Calculate the current pool centeredness, which will remain constant.
         uint256 poolCenteredness = calculateCenteredness(balancesScaled18, lastVirtualBalances);
 
-        // Terms of quadratic equation.
+        // Terms of the quadratic equation.
         uint256 a = currentFourthRootPriceRatio.mulDown(currentFourthRootPriceRatio) - FixedPoint.ONE;
         uint256 b = balanceTokenUndervalued.mulDown(FixedPoint.ONE + poolCenteredness);
         uint256 c = balanceTokenUndervalued.mulDown(balanceTokenUndervalued).mulDown(poolCenteredness);
@@ -373,11 +374,12 @@ library ReClammMath {
     }
 
     /**
-     * @notice Check if the pool is in range.
+     * @notice Check whether the pool is in range.
      * @dev The pool is in range if the centeredness is greater than the centeredness margin.
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param virtualBalances The last virtual balances, sorted in token registration order
-     * @param centerednessMargin A limit of the pool centeredness that defines if pool is out of range
+     * @param centerednessMargin A symmetrical measure of how closely an unbalanced pool can approach the limits of the
+     * price range before it is considered out of range
      * @return isInRange Whether the pool is in range
      */
     function isPoolInRange(
@@ -392,8 +394,8 @@ library ReClammMath {
     /**
      * @notice Calculate the centeredness of the pool.
      * @dev The centeredness is calculated as the ratio of the real balances divided by the ratio of the virtual
-     * balances. It's a number between 0 and 100%, where 100% means that the token prices are centered and 0%
-     * means that the token prices are at the edge of the price interval.
+     * balances. It's a percentage value, where 100% means that the token prices are centered, and 0% means that the
+     * token prices are at the edge of the price interval.
      *
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param virtualBalances The last virtual balances, sorted in token registration order
@@ -418,9 +420,9 @@ library ReClammMath {
     }
 
     /**
-     * @notice Calculate the fourth root of price ratio of the pool.
-     * @dev This function will interpolate the fourth root of price ratio of the pool based on the current time,
-     * the start and end fourth root of price ratio and the start and end times.
+     * @notice Calculate the fourth root of the price ratio of the pool.
+     * @dev The current fourth root of price ratio is an interpolation of the price ratio between the start and end
+     * values in the price ratio state, using the percentage elapsed between the start and end times.
      *
      * @param currentTime The current timestamp
      * @param startFourthRootPriceRatio The start fourth root of price ratio of the pool
@@ -475,7 +477,7 @@ library ReClammMath {
     }
 
     /**
-     * @notice Parse the price shift daily rate to a time constant.
+     * @notice Convert a raw daily rate into the time constant value used internally.
      * @param priceShiftDailyRate The price shift daily rate
      * @return timeConstant The time constant
      */
