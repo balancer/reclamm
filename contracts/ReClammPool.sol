@@ -353,7 +353,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         emit CenterednessMarginUpdated(centerednessMargin);
     }
 
-    /// @notice Updates the last timestamp to the current timestamp.
+    // Updates the last timestamp to the current timestamp.
     function _updateTimestamp() internal {
         _lastTimestamp = block.timestamp.toUint32();
     }
