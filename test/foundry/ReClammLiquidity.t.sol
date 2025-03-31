@@ -65,7 +65,7 @@ contract ReClammLiquidityTest is BaseReClammTest {
         uint256[] memory initialBalancesScaled18 = _setPoolBalances(initialDaiBalance, initialUsdcBalance);
         ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
 
-        // Pass 6 hour
+        // Wait 6 hours.
         vm.warp(block.timestamp + 6 * 3600);
 
         uint256[] memory virtualBalancesBefore = ReClammPool(pool).getCurrentVirtualBalances();
@@ -212,7 +212,7 @@ contract ReClammLiquidityTest is BaseReClammTest {
         uint256[] memory initialBalancesScaled18 = _setPoolBalances(initialDaiBalance, initialUsdcBalance);
         ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
 
-        // Pass 6 hour
+        // Wait 6 hours.
         vm.warp(block.timestamp + 6 * 3600);
 
         uint256[] memory virtualBalancesBefore = ReClammPool(pool).getCurrentVirtualBalances();
