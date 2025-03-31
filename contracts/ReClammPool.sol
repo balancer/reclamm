@@ -275,11 +275,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IReClammPool
     function setPriceRatioState(
-        uint256 newFourthRootPriceRatio,
+        uint256 endFourthRootPriceRatio,
         uint256 startTime,
         uint256 endTime
     ) external onlySwapFeeManagerOrGovernance(address(this)) {
-        _setPriceRatioState(newFourthRootPriceRatio, startTime, endTime);
+        _setPriceRatioState(endFourthRootPriceRatio, startTime, endTime);
     }
 
     /// @inheritdoc IReClammPool

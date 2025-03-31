@@ -21,7 +21,7 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function testSetFourthRootPriceRatio() public {
-        uint96 newFourthRootPriceRatio = 2e18;
+        uint96 endFourthRootPriceRatio = 2e18;
         uint32 startTime = uint32(block.timestamp);
         uint32 duration = 1 hours;
         uint32 endTime = uint32(block.timestamp) + duration;
@@ -31,18 +31,18 @@ contract ReClammPoolTest is BaseReClammTest {
         vm.expectEmit();
         emit IReClammPool.PriceRatioStateUpdated(
             startFourthRootPriceRatio,
-            newFourthRootPriceRatio,
+            endFourthRootPriceRatio,
             startTime,
             endTime
         );
-        ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, startTime, endTime);
+        ReClammPool(pool).setPriceRatioState(endFourthRootPriceRatio, startTime, endTime);
 
         skip(duration / 2);
         uint96 fourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
         uint96 mathFourthRootPriceRatio = ReClammMath.calculateFourthRootPriceRatio(
             uint32(block.timestamp),
             startFourthRootPriceRatio,
-            newFourthRootPriceRatio,
+            endFourthRootPriceRatio,
             startTime,
             endTime
         );
@@ -51,7 +51,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         skip(duration / 2 + 1);
         fourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
-        assertEq(fourthRootPriceRatio, newFourthRootPriceRatio, "FourthRootPriceRatio does not match new value");
+        assertEq(fourthRootPriceRatio, endFourthRootPriceRatio, "FourthRootPriceRatio does not match new value");
     }
 
     function testSetPriceShiftDailyRate() public {

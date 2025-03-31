@@ -103,17 +103,17 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         }
     }
 
-    function testWithDifferentPriceRange__Fuzz(uint96 newFourthRootPriceRatio) public {
-        newFourthRootPriceRatio = SafeCast.toUint96(bound(newFourthRootPriceRatio, 1.001e18, 1_000_000e18)); // Price range cannot be lower than 1.
+    function testWithDifferentPriceRange__Fuzz(uint96 endFourthRootPriceRatio) public {
+        endFourthRootPriceRatio = SafeCast.toUint96(bound(endFourthRootPriceRatio, 1.001e18, 1_000_000e18)); // Price range cannot be lower than 1.
 
         uint96 initialFourthRootPriceRatio = fourthRootPriceRatio();
-        setFourthRootPriceRatio(newFourthRootPriceRatio);
+        setFourthRootPriceRatio(endFourthRootPriceRatio);
         (address firstPool, address secondPool) = _createNewPool();
 
         uint256[] memory curentFirstPoolVirtualBalances = ReClammPool(firstPool).getCurrentVirtualBalances();
         uint256[] memory curentNewPoolVirtualBalances = ReClammPool(secondPool).getCurrentVirtualBalances();
 
-        if (newFourthRootPriceRatio > initialFourthRootPriceRatio) {
+        if (endFourthRootPriceRatio > initialFourthRootPriceRatio) {
             assertLt(
                 curentNewPoolVirtualBalances[0],
                 curentFirstPoolVirtualBalances[0],
@@ -138,8 +138,8 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         }
     }
 
-    function testChangingDifferentPriceRange__Fuzz(uint96 newFourthRootPriceRatio) public {
-        newFourthRootPriceRatio = SafeCast.toUint96(bound(newFourthRootPriceRatio, 1.1e18, 10e18));
+    function testChangingDifferentPriceRange__Fuzz(uint96 endFourthRootPriceRatio) public {
+        endFourthRootPriceRatio = SafeCast.toUint96(bound(endFourthRootPriceRatio, 1.1e18, 10e18));
 
         uint256 initialFourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
 
@@ -150,12 +150,12 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         uint32 currentTimestamp = uint32(block.timestamp);
 
         vm.prank(admin);
-        ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, currentTimestamp, currentTimestamp + duration);
+        ReClammPool(pool).setPriceRatioState(endFourthRootPriceRatio, currentTimestamp, currentTimestamp + duration);
         skip(duration);
 
         uint256[] memory poolVirtualBalancesAfter = ReClammPool(pool).getCurrentVirtualBalances();
 
-        if (newFourthRootPriceRatio > initialFourthRootPriceRatio) {
+        if (endFourthRootPriceRatio > initialFourthRootPriceRatio) {
             assertLt(
                 poolVirtualBalancesAfter[0],
                 poolVirtualBalancesBefore[0],

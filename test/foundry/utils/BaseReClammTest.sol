@@ -69,8 +69,8 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
         _fourthRootPriceRatio = SafeCast.toUint96(Math.sqrt(priceRatio * FixedPoint.ONE));
     }
 
-    function setFourthRootPriceRatio(uint96 newFourthRootPriceRatio) internal {
-        _fourthRootPriceRatio = newFourthRootPriceRatio;
+    function setFourthRootPriceRatio(uint96 endFourthRootPriceRatio) internal {
+        _fourthRootPriceRatio = endFourthRootPriceRatio;
     }
 
     function fourthRootPriceRatio() internal view returns (uint96) {
