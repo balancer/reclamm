@@ -66,8 +66,8 @@ contract ReClammPoolTest is BaseReClammTest {
         _setPoolBalances(1e14, 100e18);
         ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
 
-        // Pass 6 hour
-        vm.warp(block.timestamp + 6 * 3600);
+        // Wait 6 hours.
+        vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory virtualBalancesBefore = ReClammPool(pool).getCurrentVirtualBalances();
 

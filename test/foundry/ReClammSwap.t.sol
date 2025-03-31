@@ -21,8 +21,8 @@ contract ReClammSwapTest is BaseReClammTest {
         // Set the last timestamp.
         ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
 
-        // Pass 6 hours.
-        vm.warp(block.timestamp + 6 * 3600);
+        // Wait 6 hours.
+        vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = ReClammPoolMock(pool).getLastVirtualBalances();
         uint256[] memory currentVirtualBalances = ReClammPool(pool).getCurrentVirtualBalances();
@@ -76,10 +76,10 @@ contract ReClammSwapTest is BaseReClammTest {
         vm.assume(currentFourthRootPriceRatio != newFourthRootPriceRatio);
 
         vm.prank(admin);
-        ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 24 * 3600);
+        ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 1 days);
 
-        // Pass 6 hours.
-        vm.warp(block.timestamp + 6 * 3600);
+        // Wait 6 hours.
+        vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = ReClammPoolMock(pool).getLastVirtualBalances();
         uint256[] memory currentVirtualBalances = ReClammPool(pool).getCurrentVirtualBalances();
@@ -136,10 +136,10 @@ contract ReClammSwapTest is BaseReClammTest {
         vm.assume(currentFourthRootPriceRatio != newFourthRootPriceRatio);
 
         vm.prank(admin);
-        ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 24 * 3600);
+        ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 1 days);
 
-        // Pass 6 hours.
-        vm.warp(block.timestamp + 6 * 3600);
+        // Wait 6 hours.
+        vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = ReClammPoolMock(pool).getLastVirtualBalances();
         uint256[] memory currentVirtualBalances = ReClammPool(pool).getCurrentVirtualBalances();
@@ -194,8 +194,8 @@ contract ReClammSwapTest is BaseReClammTest {
         // Set the last timestamp.
         ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
 
-        // Pass 6 hours.
-        vm.warp(block.timestamp + 6 * 3600);
+        // Wait 6 hours.
+        vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = ReClammPoolMock(pool).getLastVirtualBalances();
         uint256[] memory currentVirtualBalances = ReClammPool(pool).getCurrentVirtualBalances();
@@ -248,8 +248,8 @@ contract ReClammSwapTest is BaseReClammTest {
         // Set the last timestamp.
         ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
 
-        // Pass 6 hours.
-        vm.warp(block.timestamp + 6 * 3600);
+        // Wait 6 hours.
+        vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = ReClammPoolMock(pool).getLastVirtualBalances();
         uint256[] memory currentVirtualBalances = ReClammPool(pool).getCurrentVirtualBalances();
@@ -297,10 +297,10 @@ contract ReClammSwapTest is BaseReClammTest {
         vm.assume(currentFourthRootPriceRatio != newFourthRootPriceRatio);
 
         vm.prank(admin);
-        ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 24 * 3600);
+        ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 1 days);
 
-        // Pass 6 hours.
-        vm.warp(block.timestamp + 6 * 3600);
+        // Wait 6 hours.
+        vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = ReClammPoolMock(pool).getLastVirtualBalances();
         uint256[] memory currentVirtualBalances = ReClammPool(pool).getCurrentVirtualBalances();
@@ -351,10 +351,10 @@ contract ReClammSwapTest is BaseReClammTest {
         vm.assume(currentFourthRootPriceRatio != newFourthRootPriceRatio);
 
         vm.prank(admin);
-        ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 24 * 3600);
+        ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 1 days);
 
-        // Pass 6 hours.
-        vm.warp(block.timestamp + 6 * 3600);
+        // Wait 6 hours.
+        vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = ReClammPoolMock(pool).getLastVirtualBalances();
         uint256[] memory currentVirtualBalances = ReClammPool(pool).getCurrentVirtualBalances();
@@ -403,8 +403,8 @@ contract ReClammSwapTest is BaseReClammTest {
         // Set the last timestamp.
         ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
 
-        // Pass 6 hours.
-        vm.warp(block.timestamp + 6 * 3600);
+        // Wait 6 hours.
+        vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = ReClammPoolMock(pool).getLastVirtualBalances();
         uint256[] memory currentVirtualBalances = ReClammPool(pool).getCurrentVirtualBalances();
