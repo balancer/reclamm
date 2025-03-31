@@ -35,12 +35,12 @@ contract ReClammSwapTest is BaseReClammTest {
         assertNotEq(
             lastVirtualBalancesBeforeSwap[daiIdx],
             currentVirtualBalances[daiIdx],
-            "DAI virtual balance are matching"
+            "DAI virtual balances match"
         );
         assertNotEq(
             lastVirtualBalancesBeforeSwap[usdcIdx],
             currentVirtualBalances[usdcIdx],
-            "USDC virtual balance are matching"
+            "USDC virtual balances match"
         );
 
         uint256 amountDaiIn = ReClammMath.calculateInGivenOut(
@@ -59,12 +59,12 @@ contract ReClammSwapTest is BaseReClammTest {
         assertEq(
             lastVirtualBalancesAfterSwap[daiIdx],
             currentVirtualBalances[daiIdx],
-            "DAI virtual balance does not match"
+            "DAI virtual balances do not match"
         );
         assertEq(
             lastVirtualBalancesAfterSwap[usdcIdx],
             currentVirtualBalances[usdcIdx],
-            "USDC virtual balance does not match"
+            "USDC virtual balances do not match"
         );
 
         assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp does not match");
@@ -88,12 +88,12 @@ contract ReClammSwapTest is BaseReClammTest {
         assertNotEq(
             lastVirtualBalancesBeforeSwap[daiIdx],
             currentVirtualBalances[daiIdx],
-            "DAI virtual balance are matching"
+            "DAI virtual balances match"
         );
         assertNotEq(
             lastVirtualBalancesBeforeSwap[usdcIdx],
             currentVirtualBalances[usdcIdx],
-            "USDC virtual balance are matching"
+            "USDC virtual balances match"
         );
 
         uint256 amountDaiIn = ReClammMath.calculateInGivenOut(
@@ -112,12 +112,12 @@ contract ReClammSwapTest is BaseReClammTest {
         assertEq(
             lastVirtualBalancesAfterSwap[daiIdx],
             currentVirtualBalances[daiIdx],
-            "DAI virtual balance does not match"
+            "DAI virtual balances do not match"
         );
         assertEq(
             lastVirtualBalancesAfterSwap[usdcIdx],
             currentVirtualBalances[usdcIdx],
-            "USDC virtual balance does not match"
+            "USDC virtual balances do not match"
         );
 
         assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp does not match");
@@ -152,12 +152,12 @@ contract ReClammSwapTest is BaseReClammTest {
         assertNotEq(
             lastVirtualBalancesBeforeSwap[daiIdx],
             currentVirtualBalances[daiIdx],
-            "DAI virtual balance are matching"
+            "DAI virtual balances match"
         );
         assertNotEq(
             lastVirtualBalancesBeforeSwap[usdcIdx],
             currentVirtualBalances[usdcIdx],
-            "USDC virtual balance are matching"
+            "USDC virtual balances match"
         );
 
         uint256 amountDaiIn = ReClammMath.calculateInGivenOut(
@@ -176,12 +176,12 @@ contract ReClammSwapTest is BaseReClammTest {
         assertEq(
             lastVirtualBalancesAfterSwap[daiIdx],
             currentVirtualBalances[daiIdx],
-            "DAI virtual balance does not match"
+            "DAI virtual balances do not match"
         );
         assertEq(
             lastVirtualBalancesAfterSwap[usdcIdx],
             currentVirtualBalances[usdcIdx],
-            "USDC virtual balance does not match"
+            "USDC virtual balances do not match"
         );
 
         assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp does not match");
@@ -230,12 +230,12 @@ contract ReClammSwapTest is BaseReClammTest {
         assertEq(
             lastVirtualBalancesAfterSwap[daiIdx],
             currentVirtualBalances[daiIdx],
-            "DAI virtual balance does not match"
+            "DAI virtual balances do not match"
         );
         assertEq(
             lastVirtualBalancesAfterSwap[usdcIdx],
             currentVirtualBalances[usdcIdx],
-            "USDC virtual balance does not match"
+            "USDC virtual balances do not match"
         );
 
         assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp does not match");
@@ -262,12 +262,12 @@ contract ReClammSwapTest is BaseReClammTest {
         assertNotEq(
             lastVirtualBalancesBeforeSwap[daiIdx],
             currentVirtualBalances[daiIdx],
-            "DAI virtual balance are matching"
+            "DAI virtual balances match"
         );
         assertNotEq(
             lastVirtualBalancesBeforeSwap[usdcIdx],
             currentVirtualBalances[usdcIdx],
-            "USDC virtual balance are matching"
+            "USDC virtual balances match"
         );
 
         uint256 amountUsdcOut = (newBalances[usdcIdx] - _MIN_TOKEN_BALANCE) / 2;
@@ -280,12 +280,12 @@ contract ReClammSwapTest is BaseReClammTest {
         assertEq(
             lastVirtualBalancesAfterSwap[daiIdx],
             currentVirtualBalances[daiIdx],
-            "DAI virtual balance does not match"
+            "DAI virtual balances do not match"
         );
         assertEq(
             lastVirtualBalancesAfterSwap[usdcIdx],
             currentVirtualBalances[usdcIdx],
-            "USDC virtual balance does not match"
+            "USDC virtual balances do not match"
         );
 
         assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp does not match");
@@ -309,12 +309,12 @@ contract ReClammSwapTest is BaseReClammTest {
         assertNotEq(
             lastVirtualBalancesBeforeSwap[daiIdx],
             currentVirtualBalances[daiIdx],
-            "DAI virtual balance are matching"
+            "DAI virtual balances match"
         );
         assertNotEq(
             lastVirtualBalancesBeforeSwap[usdcIdx],
             currentVirtualBalances[usdcIdx],
-            "USDC virtual balance are matching"
+            "USDC virtual balances match"
         );
 
         uint256 amountUsdcOut = (poolInitAmount - _MIN_TOKEN_BALANCE) / 2;
@@ -327,12 +327,12 @@ contract ReClammSwapTest is BaseReClammTest {
         assertEq(
             lastVirtualBalancesAfterSwap[daiIdx],
             currentVirtualBalances[daiIdx],
-            "DAI virtual balance does not match"
+            "DAI virtual balances do not match"
         );
         assertEq(
             lastVirtualBalancesAfterSwap[usdcIdx],
             currentVirtualBalances[usdcIdx],
-            "USDC virtual balance does not match"
+            "USDC virtual balances do not match"
         );
 
         assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp does not match");
@@ -367,12 +367,12 @@ contract ReClammSwapTest is BaseReClammTest {
         assertNotEq(
             lastVirtualBalancesBeforeSwap[daiIdx],
             currentVirtualBalances[daiIdx],
-            "DAI virtual balance are matching"
+            "DAI virtual balances match"
         );
         assertNotEq(
             lastVirtualBalancesBeforeSwap[usdcIdx],
             currentVirtualBalances[usdcIdx],
-            "USDC virtual balance are matching"
+            "USDC virtual balances match"
         );
 
         uint256 amountUsdcOut = (newBalances[usdcIdx] - _MIN_TOKEN_BALANCE) / 2;
@@ -385,12 +385,12 @@ contract ReClammSwapTest is BaseReClammTest {
         assertEq(
             lastVirtualBalancesAfterSwap[daiIdx],
             currentVirtualBalances[daiIdx],
-            "DAI virtual balance does not match"
+            "DAI virtual balances do not match"
         );
         assertEq(
             lastVirtualBalancesAfterSwap[usdcIdx],
             currentVirtualBalances[usdcIdx],
-            "USDC virtual balance does not match"
+            "USDC virtual balances do not match"
         );
 
         assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp does not match");
@@ -433,12 +433,12 @@ contract ReClammSwapTest is BaseReClammTest {
         assertEq(
             lastVirtualBalancesAfterSwap[daiIdx],
             currentVirtualBalances[daiIdx],
-            "DAI virtual balance does not match"
+            "DAI virtual balances do not match"
         );
         assertEq(
             lastVirtualBalancesAfterSwap[usdcIdx],
             currentVirtualBalances[usdcIdx],
-            "USDC virtual balance does not match"
+            "USDC virtual balances do not match"
         );
 
         assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp does not match");

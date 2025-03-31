@@ -46,12 +46,12 @@ contract ReClammLiquidityTest is BaseReClammTest {
         assertEq(
             virtualBalancesAfter[daiIdx],
             virtualBalancesBefore[daiIdx].mulUp(FixedPoint.ONE + proportion),
-            "DAI virtual balance does not match"
+            "DAI virtual balances do not match"
         );
         assertEq(
             virtualBalancesAfter[usdcIdx],
             virtualBalancesBefore[usdcIdx].mulUp(FixedPoint.ONE + proportion),
-            "USDC virtual balance does not match"
+            "USDC virtual balances do not match"
         );
 
         _checkPriceAndCenteredness(balancesBefore, balancesAfter, virtualBalancesBefore, virtualBalancesAfter);
@@ -93,19 +93,19 @@ contract ReClammLiquidityTest is BaseReClammTest {
         assertEq(
             virtualBalancesAfter[daiIdx],
             virtualBalancesBefore[daiIdx].mulUp(FixedPoint.ONE + proportion),
-            "DAI virtual balance does not match"
+            "DAI virtual balances do not match"
         );
         assertEq(
             virtualBalancesAfter[usdcIdx],
             virtualBalancesBefore[usdcIdx].mulUp(FixedPoint.ONE + proportion),
-            "USDC virtual balance does not match"
+            "USDC virtual balances do not match"
         );
 
         assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp was not updated");
 
         uint256[] memory lastVirtualBalances = ReClammPoolMock(pool).getLastVirtualBalances();
-        assertEq(lastVirtualBalances[daiIdx], virtualBalancesAfter[daiIdx], "DAI virtual balance does not match");
-        assertEq(lastVirtualBalances[usdcIdx], virtualBalancesAfter[usdcIdx], "USDC virtual balance does not match");
+        assertEq(lastVirtualBalances[daiIdx], virtualBalancesAfter[daiIdx], "DAI virtual balances do not match");
+        assertEq(lastVirtualBalances[usdcIdx], virtualBalancesAfter[usdcIdx], "USDC virtual balances do not match");
     }
 
     function testAddLiquidityUnbalanced() public {
@@ -193,12 +193,12 @@ contract ReClammLiquidityTest is BaseReClammTest {
         assertEq(
             virtualBalancesAfter[daiIdx],
             virtualBalancesBefore[daiIdx].mulDown(FixedPoint.ONE - proportion),
-            "DAI virtual balance does not match"
+            "DAI virtual balances do not match"
         );
         assertEq(
             virtualBalancesAfter[usdcIdx],
             virtualBalancesBefore[usdcIdx].mulDown(FixedPoint.ONE - proportion),
-            "USDC virtual balance does not match"
+            "USDC virtual balances do not match"
         );
 
         _checkPriceAndCenteredness(balancesBefore, balancesAfter, virtualBalancesBefore, virtualBalancesAfter);
@@ -240,19 +240,19 @@ contract ReClammLiquidityTest is BaseReClammTest {
         assertEq(
             virtualBalancesAfter[daiIdx],
             virtualBalancesBefore[daiIdx].mulDown(FixedPoint.ONE - proportion),
-            "DAI virtual balance does not match"
+            "DAI virtual balances do not match"
         );
         assertEq(
             virtualBalancesAfter[usdcIdx],
             virtualBalancesBefore[usdcIdx].mulDown(FixedPoint.ONE - proportion),
-            "USDC virtual balance does not match"
+            "USDC virtual balances do not match"
         );
 
         assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp was not updated");
 
         uint256[] memory lastVirtualBalances = ReClammPoolMock(pool).getLastVirtualBalances();
-        assertEq(lastVirtualBalances[daiIdx], virtualBalancesAfter[daiIdx], "DAI virtual balance does not match");
-        assertEq(lastVirtualBalances[usdcIdx], virtualBalancesAfter[usdcIdx], "USDC virtual balance does not match");
+        assertEq(lastVirtualBalances[daiIdx], virtualBalancesAfter[daiIdx], "DAI virtual balances do not match");
+        assertEq(lastVirtualBalances[usdcIdx], virtualBalancesAfter[usdcIdx], "USDC virtual balances do not match");
     }
 
     function testRemoveLiquidityBelowMinTokenBalance() public {
