@@ -287,7 +287,7 @@ library ReClammMath {
      * 2. PriceRatio = invariant^2/(Va * Vb)^2 (maxPrice / minPrice)
      * 3. invariant = (Va + Ra) * (Vb + Rb)
      *
-     * Substitute [3] in [2]. Then, isolate one of the V's. Finally, replace the isolated V in [1]. We get a quadrati
+     * Substitute [3] in [2]. Then, isolate one of the V's. Finally, replace the isolated V in [1]. We get a quadratic
      * equation that will be solved in this function.
      *
      * @param currentFourthRootPriceRatio The current fourth root of the price ratio of the pool
