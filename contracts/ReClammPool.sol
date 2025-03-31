@@ -352,12 +352,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     function _setCenterednessMargin(uint256 centerednessMargin) internal {
-        uint256 margin = centerednessMargin.toUint64();
-        if (margin > FixedPoint.ONE) {
+        if (centerednessMargin > FixedPoint.ONE) {
             revert InvalidCenterednessMargin();
         }
-        
-        _centerednessMargin = margin;
+
+        _centerednessMargin = centerednessMargin.toUint64();
 
         emit CenterednessMarginUpdated(centerednessMargin);
     }

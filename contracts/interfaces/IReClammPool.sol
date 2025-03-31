@@ -27,6 +27,9 @@ interface IReClammPool is IBasePool {
     /// @dev The pool centeredness is too low after a swap.
     error PoolCenterednessTooLow();
 
+    /// @dev The centeredness margin is out of the range 0-100%.
+    error InvalidCenterednessMargin();
+
     event FourthRootPriceRatioUpdated(
         uint256 startFourthRootPriceRatio,
         uint256 endFourthRootPriceRatio,
