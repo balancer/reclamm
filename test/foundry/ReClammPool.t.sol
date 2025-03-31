@@ -75,7 +75,7 @@ contract ReClammPoolTest is BaseReClammTest {
         _setPoolBalances(_MIN_TOKEN_BALANCE, 100e18);
         ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
 
-        // Pass 6 hours.
+        // Wait 6 hours.
         vm.warp(block.timestamp + 6 * 3600);
 
         // Check if the last virtual balances stored in the pool are different from the current virtual balances.
