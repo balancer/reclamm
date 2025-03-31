@@ -68,15 +68,15 @@ interface IReClammPool is IBasePool {
     function getCurrentFourthRootPriceRatio() external view returns (uint96);
 
     /**
-     * @notice Updates the price ratio state.
-     * @dev The price ratio is calculated by interpolating between the start and end time. The start price ratio is the
-     * current price ratio of the pool.
+     * @notice Resets the price ratio update by setting a new end fourth root price ratio and time range.
+     * @dev The price ratio is calculated by interpolating between the start and end times. The start price ratio will
+     * be set to the current fourth root price ratio of the pool.
      *
-     * @param newFourthRootPriceRatio The new price ratio.
-     * @param startTime The start time.
-     * @param endTime The end time.
+     * @param endFourthRootPriceRatio The new ending value of the fourth root price ratio
+     * @param startTime The timestamp when the price ratio update will start
+     * @param endTime The timestamp when the price ratio update will end
      */
-    function setPriceRatioState(uint256 newFourthRootPriceRatio, uint256 startTime, uint256 endTime) external;
+    function setPriceRatioState(uint256 endFourthRootPriceRatio, uint256 startTime, uint256 endTime) external;
 
     /**
      * @notice Updates the price shift daily rate.
