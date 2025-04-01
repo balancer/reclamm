@@ -85,12 +85,12 @@ contract ReClammPoolTest is BaseReClammTest {
         assertNotEq(
             virtualBalancesBefore[daiIdx],
             lastVirtualBalancesBeforeSet[daiIdx],
-            "DAI virtual balance does not match"
+            "DAI virtual balance remains unchanged"
         );
         assertNotEq(
             virtualBalancesBefore[usdcIdx],
             lastVirtualBalancesBeforeSet[usdcIdx],
-            "USDC virtual balance does not match"
+            "USDC virtual balance remains unchanged"
         );
 
         uint256 newPriceShiftDailyRate = 200e16;
