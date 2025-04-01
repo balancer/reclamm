@@ -33,6 +33,9 @@ interface IReClammPool is IBasePool {
     /// @dev The vault is not locked, so the pool balances are manipulable.
     error VaultIsNotLocked();
 
+    /// @dev The pool is out of range before or after the operation.
+    error PoolIsOutOfRange();
+
     /// @notice The Price Ratio State was updated.
     event PriceRatioStateUpdated(
         uint256 startFourthRootPriceRatio,

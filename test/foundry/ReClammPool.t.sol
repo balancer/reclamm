@@ -129,10 +129,49 @@ contract ReClammPoolTest is BaseReClammTest {
         ReClammPool(pool).setCenterednessMargin(newCenterednessMargin);
     }
 
-    function testSetCenterednessMarginUpdatingVirtualBalance() public {
-        // Move the pool to the edge of the price interval, so the virtual balances will change over time.
+    function testOutOfRangeBeforeSetCenterednessMargin() public {
+        // Move the pool to the edge of the price interval, so it's out of range.
         _setPoolBalances(_MIN_TOKEN_BALANCE, 100e18);
         ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
+
+        vm.warp(block.timestamp + 6 hours);
+
+        uint256 newCenterednessMargin = 50e16;
+        vm.prank(admin);
+        vm.expectRevert(IReClammPool.PoolIsOutOfRange.selector);
+        ReClammPool(pool).setCenterednessMargin(newCenterednessMargin);
+    }
+
+    function testOutOfRangeAfterSetCenterednessMargin() public {
+        // Move the pool close to the current margin.
+        uint256[] memory virtualBalances = ReClammPool(pool).getCurrentVirtualBalances();
+        uint256 newBalanceB = 100e18;
+
+        // Pool Centeredness = Ra * Vb / (Rb * Va). Make centeredness = margin, and you have the equation below.
+        uint256 newBalanceA = (_DEFAULT_CENTEREDNESS_MARGIN * newBalanceB).mulDown(virtualBalances[0]) /
+            virtualBalances[1];
+        _setPoolBalances(newBalanceA, newBalanceB);
+        ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
+
+        assertTrue(ReClammPoolMock(pool).isPoolInRange(), "Pool is out of range");
+        assertApproxEqRel(
+            ReClammPoolMock(pool).calculatePoolCenteredness(),
+            _DEFAULT_CENTEREDNESS_MARGIN,
+            1e16,
+            "Pool centeredness is not close from margin"
+        );
+
+        // Margin will make the pool be out of range (since the current centeredness is near the default margin).
+        uint256 newCenterednessMargin = _DEFAULT_CENTEREDNESS_MARGIN + 10e16;
+        vm.prank(admin);
+        vm.expectRevert(IReClammPool.PoolIsOutOfRange.selector);
+        ReClammPool(pool).setCenterednessMargin(newCenterednessMargin);
+    }
+
+    function testInRangeUpdatingVirtualBalancesSetCenterednessMargin() public {
+        vm.prank(admin);
+        // Start updating virtual balances.
+        ReClammPool(pool).setPriceRatioState(2e18, block.timestamp, block.timestamp + 1 days);
 
         vm.warp(block.timestamp + 6 hours);
 

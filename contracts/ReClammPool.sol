@@ -60,6 +60,16 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _;
     }
 
+    modifier onlyWhenPoolIsInRange() {
+        if (_isPoolInRange() == false) {
+            revert PoolIsOutOfRange();
+        }
+        _;
+        if (_isPoolInRange() == false) {
+            revert PoolIsOutOfRange();
+        }
+    }
+
     constructor(
         ReClammPoolParams memory params,
         IVault vault
@@ -364,9 +374,13 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         emit PriceShiftDailyRateUpdated(priceShiftDailyRate);
     }
 
-    /// Using the pool balances to update the virtual balances is dangerous with an unlocked vault, since the balances
-    /// are manipulable.
-    function _setCenterednessMarginAndUpdateVirtualBalances(uint256 centerednessMargin) internal onlyWhenVaultIsLocked {
+    /**
+     * @dev This function relies on the pool balance, which can be manipulated if the vault is unlocked. Also, the pool
+     * must be in range before and after the operation, to avoid the pool owner to arb the pool.
+     */
+    function _setCenterednessMarginAndUpdateVirtualBalances(
+        uint256 centerednessMargin
+    ) internal onlyWhenVaultIsLocked onlyWhenPoolIsInRange {
         // Update virtual balances with current daily rate.
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
         (uint256[] memory currentVirtualBalances, bool changed) = _getCurrentVirtualBalances(balancesScaled18);
@@ -457,5 +471,12 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             priceRatioState.startTime,
             priceRatioState.endTime
         );
+    }
+
+    /// @dev This function relies on the pool balance, which can be manipulated if the vault is unlocked.
+    function _isPoolInRange() internal view onlyWhenVaultIsLocked returns (bool) {
+        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
+
+        return ReClammMath.isPoolInRange(balancesScaled18, _lastVirtualBalances, _centerednessMargin);
     }
 }
