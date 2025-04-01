@@ -21,7 +21,6 @@ contract ReClammSwapTest is BaseReClammTest {
         // Set the last timestamp.
         ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
 
-        // Wait 6 hours.
         vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = ReClammPoolMock(pool).getLastVirtualBalances();
@@ -42,8 +41,8 @@ contract ReClammSwapTest is BaseReClammTest {
             (newBalances[usdcIdx] - _MIN_TOKEN_BALANCE) / 2
         );
 
-        // Make a swap so the variable lastVirtualBalances is updated with the current virtual balances, and last
-        // timestamp is updated.
+        // Make a swap so that `lastVirtualBalances` is updated to match the current virtual balances.
+        // The last timestamp should also be updated to the current block.
         vm.prank(alice);
         router.swapSingleTokenExactIn(pool, dai, usdc, amountDaiIn, 0, MAX_UINT256, false, bytes(""));
 
@@ -62,7 +61,6 @@ contract ReClammSwapTest is BaseReClammTest {
         vm.prank(admin);
         ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 1 days);
 
-        // Wait 6 hours.
         vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = ReClammPoolMock(pool).getLastVirtualBalances();
@@ -79,8 +77,8 @@ contract ReClammSwapTest is BaseReClammTest {
             (poolInitAmount - _MIN_TOKEN_BALANCE) / 2
         );
 
-        // Make a swap so the variable lastVirtualBalances is updated with the current virtual balances, and last
-        // timestamp is updated.
+        // Make a swap so that `lastVirtualBalances` is updated to match the current virtual balances.
+        // The last timestamp should also be updated to the current block.
         vm.prank(alice);
         router.swapSingleTokenExactIn(pool, dai, usdc, amountDaiIn, 0, MAX_UINT256, false, bytes(""));
 
@@ -106,7 +104,6 @@ contract ReClammSwapTest is BaseReClammTest {
         vm.prank(admin);
         ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 1 days);
 
-        // Wait 6 hours.
         vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = ReClammPoolMock(pool).getLastVirtualBalances();
@@ -127,8 +124,8 @@ contract ReClammSwapTest is BaseReClammTest {
             (newBalances[usdcIdx] - _MIN_TOKEN_BALANCE) / 2
         );
 
-        // Make a swap so the variable lastVirtualBalances is updated with the current virtual balances, and last
-        // timestamp is updated.
+        // Make a swap so that `lastVirtualBalances` is updated to match the current virtual balances.
+        // The last timestamp should also be updated to the current block.
         vm.prank(alice);
         router.swapSingleTokenExactIn(pool, dai, usdc, amountDaiIn, 0, MAX_UINT256, false, bytes(""));
 
@@ -146,7 +143,6 @@ contract ReClammSwapTest is BaseReClammTest {
         // Set the last timestamp.
         ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
 
-        // Wait 6 hours.
         vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = ReClammPoolMock(pool).getLastVirtualBalances();
@@ -165,8 +161,8 @@ contract ReClammSwapTest is BaseReClammTest {
             (newBalances[usdcIdx] - _MIN_TOKEN_BALANCE) / 2
         );
 
-        // Make a swap so the variable lastVirtualBalances is updated with the current virtual balances, and last
-        // timestamp is updated.
+        // Make a swap so that `lastVirtualBalances` is updated to match the current virtual balances.
+        // The last timestamp should also be updated to the current block.
         vm.prank(alice);
         router.swapSingleTokenExactIn(pool, dai, usdc, amountDaiIn, 0, MAX_UINT256, false, bytes(""));
 
@@ -184,7 +180,6 @@ contract ReClammSwapTest is BaseReClammTest {
         // Set the last timestamp.
         ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
 
-        // Wait 6 hours.
         vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = ReClammPoolMock(pool).getLastVirtualBalances();
@@ -199,8 +194,8 @@ contract ReClammSwapTest is BaseReClammTest {
 
         uint256 amountUsdcOut = (newBalances[usdcIdx] - _MIN_TOKEN_BALANCE) / 2;
 
-        // Make a swap so the variable lastVirtualBalances is updated with the current virtual balances, and last
-        // timestamp is updated.
+        // Make a swap so that `lastVirtualBalances` is updated to match the current virtual balances.
+        // The last timestamp should also be updated to the current block.
         vm.prank(alice);
         router.swapSingleTokenExactOut(pool, dai, usdc, amountUsdcOut, MAX_UINT256, MAX_UINT256, false, bytes(""));
 
@@ -219,7 +214,6 @@ contract ReClammSwapTest is BaseReClammTest {
         vm.prank(admin);
         ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 1 days);
 
-        // Wait 6 hours.
         vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = ReClammPoolMock(pool).getLastVirtualBalances();
@@ -230,8 +224,8 @@ contract ReClammSwapTest is BaseReClammTest {
 
         uint256 amountUsdcOut = (poolInitAmount - _MIN_TOKEN_BALANCE) / 2;
 
-        // Make a swap so the variable lastVirtualBalances is updated with the current virtual balances, and last
-        // timestamp is updated.
+        // Make a swap so that `lastVirtualBalances` is updated to match the current virtual balances.
+        // The last timestamp should also be updated to the current block.
         vm.prank(alice);
         router.swapSingleTokenExactOut(pool, dai, usdc, amountUsdcOut, MAX_UINT256, MAX_UINT256, false, bytes(""));
 
@@ -257,7 +251,6 @@ contract ReClammSwapTest is BaseReClammTest {
         vm.prank(admin);
         ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 1 days);
 
-        // Wait 6 hours.
         vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = ReClammPoolMock(pool).getLastVirtualBalances();
@@ -272,8 +265,8 @@ contract ReClammSwapTest is BaseReClammTest {
 
         uint256 amountUsdcOut = (newBalances[usdcIdx] - _MIN_TOKEN_BALANCE) / 2;
 
-        // Make a swap so the variable lastVirtualBalances is updated with the current virtual balances, and last
-        // timestamp is updated.
+        // Make a swap so that `lastVirtualBalances` is updated to match the current virtual balances.
+        // The last timestamp should also be updated to the current block.
         vm.prank(alice);
         router.swapSingleTokenExactOut(pool, dai, usdc, amountUsdcOut, MAX_UINT256, MAX_UINT256, false, bytes(""));
 
@@ -291,7 +284,6 @@ contract ReClammSwapTest is BaseReClammTest {
         // Set the last timestamp.
         ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
 
-        // Wait 6 hours.
         vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = ReClammPoolMock(pool).getLastVirtualBalances();
@@ -304,8 +296,8 @@ contract ReClammSwapTest is BaseReClammTest {
 
         uint256 amountUsdcOut = (newBalances[usdcIdx] - _MIN_TOKEN_BALANCE) / 2;
 
-        // Make a swap so the variable lastVirtualBalances is updated with the current virtual balances, and last
-        // timestamp is updated.
+        // Make a swap so that `lastVirtualBalances` is updated to match the current virtual balances.
+        // The last timestamp should also be updated to the current block.
         vm.prank(alice);
         router.swapSingleTokenExactOut(pool, dai, usdc, amountUsdcOut, MAX_UINT256, MAX_UINT256, false, bytes(""));
 
