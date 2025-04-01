@@ -4,41 +4,45 @@ pragma solidity ^0.8.24;
 
 import "forge-std/Test.sol";
 
-import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
+import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { PriceRatioState } from "../../contracts/lib/ReClammMath.sol";
 import { ReClammMathMock } from "../../contracts/test/ReClammMathMock.sol";
+import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
 
-contract ReClammRoundingTest is Test {
-    uint256 constant DELTA = 1e3;
+contract ReClammRoundingTest is BaseReClammTest {
+    using SafeCast for *;
 
-    uint256 constant MAX_TOKENS = 2;
-    uint256 constant MIN_BALANCE = 1e18;
-    uint256 constant MIN_AMOUNT = 1e12;
-    uint256 constant MAX_AMOUNT = 1_000_000_000_000 * 1e18;
-    uint256 constant MIN_SQRT_PRICE_RATIO = 10e12 + FixedPoint.ONE; // 1.00001
-    uint256 constant MAX_SQRT_PRICE_RATIO = 1000e18;
-    uint256 constant MAX_TIME_CONSTANT = FixedPoint.ONE - 1;
-    uint256 internal constant _MIN_TOKEN_BALANCE = 1e14;
+    uint256 internal constant _DELTA = 1e3;
 
-    uint256 constant MIN_SWAP_FEE = 0;
+    uint256 internal constant _MIN_SWAP_AMOUNT = 1e12;
+
+    uint256 internal constant _MIN_FOURTH_ROOT_PRICE_RATIO = 1.000001e18; // 1.000001
+    uint256 internal constant _MAX_FOURTH_ROOT_PRICE_RATIO = 10e18;
+    uint256 internal constant _MAX_TIME_CONSTANT = FixedPoint.ONE - 1;
+
+    uint256 internal constant _MIN_SWAP_FEE = 0;
     // Max swap fee of 50%. In practice this is way too high for a static fee.
-    uint256 constant MAX_SWAP_FEE = 50e16;
+    uint256 internal constant _MAX_SWAP_FEE = 50e16;
 
     ReClammMathMock mathMock;
 
-    function setUp() public {
+    function setUp() public override {
+        super.setUp();
         mathMock = new ReClammMathMock();
     }
 
     function testPureComputeInvariant__Fuzz(uint256[2] memory balancesRaw, uint256 fourthRootPriceRatio) public view {
         uint256[] memory balances = new uint256[](balancesRaw.length);
         for (uint256 i = 0; i < balances.length; ++i) {
-            balances[i] = bound(balancesRaw[i], MIN_BALANCE, MAX_AMOUNT);
+            balances[i] = bound(balancesRaw[i], _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
         }
 
-        fourthRootPriceRatio = uint96(bound(fourthRootPriceRatio, MIN_SQRT_PRICE_RATIO, MAX_SQRT_PRICE_RATIO));
+        fourthRootPriceRatio = bound(fourthRootPriceRatio, _MIN_FOURTH_ROOT_PRICE_RATIO, _MAX_FOURTH_ROOT_PRICE_RATIO)
+            .toUint96();
 
         uint256[] memory virtualBalances = mathMock.initializeVirtualBalances(balances, fourthRootPriceRatio);
 
@@ -62,9 +66,10 @@ contract ReClammRoundingTest is Test {
 
         uint256[] memory balances = new uint256[](balancesRaw.length);
         for (uint256 i = 0; i < balances.length; ++i) {
-            balances[i] = bound(balancesRaw[i], MIN_BALANCE, MAX_AMOUNT);
+            balances[i] = bound(balancesRaw[i], _MIN_TOKEN_BALANCE + 1, _MAX_TOKEN_BALANCE);
         }
-        fourthRootPriceRatio = uint96(bound(fourthRootPriceRatio, MIN_SQRT_PRICE_RATIO, MAX_SQRT_PRICE_RATIO));
+        fourthRootPriceRatio = bound(fourthRootPriceRatio, _MIN_FOURTH_ROOT_PRICE_RATIO, _MAX_FOURTH_ROOT_PRICE_RATIO)
+            .toUint96();
 
         uint256[] memory virtualBalances = mathMock.initializeVirtualBalances(balances, fourthRootPriceRatio);
 
@@ -76,8 +81,9 @@ contract ReClammRoundingTest is Test {
             tokenOutIndex,
             balances[tokenOutIndex] - _MIN_TOKEN_BALANCE - 1
         );
-        amountGivenScaled18 = bound(amountGivenScaled18, MIN_AMOUNT, maxAmountIn);
 
+        vm.assume(_MIN_SWAP_AMOUNT <= maxAmountIn);
+        amountGivenScaled18 = bound(amountGivenScaled18, _MIN_SWAP_AMOUNT, maxAmountIn);
         mathMock.setPriceRatioState(
             PriceRatioState({
                 startFourthRootPriceRatio: fourthRootPriceRatio,
@@ -126,10 +132,17 @@ contract ReClammRoundingTest is Test {
         (uint256 tokenInIndex, uint256 tokenOutIndex) = isTokenAIn ? (0, 1) : (1, 0);
 
         for (uint256 i = 0; i < balances.length; ++i) {
-            balances[i] = bound(balancesRaw[i], MIN_BALANCE, MAX_AMOUNT);
+            balances[i] = bound(balancesRaw[i], _MIN_TOKEN_BALANCE + 1, _MAX_TOKEN_BALANCE);
         }
-        fourthRootPriceRatio = uint96(bound(fourthRootPriceRatio, MIN_SQRT_PRICE_RATIO, MAX_SQRT_PRICE_RATIO));
-        amountGivenScaled18 = bound(amountGivenScaled18, MIN_AMOUNT, balances[tokenOutIndex] - _MIN_TOKEN_BALANCE - 1);
+        fourthRootPriceRatio = bound(fourthRootPriceRatio, _MIN_FOURTH_ROOT_PRICE_RATIO, _MAX_FOURTH_ROOT_PRICE_RATIO)
+            .toUint96();
+
+        vm.assume(_MIN_SWAP_AMOUNT <= balances[tokenOutIndex] - _MIN_TOKEN_BALANCE - 1);
+        amountGivenScaled18 = bound(
+            amountGivenScaled18,
+            _MIN_SWAP_AMOUNT,
+            balances[tokenOutIndex] - _MIN_TOKEN_BALANCE - 1
+        );
 
         uint256[] memory virtualBalances = mathMock.initializeVirtualBalances(balances, fourthRootPriceRatio);
 

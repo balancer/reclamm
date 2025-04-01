@@ -38,7 +38,7 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
     }
 
     /**
-     * @notice Deploys a new `StablePool`.
+     * @notice Deploys a new `ReClammPool`.
      * @param name The name of the pool
      * @param symbol The symbol of the pool
      * @param tokens An array of descriptors for the tokens the pool will manage

@@ -239,7 +239,7 @@ export function calculateFourthRootPriceRatio(
   startTime: number,
   endTime: number
 ): bigint {
-  if (currentTime < startTime) {
+  if (currentTime <= startTime) {
     return bn(startFourthRootPriceRatio);
   } else if (currentTime >= endTime) {
     return bn(endFourthRootPriceRatio);
@@ -247,10 +247,12 @@ export function calculateFourthRootPriceRatio(
     return bn(endFourthRootPriceRatio);
   }
 
-  const exponent = fromFp(fpDivDown(fp(currentTime - startTime), fp(endTime - startTime)));
-  const base = fromFp(fpDivDown(endFourthRootPriceRatio, startFourthRootPriceRatio));
+  const exponent = fromFp(fpDivDown(currentTime - startTime, endTime - startTime));
 
-  return fp(fromFp(startFourthRootPriceRatio).mul(base.pow(exponent)));
+  return fpDivDown(
+    fpMulDown(startFourthRootPriceRatio, fp(fromFp(endFourthRootPriceRatio).pow(exponent))),
+    fp(fromFp(startFourthRootPriceRatio).pow(exponent))
+  );
 }
 
 export function isAboveCenter(balancesScaled18: bigint[], virtualBalances: bigint[]): boolean {
@@ -261,6 +263,6 @@ export function isAboveCenter(balancesScaled18: bigint[], virtualBalances: bigin
   }
 }
 
-export function parsePriceShiftDailyRate(priceShiftDailyRate: bigint): bigint {
+export function computePriceShiftDailyRate(priceShiftDailyRate: bigint): bigint {
   return bn(priceShiftDailyRate) / bn(124649);
 }

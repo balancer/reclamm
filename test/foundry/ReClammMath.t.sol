@@ -20,10 +20,9 @@ contract ReClammMathTest is BaseReClammTest {
 
     // Constant to increase the price by a factor 2 if price shift daily rate is 100%.
     uint256 private constant _SECONDS_PER_DAY_WITH_ADJUSTMENT = 124649;
-    uint256 private constant _MAX_BALANCE = 1e6 * 1e18;
 
     uint256 private constant _MIN_POOL_CENTEREDNESS = 1e3;
-    uint256 private constant _MAX_CENTEREDNESS_ERROR_ABS = 1e9;
+    uint256 private constant _MAX_CENTEREDNESS_ERROR_ABS = 1e6;
     uint256 private constant _MAX_PRICE_ERROR_ABS = 1e14;
 
     ReClammMathMock internal mathContract;
@@ -35,7 +34,7 @@ contract ReClammMathTest is BaseReClammTest {
 
     function testParsePriceShiftDailyRate() public pure {
         uint256 value = 2123e9;
-        uint256 priceShiftDailyRateParsed = ReClammMath.parsePriceShiftDailyRate(value);
+        uint256 priceShiftDailyRateParsed = ReClammMath.computePriceShiftDailyRate(value);
 
         assertEq(
             priceShiftDailyRateParsed,
@@ -49,8 +48,8 @@ contract ReClammMathTest is BaseReClammTest {
         uint256 balance1,
         uint96 fourthRootPriceRatio
     ) public pure {
-        balance0 = bound(balance0, 0, _MAX_BALANCE);
-        balance1 = bound(balance1, 0, _MAX_BALANCE);
+        balance0 = bound(balance0, 0, _MAX_TOKEN_BALANCE);
+        balance1 = bound(balance1, 0, _MAX_TOKEN_BALANCE);
         fourthRootPriceRatio = SafeCast.toUint96(bound(fourthRootPriceRatio, FixedPoint.ONE + 1, type(uint96).max));
 
         uint256[] memory balancesScaled18 = new uint256[](2);
@@ -85,10 +84,10 @@ contract ReClammMathTest is BaseReClammTest {
         tokenIn = bound(tokenIn, 0, 1);
         uint256 tokenOut = tokenIn == 0 ? 1 : 0;
 
-        balanceA = bound(balanceA, _MIN_TOKEN_BALANCE, _MAX_BALANCE);
-        balanceB = bound(balanceB, _MIN_TOKEN_BALANCE, _MAX_BALANCE);
-        virtualBalanceA = bound(virtualBalanceA, _MIN_TOKEN_BALANCE, _MAX_BALANCE);
-        virtualBalanceB = bound(virtualBalanceB, _MIN_TOKEN_BALANCE, _MAX_BALANCE);
+        balanceA = bound(balanceA, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
+        balanceB = bound(balanceB, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
+        virtualBalanceA = bound(virtualBalanceA, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
+        virtualBalanceB = bound(virtualBalanceB, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
 
         uint256 maxAmount = tokenIn == 0 ? balanceB : balanceA;
         amountGivenScaled18 = bound(amountGivenScaled18, 1, maxAmount);
@@ -141,10 +140,10 @@ contract ReClammMathTest is BaseReClammTest {
         tokenIn = bound(tokenIn, 0, 1);
         uint256 tokenOut = tokenIn == 0 ? 1 : 0;
 
-        balanceA = bound(balanceA, _MIN_TOKEN_BALANCE, _MAX_BALANCE);
-        balanceB = bound(balanceB, _MIN_TOKEN_BALANCE, _MAX_BALANCE);
-        virtualBalanceA = bound(virtualBalanceA, _MIN_TOKEN_BALANCE, _MAX_BALANCE);
-        virtualBalanceB = bound(virtualBalanceB, _MIN_TOKEN_BALANCE, _MAX_BALANCE);
+        balanceA = bound(balanceA, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
+        balanceB = bound(balanceB, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
+        virtualBalanceA = bound(virtualBalanceA, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
+        virtualBalanceB = bound(virtualBalanceB, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
 
         uint256 maxAmount = tokenIn == 0 ? balanceA : balanceB;
         amountGivenScaled18 = bound(amountGivenScaled18, 1, maxAmount);
@@ -225,10 +224,10 @@ contract ReClammMathTest is BaseReClammTest {
         uint256 virtualBalance1,
         uint256 centerednessMargin
     ) public pure {
-        balance0 = bound(balance0, 0, _MAX_BALANCE);
-        balance1 = bound(balance1, 0, _MAX_BALANCE);
-        virtualBalance0 = bound(virtualBalance0, _MIN_TOKEN_BALANCE, _MAX_BALANCE);
-        virtualBalance1 = bound(virtualBalance1, _MIN_TOKEN_BALANCE, _MAX_BALANCE);
+        balance0 = bound(balance0, 0, _MAX_TOKEN_BALANCE);
+        balance1 = bound(balance1, 0, _MAX_TOKEN_BALANCE);
+        virtualBalance0 = bound(virtualBalance0, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
+        virtualBalance1 = bound(virtualBalance1, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
         centerednessMargin = bound(centerednessMargin, 0, 50e16);
 
         uint256[] memory balancesScaled18 = new uint256[](2);
@@ -250,10 +249,10 @@ contract ReClammMathTest is BaseReClammTest {
         uint256 virtualBalance0,
         uint256 virtualBalance1
     ) public pure {
-        balance0 = bound(balance0, _MIN_TOKEN_BALANCE, _MAX_BALANCE);
-        balance1 = bound(balance1, _MIN_TOKEN_BALANCE, _MAX_BALANCE);
-        virtualBalance0 = bound(virtualBalance0, _MIN_TOKEN_BALANCE, _MAX_BALANCE);
-        virtualBalance1 = bound(virtualBalance1, _MIN_TOKEN_BALANCE, _MAX_BALANCE);
+        balance0 = bound(balance0, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
+        balance1 = bound(balance1, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
+        virtualBalance0 = bound(virtualBalance0, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
+        virtualBalance1 = bound(virtualBalance1, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
 
         uint256[] memory balancesScaled18 = new uint256[](2);
         balancesScaled18[0] = balance0;
@@ -288,10 +287,10 @@ contract ReClammMathTest is BaseReClammTest {
         uint256 virtualBalance0,
         uint256 virtualBalance1
     ) public pure {
-        balance0 = bound(balance0, 0, _MAX_BALANCE);
-        balance1 = bound(balance1, 0, _MAX_BALANCE);
-        virtualBalance0 = bound(virtualBalance0, _MIN_TOKEN_BALANCE, _MAX_BALANCE);
-        virtualBalance1 = bound(virtualBalance1, _MIN_TOKEN_BALANCE, _MAX_BALANCE);
+        balance0 = bound(balance0, 0, _MAX_TOKEN_BALANCE);
+        balance1 = bound(balance1, 0, _MAX_TOKEN_BALANCE);
+        virtualBalance0 = bound(virtualBalance0, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
+        virtualBalance1 = bound(virtualBalance1, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
 
         uint256[] memory balancesScaled18 = new uint256[](2);
         balancesScaled18[0] = balance0;
@@ -363,10 +362,10 @@ contract ReClammMathTest is BaseReClammTest {
         uint256 virtualBalance1,
         uint256 expectedFourthRootPriceRatio
     ) public pure {
-        balance0 = bound(balance0, _MIN_TOKEN_BALANCE, _MAX_BALANCE);
-        balance1 = bound(balance1, _MIN_TOKEN_BALANCE, _MAX_BALANCE);
-        virtualBalance0 = bound(virtualBalance0, _MIN_TOKEN_BALANCE, _MAX_BALANCE);
-        virtualBalance1 = bound(virtualBalance1, _MIN_TOKEN_BALANCE, _MAX_BALANCE);
+        balance0 = bound(balance0, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
+        balance1 = bound(balance1, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
+        virtualBalance0 = bound(virtualBalance0, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
+        virtualBalance1 = bound(virtualBalance1, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
         expectedFourthRootPriceRatio = SafeCast.toUint96(bound(expectedFourthRootPriceRatio, 1.1e18, 10e18));
 
         uint256[] memory balancesScaled18 = new uint256[](2);
@@ -500,7 +499,7 @@ contract ReClammMathTest is BaseReClammTest {
     ) private pure returns (uint256 newSqwrtPriceRatio) {
         uint256 invariant = ReClammMath.computeInvariant(balancesScaled18, virtualBalances, Rounding.ROUND_DOWN);
         newSqwrtPriceRatio = Math.sqrt(
-            invariant.divDown(virtualBalances[0]).divDown(virtualBalances[1]) * FixedPoint.ONE
+            (invariant * FixedPoint.ONE).divDown(virtualBalances[0]).divDown(virtualBalances[1])
         );
     }
 

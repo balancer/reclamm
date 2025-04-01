@@ -27,26 +27,63 @@ interface IReClammPool is IBasePool {
     /// @dev The pool centeredness is too low after a swap.
     error PoolCenterednessTooLow();
 
-    event FourthRootPriceRatioUpdated(
+    /// @notice The Price Ratio State was updated.
+    event PriceRatioStateUpdated(
         uint256 startFourthRootPriceRatio,
         uint256 endFourthRootPriceRatio,
         uint256 startTime,
         uint256 endTime
     );
 
+    /// @dev The Virtual Balances were updated after a user interaction.
     event VirtualBalancesUpdated(uint256[] virtualBalances);
 
+    /// @dev The Price Shift Daily Rate was updated.
     event PriceShiftDailyRateUpdated(uint256 priceShiftDailyRate);
 
+    /// @dev The Centeredness Margin was updated.
     event CenterednessMarginUpdated(uint256 centerednessMargin);
 
+    /**
+     * @notice Returns the current virtual balances.
+     * @dev The current virtual balances are calculated based on the last virtual balances. If the pool is in range
+     * and the price ratio is not updating, the virtual balances will not change. If the pool is out of range or the
+     * price ratio is updating, this function will calculate the new virtual balances based on the timestamp of the
+     * last user interaction. Note that virtual balances are always scaled18 values.
+     *
+     * @return currentVirtualBalances The current virtual balances
+     */
     function getCurrentVirtualBalances() external view returns (uint256[] memory currentVirtualBalances);
 
+    /// @notice Returns the timestamp of the last user interaction.
     function getLastTimestamp() external view returns (uint32);
 
+    /**
+     * @notice Returns the current fourth root of price ratio.
+     * @dev The current fourth root of price ratio is an interpolation of the price ratio between the start and end
+     * values in the price ratio state, using the percentage elapsed between the start and end times.
+     *
+     * @return currentFourthRootPriceRatio The current fourth root of price ratio
+     */
     function getCurrentFourthRootPriceRatio() external view returns (uint96);
 
-    function setPriceRatioState(uint256 newFourthRootPriceRatio, uint256 startTime, uint256 endTime) external;
+    /**
+     * @notice Resets the price ratio update by setting a new end fourth root price ratio and time range.
+     * @dev The price ratio is calculated by interpolating between the start and end times. The start price ratio will
+     * be set to the current fourth root price ratio of the pool.
+     *
+     * @param endFourthRootPriceRatio The new ending value of the fourth root price ratio
+     * @param startTime The timestamp when the price ratio update will start
+     * @param endTime The timestamp when the price ratio update will end
+     */
+    function setPriceRatioState(uint256 endFourthRootPriceRatio, uint256 startTime, uint256 endTime) external;
 
+    /**
+     * @notice Updates the price shift daily rate.
+     * @dev This function is considered a user interaction, and therefore recalculates the virtual balances and sets
+     * the last timestamp.
+     *
+     * @param newPriceShiftDailyRate The new price shift daily rate
+     */
     function setPriceShiftDailyRate(uint256 newPriceShiftDailyRate) external;
 }
