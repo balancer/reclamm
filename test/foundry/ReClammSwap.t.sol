@@ -319,7 +319,7 @@ contract ReClammSwapTest is BaseReClammTest {
         uint256[] memory virtualBalances1,
         uint256[] memory virtualBalances2
     ) internal view {
-        assertNotEq(virtualBalances1[daiIdx], virtualBalances2[daiIdx], "DAI virtual balances match");
-        assertNotEq(virtualBalances1[usdcIdx], virtualBalances2[usdcIdx], "USDC virtual balances match");
+        assertNotEq(virtualBalances1[daiIdx], virtualBalances2[daiIdx], "DAI virtual balances remain unchanged");
+        assertNotEq(virtualBalances1[usdcIdx], virtualBalances2[usdcIdx], "USDC virtual balances remain unchanged");
     }
 }
