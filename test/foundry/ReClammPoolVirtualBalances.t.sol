@@ -2,6 +2,8 @@
 
 pragma solidity ^0.8.24;
 
+import "forge-std/Test.sol";
+
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
@@ -18,12 +20,12 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     using FixedPoint for uint256;
     using ArrayHelpers for *;
 
-    uint256 private constant _PRICE_RANGE = 2e18; // Max price is 2x min price.
+    uint256 private constant _PRICE_RATIO = 2e18; // Max price is 2x min price.
     uint256 private constant _INITIAL_BALANCE_A = 1_000_000e18;
     uint256 private constant _INITIAL_BALANCE_B = 100_000e18;
 
     function setUp() public virtual override {
-        setPriceRange(_PRICE_RANGE);
+        setPriceRatio(_PRICE_RATIO);
         setInitialBalances(_INITIAL_BALANCE_A, _INITIAL_BALANCE_B);
         setPriceShiftDailyRate(0);
         super.setUp();
@@ -103,7 +105,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         }
     }
 
-    function testWithDifferentPriceRange__Fuzz(uint96 endFourthRootPriceRatio) public {
+    function testWithDifferentPriceRatio__Fuzz(uint96 endFourthRootPriceRatio) public {
         endFourthRootPriceRatio = SafeCast.toUint96(bound(endFourthRootPriceRatio, 1.001e18, 1_000_000e18)); // Price range cannot be lower than 1.
 
         uint96 initialFourthRootPriceRatio = fourthRootPriceRatio();
@@ -138,10 +140,13 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         }
     }
 
-    function testChangingDifferentPriceRange__Fuzz(uint96 endFourthRootPriceRatio) public {
+    function testChangingDifferentPriceRatio__Fuzz(uint96 endFourthRootPriceRatio) public {
         endFourthRootPriceRatio = SafeCast.toUint96(bound(endFourthRootPriceRatio, 1.1e18, 10e18));
 
         uint256 initialFourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
+
+        console2.log("initialFourthRootPriceRatio", initialFourthRootPriceRatio);
+        console2.log("endFourthRootPriceRatio", endFourthRootPriceRatio);
 
         uint32 duration = 2 hours;
 

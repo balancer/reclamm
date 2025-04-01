@@ -343,8 +343,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         }
 
         uint96 startFourthRootPriceRatio = _calculateCurrentFourthRootPriceRatio();
-        _priceRatioState.startFourthRootPriceRatio = startFourthRootPriceRatio;
-        _priceRatioState.endFourthRootPriceRatio = endFourthRootPriceRatio.toUint96();
+        uint96 endFourthRootPriceRatio96 = endFourthRootPriceRatio.toUint96();
+        _priceRatioState.startFourthRootPriceRatio = startFourthRootPriceRatio == 0
+            ? endFourthRootPriceRatio96
+            : startFourthRootPriceRatio;
+        _priceRatioState.endFourthRootPriceRatio = endFourthRootPriceRatio96;
         _priceRatioState.startTime = startTime.toUint32();
         _priceRatioState.endTime = endTime.toUint32();
 

@@ -64,7 +64,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
         (daiIdx, usdcIdx) = getSortedIndexes(address(dai), address(usdc));
     }
 
-    function setPriceRange(uint256 priceRatio) internal {
+    function setPriceRatio(uint256 priceRatio) internal {
         priceRatio = Math.sqrt(priceRatio * FixedPoint.ONE);
         _fourthRootPriceRatio = SafeCast.toUint96(Math.sqrt(priceRatio * FixedPoint.ONE));
     }
