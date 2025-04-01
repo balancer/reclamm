@@ -66,8 +66,7 @@ contract ReClammPoolTest is BaseReClammTest {
         _setPoolBalances(1e14, 100e18);
         ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
 
-        // Pass 6 hour
-        vm.warp(block.timestamp + 6 * 3600);
+        vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory virtualBalancesBefore = ReClammPool(pool).getCurrentVirtualBalances();
 
@@ -81,8 +80,8 @@ contract ReClammPoolTest is BaseReClammTest {
 
         uint256[] memory lastVirtualBalances = ReClammPoolMock(pool).getLastVirtualBalances();
 
-        assertEq(lastVirtualBalances[daiIdx], virtualBalancesBefore[daiIdx], "DAI virtual balance does not match");
-        assertEq(lastVirtualBalances[usdcIdx], virtualBalancesBefore[usdcIdx], "USDC virtual balance does not match");
+        assertEq(lastVirtualBalances[daiIdx], virtualBalancesBefore[daiIdx], "DAI virtual balances do not match");
+        assertEq(lastVirtualBalances[usdcIdx], virtualBalancesBefore[usdcIdx], "USDC virtual balances do not match");
     }
 
     function testSetCenterednessMargin() public {
