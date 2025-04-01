@@ -31,6 +31,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 internal constant _MIN_SWAP_FEE_PERCENTAGE = 0;
     uint256 internal constant _MAX_SWAP_FEE_PERCENTAGE = 10e16; // 10%
 
+    // The centeredness margin defines the minimum pool centeredness to consider the pool in range. It may be a value
+    // from 0 to 100%.
+    uint256 internal constant _MIN_CENTEREDNESS_MARGIN = 0;
+    uint256 internal constant _MAX_CENTEREDNESS_MARGIN = FixedPoint.ONE;
+
     // A pool is "centered" when it holds equal (non-zero) value in both real token balances. In this state, the ratio
     // of the real balances equals the ratio of the virtual balances, and the value of the centeredness measure is
     // FixedPoint.ONE.
@@ -50,6 +55,13 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     modifier withUpdatedTimestamp() {
         _updateTimestamp();
+        _;
+    }
+
+    modifier onlyWhenVaultIsLocked() {
+        if (_vault.isUnlocked()) {
+            revert VaultIsNotLocked();
+        }
         _;
     }
 
@@ -319,7 +331,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         emit FourthRootPriceRatioUpdated(startFourthRootPriceRatio, endFourthRootPriceRatio, startTime, endTime);
     }
 
-    function _setPriceShiftDailyRateAndUpdateVirtualBalances(uint256 priceShiftDailyRate) internal {
+    /// Using the pool balances to update the virtual balances is dangerous with an unlocked vault, since the balances
+    /// are manipulable.
+    function _setPriceShiftDailyRateAndUpdateVirtualBalances(
+        uint256 priceShiftDailyRate
+    ) internal onlyWhenVaultIsLocked {
         // Update virtual balances with current daily rate.
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
         (uint256[] memory currentVirtualBalances, bool changed) = _getCurrentVirtualBalances(balancesScaled18);
@@ -337,7 +353,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         emit PriceShiftDailyRateUpdated(priceShiftDailyRate);
     }
 
-    function _setCenterednessMarginAndUpdateVirtualBalances(uint256 centerednessMargin) internal {
+    /// Using the pool balances to update the virtual balances is dangerous with an unlocked vault, since the balances
+    /// are manipulable.
+    function _setCenterednessMarginAndUpdateVirtualBalances(uint256 centerednessMargin) internal onlyWhenVaultIsLocked {
         // Update virtual balances with current daily rate.
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
         (uint256[] memory currentVirtualBalances, bool changed) = _getCurrentVirtualBalances(balancesScaled18);
@@ -352,7 +370,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     function _setCenterednessMargin(uint256 centerednessMargin) internal {
-        if (centerednessMargin > FixedPoint.ONE) {
+        if (centerednessMargin < _MIN_CENTEREDNESS_MARGIN || centerednessMargin > _MAX_CENTEREDNESS_MARGIN) {
             revert InvalidCenterednessMargin();
         }
 

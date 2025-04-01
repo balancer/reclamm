@@ -30,6 +30,9 @@ interface IReClammPool is IBasePool {
     /// @dev The centeredness margin is out of the range 0-100%.
     error InvalidCenterednessMargin();
 
+    /// @dev The vault is not locked, so the pool balances are manipulable.
+    error VaultIsNotLocked();
+
     event FourthRootPriceRatioUpdated(
         uint256 startFourthRootPriceRatio,
         uint256 endFourthRootPriceRatio,
