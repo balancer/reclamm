@@ -398,7 +398,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /**
      * @notice Sets the centeredness margin when the pool is created.
-     * @param centerednessMargin A percentage (0-100%) below which the pool is considered out of range
+     * @param centerednessMargin The new centerednessMargin value, which must be within range
      */
     function _setCenterednessMargin(uint256 centerednessMargin) internal {
         if (centerednessMargin < _MIN_CENTEREDNESS_MARGIN || centerednessMargin > _MAX_CENTEREDNESS_MARGIN) {
