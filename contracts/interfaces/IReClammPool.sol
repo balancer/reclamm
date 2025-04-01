@@ -27,7 +27,7 @@ interface IReClammPool is IBasePool {
     /// @dev The pool centeredness is too low after a swap.
     error PoolCenterednessTooLow();
 
-    /// @dev The centeredness margin is out of the range 0-100%.
+    /// @dev The centeredness margin is out of range.
     error InvalidCenterednessMargin();
 
     /// @dev The vault is not locked, so the pool balances are manipulable.
