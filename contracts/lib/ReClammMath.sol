@@ -469,7 +469,7 @@ library ReClammMath {
      * @param priceShiftDailyRate The price shift daily rate
      * @return timeConstant The time constant
      */
-    function parsePriceShiftDailyRate(uint256 priceShiftDailyRate) internal pure returns (uint128) {
+    function computePriceShiftDailyRate(uint256 priceShiftDailyRate) internal pure returns (uint128) {
         // Divide daily rate by a number of seconds per day (plus some adjustment)
         return (priceShiftDailyRate / _SECONDS_PER_DAY_WITH_ADJUSTMENT).toUint128();
     }

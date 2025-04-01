@@ -263,6 +263,6 @@ export function isAboveCenter(balancesScaled18: bigint[], virtualBalances: bigin
   }
 }
 
-export function parsePriceShiftDailyRate(priceShiftDailyRate: bigint): bigint {
+export function computePriceShiftDailyRate(priceShiftDailyRate: bigint): bigint {
   return bn(priceShiftDailyRate) / bn(124649);
 }

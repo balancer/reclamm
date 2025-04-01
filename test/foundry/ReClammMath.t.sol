@@ -34,7 +34,7 @@ contract ReClammMathTest is BaseReClammTest {
 
     function testParsePriceShiftDailyRate() public pure {
         uint256 value = 2123e9;
-        uint256 priceShiftDailyRateParsed = ReClammMath.parsePriceShiftDailyRate(value);
+        uint256 priceShiftDailyRateParsed = ReClammMath.computePriceShiftDailyRate(value);
 
         assertEq(
             priceShiftDailyRateParsed,
