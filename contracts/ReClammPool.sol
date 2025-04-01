@@ -384,7 +384,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     function _setCenterednessMarginAndUpdateVirtualBalances(
         uint256 centerednessMargin
     ) internal onlyWhenVaultIsLocked onlyWhenPoolIsInRange {
-        // Update virtual balances with current daily rate.
+        // Update the virtual balances using the current daily rate.
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
         (uint256[] memory currentVirtualBalances, bool changed) = _getCurrentVirtualBalances(balancesScaled18);
         if (changed) {
