@@ -23,6 +23,11 @@ contract ReClammLiquidityTest is BaseReClammTest {
         uint256 initialDaiBalance,
         uint256 initialUsdcBalance
     ) public {
+        // Setting balances to be at least 10 * min token balance, so LP can remove 90% of the liquidity
+        // without reverting.
+        initialDaiBalance = bound(initialDaiBalance, 10 * _MIN_TOKEN_BALANCE, dai.balanceOf(address(vault)));
+        initialUsdcBalance = bound(initialUsdcBalance, 10 * _MIN_TOKEN_BALANCE, usdc.balanceOf(address(vault)));
+
         _setPoolBalances(initialDaiBalance, initialUsdcBalance);
 
         uint256 totalSupply = vault.totalSupply(pool);
@@ -62,6 +67,11 @@ contract ReClammLiquidityTest is BaseReClammTest {
         uint256 initialDaiBalance,
         uint256 initialUsdcBalance
     ) public {
+        // Setting balances to be at least 10 * min token balance, so LP can remove 90% of the liquidity
+        // without reverting.
+        initialDaiBalance = bound(initialDaiBalance, 10 * _MIN_TOKEN_BALANCE, dai.balanceOf(address(vault)));
+        initialUsdcBalance = bound(initialUsdcBalance, 10 * _MIN_TOKEN_BALANCE, usdc.balanceOf(address(vault)));
+
         uint256[] memory initialBalancesScaled18 = _setPoolBalances(initialDaiBalance, initialUsdcBalance);
         ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
 
@@ -169,6 +179,11 @@ contract ReClammLiquidityTest is BaseReClammTest {
         uint256 initialDaiBalance,
         uint256 initialUsdcBalance
     ) public {
+        // Setting balances to be at least 10 * min token balance, so LP can remove 90% of the liquidity
+        // without reverting.
+        initialDaiBalance = bound(initialDaiBalance, 10 * _MIN_TOKEN_BALANCE, dai.balanceOf(address(vault)));
+        initialUsdcBalance = bound(initialUsdcBalance, 10 * _MIN_TOKEN_BALANCE, usdc.balanceOf(address(vault)));
+
         _setPoolBalances(initialDaiBalance, initialUsdcBalance);
 
         uint256 totalSupply = vault.totalSupply(pool);
@@ -208,6 +223,11 @@ contract ReClammLiquidityTest is BaseReClammTest {
         uint256 initialDaiBalance,
         uint256 initialUsdcBalance
     ) public {
+        // Setting balances to be at least 10 * min token balance, so LP can remove 90% of the liquidity
+        // without reverting.
+        initialDaiBalance = bound(initialDaiBalance, 10 * _MIN_TOKEN_BALANCE, dai.balanceOf(address(vault)));
+        initialUsdcBalance = bound(initialUsdcBalance, 10 * _MIN_TOKEN_BALANCE, usdc.balanceOf(address(vault)));
+
         uint256[] memory initialBalancesScaled18 = _setPoolBalances(initialDaiBalance, initialUsdcBalance);
         ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
 
@@ -317,6 +337,11 @@ contract ReClammLiquidityTest is BaseReClammTest {
         uint256 initialDaiBalance,
         uint256 initialUsdcBalance
     ) public {
+        // Setting balances to be at least 10 * min token balance, so LP can remove 90% of the liquidity
+        // without reverting.
+        initialDaiBalance = bound(initialDaiBalance, 10 * _MIN_TOKEN_BALANCE, dai.balanceOf(address(vault)));
+        initialUsdcBalance = bound(initialUsdcBalance, 10 * _MIN_TOKEN_BALANCE, usdc.balanceOf(address(vault)));
+
         // Set initial pool balances
         _setPoolBalances(initialDaiBalance, initialUsdcBalance);
 
@@ -359,6 +384,11 @@ contract ReClammLiquidityTest is BaseReClammTest {
         uint256 initialUsdcBalance,
         uint256 bobSwapAmountOut
     ) public {
+        // Setting balances to be at least 10 * min token balance, so LP can remove 90% of the liquidity
+        // without reverting.
+        initialDaiBalance = bound(initialDaiBalance, 10 * _MIN_TOKEN_BALANCE, dai.balanceOf(address(vault)));
+        initialUsdcBalance = bound(initialUsdcBalance, 10 * _MIN_TOKEN_BALANCE, usdc.balanceOf(address(vault)));
+
         // Set initial pool balances
         _setPoolBalances(initialDaiBalance, initialUsdcBalance);
 
