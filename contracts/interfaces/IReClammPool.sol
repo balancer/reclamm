@@ -56,7 +56,7 @@ interface IReClammPool is IBasePool {
     /**
      * @notice Set the centeredness margin.
      * @dev This function is considered a user action, so it will update the last timestamp and virtual balances.
-     * @param newCenterednessMargin The new centeredness margin.
+     * @param newCenterednessMargin The new centeredness margin
      */
     function setCenterednessMargin(uint256 newCenterednessMargin) external;
 }
