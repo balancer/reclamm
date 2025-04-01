@@ -118,19 +118,19 @@ library ReClammMath {
         uint256 invariant = computeInvariant(balancesScaled18, virtualBalances, Rounding.ROUND_UP);
         // Total (virtual + real) token out amount that should stay in the pool after the swap. Rounding division up,
         // which will round the token out amount down, favoring the vault.
-        uint256 tokenOutPoolAmount = invariant.divUp(
+        uint256 newTotalTokenOutPoolBalance = invariant.divUp(
             balancesScaled18[tokenInIndex] + virtualBalances[tokenInIndex] + amountInScaled18
         );
 
-        uint256 totalBalancesTokenOut = balancesScaled18[tokenOutIndex] + virtualBalances[tokenOutIndex];
+        uint256 currentTotalTokenOutPoolBalance = balancesScaled18[tokenOutIndex] + virtualBalances[tokenOutIndex];
 
-        if (tokenOutPoolAmount > totalBalancesTokenOut) {
+        if (newTotalTokenOutPoolBalance > currentTotalTokenOutPoolBalance) {
             // If the amount of `tokenOut` remaining in the pool post-swap is greater than the total balance of
             // `tokenOut`, that means the swap result is negative due to a rounding issue.
             revert NegativeAmountOut();
         }
 
-        amountOutScaled18 = totalBalancesTokenOut - tokenOutPoolAmount;
+        amountOutScaled18 = currentTotalTokenOutPoolBalance - newTotalTokenOutPoolBalance;
         if (amountOutScaled18 > balancesScaled18[tokenOutIndex]) {
             // Amount out cannot be bigger than the real balance of the token.
             revert AmountOutBiggerThanBalance();
@@ -308,10 +308,8 @@ library ReClammMath {
         uint256 b = balanceTokenUndervalued.mulDown(FixedPoint.ONE + poolCenteredness);
         uint256 c = balanceTokenUndervalued.mulDown(balanceTokenUndervalued).mulDown(poolCenteredness);
 
-        uint256 virtualBalanceUndervalued = (b + Math.sqrt((b.mulDown(b) + 4 * a.mulDown(c)) * FixedPoint.ONE)).divDown(
-            2 * a
-        );
-        // Avoid using FixedPoint math to improve the precision of the result.
+        // Using FixedPoint math as minimum as possible to improve the precision of the result.
+        uint256 virtualBalanceUndervalued = (b + Math.sqrt(b * b + 4 * a * c)).divDown(2 * a);
         virtualBalances[indexTokenOvervalued] = ((balanceTokenOvervalued * virtualBalanceUndervalued) /
             balanceTokenUndervalued).divDown(poolCenteredness);
         virtualBalances[indexTokenUndervalued] = virtualBalanceUndervalued;
