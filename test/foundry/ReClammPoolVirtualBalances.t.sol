@@ -145,9 +145,6 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
 
         uint256 initialFourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
 
-        console2.log("initialFourthRootPriceRatio", initialFourthRootPriceRatio);
-        console2.log("endFourthRootPriceRatio", endFourthRootPriceRatio);
-
         uint32 duration = 2 hours;
 
         uint256[] memory poolVirtualBalancesBefore = ReClammPool(pool).getCurrentVirtualBalances();
