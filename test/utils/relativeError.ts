@@ -12,11 +12,7 @@ export function expectEqualWithError(
   expected = bn(expected);
   const acceptedError = pct(expected, error);
 
-  if (actual >= 0) {
-    expect(Number(actual)).to.be.at.least(Number(expected - acceptedError), message);
-    expect(Number(actual)).to.be.at.most(Number(expected + acceptedError), message);
-  } else {
-    expect(Number(actual)).to.be.at.most(Number(expected - acceptedError), message);
-    expect(Number(actual)).to.be.at.least(Number(expected + acceptedError), message);
-  }
+  const absoluteError = Math.abs(Number(actual - expected));
+
+  expect(absoluteError).to.be.at.most(Number(acceptedError), message);
 }
