@@ -453,6 +453,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     // Updates the last timestamp to the current timestamp.
     function _updateTimestamp() internal {
         _lastTimestamp = block.timestamp.toUint32();
+
+        emit LastTimestampUpdated(_lastTimestamp);
     }
 
     /**

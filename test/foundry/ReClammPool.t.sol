@@ -2,19 +2,21 @@
 
 pragma solidity ^0.8.24;
 
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { IAuthentication } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/helpers/IAuthentication.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 
+import { PriceRatioState, ReClammMath } from "../../contracts/lib/ReClammMath.sol";
+import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
+import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
-import { PriceRatioState, ReClammMath } from "../../contracts/lib/ReClammMath.sol";
-import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
-import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
 
 contract ReClammPoolTest is BaseReClammTest {
     using FixedPoint for uint256;
+    using SafeCast for *;
 
     function testGetCurrentFourthRootPriceRatio() public view {
         uint256 fourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
@@ -146,6 +148,7 @@ contract ReClammPoolTest is BaseReClammTest {
             newPriceShiftDailyRate,
             ReClammMath.computePriceShiftDailyRate(newPriceShiftDailyRate)
         );
+        emit IReClammPool.LastTimestampUpdated(block.timestamp.toUint32());
         ReClammPool(pool).setPriceShiftDailyRate(newPriceShiftDailyRate);
     }
 
@@ -185,6 +188,7 @@ contract ReClammPoolTest is BaseReClammTest {
             newPriceShiftDailyRate,
             ReClammMath.computePriceShiftDailyRate(newPriceShiftDailyRate)
         );
+        emit IReClammPool.LastTimestampUpdated(block.timestamp.toUint32());
         ReClammPool(pool).setPriceShiftDailyRate(newPriceShiftDailyRate);
 
         assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp was not updated");
@@ -201,6 +205,7 @@ contract ReClammPoolTest is BaseReClammTest {
         vm.prank(admin);
         vm.expectEmit();
         emit IReClammPool.CenterednessMarginUpdated(newCenterednessMargin);
+        emit IReClammPool.LastTimestampUpdated(block.timestamp.toUint32());
         ReClammPool(pool).setCenterednessMargin(newCenterednessMargin);
     }
 
@@ -283,6 +288,7 @@ contract ReClammPoolTest is BaseReClammTest {
         vm.prank(admin);
         vm.expectEmit();
         emit IReClammPool.CenterednessMarginUpdated(newCenterednessMargin);
+        emit IReClammPool.LastTimestampUpdated(block.timestamp.toUint32());
         ReClammPool(pool).setCenterednessMargin(newCenterednessMargin);
 
         assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp was not updated");
