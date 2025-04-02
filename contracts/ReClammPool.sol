@@ -84,6 +84,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _setPriceRatioState(params.fourthRootPriceRatio, 0, block.timestamp);
     }
 
+    /********************************************************
+                    Base Pool Functions
+    ********************************************************/
+
     /// @inheritdoc IBasePool
     function computeInvariant(uint256[] memory balancesScaled18, Rounding rounding) public view returns (uint256) {
         return
@@ -151,6 +155,34 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             );
         }
     }
+
+    /// @inheritdoc ISwapFeePercentageBounds
+    function getMinimumSwapFeePercentage() external pure returns (uint256) {
+        return _MIN_SWAP_FEE_PERCENTAGE;
+    }
+
+    /// @inheritdoc ISwapFeePercentageBounds
+    function getMaximumSwapFeePercentage() external pure returns (uint256) {
+        return _MAX_SWAP_FEE_PERCENTAGE;
+    }
+
+    /// @inheritdoc IUnbalancedLiquidityInvariantRatioBounds
+    function getMinimumInvariantRatio() external pure returns (uint256) {
+        // The invariant ratio bounds are required by `IBasePool`, but are unused in this pool type, as liquidity can
+        // only be added or removed proportionally.
+        return 0;
+    }
+
+    /// @inheritdoc IUnbalancedLiquidityInvariantRatioBounds
+    function getMaximumInvariantRatio() external pure returns (uint256) {
+        // The invariant ratio bounds are required by `IBasePool`, but are unused in this pool type, as liquidity can
+        // only be added or removed proportionally.
+        return 0;
+    }
+
+    /********************************************************
+                        Hooks Functions
+    ********************************************************/
 
     /// @inheritdoc IHooks
     function getHookFlags() public pure override returns (HookFlags memory hookFlags) {
@@ -254,29 +286,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         return true;
     }
 
-    /// @inheritdoc ISwapFeePercentageBounds
-    function getMinimumSwapFeePercentage() external pure returns (uint256) {
-        return _MIN_SWAP_FEE_PERCENTAGE;
-    }
-
-    /// @inheritdoc ISwapFeePercentageBounds
-    function getMaximumSwapFeePercentage() external pure returns (uint256) {
-        return _MAX_SWAP_FEE_PERCENTAGE;
-    }
-
-    /// @inheritdoc IUnbalancedLiquidityInvariantRatioBounds
-    function getMinimumInvariantRatio() external pure returns (uint256) {
-        // The invariant ratio bounds are required by `IBasePool`, but are unused in this pool type, as liquidity can
-        // only be added or removed proportionally.
-        return 0;
-    }
-
-    /// @inheritdoc IUnbalancedLiquidityInvariantRatioBounds
-    function getMaximumInvariantRatio() external pure returns (uint256) {
-        // The invariant ratio bounds are required by `IBasePool`, but are unused in this pool type, as liquidity can
-        // only be added or removed proportionally.
-        return 0;
-    }
+    /********************************************************
+                        Pool State Getters
+    ********************************************************/
 
     /// @inheritdoc IReClammPool
     function getCurrentVirtualBalances() external view returns (uint256[] memory currentVirtualBalances) {
@@ -298,6 +310,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     function getCurrentFourthRootPriceRatio() external view override returns (uint96) {
         return _calculateCurrentFourthRootPriceRatio();
     }
+
+    /********************************************************   
+                        Pool State Setters
+    ********************************************************/
 
     /// @inheritdoc IReClammPool
     function setPriceRatioState(
@@ -322,6 +338,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     ) external onlySwapFeeManagerOrGovernance(address(this)) {
         _setCenterednessMarginAndUpdateVirtualBalances(newCenterednessMargin);
     }
+
+    /********************************************************
+                        Internal Helpers
+    ********************************************************/
 
     function _getCurrentVirtualBalances(
         uint256[] memory balancesScaled18
