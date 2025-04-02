@@ -110,6 +110,7 @@ interface IReClammPool is IBasePool {
 
     /**
      * @notice Returns the current price ratio state.
+     * @dev This includes start and end values for the fourth root price ratio, and start and end times for the update.
      * @return priceRatioState The current price ratio state
      */
     function getPriceRatioState() external view returns (PriceRatioState memory priceRatioState);
