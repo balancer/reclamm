@@ -75,7 +75,7 @@ interface IReClammPool is IBasePool {
     ********************************************************/
 
     /**
-     * @notice Returns the current virtual balances.
+     * @notice Returns the current virtual balances and a flag indicating whether they have changed.
      * @dev The current virtual balances are calculated based on the last virtual balances. If the pool is in range
      * and the price ratio is not updating, the virtual balances will not change. If the pool is out of range or the
      * price ratio is updating, this function will calculate the new virtual balances based on the timestamp of the
