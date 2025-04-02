@@ -82,7 +82,7 @@ interface IReClammPool is IBasePool {
      * last user interaction. Note that virtual balances are always scaled18 values.
      *
      * @return currentVirtualBalances The current virtual balances
-     * @return changed Whether the virtual balances are different from lastVirtualBalances
+     * @return changed Whether the current virtual balances are different from `lastVirtualBalances`
      */
     function getCurrentVirtualBalances() external view returns (uint256[] memory currentVirtualBalances, bool changed);
 
