@@ -2,6 +2,8 @@
 
 pragma solidity ^0.8.24;
 
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 import { IBasePool } from "@balancer-labs/v3-interfaces/contracts/vault/IBasePool.sol";
 
 /// @dev Struct with data for deploying a new ReClammPool.
@@ -12,6 +14,59 @@ struct ReClammPoolParams {
     uint256 priceShiftDailyRate;
     uint96 fourthRootPriceRatio;
     uint64 centerednessMargin;
+}
+
+/**
+ * @notice ReClamm Pool data that cannot change after deployment.
+ * @param tokens Pool tokens, sorted in token registration order
+ * @param decimalScalingFactors Conversion factor used to adjust for token decimals for uniform precision in
+ * calculations. FP(1) for 18-decimal tokens
+ */
+struct ReClammPoolImmutableData {
+    IERC20[] tokens;
+    uint256[] decimalScalingFactors;
+}
+
+/**
+ * @notice Snapshot of current ReClamm Pool data that can change.
+ * @dev Note that live balances will not necessarily be accurate if the pool is in Recovery Mode. Withdrawals
+ * in Recovery Mode do not make external calls (including those necessary for updating live balances), so if
+ * there are withdrawals, raw and live balances will be out of sync until Recovery Mode is disabled.
+ *
+ * @param balancesLiveScaled18 Token balances after paying yield fees, applying decimal scaling and rates
+ * @param tokenRates 18-decimal FP values for rate tokens (e.g., yield-bearing), or FP(1) for standard tokens
+ * @param staticSwapFeePercentage 18-decimal FP value of the static swap fee percentage
+ * @param totalSupply The current total supply of the pool tokens (BPT)
+ * @param lastTimestamp The timestamp of the last user interaction
+ * @param lastVirtualBalances The last virtual balances of the pool
+ * @param timeConstant The time constant of the pool
+ * @param centerednessMargin The centeredness margin of the pool
+ * @param currentFourthRootPriceRatio The current fourth root price ratio, an interpolation of the price ratio state
+ * @param startFourthRootPriceRatio The fourth root price ratio at the start of an update
+ * @param endFourthRootPriceRatio The fourth root price ratio at the end of an update
+ * @param startTime The timestamp when the update begins
+ * @param endTime The timestamp when the update ends
+ * @param isPoolInitialized If false, the pool has not been seeded with initial liquidity, so operations will revert
+ * @param isPoolPaused If true, the pool is paused, and all non-recovery-mode state-changing operations will revert
+ * @param isPoolInRecoveryMode If true, Recovery Mode withdrawals are enabled, and live balances may be inaccurate
+ */
+struct ReClammPoolDynamicData {
+    uint256[] balancesLiveScaled18;
+    uint256[] tokenRates;
+    uint256 staticSwapFeePercentage;
+    uint256 totalSupply;
+    uint256 lastTimestamp;
+    uint256[] lastVirtualBalances;
+    uint256 timeConstant;
+    uint256 centerednessMargin;
+    uint256 currentFourthRootPriceRatio;
+    uint256 startFourthRootPriceRatio;
+    uint256 endFourthRootPriceRatio;
+    uint32 startTime;
+    uint32 endTime;
+    bool isPoolInitialized;
+    bool isPoolPaused;
+    bool isPoolInRecoveryMode;
 }
 
 interface IReClammPool is IBasePool {
@@ -75,6 +130,18 @@ interface IReClammPool is IBasePool {
      * @return currentFourthRootPriceRatio The current fourth root of price ratio
      */
     function getCurrentFourthRootPriceRatio() external view returns (uint96);
+
+    /**
+     * @notice Get dynamic pool data relevant to swap/add/remove calculations.
+     * @return data A struct containing all dynamic ReClamm pool parameters
+     */
+    function getReClammPoolDynamicData() external view returns (ReClammPoolDynamicData memory data);
+
+    /**
+     * @notice Get immutable pool data relevant to swap/add/remove calculations.
+     * @return data A struct containing all immutable ReClamm pool parameters
+     */
+    function getReClammPoolImmutableData() external view returns (ReClammPoolImmutableData memory data);
 
     /**
      * @notice Resets the price ratio update by setting a new end fourth root price ratio and time range.

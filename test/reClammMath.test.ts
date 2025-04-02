@@ -330,7 +330,7 @@ describe('ReClammMath', function () {
     }> => {
       await (await mathLib.setPriceRatioState(priceRatioState)).wait();
 
-      const contractCurrentVirtualBalances = await mathLib.getCurrentVirtualBalances(
+      const [contractCurrentVirtualBalances, contractChanged] = await mathLib.getCurrentVirtualBalances(
         balancesScaled18,
         lastVirtualBalances,
         TIME_CONSTANT,
@@ -340,7 +340,7 @@ describe('ReClammMath', function () {
 
       const blockTimestamp = await getTimestampFromLastBlock();
 
-      const javascriptCurrentVirtualBalances = getCurrentVirtualBalances(
+      const [jsCurrentVirtualBalances, jsChanged] = getCurrentVirtualBalances(
         balancesScaled18,
         lastVirtualBalances,
         TIME_CONSTANT,
@@ -350,22 +350,14 @@ describe('ReClammMath', function () {
         priceRatioState
       );
 
-      expect(contractCurrentVirtualBalances[0].length).to.equal(javascriptCurrentVirtualBalances[0].length);
-      expect(contractCurrentVirtualBalances[0].length).to.equal(2);
-      expectEqualWithError(
-        contractCurrentVirtualBalances[0][0],
-        javascriptCurrentVirtualBalances[0][0],
-        EXPECTED_RELATIVE_ERROR
-      );
-      expectEqualWithError(
-        contractCurrentVirtualBalances[0][1],
-        javascriptCurrentVirtualBalances[0][1],
-        EXPECTED_RELATIVE_ERROR
-      );
-      expect(contractCurrentVirtualBalances[1]).to.equal(javascriptCurrentVirtualBalances[1]);
-      expect(contractCurrentVirtualBalances[1]).to.equal(expectChange);
+      expect(contractCurrentVirtualBalances.length).to.equal(jsCurrentVirtualBalances.length);
+      expect(contractCurrentVirtualBalances.length).to.equal(2);
+      expectEqualWithError(contractCurrentVirtualBalances[0], jsCurrentVirtualBalances[0], EXPECTED_RELATIVE_ERROR);
+      expectEqualWithError(contractCurrentVirtualBalances[1], jsCurrentVirtualBalances[1], EXPECTED_RELATIVE_ERROR);
+      expect(contractChanged).to.equal(jsChanged);
+      expect(contractChanged).to.equal(expectChange);
 
-      return { virtualBalances: [contractCurrentVirtualBalances[0][0], contractCurrentVirtualBalances[0][1]] };
+      return { virtualBalances: [contractCurrentVirtualBalances[0], contractCurrentVirtualBalances[1]] };
     };
 
     it('q is updating & isPoolInRange == true && lastTimestamp < startTime', async () => {

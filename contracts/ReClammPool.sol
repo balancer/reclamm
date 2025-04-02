@@ -19,7 +19,12 @@ import { Version } from "@balancer-labs/v3-solidity-utils/contracts/helpers/Vers
 import { PoolInfo } from "@balancer-labs/v3-pool-utils/contracts/PoolInfo.sol";
 import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
 
-import { ReClammPoolParams, IReClammPool } from "./interfaces/IReClammPool.sol";
+import {
+    ReClammPoolParams,
+    ReClammPoolDynamicData,
+    ReClammPoolImmutableData,
+    IReClammPool
+} from "./interfaces/IReClammPool.sol";
 import { PriceRatioState, ReClammMath } from "./lib/ReClammMath.sol";
 
 contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthentication, Version, BaseHooks {
@@ -292,6 +297,38 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     /// @inheritdoc IReClammPool
     function getCurrentFourthRootPriceRatio() external view override returns (uint96) {
         return _calculateCurrentFourthRootPriceRatio();
+    }
+
+    /// @inheritdoc IReClammPool
+    function getReClammPoolDynamicData() external view returns (ReClammPoolDynamicData memory data) {
+        data.balancesLiveScaled18 = _vault.getCurrentLiveBalances(address(this));
+        (, data.tokenRates) = _vault.getPoolTokenRates(address(this));
+        data.staticSwapFeePercentage = _vault.getStaticSwapFeePercentage((address(this)));
+        data.totalSupply = totalSupply();
+
+        data.lastTimestamp = _lastTimestamp;
+        data.lastVirtualBalances = _lastVirtualBalances;
+        data.timeConstant = _timeConstant;
+        data.centerednessMargin = _centerednessMargin;
+
+        data.currentFourthRootPriceRatio = _calculateCurrentFourthRootPriceRatio();
+
+        PriceRatioState memory state = _priceRatioState;
+        data.startFourthRootPriceRatio = state.startFourthRootPriceRatio;
+        data.endFourthRootPriceRatio = state.endFourthRootPriceRatio;
+        data.startTime = state.startTime;
+        data.endTime = state.endTime;
+
+        PoolConfig memory poolConfig = _vault.getPoolConfig(address(this));
+        data.isPoolInitialized = poolConfig.isPoolInitialized;
+        data.isPoolPaused = poolConfig.isPoolPaused;
+        data.isPoolInRecoveryMode = poolConfig.isPoolInRecoveryMode;
+    }
+
+    /// @inheritdoc IReClammPool
+    function getReClammPoolImmutableData() external view returns (ReClammPoolImmutableData memory data) {
+        data.tokens = _vault.getPoolTokens(address(this));
+        (data.decimalScalingFactors, ) = _vault.getPoolTokenRates(address(this));
     }
 
     /// @inheritdoc IReClammPool
