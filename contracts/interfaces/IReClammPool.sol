@@ -94,6 +94,9 @@ interface IReClammPool is IBasePool {
 
     /**
      * @notice Returns the centeredness margin.
+     * @dev The centeredness margin is a symmetrical measure of how closely an unbalanced pool can approach the limits
+     * of the price range before the pool is considered out of range.
+     *
      * @return centerednessMargin The current centeredness margin
      */
     function getCenterednessMargin() external view returns (uint256 centerednessMargin);
