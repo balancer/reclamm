@@ -307,6 +307,21 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
+    function getCenterednessMargin() external view returns (uint256) {
+        return _centerednessMargin;
+    }
+
+    /// @inheritdoc IReClammPool
+    function getTimeConstant() external view returns (uint256) {
+        return _timeConstant;
+    }
+
+    /// @inheritdoc IReClammPool
+    function getPriceRatioState() external view returns (PriceRatioState memory) {
+        return _priceRatioState;
+    }
+
+    /// @inheritdoc IReClammPool
     function getCurrentFourthRootPriceRatio() external view override returns (uint96) {
         return _calculateCurrentFourthRootPriceRatio();
     }

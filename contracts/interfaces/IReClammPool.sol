@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 
 import { IBasePool } from "@balancer-labs/v3-interfaces/contracts/vault/IBasePool.sol";
 
+import { PriceRatioState } from "../lib/ReClammMath.sol";
+
 /// @dev Struct with data for deploying a new ReClammPool.
 struct ReClammPoolParams {
     string name;
@@ -15,6 +17,10 @@ struct ReClammPoolParams {
 }
 
 interface IReClammPool is IBasePool {
+    /********************************************************   
+                           Errors
+    ********************************************************/
+
     /// @dev Indicates that the start time is after the end time.
     error GradualUpdateTimeTravel(uint256 resolvedStartTime, uint256 endTime);
 
@@ -35,6 +41,10 @@ interface IReClammPool is IBasePool {
 
     /// @dev The pool is out of range before or after the operation.
     error PoolIsOutOfRange();
+
+    /********************************************************
+                           Events
+    ********************************************************/
 
     /// @notice The Price Ratio State was updated.
     event PriceRatioStateUpdated(
@@ -57,6 +67,10 @@ interface IReClammPool is IBasePool {
     /// @dev The Centeredness Margin was updated.
     event CenterednessMarginUpdated(uint256 centerednessMargin);
 
+    /********************************************************
+                       Pool State Getters
+    ********************************************************/
+
     /**
      * @notice Returns the current virtual balances.
      * @dev The current virtual balances are calculated based on the last virtual balances. If the pool is in range
@@ -75,6 +89,24 @@ interface IReClammPool is IBasePool {
     function getLastVirtualBalances() external view returns (uint256[] memory lastVirtualBalances);
 
     /**
+     * @notice Returns the centeredness margin.
+     * @return centerednessMargin The current centeredness margin
+     */
+    function getCenterednessMargin() external view returns (uint256 centerednessMargin);
+
+    /**
+     * @notice Returns the time constant.
+     * @return timeConstant The time constant
+     */
+    function getTimeConstant() external view returns (uint256 timeConstant);
+
+    /**
+     * @notice Returns the current price ratio state.
+     * @return priceRatioState The current price ratio state
+     */
+    function getPriceRatioState() external view returns (PriceRatioState memory priceRatioState);
+
+    /**
      * @notice Returns the current fourth root of price ratio.
      * @dev The current fourth root of price ratio is an interpolation of the price ratio between the start and end
      * values in the price ratio state, using the percentage elapsed between the start and end times.
@@ -82,6 +114,10 @@ interface IReClammPool is IBasePool {
      * @return currentFourthRootPriceRatio The current fourth root of price ratio
      */
     function getCurrentFourthRootPriceRatio() external view returns (uint96);
+
+    /********************************************************
+                       Pool State Setters
+    ********************************************************/
 
     /**
      * @notice Resets the price ratio update by setting a new end fourth root price ratio and time range.

@@ -9,7 +9,7 @@ import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/Fixe
 
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
-import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
+import { PriceRatioState, ReClammMath } from "../../contracts/lib/ReClammMath.sol";
 import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
 import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
 
@@ -19,6 +19,89 @@ contract ReClammPoolTest is BaseReClammTest {
     function testGetCurrentFourthRootPriceRatio() public view {
         uint256 fourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
         assertEq(fourthRootPriceRatio, _DEFAULT_FOURTH_ROOT_PRICE_RATIO, "Invalid default fourthRootPriceRatio");
+    }
+
+    function testGetCenterednessMargin() public {
+        uint256 centerednessMargin = ReClammPool(pool).getCenterednessMargin();
+        assertEq(centerednessMargin, _DEFAULT_CENTEREDNESS_MARGIN, "Invalid default centerednessMargin");
+
+        uint256 newCenterednessMargin = 50e16;
+        vm.prank(admin);
+        ReClammPool(pool).setCenterednessMargin(newCenterednessMargin);
+
+        centerednessMargin = ReClammPool(pool).getCenterednessMargin();
+        assertEq(centerednessMargin, newCenterednessMargin, "Invalid new centerednessMargin");
+    }
+
+    function testGetLastTimestamp() public {
+        // Call any function that updates the last timestamp.
+        vm.prank(admin);
+        ReClammPool(pool).setPriceShiftDailyRate(20e16);
+
+        uint256 lastTimestampBeforeWarp = ReClammPool(pool).getLastTimestamp();
+        assertEq(lastTimestampBeforeWarp, block.timestamp, "Invalid lastTimestamp before warp");
+
+        skip(1 hours);
+        uint256 lastTimestampAfterWarp = ReClammPool(pool).getLastTimestamp();
+        assertEq(lastTimestampAfterWarp, lastTimestampBeforeWarp, "Invalid lastTimestamp after warp");
+
+        // Call any function that updates the last timestamp.
+        vm.prank(admin);
+        ReClammPool(pool).setPriceShiftDailyRate(30e16);
+
+        uint256 lastTimestampAfterSetPriceShiftDailyRate = ReClammPool(pool).getLastTimestamp();
+        assertEq(
+            lastTimestampAfterSetPriceShiftDailyRate,
+            block.timestamp,
+            "Invalid lastTimestamp after setPriceShiftDailyRate"
+        );
+    }
+
+    function testGetTimeConstant() public {
+        uint256 priceShiftDailyRate = 20e16;
+        uint256 expectedTimeConstant = ReClammMath.computePriceShiftDailyRate(priceShiftDailyRate);
+        vm.prank(admin);
+        ReClammPool(pool).setPriceShiftDailyRate(priceShiftDailyRate);
+
+        uint256 actualTimeConstant = ReClammPool(pool).getTimeConstant();
+        assertEq(actualTimeConstant, expectedTimeConstant, "Invalid timeConstant");
+    }
+
+    function testGetPriceRatioState() public {
+        PriceRatioState memory priceRatioState = ReClammPool(pool).getPriceRatioState();
+        assertEq(
+            priceRatioState.startFourthRootPriceRatio,
+            _DEFAULT_FOURTH_ROOT_PRICE_RATIO,
+            "Invalid default startFourthRootPriceRatio"
+        );
+        assertEq(
+            priceRatioState.endFourthRootPriceRatio,
+            _DEFAULT_FOURTH_ROOT_PRICE_RATIO,
+            "Invalid default endFourthRootPriceRatio"
+        );
+        assertEq(priceRatioState.startTime, 0, "Invalid default startTime");
+        assertEq(priceRatioState.endTime, block.timestamp, "Invalid default endTime");
+
+        uint256 oldFourthRootPriceRatio = priceRatioState.endFourthRootPriceRatio;
+        uint256 newFourthRootPriceRatio = 5e18;
+        uint256 newStartTime = block.timestamp;
+        uint256 newEndTime = block.timestamp + 1 hours;
+        vm.prank(admin);
+        ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, newStartTime, newEndTime);
+
+        priceRatioState = ReClammPool(pool).getPriceRatioState();
+        assertEq(
+            priceRatioState.startFourthRootPriceRatio,
+            oldFourthRootPriceRatio,
+            "Invalid new startFourthRootPriceRatio"
+        );
+        assertEq(
+            priceRatioState.endFourthRootPriceRatio,
+            newFourthRootPriceRatio,
+            "Invalid new endFourthRootPriceRatio"
+        );
+        assertEq(priceRatioState.startTime, newStartTime, "Invalid new startTime");
+        assertEq(priceRatioState.endTime, newEndTime, "Invalid new endTime");
     }
 
     function testSetFourthRootPriceRatio() public {
