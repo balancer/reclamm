@@ -291,9 +291,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     ********************************************************/
 
     /// @inheritdoc IReClammPool
-    function getCurrentVirtualBalances() external view returns (uint256[] memory currentVirtualBalances) {
+    function getCurrentVirtualBalances() external view returns (uint256[] memory currentVirtualBalances, bool changed) {
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
-        (currentVirtualBalances, ) = _getCurrentVirtualBalances(balancesScaled18);
+        (currentVirtualBalances, changed) = _getCurrentVirtualBalances(balancesScaled18);
     }
 
     /// @inheritdoc IReClammPool

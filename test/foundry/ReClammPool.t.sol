@@ -167,7 +167,7 @@ contract ReClammPoolTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         // Check if the last virtual balances stored in the pool are different from the current virtual balances.
-        uint256[] memory virtualBalancesBefore = ReClammPool(pool).getCurrentVirtualBalances();
+        (uint256[] memory virtualBalancesBefore, ) = ReClammPool(pool).getCurrentVirtualBalances();
         uint256[] memory lastVirtualBalancesBeforeSet = ReClammPoolMock(pool).getLastVirtualBalances();
 
         assertNotEq(
@@ -238,7 +238,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
     function testOutOfRangeAfterSetCenterednessMargin() public {
         // Move the pool close to the current margin.
-        uint256[] memory virtualBalances = ReClammPool(pool).getCurrentVirtualBalances();
+        (uint256[] memory virtualBalances, ) = ReClammPool(pool).getCurrentVirtualBalances();
         uint256 newBalanceB = 100e18;
 
         // Pool Centeredness = Ra * Vb / (Rb * Va). Make centeredness = margin, and you have the equation below.
@@ -270,7 +270,7 @@ contract ReClammPoolTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         // Check if the last virtual balances stored in the pool are different from the current virtual balances.
-        uint256[] memory virtualBalancesBefore = ReClammPool(pool).getCurrentVirtualBalances();
+        (uint256[] memory virtualBalancesBefore, ) = ReClammPool(pool).getCurrentVirtualBalances();
         uint256[] memory lastVirtualBalancesBeforeSet = ReClammPoolMock(pool).getLastVirtualBalances();
 
         assertNotEq(
