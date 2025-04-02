@@ -140,6 +140,11 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(fourthRootPriceRatio, endFourthRootPriceRatio, "FourthRootPriceRatio does not match new value");
     }
 
+    function testGetRate() public {
+        vm.expectRevert(IReClammPool.ReClammPoolBptRateUnsupported.selector);
+        ReClammPool(pool).getRate();
+    }
+
     function testSetPriceShiftDailyRate() public {
         uint256 newPriceShiftDailyRate = 200e16;
         vm.prank(admin);
