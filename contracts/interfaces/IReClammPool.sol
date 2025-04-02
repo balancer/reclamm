@@ -103,6 +103,14 @@ interface IReClammPool is IBasePool {
     /// @dev The pool is out of range before or after the operation.
     error PoolIsOutOfRange();
 
+    /**
+     * @notice `getRate` from `IRateProvider` was called on a ReClamm Pool.
+     * @dev ReClamm Pools should never be nested. This is because the invariant of the pool is used only to calculate
+     * swaps. However, when tracking the market price or shrinking/expanding the liquidity concentration, the invariant
+     * can decrease/increase, which makes the BPT rate meaningless.
+     */
+    error ReClammPoolBptRateUnsupported();
+
     /********************************************************
                            Events
     ********************************************************/
