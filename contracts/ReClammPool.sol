@@ -278,6 +278,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         return 0;
     }
 
+    /// @inheritdoc IRateProvider
+    function getRate() public pure override returns (uint256) {
+        revert ReClammPoolBptRateUnsupported();
+    }
+
     /// @inheritdoc IReClammPool
     function getCurrentVirtualBalances() external view returns (uint256[] memory currentVirtualBalances) {
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
