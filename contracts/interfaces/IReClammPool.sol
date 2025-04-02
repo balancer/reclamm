@@ -67,7 +67,7 @@ interface IReClammPool is IBasePool {
     /// @dev The Centeredness Margin was updated.
     event CenterednessMarginUpdated(uint256 centerednessMargin);
 
-    /// @dev The Last Timestamp was updated.
+    /// @dev The timestamp of the last user interaction.
     event LastTimestampUpdated(uint32 lastTimestamp);
 
     /********************************************************
