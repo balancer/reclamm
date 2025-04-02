@@ -84,6 +84,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _setPriceRatioState(params.fourthRootPriceRatio, 0, block.timestamp);
     }
 
+    /********************************************************
+                    Base Pool Functions
+    ********************************************************/
+
     /// @inheritdoc IBasePool
     function computeInvariant(uint256[] memory balancesScaled18, Rounding rounding) public view returns (uint256) {
         return
@@ -151,6 +155,34 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             );
         }
     }
+
+    /// @inheritdoc ISwapFeePercentageBounds
+    function getMinimumSwapFeePercentage() external pure returns (uint256) {
+        return _MIN_SWAP_FEE_PERCENTAGE;
+    }
+
+    /// @inheritdoc ISwapFeePercentageBounds
+    function getMaximumSwapFeePercentage() external pure returns (uint256) {
+        return _MAX_SWAP_FEE_PERCENTAGE;
+    }
+
+    /// @inheritdoc IUnbalancedLiquidityInvariantRatioBounds
+    function getMinimumInvariantRatio() external pure returns (uint256) {
+        // The invariant ratio bounds are required by `IBasePool`, but are unused in this pool type, as liquidity can
+        // only be added or removed proportionally.
+        return 0;
+    }
+
+    /// @inheritdoc IUnbalancedLiquidityInvariantRatioBounds
+    function getMaximumInvariantRatio() external pure returns (uint256) {
+        // The invariant ratio bounds are required by `IBasePool`, but are unused in this pool type, as liquidity can
+        // only be added or removed proportionally.
+        return 0;
+    }
+
+    /********************************************************
+                        Hooks Functions
+    ********************************************************/
 
     /// @inheritdoc IHooks
     function getHookFlags() public pure override returns (HookFlags memory hookFlags) {
@@ -254,29 +286,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         return true;
     }
 
-    /// @inheritdoc ISwapFeePercentageBounds
-    function getMinimumSwapFeePercentage() external pure returns (uint256) {
-        return _MIN_SWAP_FEE_PERCENTAGE;
-    }
-
-    /// @inheritdoc ISwapFeePercentageBounds
-    function getMaximumSwapFeePercentage() external pure returns (uint256) {
-        return _MAX_SWAP_FEE_PERCENTAGE;
-    }
-
-    /// @inheritdoc IUnbalancedLiquidityInvariantRatioBounds
-    function getMinimumInvariantRatio() external pure returns (uint256) {
-        // The invariant ratio bounds are required by `IBasePool`, but are unused in this pool type, as liquidity can
-        // only be added or removed proportionally.
-        return 0;
-    }
-
-    /// @inheritdoc IUnbalancedLiquidityInvariantRatioBounds
-    function getMaximumInvariantRatio() external pure returns (uint256) {
-        // The invariant ratio bounds are required by `IBasePool`, but are unused in this pool type, as liquidity can
-        // only be added or removed proportionally.
-        return 0;
-    }
+    /********************************************************
+                        Pool State Getters
+    ********************************************************/
 
     /// @inheritdoc IRateProvider
     function getRate() public pure override returns (uint256) {
@@ -284,9 +296,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function getCurrentVirtualBalances() external view returns (uint256[] memory currentVirtualBalances) {
+    function getCurrentVirtualBalances() external view returns (uint256[] memory currentVirtualBalances, bool changed) {
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
-        (currentVirtualBalances, ) = _getCurrentVirtualBalances(balancesScaled18);
+        (currentVirtualBalances, changed) = _getCurrentVirtualBalances(balancesScaled18);
     }
 
     /// @inheritdoc IReClammPool
@@ -295,9 +307,33 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
+    function getLastVirtualBalances() external view returns (uint256[] memory) {
+        return _lastVirtualBalances;
+    }
+
+    /// @inheritdoc IReClammPool
+    function getCenterednessMargin() external view returns (uint256) {
+        return _centerednessMargin;
+    }
+
+    /// @inheritdoc IReClammPool
+    function getTimeConstant() external view returns (uint256) {
+        return _timeConstant;
+    }
+
+    /// @inheritdoc IReClammPool
+    function getPriceRatioState() external view returns (PriceRatioState memory) {
+        return _priceRatioState;
+    }
+
+    /// @inheritdoc IReClammPool
     function getCurrentFourthRootPriceRatio() external view override returns (uint96) {
         return _calculateCurrentFourthRootPriceRatio();
     }
+
+    /********************************************************   
+                        Pool State Setters
+    ********************************************************/
 
     /// @inheritdoc IReClammPool
     function setPriceRatioState(
@@ -322,6 +358,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     ) external onlySwapFeeManagerOrGovernance(address(this)) {
         _setCenterednessMarginAndUpdateVirtualBalances(newCenterednessMargin);
     }
+
+    /********************************************************
+                        Internal Helpers
+    ********************************************************/
 
     function _getCurrentVirtualBalances(
         uint256[] memory balancesScaled18
@@ -379,7 +419,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     function _setPriceShiftDailyRate(uint256 priceShiftDailyRate) internal {
         _timeConstant = ReClammMath.computePriceShiftDailyRate(priceShiftDailyRate);
 
-        emit PriceShiftDailyRateUpdated(priceShiftDailyRate);
+        emit PriceShiftDailyRateUpdated(priceShiftDailyRate, _timeConstant);
     }
 
     /**
@@ -418,6 +458,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     // Updates the last timestamp to the current timestamp.
     function _updateTimestamp() internal {
         _lastTimestamp = block.timestamp.toUint32();
+
+        emit LastTimestampUpdated(_lastTimestamp);
     }
 
     /**
