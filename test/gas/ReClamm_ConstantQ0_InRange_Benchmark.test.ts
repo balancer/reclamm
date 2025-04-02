@@ -12,9 +12,9 @@ import { PoolRoleAccountsStruct } from '../../typechain-types/@balancer-labs/v3-
 import { ReClammPoolFactory } from '../../typechain-types/contracts/ReClammPoolFactory';
 import { fp } from '@balancer-labs/v3-helpers/src/numbers';
 
-class ReClammPoolBenchmark extends Benchmark {
+class ReClammConstantQ0InRangeBenchmark extends Benchmark {
   constructor(dirname: string) {
-    super(dirname, 'ReClammPool', {
+    super(dirname, 'ReClamm - Constant Q0 - In Range', {
       offNestedPoolTests: true,
       offDonationTests: true,
       offUnbalancedLiquidityTests: true,
@@ -55,6 +55,6 @@ class ReClammPoolBenchmark extends Benchmark {
   }
 }
 
-describe.only('ReClammPool Gas Benchmark', function () {
-  new ReClammPoolBenchmark(__dirname).itBenchmarks();
+describe('ReClammPool Gas Benchmark', function () {
+  new ReClammConstantQ0InRangeBenchmark(__dirname).itBenchmarks();
 });
