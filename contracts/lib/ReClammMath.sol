@@ -237,10 +237,13 @@ library ReClammMath {
         bool isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances);
 
         // If the price ratio is updating, shrink/expand the price interval by recalculating the virtual balances.
+        // Skip the update if the start and end price ratio are the same, because the virtual balances are already
+        // calculated.
         if (
             _priceRatioState.startTime != 0 &&
             currentTimestamp > _priceRatioState.startTime &&
-            lastTimestamp < _priceRatioState.endTime
+            lastTimestamp < _priceRatioState.endTime &&
+            _priceRatioState.startFourthRootPriceRatio != _priceRatioState.endFourthRootPriceRatio
         ) {
             currentVirtualBalances = calculateVirtualBalancesUpdatingPriceRatio(
                 currentFourthRootPriceRatio,

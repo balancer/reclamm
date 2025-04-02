@@ -15,6 +15,11 @@ contract ReClammSwapTest is BaseReClammTest {
     using ArrayHelpers for *;
 
     function testOutOfRangeSwapExactIn__Fuzz(uint256 daiBalance, uint256 usdcBalance) public {
+        // Setting balances to be at least 10 * min token balance, so LP can remove 90% of the liquidity
+        // without reverting.
+        daiBalance = bound(daiBalance, 10 * _MIN_TOKEN_BALANCE, dai.balanceOf(address(vault)));
+        usdcBalance = bound(usdcBalance, 10 * _MIN_TOKEN_BALANCE, usdc.balanceOf(address(vault)));
+
         // Set the pool balances.
         uint256[] memory newBalances = _setPoolBalances(daiBalance, usdcBalance);
 
@@ -94,6 +99,11 @@ contract ReClammSwapTest is BaseReClammTest {
         uint256 usdcBalance,
         uint256 newFourthRootPriceRatio
     ) public {
+        // Setting balances to be at least 10 * min token balance, so LP can remove 90% of the liquidity
+        // without reverting.
+        daiBalance = bound(daiBalance, 10 * _MIN_TOKEN_BALANCE, dai.balanceOf(address(vault)));
+        usdcBalance = bound(usdcBalance, 10 * _MIN_TOKEN_BALANCE, usdc.balanceOf(address(vault)));
+
         // Set the pool balances.
         uint256[] memory newBalances = _setPoolBalances(daiBalance, usdcBalance);
 
@@ -137,6 +147,11 @@ contract ReClammSwapTest is BaseReClammTest {
     }
 
     function testInRangeSwapExactIn__Fuzz(uint256 daiBalance, uint256 usdcBalance) public {
+        // Setting balances to be at least 10 * min token balance, so LP can remove 90% of the liquidity
+        // without reverting.
+        daiBalance = bound(daiBalance, 10 * _MIN_TOKEN_BALANCE, dai.balanceOf(address(vault)));
+        usdcBalance = bound(usdcBalance, 10 * _MIN_TOKEN_BALANCE, usdc.balanceOf(address(vault)));
+
         // Set the pool balances.
         uint256[] memory newBalances = _setPoolBalances(daiBalance, usdcBalance);
 
@@ -174,6 +189,11 @@ contract ReClammSwapTest is BaseReClammTest {
     }
 
     function testOutOfRangeSwapExactOut__Fuzz(uint256 daiBalance, uint256 usdcBalance) public {
+        // Setting balances to be at least 10 * min token balance, so LP can remove 90% of the liquidity
+        // without reverting.
+        daiBalance = bound(daiBalance, 10 * _MIN_TOKEN_BALANCE, dai.balanceOf(address(vault)));
+        usdcBalance = bound(usdcBalance, 10 * _MIN_TOKEN_BALANCE, usdc.balanceOf(address(vault)));
+
         // Set the pool balances.
         uint256[] memory newBalances = _setPoolBalances(daiBalance, usdcBalance);
 
@@ -241,6 +261,11 @@ contract ReClammSwapTest is BaseReClammTest {
         uint256 usdcBalance,
         uint256 newFourthRootPriceRatio
     ) public {
+        // Setting balances to be at least 10 * min token balance, so LP can remove 90% of the liquidity
+        // without reverting.
+        daiBalance = bound(daiBalance, 10 * _MIN_TOKEN_BALANCE, dai.balanceOf(address(vault)));
+        usdcBalance = bound(usdcBalance, 10 * _MIN_TOKEN_BALANCE, usdc.balanceOf(address(vault)));
+
         // Set the pool balances.
         uint256[] memory newBalances = _setPoolBalances(daiBalance, usdcBalance);
 
@@ -278,6 +303,11 @@ contract ReClammSwapTest is BaseReClammTest {
     }
 
     function testInRangeSwapExactOut__Fuzz(uint256 daiBalance, uint256 usdcBalance) public {
+        // Setting balances to be at least 10 * min token balance, so LP can remove 90% of the liquidity
+        // without reverting.
+        daiBalance = bound(daiBalance, 10 * _MIN_TOKEN_BALANCE, dai.balanceOf(address(vault)));
+        usdcBalance = bound(usdcBalance, 10 * _MIN_TOKEN_BALANCE, usdc.balanceOf(address(vault)));
+
         // Set the pool balances.
         uint256[] memory newBalances = _setPoolBalances(daiBalance, usdcBalance);
 

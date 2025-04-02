@@ -27,6 +27,15 @@ interface IReClammPool is IBasePool {
     /// @dev The pool centeredness is too low after a swap.
     error PoolCenterednessTooLow();
 
+    /// @dev The centeredness margin is out of range.
+    error InvalidCenterednessMargin();
+
+    /// @dev The vault is not locked, so the pool balances are manipulable.
+    error VaultIsNotLocked();
+
+    /// @dev The pool is out of range before or after the operation.
+    error PoolIsOutOfRange();
+
     /// @notice The Price Ratio State was updated.
     event PriceRatioStateUpdated(
         uint256 startFourthRootPriceRatio,
@@ -86,4 +95,11 @@ interface IReClammPool is IBasePool {
      * @param newPriceShiftDailyRate The new price shift daily rate
      */
     function setPriceShiftDailyRate(uint256 newPriceShiftDailyRate) external;
+
+    /**
+     * @notice Set the centeredness margin.
+     * @dev This function is considered a user action, so it will update the last timestamp and virtual balances.
+     * @param newCenterednessMargin The new centeredness margin
+     */
+    function setCenterednessMargin(uint256 newCenterednessMargin) external;
 }

@@ -64,7 +64,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
         (daiIdx, usdcIdx) = getSortedIndexes(address(dai), address(usdc));
     }
 
-    function setPriceRange(uint256 priceRatio) internal {
+    function setPriceRatio(uint256 priceRatio) internal {
         priceRatio = Math.sqrt(priceRatio * FixedPoint.ONE);
         _fourthRootPriceRatio = SafeCast.toUint96(Math.sqrt(priceRatio * FixedPoint.ONE));
     }
@@ -147,11 +147,6 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
         uint256 daiBalance,
         uint256 usdcBalance
     ) internal returns (uint256[] memory newPoolBalances) {
-        // Setting balances to be at least 10 * min token balance, so LP can remove 90% of the liquidity
-        // without reverting.
-        daiBalance = bound(daiBalance, 10 * _MIN_TOKEN_BALANCE, dai.balanceOf(address(vault)));
-        usdcBalance = bound(usdcBalance, 10 * _MIN_TOKEN_BALANCE, usdc.balanceOf(address(vault)));
-
         newPoolBalances = new uint256[](2);
         newPoolBalances[daiIdx] = daiBalance;
         newPoolBalances[usdcIdx] = usdcBalance;
