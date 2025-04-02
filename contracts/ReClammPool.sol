@@ -379,7 +379,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     function _setPriceShiftDailyRate(uint256 priceShiftDailyRate) internal {
         _timeConstant = ReClammMath.computePriceShiftDailyRate(priceShiftDailyRate);
 
-        emit PriceShiftDailyRateUpdated(priceShiftDailyRate);
+        emit PriceShiftDailyRateUpdated(priceShiftDailyRate, _timeConstant);
     }
 
     /**

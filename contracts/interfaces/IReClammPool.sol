@@ -47,8 +47,12 @@ interface IReClammPool is IBasePool {
     /// @dev The Virtual Balances were updated after a user interaction.
     event VirtualBalancesUpdated(uint256[] virtualBalances);
 
-    /// @dev The Price Shift Daily Rate was updated.
-    event PriceShiftDailyRateUpdated(uint256 priceShiftDailyRate);
+    /**
+     * @dev The Price Shift Daily Rate was updated.
+     * @param priceShiftDailyRate The new price shift daily rate
+     * @param timeConstant A representation of the price shift daily rate in seconds
+     */
+    event PriceShiftDailyRateUpdated(uint256 priceShiftDailyRate, uint256 timeConstant);
 
     /// @dev The Centeredness Margin was updated.
     event CenterednessMarginUpdated(uint256 centerednessMargin);

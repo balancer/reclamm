@@ -59,7 +59,10 @@ contract ReClammPoolTest is BaseReClammTest {
         uint256 newPriceShiftDailyRate = 200e16;
         vm.prank(admin);
         vm.expectEmit();
-        emit IReClammPool.PriceShiftDailyRateUpdated(newPriceShiftDailyRate);
+        emit IReClammPool.PriceShiftDailyRateUpdated(
+            newPriceShiftDailyRate,
+            ReClammMath.computePriceShiftDailyRate(newPriceShiftDailyRate)
+        );
         ReClammPool(pool).setPriceShiftDailyRate(newPriceShiftDailyRate);
     }
 
@@ -95,7 +98,10 @@ contract ReClammPoolTest is BaseReClammTest {
         uint256 newPriceShiftDailyRate = 200e16;
         vm.prank(admin);
         vm.expectEmit();
-        emit IReClammPool.PriceShiftDailyRateUpdated(newPriceShiftDailyRate);
+        emit IReClammPool.PriceShiftDailyRateUpdated(
+            newPriceShiftDailyRate,
+            ReClammMath.computePriceShiftDailyRate(newPriceShiftDailyRate)
+        );
         ReClammPool(pool).setPriceShiftDailyRate(newPriceShiftDailyRate);
 
         assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp was not updated");
