@@ -67,6 +67,9 @@ interface IReClammPool is IBasePool {
     /// @notice Returns the timestamp of the last user interaction.
     function getLastTimestamp() external view returns (uint32);
 
+    /// @notice Returns the last virtual balances.
+    function getLastVirtualBalances() external view returns (uint256[] memory lastVirtualBalances);
+
     /**
      * @notice Returns the current fourth root of price ratio.
      * @dev The current fourth root of price ratio is an interpolation of the price ratio between the start and end

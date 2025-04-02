@@ -290,6 +290,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
+    function getLastVirtualBalances() external view returns (uint256[] memory) {
+        return _lastVirtualBalances;
+    }
+
+    /// @inheritdoc IReClammPool
     function getCurrentFourthRootPriceRatio() external view override returns (uint96) {
         return _calculateCurrentFourthRootPriceRatio();
     }
