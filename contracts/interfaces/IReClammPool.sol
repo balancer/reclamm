@@ -89,7 +89,10 @@ interface IReClammPool is IBasePool {
     /// @notice Returns the timestamp of the last user interaction.
     function getLastTimestamp() external view returns (uint32);
 
-    /// @notice Returns the last virtual balances.
+    /**
+     * @notice Getter for the last virtual balances.
+     * @return lastVirtualBalances The virtual balances at the time of the last user interaction
+     */
     function getLastVirtualBalances() external view returns (uint256[] memory lastVirtualBalances);
 
     /**
