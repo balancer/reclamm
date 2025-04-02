@@ -35,10 +35,12 @@ struct ReClammPoolImmutableData {
  * in Recovery Mode do not make external calls (including those necessary for updating live balances), so if
  * there are withdrawals, raw and live balances will be out of sync until Recovery Mode is disabled.
  *
+ * Base Pool:
  * @param balancesLiveScaled18 Token balances after paying yield fees, applying decimal scaling and rates
  * @param tokenRates 18-decimal FP values for rate tokens (e.g., yield-bearing), or FP(1) for standard tokens
  * @param staticSwapFeePercentage 18-decimal FP value of the static swap fee percentage
  * @param totalSupply The current total supply of the pool tokens (BPT)
+ * ReClamm:
  * @param lastTimestamp The timestamp of the last user interaction
  * @param lastVirtualBalances The last virtual balances of the pool
  * @param timeConstant The time constant of the pool
@@ -48,15 +50,18 @@ struct ReClammPoolImmutableData {
  * @param endFourthRootPriceRatio The fourth root price ratio at the end of an update
  * @param startTime The timestamp when the update begins
  * @param endTime The timestamp when the update ends
+ * Pool State:
  * @param isPoolInitialized If false, the pool has not been seeded with initial liquidity, so operations will revert
  * @param isPoolPaused If true, the pool is paused, and all non-recovery-mode state-changing operations will revert
  * @param isPoolInRecoveryMode If true, Recovery Mode withdrawals are enabled, and live balances may be inaccurate
  */
 struct ReClammPoolDynamicData {
+    // Base Pool
     uint256[] balancesLiveScaled18;
     uint256[] tokenRates;
     uint256 staticSwapFeePercentage;
     uint256 totalSupply;
+    // ReClamm
     uint256 lastTimestamp;
     uint256[] lastVirtualBalances;
     uint256 timeConstant;
@@ -66,6 +71,7 @@ struct ReClammPoolDynamicData {
     uint256 endFourthRootPriceRatio;
     uint32 startTime;
     uint32 endTime;
+    // Pool State
     bool isPoolInitialized;
     bool isPoolPaused;
     bool isPoolInRecoveryMode;
