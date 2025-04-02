@@ -15,10 +15,6 @@ contract ReClammPoolMock is ReClammPool {
         // solhint-disable-previous-line no-empty-blocks
     }
 
-    function getLastVirtualBalances() external view returns (uint256[] memory) {
-        return _lastVirtualBalances;
-    }
-
     function setLastTimestamp(uint256 newLastTimestamp) external {
         _lastTimestamp = SafeCast.toUint32(newLastTimestamp);
     }
