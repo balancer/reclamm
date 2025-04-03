@@ -15,9 +15,9 @@ import { fp } from '@balancer-labs/v3-helpers/src/numbers';
 class ReClammConstantQ0InRangeBenchmark extends Benchmark {
   constructor(dirname: string) {
     super(dirname, 'ReClamm - Constant Q0 - In Range', {
-      offNestedPoolTests: true,
-      offDonationTests: true,
-      offUnbalancedLiquidityTests: true,
+      disableNestedPoolTests: true,
+      disableDonationTests: true,
+      disableUnbalancedLiquidityTests: true,
     });
   }
 
