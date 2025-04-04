@@ -73,7 +73,7 @@ class ReClammBenchmark extends Benchmark {
       poolInfo = this.poolsInfo[poolTag];
     });
 
-    describe(`Updating Price Ratio (${poolTag})`, async () => {
+    describe(`Update Q0 - In Range (IR) (${poolTag})`, async () => {
       sharedBeforeEach(`Start updating price ratio (${poolTag})`, async () => {
         const [, , swapFeeManager] = await ethers.getSigners();
 
@@ -110,7 +110,7 @@ class ReClammBenchmark extends Benchmark {
 
         await saveSnap(
           testDirname,
-          `[${poolType} - Updating Q0 - ${poolTag}] swap single token exact in with fees - cold slots`,
+          `[${poolType} - Update Q0 - IR - ${poolTag}] swap single token exact in with fees - cold slots`,
           [receipt]
         );
 
@@ -132,7 +132,7 @@ class ReClammBenchmark extends Benchmark {
 
         await saveSnap(
           testDirname,
-          `[${poolType} - Updating Q0 - ${poolTag}] swap single token exact in with fees - warm slots`,
+          `[${poolType} - Update Q0 - IR - ${poolTag}] swap single token exact in with fees - warm slots`,
           [receipt]
         );
       });
@@ -163,7 +163,7 @@ class ReClammBenchmark extends Benchmark {
 
         await saveSnap(
           testDirname,
-          `[${poolType} - Updating Q0 - ${poolTag} - BatchRouter] swap exact in with one token and fees - cold slots`,
+          `[${poolType} - Update Q0 - IR - ${poolTag} - BatchRouter] swap exact in with one token and fees - cold slots`,
           [receipt]
         );
 
@@ -192,13 +192,13 @@ class ReClammBenchmark extends Benchmark {
 
         await saveSnap(
           testDirname,
-          `[${poolType} - Updating Q0 - ${poolTag} - BatchRouter] swap exact in with one token and fees - warm slots`,
+          `[${poolType} - Update Q0 - IR - ${poolTag} - BatchRouter] swap exact in with one token and fees - warm slots`,
           [receipt]
         );
       });
     });
 
-    describe(`Updating Price Interval (${poolTag})`, async () => {
+    describe(`Out of Range (OOR) (${poolTag})`, async () => {
       sharedBeforeEach(`Start updating price interval (${poolTag})`, async () => {
         // Heavily unbalance pool so price interval starts to shift.
         await this.router
@@ -236,7 +236,7 @@ class ReClammBenchmark extends Benchmark {
 
         await saveSnap(
           testDirname,
-          `[${poolType} - Updating Price Interval - ${poolTag}] swap single token exact in with fees - cold slots`,
+          `[${poolType} - OOR - ${poolTag}] swap single token exact in with fees - cold slots`,
           [receipt]
         );
 
@@ -258,7 +258,7 @@ class ReClammBenchmark extends Benchmark {
 
         await saveSnap(
           testDirname,
-          `[${poolType} - Updating Price Interval - ${poolTag}] swap single token exact in with fees - warm slots`,
+          `[${poolType} - OOR - ${poolTag}] swap single token exact in with fees - warm slots`,
           [receipt]
         );
       });
@@ -289,7 +289,7 @@ class ReClammBenchmark extends Benchmark {
 
         await saveSnap(
           testDirname,
-          `[${poolType} - Updating Price Interval - ${poolTag} - BatchRouter] swap exact in with one token and fees - cold slots`,
+          `[${poolType} - OOR - ${poolTag} - BatchRouter] swap exact in with one token and fees - cold slots`,
           [receipt]
         );
 
@@ -318,13 +318,13 @@ class ReClammBenchmark extends Benchmark {
 
         await saveSnap(
           testDirname,
-          `[${poolType} - Updating Price Interval - ${poolTag} - BatchRouter] swap exact in with one token and fees - warm slots`,
+          `[${poolType} - OOR - ${poolTag} - BatchRouter] swap exact in with one token and fees - warm slots`,
           [receipt]
         );
       });
     });
 
-    describe(`Updating Q) and Price Interval (${poolTag})`, async () => {
+    describe(`Update Q0 - Out of Range (OOR (${poolTag})`, async () => {
       sharedBeforeEach(`Start updating price interval (${poolTag})`, async () => {
         const [, , swapFeeManager] = await ethers.getSigners();
 
@@ -375,7 +375,7 @@ class ReClammBenchmark extends Benchmark {
 
         await saveSnap(
           testDirname,
-          `[${poolType} - Updating Q0 and Price Interval - ${poolTag}] swap single token exact in with fees - cold slots`,
+          `[${poolType} - Update Q0 - OOR - ${poolTag}] swap single token exact in with fees - cold slots`,
           [receipt]
         );
 
@@ -397,7 +397,7 @@ class ReClammBenchmark extends Benchmark {
 
         await saveSnap(
           testDirname,
-          `[${poolType} - Updating Q0 and Price Interval - ${poolTag}] swap single token exact in with fees - warm slots`,
+          `[${poolType} - Update Q0 - OOR - ${poolTag}] swap single token exact in with fees - warm slots`,
           [receipt]
         );
       });
@@ -428,7 +428,7 @@ class ReClammBenchmark extends Benchmark {
 
         await saveSnap(
           testDirname,
-          `[${poolType} - Updating Q0 and Price Interval - ${poolTag} - BatchRouter] swap exact in with one token and fees - cold slots`,
+          `[${poolType} - Update Q0 - OOR - ${poolTag} - BatchRouter] swap exact in with one token and fees - cold slots`,
           [receipt]
         );
 
@@ -457,7 +457,7 @@ class ReClammBenchmark extends Benchmark {
 
         await saveSnap(
           testDirname,
-          `[${poolType} - Updating Q0 and Price Interval - ${poolTag} - BatchRouter] swap exact in with one token and fees - warm slots`,
+          `[${poolType} - Update Q0 - OOR - ${poolTag} - BatchRouter] swap exact in with one token and fees - warm slots`,
           [receipt]
         );
       });
