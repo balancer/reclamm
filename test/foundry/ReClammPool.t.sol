@@ -2,23 +2,108 @@
 
 pragma solidity ^0.8.24;
 
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { IAuthentication } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/helpers/IAuthentication.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 
+import { PriceRatioState, ReClammMath } from "../../contracts/lib/ReClammMath.sol";
+import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
+import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
-import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
-import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
-import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
 
 contract ReClammPoolTest is BaseReClammTest {
     using FixedPoint for uint256;
+    using SafeCast for *;
 
     function testGetCurrentFourthRootPriceRatio() public view {
         uint256 fourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
         assertEq(fourthRootPriceRatio, _DEFAULT_FOURTH_ROOT_PRICE_RATIO, "Invalid default fourthRootPriceRatio");
+    }
+
+    function testGetCenterednessMargin() public {
+        uint256 centerednessMargin = ReClammPool(pool).getCenterednessMargin();
+        assertEq(centerednessMargin, _DEFAULT_CENTEREDNESS_MARGIN, "Invalid default centerednessMargin");
+
+        uint256 newCenterednessMargin = 50e16;
+        vm.prank(admin);
+        ReClammPool(pool).setCenterednessMargin(newCenterednessMargin);
+
+        centerednessMargin = ReClammPool(pool).getCenterednessMargin();
+        assertEq(centerednessMargin, newCenterednessMargin, "Invalid new centerednessMargin");
+    }
+
+    function testGetLastTimestamp() public {
+        // Call any function that updates the last timestamp.
+        vm.prank(admin);
+        ReClammPool(pool).setPriceShiftDailyRate(20e16);
+
+        uint256 lastTimestampBeforeWarp = ReClammPool(pool).getLastTimestamp();
+        assertEq(lastTimestampBeforeWarp, block.timestamp, "Invalid lastTimestamp before warp");
+
+        skip(1 hours);
+        uint256 lastTimestampAfterWarp = ReClammPool(pool).getLastTimestamp();
+        assertEq(lastTimestampAfterWarp, lastTimestampBeforeWarp, "Invalid lastTimestamp after warp");
+
+        // Call any function that updates the last timestamp.
+        vm.prank(admin);
+        ReClammPool(pool).setPriceShiftDailyRate(30e16);
+
+        uint256 lastTimestampAfterSetPriceShiftDailyRate = ReClammPool(pool).getLastTimestamp();
+        assertEq(
+            lastTimestampAfterSetPriceShiftDailyRate,
+            block.timestamp,
+            "Invalid lastTimestamp after setPriceShiftDailyRate"
+        );
+    }
+
+    function testGetTimeConstant() public {
+        uint256 priceShiftDailyRate = 20e16;
+        uint256 expectedTimeConstant = ReClammMath.computePriceShiftDailyRate(priceShiftDailyRate);
+        vm.prank(admin);
+        ReClammPool(pool).setPriceShiftDailyRate(priceShiftDailyRate);
+
+        uint256 actualTimeConstant = ReClammPool(pool).getTimeConstant();
+        assertEq(actualTimeConstant, expectedTimeConstant, "Invalid timeConstant");
+    }
+
+    function testGetPriceRatioState() public {
+        PriceRatioState memory priceRatioState = ReClammPool(pool).getPriceRatioState();
+        assertEq(
+            priceRatioState.startFourthRootPriceRatio,
+            _DEFAULT_FOURTH_ROOT_PRICE_RATIO,
+            "Invalid default startFourthRootPriceRatio"
+        );
+        assertEq(
+            priceRatioState.endFourthRootPriceRatio,
+            _DEFAULT_FOURTH_ROOT_PRICE_RATIO,
+            "Invalid default endFourthRootPriceRatio"
+        );
+        assertEq(priceRatioState.startTime, 0, "Invalid default startTime");
+        assertEq(priceRatioState.endTime, block.timestamp, "Invalid default endTime");
+
+        uint256 oldFourthRootPriceRatio = priceRatioState.endFourthRootPriceRatio;
+        uint256 newFourthRootPriceRatio = 5e18;
+        uint256 newStartTime = block.timestamp;
+        uint256 newEndTime = block.timestamp + 1 hours;
+        vm.prank(admin);
+        ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, newStartTime, newEndTime);
+
+        priceRatioState = ReClammPool(pool).getPriceRatioState();
+        assertEq(
+            priceRatioState.startFourthRootPriceRatio,
+            oldFourthRootPriceRatio,
+            "Invalid new startFourthRootPriceRatio"
+        );
+        assertEq(
+            priceRatioState.endFourthRootPriceRatio,
+            newFourthRootPriceRatio,
+            "Invalid new endFourthRootPriceRatio"
+        );
+        assertEq(priceRatioState.startTime, newStartTime, "Invalid new startTime");
+        assertEq(priceRatioState.endTime, newEndTime, "Invalid new endTime");
     }
 
     function testSetFourthRootPriceRatio() public {
@@ -55,11 +140,20 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(fourthRootPriceRatio, endFourthRootPriceRatio, "FourthRootPriceRatio does not match new value");
     }
 
+    function testGetRate() public {
+        vm.expectRevert(IReClammPool.ReClammPoolBptRateUnsupported.selector);
+        ReClammPool(pool).getRate();
+    }
+
     function testSetPriceShiftDailyRate() public {
         uint256 newPriceShiftDailyRate = 200e16;
         vm.prank(admin);
         vm.expectEmit();
-        emit IReClammPool.PriceShiftDailyRateUpdated(newPriceShiftDailyRate);
+        emit IReClammPool.PriceShiftDailyRateUpdated(
+            newPriceShiftDailyRate,
+            ReClammMath.computePriceShiftDailyRate(newPriceShiftDailyRate)
+        );
+        emit IReClammPool.LastTimestampUpdated(block.timestamp.toUint32());
         ReClammPool(pool).setPriceShiftDailyRate(newPriceShiftDailyRate);
     }
 
@@ -78,7 +172,7 @@ contract ReClammPoolTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         // Check if the last virtual balances stored in the pool are different from the current virtual balances.
-        uint256[] memory virtualBalancesBefore = ReClammPool(pool).getCurrentVirtualBalances();
+        (uint256[] memory virtualBalancesBefore, ) = ReClammPool(pool).getCurrentVirtualBalances();
         uint256[] memory lastVirtualBalancesBeforeSet = ReClammPoolMock(pool).getLastVirtualBalances();
 
         assertNotEq(
@@ -95,7 +189,11 @@ contract ReClammPoolTest is BaseReClammTest {
         uint256 newPriceShiftDailyRate = 200e16;
         vm.prank(admin);
         vm.expectEmit();
-        emit IReClammPool.PriceShiftDailyRateUpdated(newPriceShiftDailyRate);
+        emit IReClammPool.PriceShiftDailyRateUpdated(
+            newPriceShiftDailyRate,
+            ReClammMath.computePriceShiftDailyRate(newPriceShiftDailyRate)
+        );
+        emit IReClammPool.LastTimestampUpdated(block.timestamp.toUint32());
         ReClammPool(pool).setPriceShiftDailyRate(newPriceShiftDailyRate);
 
         assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp was not updated");
@@ -112,6 +210,7 @@ contract ReClammPoolTest is BaseReClammTest {
         vm.prank(admin);
         vm.expectEmit();
         emit IReClammPool.CenterednessMarginUpdated(newCenterednessMargin);
+        emit IReClammPool.LastTimestampUpdated(block.timestamp.toUint32());
         ReClammPool(pool).setCenterednessMargin(newCenterednessMargin);
     }
 
@@ -144,7 +243,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
     function testOutOfRangeAfterSetCenterednessMargin() public {
         // Move the pool close to the current margin.
-        uint256[] memory virtualBalances = ReClammPool(pool).getCurrentVirtualBalances();
+        (uint256[] memory virtualBalances, ) = ReClammPool(pool).getCurrentVirtualBalances();
         uint256 newBalanceB = 100e18;
 
         // Pool Centeredness = Ra * Vb / (Rb * Va). Make centeredness = margin, and you have the equation below.
@@ -176,7 +275,7 @@ contract ReClammPoolTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         // Check if the last virtual balances stored in the pool are different from the current virtual balances.
-        uint256[] memory virtualBalancesBefore = ReClammPool(pool).getCurrentVirtualBalances();
+        (uint256[] memory virtualBalancesBefore, ) = ReClammPool(pool).getCurrentVirtualBalances();
         uint256[] memory lastVirtualBalancesBeforeSet = ReClammPoolMock(pool).getLastVirtualBalances();
 
         assertNotEq(
@@ -194,6 +293,7 @@ contract ReClammPoolTest is BaseReClammTest {
         vm.prank(admin);
         vm.expectEmit();
         emit IReClammPool.CenterednessMarginUpdated(newCenterednessMargin);
+        emit IReClammPool.LastTimestampUpdated(block.timestamp.toUint32());
         ReClammPool(pool).setCenterednessMargin(newCenterednessMargin);
 
         assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp was not updated");
