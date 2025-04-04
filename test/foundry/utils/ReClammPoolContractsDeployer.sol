@@ -62,6 +62,17 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
         IVaultMock vault,
         address poolCreator
     ) internal returns (address newPool, bytes memory poolArgs) {
+        IRateProvider[] memory rateProviders = new IRateProvider[](0);
+        return createReClammPool(tokens, rateProviders, label, vault, poolCreator);
+    }
+
+    function createReClammPool(
+        address[] memory tokens,
+        IRateProvider[] memory rateProviders,
+        string memory label,
+        IVaultMock vault,
+        address poolCreator
+    ) internal returns (address newPool, bytes memory poolArgs) {
         string memory poolVersion = "ReClamm Pool v1";
         string memory factoryVersion = "ReClamm Pool Factory v1";
 
@@ -70,10 +81,13 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
 
         IERC20[] memory _tokens = tokens.asIERC20();
 
+        IRateProvider[] memory _rateProviders = rateProviders;
         newPool = ReClammPoolFactory(poolFactory).create(
             defaultParams.name,
             defaultParams.symbol,
-            vault.buildTokenConfig(_tokens),
+            _rateProviders.length == 0
+                ? vault.buildTokenConfig(_tokens)
+                : vault.buildTokenConfig(_tokens, _rateProviders),
             roleAccounts,
             0,
             defaultParams.defaultPriceShiftDailyRate,
