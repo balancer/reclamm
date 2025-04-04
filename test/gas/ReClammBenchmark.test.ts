@@ -1,19 +1,12 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
-import { BaseContract } from 'ethers';
+import { BaseContract, toBeHex } from 'ethers';
 import { ethers } from 'hardhat';
 import { deploy, deployedAt } from '@balancer-labs/v3-helpers/src/contract';
 import { advanceTime, currentTimestamp, DAY, HOUR, MONTH } from '@balancer-labs/v3-helpers/src/time';
 import { buildTokenConfig } from '@balancer-labs/v3-helpers/src/models/tokens/tokenConfig';
 import * as expectEvent from '@balancer-labs/v3-helpers/src/test/expectEvent';
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/dist/src/signer-with-address';
 
-import {
-  Benchmark,
-  PoolTag,
-  PoolInfo,
-  TestsSwapHooks,
-  TestCustomSwapsParams,
-} from '@balancer-labs/v3-benchmarks/src/PoolBenchmark.behavior';
+import { Benchmark, PoolTag, PoolInfo, TestsSwapHooks } from '@balancer-labs/v3-benchmarks/src/PoolBenchmark.behavior';
 import { MAX_UINT256, ZERO_ADDRESS, ZERO_BYTES32 } from '@balancer-labs/v3-helpers/src/constants';
 
 import { PoolRoleAccountsStruct } from '../../typechain-types/@balancer-labs/v3-vault/contracts/Vault';
@@ -24,6 +17,8 @@ import { saveSnap } from '@balancer-labs/v3-helpers/src/gas';
 import { sharedBeforeEach } from '../../lib/balancer-v3-monorepo/pvt/common/sharedBeforeEach';
 
 class ReClammBenchmark extends Benchmark {
+  counter = 0;
+
   constructor(dirname: string) {
     super(dirname, 'ReClamm', {
       disableNestedPoolTests: true,
@@ -46,16 +41,18 @@ class ReClammBenchmark extends Benchmark {
       swapFeeManager: swapFeeManager,
     };
 
+    const salt = toBeHex(this.counter++, 32);
+
     const tx = await factory.create(
-      'ReClamm Pool',
-      'RECLAMM',
+      `ReClamm Pool`,
+      `RECLAMM`,
       buildTokenConfig(poolTokens, withRate),
       roleAccounts,
       fp(0.1), // 10% swap fee percentage
       fp(1), // 100% price shift daily rate
       fp(2), // price ratio of 16 (2^4)
       fp(0.2), // 20% centeredness margin
-      ZERO_BYTES32
+      salt
     );
     const receipt = await tx.wait();
     const event = expectEvent.inReceipt(receipt, 'PoolCreated');
@@ -68,18 +65,18 @@ class ReClammBenchmark extends Benchmark {
     };
   }
 
-  override async itTestsCustomSwaps(
-    poolTag: PoolTag,
-    testDirname: string,
-    poolType: string,
-    { router, batchRouter, alice, poolInfo }: TestCustomSwapsParams,
-    testsHooks?: TestsSwapHooks
-  ) {
+  override async itTestsCustomSwaps(poolTag: PoolTag, testDirname: string, poolType: string) {
+    let poolInfo: PoolInfo;
     const SWAP_AMOUNT = fp(20);
 
-    describe('Updating Price Ratio', async function () {
-      sharedBeforeEach(`Start updating price ratio`, async () => {
+    sharedBeforeEach(`Save Pool Info (${poolTag})`, async () => {
+      poolInfo = this.poolsInfo[poolTag];
+    });
+
+    describe(`Updating Price Ratio (${poolTag})`, async () => {
+      sharedBeforeEach(`Start updating price ratio (${poolTag})`, async () => {
         const [, , swapFeeManager] = await ethers.getSigners();
+
         const pool: ReClammPool = await deployedAt('ReClammPool', await poolInfo.pool.getAddress());
 
         const startTimestamp = await currentTimestamp();
@@ -92,13 +89,12 @@ class ReClammBenchmark extends Benchmark {
         );
       });
 
-      it(`measures gas (Router) (${testsHooks?.gasTag})`, async () => {
+      it(`measures gas (Router) (${poolTag})`, async () => {
         await advanceTime(HOUR);
 
-        const pool: ReClammPool = await deployedAt('ReClammPool', await poolInfo.pool.getAddress());
         // Warm up.
-        let tx = await router
-          .connect(alice)
+        let tx = await this.router
+          .connect(this.alice)
           .swapSingleTokenExactIn(
             poolInfo.pool,
             poolInfo.poolTokens[0],
@@ -114,17 +110,13 @@ class ReClammBenchmark extends Benchmark {
 
         await saveSnap(
           testDirname,
-          `[${poolType} - Updating Q0 - ${testsHooks?.gasTag}] swap single token exact in with fees - cold slots`,
+          `[${poolType} - Updating Q0 - ${poolTag}] swap single token exact in with fees - cold slots`,
           [receipt]
         );
 
-        if (testsHooks?.actionAfterFirstTx) {
-          await testsHooks?.actionAfterFirstTx();
-        }
-
         // Measure gas for the swap.
-        tx = await router
-          .connect(alice)
+        tx = await this.router
+          .connect(this.alice)
           .swapSingleTokenExactIn(
             poolInfo.pool,
             poolInfo.poolTokens[0],
@@ -140,14 +132,14 @@ class ReClammBenchmark extends Benchmark {
 
         await saveSnap(
           testDirname,
-          `[${poolType} - Updating Q0 - ${testsHooks?.gasTag}] swap single token exact in with fees - warm slots`,
+          `[${poolType} - Updating Q0 - ${poolTag}] swap single token exact in with fees - warm slots`,
           [receipt]
         );
       });
 
-      it(`measures gas (BatchRouter) (${testsHooks?.gasTag})`, async () => {
+      it(`measures gas (BatchRouter) (${poolTag})`, async () => {
         // Warm up.
-        let tx = await batchRouter.connect(alice).swapExactIn(
+        let tx = await this.batchRouter.connect(this.alice).swapExactIn(
           [
             {
               tokenIn: poolInfo.poolTokens[0],
@@ -171,16 +163,12 @@ class ReClammBenchmark extends Benchmark {
 
         await saveSnap(
           testDirname,
-          `[${poolType} - Updating Q0 - ${testsHooks?.gasTag} - BatchRouter] swap exact in with one token and fees - cold slots`,
+          `[${poolType} - Updating Q0 - ${poolTag} - BatchRouter] swap exact in with one token and fees - cold slots`,
           [receipt]
         );
 
-        if (testsHooks?.actionAfterFirstTx) {
-          await testsHooks?.actionAfterFirstTx();
-        }
-
         // Measure gas for the swap.
-        tx = await batchRouter.connect(alice).swapExactIn(
+        tx = await this.batchRouter.connect(this.alice).swapExactIn(
           [
             {
               tokenIn: poolInfo.poolTokens[0],
@@ -204,7 +192,272 @@ class ReClammBenchmark extends Benchmark {
 
         await saveSnap(
           testDirname,
-          `[${poolType} - Updating Q0 - ${testsHooks?.gasTag} - BatchRouter] swap exact in with one token and fees - warm slots`,
+          `[${poolType} - Updating Q0 - ${poolTag} - BatchRouter] swap exact in with one token and fees - warm slots`,
+          [receipt]
+        );
+      });
+    });
+
+    describe(`Updating Price Interval (${poolTag})`, async () => {
+      sharedBeforeEach(`Start updating price interval (${poolTag})`, async () => {
+        // Heavily unbalance pool so price interval starts to shift.
+        await this.router
+          .connect(this.alice)
+          .swapSingleTokenExactOut(
+            poolInfo.pool,
+            poolInfo.poolTokens[1],
+            poolInfo.poolTokens[0],
+            fp(95),
+            MAX_UINT256,
+            MAX_UINT256,
+            false,
+            '0x'
+          );
+      });
+
+      it(`measures gas (Router) (${poolTag})`, async () => {
+        await advanceTime(HOUR);
+
+        // Warm up.
+        let tx = await this.router
+          .connect(this.alice)
+          .swapSingleTokenExactIn(
+            poolInfo.pool,
+            poolInfo.poolTokens[0],
+            poolInfo.poolTokens[1],
+            SWAP_AMOUNT,
+            0,
+            MAX_UINT256,
+            false,
+            '0x'
+          );
+
+        let receipt = (await tx.wait())!;
+
+        await saveSnap(
+          testDirname,
+          `[${poolType} - Updating Price Interval - ${poolTag}] swap single token exact in with fees - cold slots`,
+          [receipt]
+        );
+
+        // Measure gas for the swap.
+        tx = await this.router
+          .connect(this.alice)
+          .swapSingleTokenExactIn(
+            poolInfo.pool,
+            poolInfo.poolTokens[0],
+            poolInfo.poolTokens[1],
+            SWAP_AMOUNT,
+            0,
+            MAX_UINT256,
+            false,
+            '0x'
+          );
+
+        receipt = (await tx.wait())!;
+
+        await saveSnap(
+          testDirname,
+          `[${poolType} - Updating Price Interval - ${poolTag}] swap single token exact in with fees - warm slots`,
+          [receipt]
+        );
+      });
+
+      it(`measures gas (BatchRouter) (${poolTag})`, async () => {
+        // Warm up.
+        let tx = await this.batchRouter.connect(this.alice).swapExactIn(
+          [
+            {
+              tokenIn: poolInfo.poolTokens[0],
+              steps: [
+                {
+                  pool: poolInfo.pool,
+                  tokenOut: poolInfo.poolTokens[1],
+                  isBuffer: false,
+                },
+              ],
+              exactAmountIn: SWAP_AMOUNT,
+              minAmountOut: 0,
+            },
+          ],
+          MAX_UINT256,
+          false,
+          '0x'
+        );
+
+        let receipt = (await tx.wait())!;
+
+        await saveSnap(
+          testDirname,
+          `[${poolType} - Updating Price Interval - ${poolTag} - BatchRouter] swap exact in with one token and fees - cold slots`,
+          [receipt]
+        );
+
+        // Measure gas for the swap.
+        tx = await this.batchRouter.connect(this.alice).swapExactIn(
+          [
+            {
+              tokenIn: poolInfo.poolTokens[0],
+              steps: [
+                {
+                  pool: poolInfo.pool,
+                  tokenOut: poolInfo.poolTokens[1],
+                  isBuffer: false,
+                },
+              ],
+              exactAmountIn: SWAP_AMOUNT,
+              minAmountOut: 0,
+            },
+          ],
+          MAX_UINT256,
+          false,
+          '0x'
+        );
+
+        receipt = (await tx.wait())!;
+
+        await saveSnap(
+          testDirname,
+          `[${poolType} - Updating Price Interval - ${poolTag} - BatchRouter] swap exact in with one token and fees - warm slots`,
+          [receipt]
+        );
+      });
+    });
+
+    describe(`Updating Q) and Price Interval (${poolTag})`, async () => {
+      sharedBeforeEach(`Start updating price interval (${poolTag})`, async () => {
+        const [, , swapFeeManager] = await ethers.getSigners();
+
+        const pool: ReClammPool = await deployedAt('ReClammPool', await poolInfo.pool.getAddress());
+
+        const startTimestamp = await currentTimestamp();
+        const endTimestamp = startTimestamp + BigInt(DAY);
+
+        await pool.connect(swapFeeManager).setPriceRatioState(
+          fp(3), // Price Ratio of 81 (3^4)
+          startTimestamp,
+          endTimestamp
+        );
+
+        // Heavily unbalance pool so price interval starts to shift.
+        await this.router
+          .connect(this.alice)
+          .swapSingleTokenExactOut(
+            poolInfo.pool,
+            poolInfo.poolTokens[1],
+            poolInfo.poolTokens[0],
+            fp(95),
+            MAX_UINT256,
+            MAX_UINT256,
+            false,
+            '0x'
+          );
+      });
+
+      it(`measures gas (Router) (${poolTag})`, async () => {
+        await advanceTime(HOUR);
+
+        // Warm up.
+        let tx = await this.router
+          .connect(this.alice)
+          .swapSingleTokenExactIn(
+            poolInfo.pool,
+            poolInfo.poolTokens[0],
+            poolInfo.poolTokens[1],
+            SWAP_AMOUNT,
+            0,
+            MAX_UINT256,
+            false,
+            '0x'
+          );
+
+        let receipt = (await tx.wait())!;
+
+        await saveSnap(
+          testDirname,
+          `[${poolType} - Updating Q0 and Price Interval - ${poolTag}] swap single token exact in with fees - cold slots`,
+          [receipt]
+        );
+
+        // Measure gas for the swap.
+        tx = await this.router
+          .connect(this.alice)
+          .swapSingleTokenExactIn(
+            poolInfo.pool,
+            poolInfo.poolTokens[0],
+            poolInfo.poolTokens[1],
+            SWAP_AMOUNT,
+            0,
+            MAX_UINT256,
+            false,
+            '0x'
+          );
+
+        receipt = (await tx.wait())!;
+
+        await saveSnap(
+          testDirname,
+          `[${poolType} - Updating Q0 and Price Interval - ${poolTag}] swap single token exact in with fees - warm slots`,
+          [receipt]
+        );
+      });
+
+      it(`measures gas (BatchRouter) (${poolTag})`, async () => {
+        // Warm up.
+        let tx = await this.batchRouter.connect(this.alice).swapExactIn(
+          [
+            {
+              tokenIn: poolInfo.poolTokens[0],
+              steps: [
+                {
+                  pool: poolInfo.pool,
+                  tokenOut: poolInfo.poolTokens[1],
+                  isBuffer: false,
+                },
+              ],
+              exactAmountIn: SWAP_AMOUNT,
+              minAmountOut: 0,
+            },
+          ],
+          MAX_UINT256,
+          false,
+          '0x'
+        );
+
+        let receipt = (await tx.wait())!;
+
+        await saveSnap(
+          testDirname,
+          `[${poolType} - Updating Q0 and Price Interval - ${poolTag} - BatchRouter] swap exact in with one token and fees - cold slots`,
+          [receipt]
+        );
+
+        // Measure gas for the swap.
+        tx = await this.batchRouter.connect(this.alice).swapExactIn(
+          [
+            {
+              tokenIn: poolInfo.poolTokens[0],
+              steps: [
+                {
+                  pool: poolInfo.pool,
+                  tokenOut: poolInfo.poolTokens[1],
+                  isBuffer: false,
+                },
+              ],
+              exactAmountIn: SWAP_AMOUNT,
+              minAmountOut: 0,
+            },
+          ],
+          MAX_UINT256,
+          false,
+          '0x'
+        );
+
+        receipt = (await tx.wait())!;
+
+        await saveSnap(
+          testDirname,
+          `[${poolType} - Updating Q0 and Price Interval - ${poolTag} - BatchRouter] swap exact in with one token and fees - warm slots`,
           [receipt]
         );
       });
@@ -212,6 +465,6 @@ class ReClammBenchmark extends Benchmark {
   }
 }
 
-describe('ReClammPool Gas Benchmark', function () {
+describe.only('ReClammPool Gas Benchmark', function () {
   new ReClammBenchmark(__dirname).itBenchmarks();
 });
