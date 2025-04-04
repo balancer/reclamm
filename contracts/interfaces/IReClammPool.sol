@@ -2,6 +2,8 @@
 
 pragma solidity ^0.8.24;
 
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 import { IBasePool } from "@balancer-labs/v3-interfaces/contracts/vault/IBasePool.sol";
 
 import { PriceRatioState } from "../lib/ReClammMath.sol";
@@ -14,6 +16,65 @@ struct ReClammPoolParams {
     uint256 priceShiftDailyRate;
     uint96 fourthRootPriceRatio;
     uint64 centerednessMargin;
+}
+
+/**
+ * @notice ReClamm Pool data that cannot change after deployment.
+ * @param tokens Pool tokens, sorted in token registration order
+ * @param decimalScalingFactors Conversion factor used to adjust for token decimals for uniform precision in
+ * calculations. FP(1) for 18-decimal tokens
+ */
+struct ReClammPoolImmutableData {
+    IERC20[] tokens;
+    uint256[] decimalScalingFactors;
+}
+
+/**
+ * @notice Snapshot of current ReClamm Pool data that can change.
+ * @dev Note that live balances will not necessarily be accurate if the pool is in Recovery Mode. Withdrawals
+ * in Recovery Mode do not make external calls (including those necessary for updating live balances), so if
+ * there are withdrawals, raw and live balances will be out of sync until Recovery Mode is disabled.
+ *
+ * Base Pool:
+ * @param balancesLiveScaled18 Token balances after paying yield fees, applying decimal scaling and rates
+ * @param tokenRates 18-decimal FP values for rate tokens (e.g., yield-bearing), or FP(1) for standard tokens
+ * @param staticSwapFeePercentage 18-decimal FP value of the static swap fee percentage
+ * @param totalSupply The current total supply of the pool tokens (BPT)
+ * ReClamm:
+ * @param lastTimestamp The timestamp of the last user interaction
+ * @param lastVirtualBalances The last virtual balances of the pool
+ * @param priceShiftDailyRangeInSeconds The time constant of the pool
+ * @param centerednessMargin The centeredness margin of the pool
+ * @param currentFourthRootPriceRatio The current fourth root price ratio, an interpolation of the price ratio state
+ * @param startFourthRootPriceRatio The fourth root price ratio at the start of an update
+ * @param endFourthRootPriceRatio The fourth root price ratio at the end of an update
+ * @param priceRatioUpdateStartTime The timestamp when the update begins
+ * @param priceRatioUpdateEndTime The timestamp when the update ends
+ * Pool State:
+ * @param isPoolInitialized If false, the pool has not been seeded with initial liquidity, so operations will revert
+ * @param isPoolPaused If true, the pool is paused, and all non-recovery-mode state-changing operations will revert
+ * @param isPoolInRecoveryMode If true, Recovery Mode withdrawals are enabled, and live balances may be inaccurate
+ */
+struct ReClammPoolDynamicData {
+    // Base Pool
+    uint256[] balancesLiveScaled18;
+    uint256[] tokenRates;
+    uint256 staticSwapFeePercentage;
+    uint256 totalSupply;
+    // ReClamm
+    uint256 lastTimestamp;
+    uint256[] lastVirtualBalances;
+    uint256 priceShiftDailyRangeInSeconds;
+    uint256 centerednessMargin;
+    uint256 currentFourthRootPriceRatio;
+    uint256 startFourthRootPriceRatio;
+    uint256 endFourthRootPriceRatio;
+    uint32 priceRatioUpdateStartTime;
+    uint32 priceRatioUpdateEndTime;
+    // Pool State
+    bool isPoolInitialized;
+    bool isPoolPaused;
+    bool isPoolInRecoveryMode;
 }
 
 interface IReClammPool is IBasePool {
@@ -58,8 +119,8 @@ interface IReClammPool is IBasePool {
     event PriceRatioStateUpdated(
         uint256 startFourthRootPriceRatio,
         uint256 endFourthRootPriceRatio,
-        uint256 startTime,
-        uint256 endTime
+        uint256 priceRatioUpdateStartTime,
+        uint256 priceRatioUpdateEndTime
     );
 
     /// @dev The Virtual Balances were updated after a user interaction.
@@ -68,9 +129,9 @@ interface IReClammPool is IBasePool {
     /**
      * @dev The Price Shift Daily Rate was updated.
      * @param priceShiftDailyRate The new price shift daily rate
-     * @param timeConstant A representation of the price shift daily rate in seconds
+     * @param priceShiftDailyRangeInSeconds A representation of the price shift daily rate in seconds
      */
-    event PriceShiftDailyRateUpdated(uint256 priceShiftDailyRate, uint256 timeConstant);
+    event PriceShiftDailyRateUpdated(uint256 priceShiftDailyRate, uint256 priceShiftDailyRangeInSeconds);
 
     /// @dev The Centeredness Margin was updated.
     event CenterednessMarginUpdated(uint256 centerednessMargin);
@@ -115,9 +176,9 @@ interface IReClammPool is IBasePool {
     /**
      * @notice Returns the time constant.
      * @dev The time constant is an internal representation of the raw price shift daily rate, expressed in seconds.
-     * @return timeConstant The time constant
+     * @return priceShiftDailyRangeInSeconds The time constant
      */
-    function getTimeConstant() external view returns (uint256 timeConstant);
+    function getTimeConstant() external view returns (uint256 priceShiftDailyRangeInSeconds);
 
     /**
      * @notice Returns the current price ratio state.
@@ -140,15 +201,31 @@ interface IReClammPool is IBasePool {
     ********************************************************/
 
     /**
+     * @notice Get dynamic pool data relevant to swap/add/remove calculations.
+     * @return data A struct containing all dynamic ReClamm pool parameters
+     */
+    function getReClammPoolDynamicData() external view returns (ReClammPoolDynamicData memory data);
+
+    /**
+     * @notice Get immutable pool data relevant to swap/add/remove calculations.
+     * @return data A struct containing all immutable ReClamm pool parameters
+     */
+    function getReClammPoolImmutableData() external view returns (ReClammPoolImmutableData memory data);
+
+    /**
      * @notice Resets the price ratio update by setting a new end fourth root price ratio and time range.
      * @dev The price ratio is calculated by interpolating between the start and end times. The start price ratio will
      * be set to the current fourth root price ratio of the pool.
      *
      * @param endFourthRootPriceRatio The new ending value of the fourth root price ratio
-     * @param startTime The timestamp when the price ratio update will start
-     * @param endTime The timestamp when the price ratio update will end
+     * @param priceRatioUpdateStartTime The timestamp when the price ratio update will start
+     * @param priceRatioUpdateEndTime The timestamp when the price ratio update will end
      */
-    function setPriceRatioState(uint256 endFourthRootPriceRatio, uint256 startTime, uint256 endTime) external;
+    function setPriceRatioState(
+        uint256 endFourthRootPriceRatio,
+        uint256 priceRatioUpdateStartTime,
+        uint256 priceRatioUpdateEndTime
+    ) external;
 
     /**
      * @notice Updates the price shift daily rate.

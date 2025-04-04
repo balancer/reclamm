@@ -19,7 +19,12 @@ import { Version } from "@balancer-labs/v3-solidity-utils/contracts/helpers/Vers
 import { PoolInfo } from "@balancer-labs/v3-pool-utils/contracts/PoolInfo.sol";
 import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
 
-import { ReClammPoolParams, IReClammPool } from "./interfaces/IReClammPool.sol";
+import {
+    ReClammPoolParams,
+    ReClammPoolDynamicData,
+    ReClammPoolImmutableData,
+    IReClammPool
+} from "./interfaces/IReClammPool.sol";
 import { PriceRatioState, ReClammMath } from "./lib/ReClammMath.sol";
 
 contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthentication, Version, BaseHooks {
@@ -49,7 +54,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     PriceRatioState internal _priceRatioState;
     uint32 internal _lastTimestamp;
-    uint128 internal _timeConstant;
+    uint128 internal _priceShiftDailyRangeInSeconds;
     uint64 internal _centerednessMargin;
     uint256[] internal _lastVirtualBalances;
 
@@ -94,7 +99,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             ReClammMath.computeInvariant(
                 balancesScaled18,
                 _lastVirtualBalances,
-                _timeConstant,
+                _priceShiftDailyRangeInSeconds,
                 _lastTimestamp,
                 _centerednessMargin,
                 _priceRatioState,
@@ -318,7 +323,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IReClammPool
     function getTimeConstant() external view returns (uint256) {
-        return _timeConstant;
+        return _priceShiftDailyRangeInSeconds;
     }
 
     /// @inheritdoc IReClammPool
@@ -336,12 +341,44 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     ********************************************************/
 
     /// @inheritdoc IReClammPool
+    function getReClammPoolDynamicData() external view returns (ReClammPoolDynamicData memory data) {
+        data.balancesLiveScaled18 = _vault.getCurrentLiveBalances(address(this));
+        (, data.tokenRates) = _vault.getPoolTokenRates(address(this));
+        data.staticSwapFeePercentage = _vault.getStaticSwapFeePercentage((address(this)));
+        data.totalSupply = totalSupply();
+
+        data.lastTimestamp = _lastTimestamp;
+        data.lastVirtualBalances = _lastVirtualBalances;
+        data.priceShiftDailyRangeInSeconds = _priceShiftDailyRangeInSeconds;
+        data.centerednessMargin = _centerednessMargin;
+
+        data.currentFourthRootPriceRatio = _calculateCurrentFourthRootPriceRatio();
+
+        PriceRatioState memory state = _priceRatioState;
+        data.startFourthRootPriceRatio = state.startFourthRootPriceRatio;
+        data.endFourthRootPriceRatio = state.endFourthRootPriceRatio;
+        data.priceRatioUpdateStartTime = state.priceRatioUpdateStartTime;
+        data.priceRatioUpdateEndTime = state.priceRatioUpdateEndTime;
+
+        PoolConfig memory poolConfig = _vault.getPoolConfig(address(this));
+        data.isPoolInitialized = poolConfig.isPoolInitialized;
+        data.isPoolPaused = poolConfig.isPoolPaused;
+        data.isPoolInRecoveryMode = poolConfig.isPoolInRecoveryMode;
+    }
+
+    /// @inheritdoc IReClammPool
+    function getReClammPoolImmutableData() external view returns (ReClammPoolImmutableData memory data) {
+        data.tokens = _vault.getPoolTokens(address(this));
+        (data.decimalScalingFactors, ) = _vault.getPoolTokenRates(address(this));
+    }
+
+    /// @inheritdoc IReClammPool
     function setPriceRatioState(
         uint256 endFourthRootPriceRatio,
-        uint256 startTime,
-        uint256 endTime
+        uint256 priceRatioUpdateStartTime,
+        uint256 priceRatioUpdateEndTime
     ) external onlySwapFeeManagerOrGovernance(address(this)) {
-        _setPriceRatioState(endFourthRootPriceRatio, startTime, endTime);
+        _setPriceRatioState(endFourthRootPriceRatio, priceRatioUpdateStartTime, priceRatioUpdateEndTime);
     }
 
     /// @inheritdoc IReClammPool
@@ -369,7 +406,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         (currentVirtualBalances, changed) = ReClammMath.getCurrentVirtualBalances(
             balancesScaled18,
             _lastVirtualBalances,
-            _timeConstant,
+            _priceShiftDailyRangeInSeconds,
             _lastTimestamp,
             _centerednessMargin,
             _priceRatioState
@@ -382,9 +419,13 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         emit VirtualBalancesUpdated(virtualBalances);
     }
 
-    function _setPriceRatioState(uint256 endFourthRootPriceRatio, uint256 startTime, uint256 endTime) internal {
-        if (startTime > endTime) {
-            revert GradualUpdateTimeTravel(startTime, endTime);
+    function _setPriceRatioState(
+        uint256 endFourthRootPriceRatio,
+        uint256 priceRatioUpdateStartTime,
+        uint256 priceRatioUpdateEndTime
+    ) internal {
+        if (priceRatioUpdateStartTime > priceRatioUpdateEndTime) {
+            revert GradualUpdateTimeTravel(priceRatioUpdateStartTime, priceRatioUpdateEndTime);
         }
 
         uint96 startFourthRootPriceRatio = _calculateCurrentFourthRootPriceRatio();
@@ -393,10 +434,15 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             ? endFourthRootPriceRatio96
             : startFourthRootPriceRatio;
         _priceRatioState.endFourthRootPriceRatio = endFourthRootPriceRatio96;
-        _priceRatioState.startTime = startTime.toUint32();
-        _priceRatioState.endTime = endTime.toUint32();
+        _priceRatioState.priceRatioUpdateStartTime = priceRatioUpdateStartTime.toUint32();
+        _priceRatioState.priceRatioUpdateEndTime = priceRatioUpdateEndTime.toUint32();
 
-        emit PriceRatioStateUpdated(startFourthRootPriceRatio, endFourthRootPriceRatio, startTime, endTime);
+        emit PriceRatioStateUpdated(
+            startFourthRootPriceRatio,
+            endFourthRootPriceRatio,
+            priceRatioUpdateStartTime,
+            priceRatioUpdateEndTime
+        );
     }
 
     /// Using the pool balances to update the virtual balances is dangerous with an unlocked vault, since the balances
@@ -417,9 +463,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     function _setPriceShiftDailyRate(uint256 priceShiftDailyRate) internal {
-        _timeConstant = ReClammMath.computePriceShiftDailyRate(priceShiftDailyRate);
+        _priceShiftDailyRangeInSeconds = ReClammMath.computePriceShiftDailyRate(priceShiftDailyRate);
 
-        emit PriceShiftDailyRateUpdated(priceShiftDailyRate, _timeConstant);
+        emit PriceShiftDailyRateUpdated(priceShiftDailyRate, _priceShiftDailyRangeInSeconds);
     }
 
     /**
@@ -518,8 +564,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             block.timestamp.toUint32(),
             priceRatioState.startFourthRootPriceRatio,
             priceRatioState.endFourthRootPriceRatio,
-            priceRatioState.startTime,
-            priceRatioState.endTime
+            priceRatioState.priceRatioUpdateStartTime,
+            priceRatioState.priceRatioUpdateEndTime
         );
     }
 

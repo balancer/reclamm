@@ -14,8 +14,8 @@ import { LogExpMath } from "@balancer-labs/v3-solidity-utils/contracts/math/LogE
 struct PriceRatioState {
     uint96 startFourthRootPriceRatio;
     uint96 endFourthRootPriceRatio;
-    uint32 startTime;
-    uint32 endTime;
+    uint32 priceRatioUpdateStartTime;
+    uint32 priceRatioUpdateEndTime;
 }
 
 library ReClammMath {
@@ -43,7 +43,7 @@ library ReClammMath {
      * @notice Get the current virtual balances and compute the invariant of the pool using constant product.
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param lastVirtualBalances The last virtual balances, sorted in token registration order
-     * @param timeConstant IncreaseDayRate divided by 124649
+     * @param priceShiftDailyRangeInSeconds IncreaseDayRate divided by 124649
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @param centerednessMargin A symmetrical measure of how closely an unbalanced pool can approach the limits of the
      * price range before it is considered out of range
@@ -54,7 +54,7 @@ library ReClammMath {
     function computeInvariant(
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
-        uint256 timeConstant,
+        uint256 priceShiftDailyRangeInSeconds,
         uint32 lastTimestamp,
         uint64 centerednessMargin,
         PriceRatioState storage priceRatioState,
@@ -63,7 +63,7 @@ library ReClammMath {
         (uint256[] memory currentVirtualBalances, ) = getCurrentVirtualBalances(
             balancesScaled18,
             lastVirtualBalances,
-            timeConstant,
+            priceShiftDailyRangeInSeconds,
             lastTimestamp,
             centerednessMargin,
             priceRatioState
@@ -197,7 +197,7 @@ library ReClammMath {
      *
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param lastVirtualBalances The last virtual balances, sorted in token registration order
-     * @param timeConstant IncreaseDayRate divided by 124649
+     * @param priceShiftDailyRangeInSeconds IncreaseDayRate divided by 124649
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @param centerednessMargin A limit of the pool centeredness that defines if pool is out of range
      * @param priceRatioState A struct containing start and end price ratios and a time interval
@@ -207,7 +207,7 @@ library ReClammMath {
     function getCurrentVirtualBalances(
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
-        uint256 timeConstant,
+        uint256 priceShiftDailyRangeInSeconds,
         uint32 lastTimestamp,
         uint64 centerednessMargin,
         PriceRatioState storage priceRatioState
@@ -230,8 +230,8 @@ library ReClammMath {
             currentTimestamp,
             _priceRatioState.startFourthRootPriceRatio,
             _priceRatioState.endFourthRootPriceRatio,
-            _priceRatioState.startTime,
-            _priceRatioState.endTime
+            _priceRatioState.priceRatioUpdateStartTime,
+            _priceRatioState.priceRatioUpdateEndTime
         );
 
         bool isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances);
@@ -240,9 +240,9 @@ library ReClammMath {
         // Skip the update if the start and end price ratio are the same, because the virtual balances are already
         // calculated.
         if (
-            _priceRatioState.startTime != 0 &&
-            currentTimestamp > _priceRatioState.startTime &&
-            lastTimestamp < _priceRatioState.endTime &&
+            _priceRatioState.priceRatioUpdateStartTime != 0 &&
+            currentTimestamp > _priceRatioState.priceRatioUpdateStartTime &&
+            lastTimestamp < _priceRatioState.priceRatioUpdateEndTime &&
             _priceRatioState.startFourthRootPriceRatio != _priceRatioState.endFourthRootPriceRatio
         ) {
             currentVirtualBalances = calculateVirtualBalancesUpdatingPriceRatio(
@@ -262,7 +262,7 @@ library ReClammMath {
                 balancesScaled18,
                 currentVirtualBalances,
                 isPoolAboveCenter,
-                timeConstant,
+                priceShiftDailyRangeInSeconds,
                 currentTimestamp,
                 lastTimestamp
             );
@@ -327,7 +327,7 @@ library ReClammMath {
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param virtualBalances The last virtual balances, sorted in token registration order
      * @param isPoolAboveCenter Whether the pool is above or below the center
-     * @param timeConstant IncreaseDayRate divided by 124649
+     * @param priceShiftDailyRangeInSeconds IncreaseDayRate divided by 124649
      * @param currentTimestamp The current timestamp
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @return virtualBalances The new virtual balances of the pool
@@ -337,7 +337,7 @@ library ReClammMath {
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances,
         bool isPoolAboveCenter,
-        uint256 timeConstant,
+        uint256 priceShiftDailyRangeInSeconds,
         uint32 currentTimestamp,
         uint32 lastTimestamp
     ) internal pure returns (uint256[] memory) {
@@ -346,9 +346,12 @@ library ReClammMath {
         // The token overvalued is the one with low token balance (therefore, rarer and more valuable).
         (uint256 indexTokenUndervalued, uint256 indexTokenOvervalued) = isPoolAboveCenter ? (0, 1) : (1, 0);
 
-        // Vb = Vb * (1 - timeConstant)^(Tcurr - Tlast)
+        // Vb = Vb * (1 - priceShiftDailyRangeInSeconds)^(Tcurr - Tlast)
         virtualBalances[indexTokenOvervalued] = virtualBalances[indexTokenOvervalued].mulDown(
-            LogExpMath.pow(FixedPoint.ONE - timeConstant, (currentTimestamp - lastTimestamp) * FixedPoint.ONE)
+            LogExpMath.pow(
+                FixedPoint.ONE - priceShiftDailyRangeInSeconds,
+                (currentTimestamp - lastTimestamp) * FixedPoint.ONE
+            )
         );
         // Va = (Ra * (Vb + Rb)) / (((priceRatio - 1) * Vb) - Rb)
         virtualBalances[indexTokenUndervalued] = (
@@ -417,26 +420,28 @@ library ReClammMath {
      * @param currentTime The current timestamp
      * @param startFourthRootPriceRatio The start fourth root of price ratio of the pool
      * @param endFourthRootPriceRatio The end fourth root of price ratio of the pool
-     * @param startTime The timestamp of the last user interaction with the pool
-     * @param endTime The timestamp of the next user interaction with the pool
+     * @param priceRatioUpdateStartTime The timestamp of the last user interaction with the pool
+     * @param priceRatioUpdateEndTime The timestamp of the next user interaction with the pool
      * @return fourthRootPriceRatio The fourth root of price ratio of the pool
      */
     function calculateFourthRootPriceRatio(
         uint32 currentTime,
         uint96 startFourthRootPriceRatio,
         uint96 endFourthRootPriceRatio,
-        uint32 startTime,
-        uint32 endTime
+        uint32 priceRatioUpdateStartTime,
+        uint32 priceRatioUpdateEndTime
     ) internal pure returns (uint96) {
-        if (currentTime <= startTime) {
+        if (currentTime <= priceRatioUpdateStartTime) {
             return startFourthRootPriceRatio;
-        } else if (currentTime >= endTime) {
+        } else if (currentTime >= priceRatioUpdateEndTime) {
             return endFourthRootPriceRatio;
         } else if (startFourthRootPriceRatio == endFourthRootPriceRatio) {
             return endFourthRootPriceRatio;
         }
 
-        uint256 exponent = uint256(currentTime - startTime).divDown(endTime - startTime);
+        uint256 exponent = uint256(currentTime - priceRatioUpdateStartTime).divDown(
+            priceRatioUpdateEndTime - priceRatioUpdateStartTime
+        );
 
         return
             uint256(startFourthRootPriceRatio)
@@ -468,7 +473,7 @@ library ReClammMath {
     /**
      * @notice Convert a raw daily rate into the time constant value used internally.
      * @param priceShiftDailyRate The price shift daily rate
-     * @return timeConstant The time constant
+     * @return priceShiftDailyRangeInSeconds The time constant
      */
     function computePriceShiftDailyRate(uint256 priceShiftDailyRate) internal pure returns (uint128) {
         // Divide daily rate by a number of seconds per day (plus some adjustment)
