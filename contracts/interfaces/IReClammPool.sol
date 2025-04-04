@@ -43,13 +43,13 @@ struct ReClammPoolImmutableData {
  * ReClamm:
  * @param lastTimestamp The timestamp of the last user interaction
  * @param lastVirtualBalances The last virtual balances of the pool
- * @param timeConstant The time constant of the pool
+ * @param priceShiftDailyRangeInSeconds The time constant of the pool
  * @param centerednessMargin The centeredness margin of the pool
  * @param currentFourthRootPriceRatio The current fourth root price ratio, an interpolation of the price ratio state
  * @param startFourthRootPriceRatio The fourth root price ratio at the start of an update
  * @param endFourthRootPriceRatio The fourth root price ratio at the end of an update
- * @param startTime The timestamp when the update begins
- * @param endTime The timestamp when the update ends
+ * @param priceRatioUpdateStartTime The timestamp when the update begins
+ * @param priceRatioUpdateEndTime The timestamp when the update ends
  * Pool State:
  * @param isPoolInitialized If false, the pool has not been seeded with initial liquidity, so operations will revert
  * @param isPoolPaused If true, the pool is paused, and all non-recovery-mode state-changing operations will revert
@@ -64,13 +64,13 @@ struct ReClammPoolDynamicData {
     // ReClamm
     uint256 lastTimestamp;
     uint256[] lastVirtualBalances;
-    uint256 timeConstant;
+    uint256 priceShiftDailyRangeInSeconds;
     uint256 centerednessMargin;
     uint256 currentFourthRootPriceRatio;
     uint256 startFourthRootPriceRatio;
     uint256 endFourthRootPriceRatio;
-    uint32 startTime;
-    uint32 endTime;
+    uint32 priceRatioUpdateStartTime;
+    uint32 priceRatioUpdateEndTime;
     // Pool State
     bool isPoolInitialized;
     bool isPoolPaused;
@@ -119,8 +119,8 @@ interface IReClammPool is IBasePool {
     event PriceRatioStateUpdated(
         uint256 startFourthRootPriceRatio,
         uint256 endFourthRootPriceRatio,
-        uint256 startTime,
-        uint256 endTime
+        uint256 priceRatioUpdateStartTime,
+        uint256 priceRatioUpdateEndTime
     );
 
     /// @dev The Virtual Balances were updated after a user interaction.
@@ -129,9 +129,9 @@ interface IReClammPool is IBasePool {
     /**
      * @dev The Price Shift Daily Rate was updated.
      * @param priceShiftDailyRate The new price shift daily rate
-     * @param timeConstant A representation of the price shift daily rate in seconds
+     * @param priceShiftDailyRangeInSeconds A representation of the price shift daily rate in seconds
      */
-    event PriceShiftDailyRateUpdated(uint256 priceShiftDailyRate, uint256 timeConstant);
+    event PriceShiftDailyRateUpdated(uint256 priceShiftDailyRate, uint256 priceShiftDailyRangeInSeconds);
 
     /// @dev The Centeredness Margin was updated.
     event CenterednessMarginUpdated(uint256 centerednessMargin);
@@ -176,9 +176,9 @@ interface IReClammPool is IBasePool {
     /**
      * @notice Returns the time constant.
      * @dev The time constant is an internal representation of the raw price shift daily rate, expressed in seconds.
-     * @return timeConstant The time constant
+     * @return priceShiftDailyRangeInSeconds The time constant
      */
-    function getTimeConstant() external view returns (uint256 timeConstant);
+    function getTimeConstant() external view returns (uint256 priceShiftDailyRangeInSeconds);
 
     /**
      * @notice Returns the current price ratio state.
@@ -218,10 +218,14 @@ interface IReClammPool is IBasePool {
      * be set to the current fourth root price ratio of the pool.
      *
      * @param endFourthRootPriceRatio The new ending value of the fourth root price ratio
-     * @param startTime The timestamp when the price ratio update will start
-     * @param endTime The timestamp when the price ratio update will end
+     * @param priceRatioUpdateStartTime The timestamp when the price ratio update will start
+     * @param priceRatioUpdateEndTime The timestamp when the price ratio update will end
      */
-    function setPriceRatioState(uint256 endFourthRootPriceRatio, uint256 startTime, uint256 endTime) external;
+    function setPriceRatioState(
+        uint256 endFourthRootPriceRatio,
+        uint256 priceRatioUpdateStartTime,
+        uint256 priceRatioUpdateEndTime
+    ) external;
 
     /**
      * @notice Updates the price shift daily rate.

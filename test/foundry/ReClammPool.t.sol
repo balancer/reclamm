@@ -72,7 +72,7 @@ contract ReClammPoolTest is BaseReClammTest {
         ReClammPool(pool).setPriceShiftDailyRate(priceShiftDailyRate);
 
         uint256 actualTimeConstant = ReClammPool(pool).getTimeConstant();
-        assertEq(actualTimeConstant, expectedTimeConstant, "Invalid timeConstant");
+        assertEq(actualTimeConstant, expectedTimeConstant, "Invalid priceShiftDailyRangeInSeconds");
     }
 
     function testGetPriceRatioState() public {
@@ -87,15 +87,19 @@ contract ReClammPoolTest is BaseReClammTest {
             _DEFAULT_FOURTH_ROOT_PRICE_RATIO,
             "Invalid default endFourthRootPriceRatio"
         );
-        assertEq(priceRatioState.startTime, 0, "Invalid default startTime");
-        assertEq(priceRatioState.endTime, block.timestamp, "Invalid default endTime");
+        assertEq(priceRatioState.priceRatioUpdateStartTime, 0, "Invalid default priceRatioUpdateStartTime");
+        assertEq(priceRatioState.priceRatioUpdateEndTime, block.timestamp, "Invalid default priceRatioUpdateEndTime");
 
         uint256 oldFourthRootPriceRatio = priceRatioState.endFourthRootPriceRatio;
         uint256 newFourthRootPriceRatio = 5e18;
-        uint256 newStartTime = block.timestamp;
-        uint256 newEndTime = block.timestamp + 1 hours;
+        uint256 newPriceRatioUpdateStartTime = block.timestamp;
+        uint256 newPriceRatioUpdateEndTime = block.timestamp + 1 hours;
         vm.prank(admin);
-        ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, newStartTime, newEndTime);
+        ReClammPool(pool).setPriceRatioState(
+            newFourthRootPriceRatio,
+            newPriceRatioUpdateStartTime,
+            newPriceRatioUpdateEndTime
+        );
 
         priceRatioState = ReClammPool(pool).getPriceRatioState();
         assertEq(
@@ -108,8 +112,16 @@ contract ReClammPoolTest is BaseReClammTest {
             newFourthRootPriceRatio,
             "Invalid new endFourthRootPriceRatio"
         );
-        assertEq(priceRatioState.startTime, newStartTime, "Invalid new startTime");
-        assertEq(priceRatioState.endTime, newEndTime, "Invalid new endTime");
+        assertEq(
+            priceRatioState.priceRatioUpdateStartTime,
+            newPriceRatioUpdateStartTime,
+            "Invalid new priceRatioUpdateStartTime"
+        );
+        assertEq(
+            priceRatioState.priceRatioUpdateEndTime,
+            newPriceRatioUpdateEndTime,
+            "Invalid new priceRatioUpdateEndTime"
+        );
     }
 
     function testGetReClammPoolDynamicData() public {
@@ -122,14 +134,18 @@ contract ReClammPoolTest is BaseReClammTest {
         PriceRatioState memory state = PriceRatioState({
             startFourthRootPriceRatio: ReClammPool(pool).getCurrentFourthRootPriceRatio(),
             endFourthRootPriceRatio: endFourthRootPriceRatio.toUint96(),
-            startTime: block.timestamp.toUint32(),
-            endTime: (block.timestamp + 1 days).toUint32()
+            priceRatioUpdateStartTime: block.timestamp.toUint32(),
+            priceRatioUpdateEndTime: (block.timestamp + 1 days).toUint32()
         });
 
         (uint256[] memory currentVirtualBalances, ) = ReClammPool(pool).getCurrentVirtualBalances();
 
         vm.startPrank(admin);
-        ReClammPool(pool).setPriceRatioState(state.endFourthRootPriceRatio, state.startTime, state.endTime);
+        ReClammPool(pool).setPriceRatioState(
+            state.endFourthRootPriceRatio,
+            state.priceRatioUpdateStartTime,
+            state.priceRatioUpdateEndTime
+        );
         ReClammPool(pool).setPriceShiftDailyRate(newPriceShiftDailyRate);
         ReClammPool(pool).setCenterednessMargin(newCenterednessMargin);
         vault.setStaticSwapFeePercentage(pool, newStaticSwapFeePercentage);
@@ -141,8 +157,8 @@ contract ReClammPoolTest is BaseReClammTest {
             block.timestamp.toUint32(),
             state.startFourthRootPriceRatio,
             state.endFourthRootPriceRatio,
-            state.startTime,
-            state.endTime
+            state.priceRatioUpdateStartTime,
+            state.priceRatioUpdateEndTime
         );
 
         // Get initial dynamic data.
@@ -176,11 +192,11 @@ contract ReClammPoolTest is BaseReClammTest {
             "Invalid start fourth root price ratio"
         );
         assertEq(data.endFourthRootPriceRatio, state.endFourthRootPriceRatio, "Invalid end fourth root price ratio");
-        assertEq(data.startTime, state.startTime, "Invalid start time");
-        assertEq(data.endTime, state.endTime, "Invalid end time");
+        assertEq(data.priceRatioUpdateStartTime, state.priceRatioUpdateStartTime, "Invalid start time");
+        assertEq(data.priceRatioUpdateEndTime, state.priceRatioUpdateEndTime, "Invalid end time");
 
         assertEq(data.centerednessMargin, newCenterednessMargin, "Invalid centeredness margin");
-        assertEq(data.timeConstant, newPriceShiftDailyRate / 124649, "Invalid time constant");
+        assertEq(data.priceShiftDailyRangeInSeconds, newPriceShiftDailyRate / 124649, "Invalid time constant");
         assertEq(data.lastVirtualBalances.length, 2, "Invalid number of last virtual balances");
         assertEq(data.lastVirtualBalances[daiIdx], currentVirtualBalances[daiIdx], "Invalid DAI last virtual balance");
         assertEq(
@@ -209,9 +225,9 @@ contract ReClammPoolTest is BaseReClammTest {
 
     function testSetFourthRootPriceRatio() public {
         uint96 endFourthRootPriceRatio = 2e18;
-        uint32 startTime = uint32(block.timestamp);
+        uint32 priceRatioUpdateStartTime = uint32(block.timestamp);
         uint32 duration = 1 hours;
-        uint32 endTime = uint32(block.timestamp) + duration;
+        uint32 priceRatioUpdateEndTime = uint32(block.timestamp) + duration;
 
         uint96 startFourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
         vm.prank(admin);
@@ -219,10 +235,14 @@ contract ReClammPoolTest is BaseReClammTest {
         emit IReClammPool.PriceRatioStateUpdated(
             startFourthRootPriceRatio,
             endFourthRootPriceRatio,
-            startTime,
-            endTime
+            priceRatioUpdateStartTime,
+            priceRatioUpdateEndTime
         );
-        ReClammPool(pool).setPriceRatioState(endFourthRootPriceRatio, startTime, endTime);
+        ReClammPool(pool).setPriceRatioState(
+            endFourthRootPriceRatio,
+            priceRatioUpdateStartTime,
+            priceRatioUpdateEndTime
+        );
 
         skip(duration / 2);
         uint96 fourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
@@ -230,8 +250,8 @@ contract ReClammPoolTest is BaseReClammTest {
             uint32(block.timestamp),
             startFourthRootPriceRatio,
             endFourthRootPriceRatio,
-            startTime,
-            endTime
+            priceRatioUpdateStartTime,
+            priceRatioUpdateEndTime
         );
 
         assertEq(fourthRootPriceRatio, mathFourthRootPriceRatio, "FourthRootPriceRatio not updated correctly");

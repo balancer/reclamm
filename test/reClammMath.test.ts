@@ -17,6 +17,7 @@ import {
   computePriceShiftDailyRate,
   pureComputeInvariant,
   Rounding,
+  PriceRatioState,
 } from './utils/reClammMath';
 import { expectEqualWithError } from './utils/relativeError';
 
@@ -32,18 +33,11 @@ const getTimestampFromLastBlock = async (): Promise<number> => {
   return blockBefore.timestamp;
 };
 
-const getPriceRatioState = async (
-  endTimeOffset = 0
-): Promise<{
-  startTime: number;
-  endTime: number;
-  startFourthRootPriceRatio: bigint;
-  endFourthRootPriceRatio: bigint;
-}> => {
+const getPriceRatioState = async (endTimeOffset = 0): Promise<PriceRatioState> => {
   const currentTimestamp = await getTimestampFromLastBlock();
   return {
-    startTime: currentTimestamp - 1000,
-    endTime: currentTimestamp - 500 + endTimeOffset,
+    priceRatioUpdateStartTime: currentTimestamp - 1000,
+    priceRatioUpdateEndTime: currentTimestamp - 500 + endTimeOffset,
     startFourthRootPriceRatio: bn(1.5e18),
     endFourthRootPriceRatio: bn(2e18),
   };
@@ -211,22 +205,22 @@ describe('ReClammMath', function () {
       const currentTime = 100;
       const startFourthRootPriceRatioFp = bn(100e18);
       const endFourthRootPriceRatioFp = bn(300e18);
-      const startTime = 1;
-      const endTime = 50;
+      const priceRatioUpdateStartTime = 1;
+      const priceRatioUpdateEndTime = 50;
 
       const contractResult = await mathLib.calculateFourthRootPriceRatio(
         currentTime,
         startFourthRootPriceRatioFp,
         endFourthRootPriceRatioFp,
-        startTime,
-        endTime
+        priceRatioUpdateStartTime,
+        priceRatioUpdateEndTime
       );
       const mathResult = calculateFourthRootPriceRatio(
         currentTime,
         startFourthRootPriceRatioFp,
         endFourthRootPriceRatioFp,
-        startTime,
-        endTime
+        priceRatioUpdateStartTime,
+        priceRatioUpdateEndTime
       );
 
       expect(contractResult).to.equal(mathResult);
@@ -237,22 +231,22 @@ describe('ReClammMath', function () {
       const currentTime = 0;
       const startFourthRootPriceRatioFp = bn(100e18);
       const endFourthRootPriceRatioFp = bn(300e18);
-      const startTime = 1;
-      const endTime = 50;
+      const priceRatioUpdateStartTime = 1;
+      const priceRatioUpdateEndTime = 50;
 
       const contractResult = await mathLib.calculateFourthRootPriceRatio(
         currentTime,
         startFourthRootPriceRatioFp,
         endFourthRootPriceRatioFp,
-        startTime,
-        endTime
+        priceRatioUpdateStartTime,
+        priceRatioUpdateEndTime
       );
       const mathResult = calculateFourthRootPriceRatio(
         currentTime,
         startFourthRootPriceRatioFp,
         endFourthRootPriceRatioFp,
-        startTime,
-        endTime
+        priceRatioUpdateStartTime,
+        priceRatioUpdateEndTime
       );
 
       expect(contractResult).to.equal(mathResult);
@@ -263,22 +257,22 @@ describe('ReClammMath', function () {
       const currentTime = 25;
       const startFourthRootPriceRatioFp = bn(100e18);
       const endFourthRootPriceRatioFp = bn(100e18);
-      const startTime = 1;
-      const endTime = 50;
+      const priceRatioUpdateStartTime = 1;
+      const priceRatioUpdateEndTime = 50;
 
       const contractResult = await mathLib.calculateFourthRootPriceRatio(
         currentTime,
         startFourthRootPriceRatioFp,
         endFourthRootPriceRatioFp,
-        startTime,
-        endTime
+        priceRatioUpdateStartTime,
+        priceRatioUpdateEndTime
       );
       const mathResult = calculateFourthRootPriceRatio(
         currentTime,
         startFourthRootPriceRatioFp,
         endFourthRootPriceRatioFp,
-        startTime,
-        endTime
+        priceRatioUpdateStartTime,
+        priceRatioUpdateEndTime
       );
 
       expect(contractResult).to.equal(mathResult);
@@ -289,22 +283,22 @@ describe('ReClammMath', function () {
       const currentTime = 25;
       const startFourthRootPriceRatioFp = bn(100e18);
       const endFourthRootPriceRatioFp = bn(300e18);
-      const startTime = 1;
-      const endTime = 50;
+      const priceRatioUpdateStartTime = 1;
+      const priceRatioUpdateEndTime = 50;
 
       const contractResult = await mathLib.calculateFourthRootPriceRatio(
         currentTime,
         startFourthRootPriceRatioFp,
         endFourthRootPriceRatioFp,
-        startTime,
-        endTime
+        priceRatioUpdateStartTime,
+        priceRatioUpdateEndTime
       );
       const mathResult = calculateFourthRootPriceRatio(
         currentTime,
         startFourthRootPriceRatioFp,
         endFourthRootPriceRatioFp,
-        startTime,
-        endTime
+        priceRatioUpdateStartTime,
+        priceRatioUpdateEndTime
       );
 
       expectEqualWithError(contractResult, mathResult, EXPECTED_RELATIVE_ERROR);
@@ -318,12 +312,7 @@ describe('ReClammMath', function () {
       balancesScaled18: bigint[],
       lastVirtualBalances: bigint[],
       lastTimestamp: number,
-      priceRatioState: {
-        startTime: number;
-        endTime: number;
-        startFourthRootPriceRatio: bigint;
-        endFourthRootPriceRatio: bigint;
-      },
+      priceRatioState: PriceRatioState,
       expectChange: boolean
     ): Promise<{
       virtualBalances: bigint[];
@@ -363,7 +352,7 @@ describe('ReClammMath', function () {
     it('q is updating & isPoolInRange == true && lastTimestamp < startTime', async () => {
       // Price ratio is updating. (priceRatioState.endTime > currentTimestamp)
       const priceRatioState = await getPriceRatioState(1000);
-      const lastTimestamp = priceRatioState.startTime - 100;
+      const lastTimestamp = priceRatioState.priceRatioUpdateStartTime - 100;
 
       const balancesScaled18 = BALANCES_IN_RANGE;
       const lastVirtualBalances = INITIAL_VIRTUAL_BALANCES;
@@ -388,7 +377,7 @@ describe('ReClammMath', function () {
       const lastVirtualBalances = INITIAL_VIRTUAL_BALANCES;
 
       // Price ratio is updating.
-      const lastTimestamp = priceRatioState.startTime + 20;
+      const lastTimestamp = priceRatioState.priceRatioUpdateStartTime + 20;
 
       const res = await computeCheckAndReturnContractVirtualBalances(
         balancesScaled18,
@@ -408,7 +397,7 @@ describe('ReClammMath', function () {
       const lastVirtualBalances = INITIAL_VIRTUAL_BALANCES;
 
       // Price ratio is not updating.
-      const lastTimestamp = priceRatioState.endTime + 50;
+      const lastTimestamp = priceRatioState.priceRatioUpdateEndTime + 50;
 
       expect(await mathLib.isAboveCenter(balancesScaled18, lastVirtualBalances)).to.equal(true);
       expect(await mathLib.isPoolInRange(balancesScaled18, lastVirtualBalances, CENTEREDNESS_MARGIN)).to.equal(false);
@@ -429,7 +418,7 @@ describe('ReClammMath', function () {
       const lastVirtualBalances = INITIAL_VIRTUAL_BALANCES;
 
       // Price ratio is not updating.
-      const lastTimestamp = priceRatioState.endTime + 50;
+      const lastTimestamp = priceRatioState.priceRatioUpdateEndTime + 50;
 
       expect(await mathLib.isAboveCenter(balancesScaled18, lastVirtualBalances)).to.equal(false);
       expect(await mathLib.isPoolInRange(balancesScaled18, lastVirtualBalances, CENTEREDNESS_MARGIN)).to.equal(false);
@@ -468,7 +457,7 @@ describe('ReClammMath', function () {
     it('should return the correct value (roundUp)', async () => {
       // Price ratio is updating. (priceRatioState.endTime > currentTimestamp)
       const priceRatioState = await getPriceRatioState(1000);
-      const lastTimestamp = priceRatioState.startTime - 100;
+      const lastTimestamp = priceRatioState.priceRatioUpdateStartTime - 100;
 
       const balancesScaled18 = BALANCES_IN_RANGE;
       const lastVirtualBalances = INITIAL_VIRTUAL_BALANCES;
@@ -507,7 +496,7 @@ describe('ReClammMath', function () {
     it('should return the correct value (roundDown)', async () => {
       // Price ratio is updating. (priceRatioState.endTime > currentTimestamp)
       const priceRatioState = await getPriceRatioState(1000);
-      const lastTimestamp = priceRatioState.startTime - 100;
+      const lastTimestamp = priceRatioState.priceRatioUpdateStartTime - 100;
 
       const balancesScaled18 = BALANCES_IN_RANGE;
       const lastVirtualBalances = INITIAL_VIRTUAL_BALANCES;
