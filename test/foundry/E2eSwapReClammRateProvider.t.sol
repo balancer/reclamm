@@ -7,19 +7,29 @@ import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import { IRateProvider } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/helpers/IRateProvider.sol";
+import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
+
+import { CastingHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/CastingHelpers.sol";
 import { ERC20TestToken } from "@balancer-labs/v3-solidity-utils/contracts/test/ERC20TestToken.sol";
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
-import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
-import { E2eSwapTest } from "@balancer-labs/v3-vault/test/foundry/E2eSwap.t.sol";
+import {
+    E2eSwapRateProviderTest,
+    PoolFactoryMock
+} from "@balancer-labs/v3-vault/test/foundry/E2eSwapRateProvider.t.sol";
 
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
 import { ReClammPoolContractsDeployer } from "./utils/ReClammPoolContractsDeployer.sol";
 import { E2eSwapFuzzPoolParamsHelper } from "./utils/E2eSwapFuzzPoolParamsHelper.sol";
 
-contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest, ReClammPoolContractsDeployer {
+contract E2eSwapReClammRateProvider is
+    E2eSwapFuzzPoolParamsHelper,
+    E2eSwapRateProviderTest,
+    ReClammPoolContractsDeployer
+{
     using ArrayHelpers for *;
     using FixedPoint for uint256;
+    using CastingHelpers for address[];
 
     uint256 private constant MAX_BALANCE = 1_000 * FixedPoint.ONE;
     uint256 private constant MIN_PRICE = FixedPoint.ONE;
@@ -27,7 +37,7 @@ contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest, ReClamm
     uint256 private constant MAX_DAYS_FOR_PRICE_CHANGE = 10 days;
 
     function setUp() public override {
-        E2eSwapTest.setUp();
+        super.setUp();
 
         authorizer.grantRole(ReClammPool(address(pool)).getActionId(ReClammPool.setPriceRatioState.selector), alice);
     }
@@ -41,12 +51,15 @@ contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest, ReClamm
         return address(deployReClammPoolFactoryWithDefaultParams(vault));
     }
 
-    /// @notice Overrides BaseVaultTest _createPool(). This pool is used by E2eSwapTest tests.
     function _createPool(
         address[] memory tokens,
         string memory label
-    ) internal override returns (address newPool, bytes memory poolArgs) {
-        return createReClammPool(tokens, label, vault, lp);
+    ) internal virtual override returns (address newPool, bytes memory poolArgs) {
+        IRateProvider[] memory rateProviders = new IRateProvider[](2);
+        rateProviders[tokenAIdx] = IRateProvider(address(rateProviderTokenA));
+        rateProviders[tokenBIdx] = IRateProvider(address(rateProviderTokenB));
+
+        (newPool, poolArgs) = createReClammPool(tokens, rateProviders, label, vault, lp);
     }
 
     function fuzzPoolParams(uint256[POOL_SPECIFIC_PARAMS_SIZE] memory params) internal override {
