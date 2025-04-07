@@ -234,8 +234,7 @@ library ReClammMath {
             _priceRatioState.priceRatioUpdateEndTime
         );
 
-        bool isPoolAboveCenterCalculated = false;
-        bool isPoolAboveCenter;
+        bool isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances);
 
         // If the price ratio is updating, shrink/expand the price interval by recalculating the virtual balances.
         // Skip the update if the start and end price ratio are the same, because the virtual balances are already
@@ -246,9 +245,6 @@ library ReClammMath {
             lastTimestamp < _priceRatioState.priceRatioUpdateEndTime &&
             _priceRatioState.startFourthRootPriceRatio != _priceRatioState.endFourthRootPriceRatio
         ) {
-            isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances);
-            isPoolAboveCenterCalculated = true;
-
             currentVirtualBalances = calculateVirtualBalancesUpdatingPriceRatio(
                 currentFourthRootPriceRatio,
                 balancesScaled18,
@@ -261,10 +257,6 @@ library ReClammMath {
 
         // If the pool is out of range, track the market price by moving the price interval.
         if (isPoolInRange(balancesScaled18, currentVirtualBalances, centerednessMargin) == false) {
-            if (!isPoolAboveCenterCalculated) {
-                isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances);
-            }
-
             currentVirtualBalances = calculateVirtualBalancesOutOfRange(
                 currentFourthRootPriceRatio,
                 balancesScaled18,
