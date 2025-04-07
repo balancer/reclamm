@@ -14,19 +14,30 @@ struct ReClammPoolParams {
     string symbol;
     string version;
     uint256 priceShiftDailyRate;
-    uint96 fourthRootPriceRatio;
     uint64 centerednessMargin;
+    uint256 initialMinPrice;
+    uint256 initialMaxPrice;
+    uint256 initialTargetPrice;
 }
 
 /**
  * @notice ReClamm Pool data that cannot change after deployment.
+ * @dev Note that the initial prices are used only during pool initialization. After the initialization, the prices
+ * will shift according to price ratio and pool centeredness.
+ *
  * @param tokens Pool tokens, sorted in token registration order
  * @param decimalScalingFactors Conversion factor used to adjust for token decimals for uniform precision in
  * calculations. FP(1) for 18-decimal tokens
+ * @param initialMinPrice The initial minimum price of the pool
+ * @param initialMaxPrice The initial maximum price of the pool
+ * @param initialTargetPrice The initial target price of the pool
  */
 struct ReClammPoolImmutableData {
     IERC20[] tokens;
     uint256[] decimalScalingFactors;
+    uint256 initialMinPrice;
+    uint256 initialMaxPrice;
+    uint256 initialTargetPrice;
 }
 
 /**
@@ -111,6 +122,14 @@ interface IReClammPool is IBasePool {
      */
     error ReClammPoolBptRateUnsupported();
 
+    /**
+     * @notice The initial balances of the ReClamm Pool must respect the initialization proportion.
+     * @dev The initialization proportion is calculated based on the min, max and target prices. If the proportion is
+     * not respected during initialization, the pool would not respect the prices given during creation. So, it
+     * reverts.
+     */
+    error WrongBalancesProportion();
+
     /********************************************************
                            Events
     ********************************************************/
@@ -142,6 +161,16 @@ interface IReClammPool is IBasePool {
     /********************************************************
                        Pool State Getters
     ********************************************************/
+
+    /**
+     * @notice Returns the proportion between balances of token at index 1 and token at index 0.
+     * @dev To keep the pool in the right target price after initialization, with the desired price interval, the
+     * initial balances of the pool need to follow the proportion returned by this function. For example, if this
+     * function returns 200, it means that the user needs to put 200 tokens 1 for each token 0.
+     *
+     * @return proportion The proportion of tokens that should be respected during initialization.
+     */
+    function getInitializationProportion() external view returns (uint256 proportion);
 
     /**
      * @notice Returns the current virtual balances and a flag indicating whether they have changed.

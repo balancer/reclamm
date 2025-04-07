@@ -3,7 +3,7 @@ import { deploy } from '@balancer-labs/v3-helpers/src/contract';
 import { ethers } from 'hardhat';
 
 import { expect } from 'chai';
-import { bn, fp, fpDivDown } from '@balancer-labs/v3-helpers/src/numbers';
+import { bn, fp } from '@balancer-labs/v3-helpers/src/numbers';
 import {
   calculateCenteredness,
   calculateInGivenOut,
@@ -11,13 +11,13 @@ import {
   calculateFourthRootPriceRatio,
   computeInvariant,
   getCurrentVirtualBalances,
-  initializeVirtualBalances,
   isAboveCenter,
   isPoolInRange,
   computePriceShiftDailyRate,
   pureComputeInvariant,
   Rounding,
   PriceRatioState,
+  getTheoreticalPriceRatioAndBalances,
 } from './utils/reClammMath';
 import { expectEqualWithError } from './utils/relativeError';
 
@@ -145,16 +145,26 @@ describe('ReClammMath', function () {
     });
   });
 
-  context('initializeVirtualBalances', () => {
+  context('getTheoreticalPriceRatioAndBalances', () => {
     it('should return the correct value', async () => {
-      const balancesScaled18 = [bn(200e18), bn(300e18)];
-      const fourthRootPriceRatio = bn(100e18);
+      const minPrice = fp(1000);
+      const maxPrice = fp(4000);
+      const targetPrice = fp(2500);
 
-      const res = await mathLib.initializeVirtualBalances(balancesScaled18, fourthRootPriceRatio);
-      const jsRes = initializeVirtualBalances(balancesScaled18, fourthRootPriceRatio);
-      expect(res.length).to.equal(jsRes.length);
-      expect(res[0]).to.equal(jsRes[0]);
-      expect(res[1]).to.equal(jsRes[1]);
+      const [theoreticalBalancesSol, virtualBalancesSol, fourthRootPriceRatioSol] =
+        await mathLib.getTheoreticalPriceRatioAndBalances(minPrice, maxPrice, targetPrice);
+      const [theoreticalBalancesJs, virtualBalancesJs, fourthRootPriceRatioJs] = getTheoreticalPriceRatioAndBalances(
+        minPrice,
+        maxPrice,
+        targetPrice
+      );
+
+      // Error of 0.0001%, because the sqrt libraries behave a bit differently
+      expectEqualWithError(theoreticalBalancesSol[0], theoreticalBalancesJs[0], 0.000001);
+      expectEqualWithError(theoreticalBalancesSol[1], theoreticalBalancesJs[1], 0.000001);
+      expectEqualWithError(virtualBalancesSol[0], virtualBalancesJs[0], 0.000001);
+      expectEqualWithError(virtualBalancesSol[1], virtualBalancesJs[1], 0.000001);
+      expectEqualWithError(fourthRootPriceRatioSol, fourthRootPriceRatioJs, 0.000001);
     });
   });
 

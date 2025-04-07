@@ -5,7 +5,7 @@ import { sharedBeforeEach } from '@balancer-labs/v3-common/sharedBeforeEach';
 import { Router } from '@balancer-labs/v3-vault/typechain-types/contracts/Router';
 import { ERC20TestToken } from '@balancer-labs/v3-solidity-utils/typechain-types/contracts/test/ERC20TestToken';
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/dist/src/signer-with-address';
-import { FP_ZERO, bn, fp } from '@balancer-labs/v3-helpers/src/numbers';
+import { FP_ZERO, bn, fp, fpDivDown, fpMulDown } from '@balancer-labs/v3-helpers/src/numbers';
 import {
   MAX_UINT256,
   MAX_UINT160,
@@ -38,11 +38,14 @@ describe('ReClammPool', function () {
   const TOKEN_AMOUNT = fp(100);
 
   const INITIAL_BALANCE_A = TOKEN_AMOUNT;
-  const INITIAL_BALANCE_B = 2n * TOKEN_AMOUNT;
   const MIN_POOL_BALANCE = fp(0.0001);
 
   const SWAP_FEE = fp(0.01); // 1%
-  const SQRT_PRICE_RATIO = fp(2); // The ratio between max and min price is 16 (2^4)
+
+  const MIN_PRICE = fp(0.5);
+  const MAX_PRICE = fp(8);
+  const TARGET_PRICE = fp(3);
+
   const PRICE_SHIFT_DAILY_RATE = fp(1); // 100%. Price interval can double or reduce by half each day
   // 20%. If pool centeredness is less than margin, price interval will track the market price.
   const CENTEREDNESS_MARGIN = fp(0.2);
@@ -86,9 +89,6 @@ describe('ReClammPool', function () {
     tokenBAddress = await tokenB.getAddress();
 
     [tokenAIdx, tokenBIdx] = tokenAAddress.localeCompare(tokenBAddress) < 0 ? [0, 1] : [1, 0];
-
-    initialBalances[tokenAIdx] = INITIAL_BALANCE_A;
-    initialBalances[tokenBIdx] = INITIAL_BALANCE_B;
   });
 
   sharedBeforeEach('create and initialize pool', async () => {
@@ -105,8 +105,10 @@ describe('ReClammPool', function () {
       tokenConfig,
       { pauseManager: ZERO_ADDRESS, swapFeeManager: ZERO_ADDRESS, poolCreator: ZERO_ADDRESS },
       SWAP_FEE,
+      MIN_PRICE,
+      MAX_PRICE,
+      TARGET_PRICE,
       PRICE_SHIFT_DAILY_RATE,
-      SQRT_PRICE_RATIO,
       CENTEREDNESS_MARGIN,
       ZERO_BYTES32
     );
@@ -114,6 +116,16 @@ describe('ReClammPool', function () {
     const event = expectEvent.inReceipt(receipt, 'PoolCreated');
 
     pool = (await deployedAt('ReClammPool', event.args.pool)) as unknown as ReClammPool;
+
+    // The initial balances must respect the initialization proportion.
+    const proportion = await pool.getInitializationProportion();
+    if (tokenAIdx < tokenBIdx) {
+      initialBalances[tokenAIdx] = INITIAL_BALANCE_A;
+      initialBalances[tokenBIdx] = fpMulDown(INITIAL_BALANCE_A, proportion) / bn(1e12);
+    } else {
+      initialBalances[tokenAIdx] = INITIAL_BALANCE_A;
+      initialBalances[tokenBIdx] = fpDivDown(INITIAL_BALANCE_A, proportion) / bn(1e12);
+    }
 
     await tokenA.mint(bob, 10n * TOKEN_AMOUNT);
     await tokenB.mint(bob, 10n * TOKEN_AMOUNT);
@@ -177,8 +189,9 @@ describe('ReClammPool', function () {
   });
 
   it('should move virtual balances correctly (out of range > center)', async () => {
-    // Very big swap, putting the pool right at the edge.
-    const exactAmountOut = INITIAL_BALANCE_B - MIN_POOL_BALANCE - 1n;
+    // Very big swap, putting the pool right at the edge. (Token B has 6 decimals, so we need to convert to 18
+    // decimals).
+    const exactAmountOut = initialBalances[tokenBIdx] - MIN_POOL_BALANCE / bn(1e12) - 1n;
     const maxAmountIn = MAX_UINT256;
     const deadline = MAX_UINT256;
     const wethIsEth = false;
@@ -194,6 +207,8 @@ describe('ReClammPool', function () {
     await advanceTime(HOUR);
     const expectedTimestamp = lastTimestamp + BigInt(HOUR) + 1n;
 
+    const currentFourthRootPriceRatio = await pool.getCurrentFourthRootPriceRatio();
+
     // calculate the expected virtual balances in the next swap
     const [expectedFinalVirtualBalances] = getCurrentVirtualBalances(
       poolBalancesAfterSwap,
@@ -203,10 +218,10 @@ describe('ReClammPool', function () {
       expectedTimestamp,
       CENTEREDNESS_MARGIN,
       {
-        startTime: 0,
-        endTime: 0,
-        startFourthRootPriceRatio: SQRT_PRICE_RATIO,
-        endFourthRootPriceRatio: SQRT_PRICE_RATIO,
+        priceRatioUpdateStartTime: 0,
+        priceRatioUpdateEndTime: 0,
+        startFourthRootPriceRatio: currentFourthRootPriceRatio,
+        endFourthRootPriceRatio: currentFourthRootPriceRatio,
       }
     );
 
@@ -244,6 +259,8 @@ describe('ReClammPool', function () {
     await advanceTime(HOUR);
     const expectedTimestamp = lastTimestamp + BigInt(HOUR) + 1n;
 
+    const currentFourthRootPriceRatio = await pool.getCurrentFourthRootPriceRatio();
+
     // Calculate the expected virtual balances in the next swap.
     const [expectedFinalVirtualBalances] = getCurrentVirtualBalances(
       poolBalancesAfterSwap,
@@ -253,10 +270,10 @@ describe('ReClammPool', function () {
       expectedTimestamp,
       CENTEREDNESS_MARGIN,
       {
-        startTime: 0,
-        endTime: 0,
-        startFourthRootPriceRatio: SQRT_PRICE_RATIO,
-        endFourthRootPriceRatio: SQRT_PRICE_RATIO,
+        priceRatioUpdateStartTime: 0,
+        priceRatioUpdateEndTime: 0,
+        startFourthRootPriceRatio: currentFourthRootPriceRatio,
+        endFourthRootPriceRatio: currentFourthRootPriceRatio,
       }
     );
 
@@ -266,7 +283,16 @@ describe('ReClammPool', function () {
     // Swap in the other direction.
     await router
       .connect(bob)
-      .swapSingleTokenExactOut(pool, tokenA, tokenB, INITIAL_BALANCE_B, MAX_UINT256, deadline, wethIsEth, '0x');
+      .swapSingleTokenExactOut(
+        pool,
+        tokenA,
+        tokenB,
+        initialBalances[tokenBIdx],
+        MAX_UINT256,
+        deadline,
+        wethIsEth,
+        '0x'
+      );
 
     // Check whether the virtual balances are close to their expected values.
     const [actualFinalVirtualBalances] = await pool.getCurrentVirtualBalances();

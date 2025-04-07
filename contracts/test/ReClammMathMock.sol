@@ -74,11 +74,16 @@ contract ReClammMathMock {
             );
     }
 
-    function initializeVirtualBalances(
-        uint256[] memory balancesScaled18,
-        uint256 fourthRootPriceRatio
-    ) external pure returns (uint256[] memory virtualBalances) {
-        return ReClammMath.initializeVirtualBalances(balancesScaled18, fourthRootPriceRatio);
+    function getTheoreticalPriceRatioAndBalances(
+        uint256 minPrice,
+        uint256 maxPrice,
+        uint256 targetPrice
+    )
+        external
+        pure
+        returns (uint256[] memory realBalances, uint256[] memory virtualBalances, uint256 fourthRootPriceRatio)
+    {
+        return ReClammMath.getTheoreticalPriceRatioAndBalances(minPrice, maxPrice, targetPrice);
     }
 
     function getCurrentVirtualBalances(

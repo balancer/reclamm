@@ -52,6 +52,12 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 internal constant _MIN_TOKEN_BALANCE_SCALED18 = 1e14;
     uint256 internal constant _MIN_POOL_CENTEREDNESS = 1e3;
 
+    uint256 internal constant _BALANCES_PROPORTION_TOLERANCE = 1e14; // 0.01% tolerance
+
+    uint256 private immutable _initialMinPrice;
+    uint256 private immutable _initialMaxPrice;
+    uint256 private immutable _initialTargetPrice;
+
     PriceRatioState internal _priceRatioState;
     uint32 internal _lastTimestamp;
     uint128 internal _priceShiftDailyRangeInSeconds;
@@ -84,9 +90,14 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         BasePoolAuthentication(vault, msg.sender)
         Version(params.version)
     {
+        // Initialize immutable params. They are used only during pool initialization.
+        _initialMinPrice = params.initialMinPrice;
+        _initialMaxPrice = params.initialMaxPrice;
+        _initialTargetPrice = params.initialTargetPrice;
+
+        // Set dynamic parameters.
         _setPriceShiftDailyRate(params.priceShiftDailyRate);
         _setCenterednessMargin(params.centerednessMargin);
-        _setPriceRatioState(params.fourthRootPriceRatio, 0, block.timestamp);
     }
 
     /********************************************************
@@ -185,6 +196,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         return 0;
     }
 
+    /// @inheritdoc IRateProvider
+    function getRate() public pure override returns (uint256) {
+        revert ReClammPoolBptRateUnsupported();
+    }
+
     /********************************************************
                         Hooks Functions
     ********************************************************/
@@ -214,12 +230,34 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256[] memory balancesScaled18,
         bytes memory
     ) public override onlyVault returns (bool) {
-        uint256 currentFourthRootPriceRatio = _calculateCurrentFourthRootPriceRatio();
-        uint256[] memory virtualBalances = ReClammMath.initializeVirtualBalances(
-            balancesScaled18,
-            currentFourthRootPriceRatio
-        );
+        (
+            uint256[] memory theoreticalRealBalances,
+            uint256[] memory theoreticalVirtualBalances,
+            uint256 fourthRootPriceRatio
+        ) = ReClammMath.getTheoreticalPriceRatioAndBalances(_initialMinPrice, _initialMaxPrice, _initialTargetPrice);
+
+        uint256 realProportion = balancesScaled18[1].divDown(balancesScaled18[0]);
+        uint256 theoreticalProportion = theoreticalRealBalances[1].divDown(theoreticalRealBalances[0]);
+
+        if (
+            realProportion < theoreticalProportion.mulDown(FixedPoint.ONE - _BALANCES_PROPORTION_TOLERANCE) ||
+            realProportion > theoreticalProportion.mulDown(FixedPoint.ONE + _BALANCES_PROPORTION_TOLERANCE)
+        ) {
+            revert WrongBalancesProportion();
+        }
+
+        uint256 scale = balancesScaled18[0].divDown(theoreticalRealBalances[0]);
+
+        uint256[] memory virtualBalances = new uint256[](2);
+        virtualBalances[0] = theoreticalVirtualBalances[0].mulDown(scale);
+        virtualBalances[1] = theoreticalVirtualBalances[1].mulDown(scale);
+
+        if (ReClammMath.calculateCenteredness(balancesScaled18, virtualBalances) < _centerednessMargin) {
+            revert PoolCenterednessTooLow();
+        }
+
         _setLastVirtualBalances(virtualBalances);
+        _setPriceRatioState(fourthRootPriceRatio, block.timestamp, block.timestamp);
         _updateTimestamp();
 
         return true;
@@ -295,9 +333,14 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                         Pool State Getters
     ********************************************************/
 
-    /// @inheritdoc IRateProvider
-    function getRate() public pure override returns (uint256) {
-        revert ReClammPoolBptRateUnsupported();
+    /// @inheritdoc IReClammPool
+    function getInitializationProportion() external view returns (uint256 proportion) {
+        (uint256[] memory realBalances, , ) = ReClammMath.getTheoreticalPriceRatioAndBalances(
+            _initialMinPrice,
+            _initialMaxPrice,
+            _initialTargetPrice
+        );
+        proportion = realBalances[1].divDown(realBalances[0]);
     }
 
     /// @inheritdoc IReClammPool
@@ -336,10 +379,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         return _calculateCurrentFourthRootPriceRatio();
     }
 
-    /********************************************************   
-                        Pool State Setters
-    ********************************************************/
-
     /// @inheritdoc IReClammPool
     function getReClammPoolDynamicData() external view returns (ReClammPoolDynamicData memory data) {
         data.balancesLiveScaled18 = _vault.getCurrentLiveBalances(address(this));
@@ -370,7 +409,14 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     function getReClammPoolImmutableData() external view returns (ReClammPoolImmutableData memory data) {
         data.tokens = _vault.getPoolTokens(address(this));
         (data.decimalScalingFactors, ) = _vault.getPoolTokenRates(address(this));
+        data.initialMinPrice = _initialMinPrice;
+        data.initialMaxPrice = _initialMaxPrice;
+        data.initialTargetPrice = _initialTargetPrice;
     }
+
+    /********************************************************   
+                        Pool State Setters
+    ********************************************************/
 
     /// @inheritdoc IReClammPool
     function setPriceRatioState(

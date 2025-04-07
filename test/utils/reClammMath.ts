@@ -23,6 +23,8 @@ export type PriceRatioState = {
   endFourthRootPriceRatio: bigint;
 };
 
+const _INITIALIZATION_MAX_BALANCE_A = fp(1000);
+
 export function getCurrentVirtualBalances(
   balancesScaled18: bigint[],
   lastVirtualBalances: bigint[],
@@ -200,12 +202,34 @@ export function calculateInGivenOut(
   return fpDivUp(invariant, finalBalances[tokenOutIndex] - amountGivenScaled18) - finalBalances[tokenInIndex];
 }
 
-export function initializeVirtualBalances(balancesScaled18: bigint[], fourthRootPriceRatio: bigint): bigint[] {
-  const virtualBalances = [0n, 0n];
-  virtualBalances[0] = fpDivDown(balancesScaled18[0], fourthRootPriceRatio - FP_ONE);
-  virtualBalances[1] = fpDivDown(balancesScaled18[1], fourthRootPriceRatio - FP_ONE);
+export function getTheoreticalPriceRatioAndBalances(
+  minPrice: bigint,
+  maxPrice: bigint,
+  targetPrice: bigint
+): [bigint[], bigint[], bigint] {
+  const sqrtPriceRatio = bn(Math.sqrt(Number(fpDivDown(maxPrice * FP_ONE, minPrice))));
+  const fourthRootPriceRatio = bn(Math.sqrt(Number(sqrtPriceRatio * FP_ONE)));
 
-  return virtualBalances;
+  const virtualBalances: bigint[] = [];
+  virtualBalances[0] = fpDivDown(_INITIALIZATION_MAX_BALANCE_A, sqrtPriceRatio - FP_ONE);
+  virtualBalances[1] = fpMulDown(minPrice, virtualBalances[0] + _INITIALIZATION_MAX_BALANCE_A);
+
+  const realBalances: bigint[] = [];
+  realBalances[1] =
+    bn(
+      Math.sqrt(
+        Number(
+          fpMulDown(fpMulDown(targetPrice, virtualBalances[1]), _INITIALIZATION_MAX_BALANCE_A + virtualBalances[0]) *
+            FP_ONE
+        )
+      )
+    ) - virtualBalances[1];
+  realBalances[0] = fpDivDown(
+    realBalances[1] + virtualBalances[1] - fpMulDown(virtualBalances[0], targetPrice),
+    targetPrice
+  );
+
+  return [realBalances, virtualBalances, fourthRootPriceRatio];
 }
 
 export function isPoolInRange(

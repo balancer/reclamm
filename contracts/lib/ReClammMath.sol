@@ -39,6 +39,10 @@ library ReClammMath {
     //    then `x = 100%/(1 - pow(2, 1/(86400+1)))`, which is 124649.
     uint256 private constant _SECONDS_PER_DAY_WITH_ADJUSTMENT = 124649;
 
+    // We need to use a random number to calculate initial virtual balances and real balances. This number will be
+    // scaled later, during initialization.
+    uint256 private constant _INITIALIZATION_MAX_BALANCE_A = 1000 * 1e18;
+
     /**
      * @notice Get the current virtual balances and compute the invariant of the pool using constant product.
      * @param balancesScaled18 Current pool balances, sorted in token registration order
@@ -168,22 +172,32 @@ library ReClammMath {
             virtualBalances[tokenInIndex];
     }
 
-    /**
-     * @notice Calculate the initial virtual balances of the pool.
-     * @dev The initial virtual balances are calculated based on the initial fourth root of price ratio and the
-     * initial balances.
-     *
-     * @param balancesScaled18 Current pool balances, sorted in token registration order
-     * @param fourthRootPriceRatio The initial fourth root of price ratio of the pool
-     * @return virtualBalances The initial virtual balances of the pool
-     */
-    function initializeVirtualBalances(
-        uint256[] memory balancesScaled18,
-        uint256 fourthRootPriceRatio
-    ) internal pure returns (uint256[] memory virtualBalances) {
-        virtualBalances = new uint256[](balancesScaled18.length);
-        virtualBalances[0] = balancesScaled18[0].divDown(fourthRootPriceRatio - FixedPoint.ONE);
-        virtualBalances[1] = balancesScaled18[1].divDown(fourthRootPriceRatio - FixedPoint.ONE);
+    function getTheoreticalPriceRatioAndBalances(
+        uint256 minPrice,
+        uint256 maxPrice,
+        uint256 targetPrice
+    )
+        internal
+        pure
+        returns (uint256[] memory realBalances, uint256[] memory virtualBalances, uint256 fourthRootPriceRatio)
+    {
+        uint256 sqrtPriceRatio = Math.sqrt((maxPrice * FixedPoint.ONE).divDown(minPrice));
+        fourthRootPriceRatio = Math.sqrt(sqrtPriceRatio * FixedPoint.ONE);
+
+        virtualBalances = new uint256[](2);
+        virtualBalances[0] = _INITIALIZATION_MAX_BALANCE_A.divDown(sqrtPriceRatio - FixedPoint.ONE);
+        virtualBalances[1] = minPrice.mulDown(virtualBalances[0] + _INITIALIZATION_MAX_BALANCE_A);
+
+        realBalances = new uint256[](2);
+        realBalances[1] =
+            Math.sqrt(
+                targetPrice.mulDown(virtualBalances[1]).mulDown(_INITIALIZATION_MAX_BALANCE_A + virtualBalances[0]) *
+                    FixedPoint.ONE
+            ) -
+            virtualBalances[1];
+        realBalances[0] = (realBalances[1] + virtualBalances[1] - virtualBalances[0].mulDown(targetPrice)).divDown(
+            targetPrice
+        );
     }
 
     /**
