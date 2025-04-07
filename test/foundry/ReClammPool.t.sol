@@ -7,14 +7,20 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { IAuthentication } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/helpers/IAuthentication.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import { PriceRatioState, ReClammMath } from "../../contracts/lib/ReClammMath.sol";
 import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
-import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
+import {
+    IReClammPool,
+    ReClammPoolDynamicData,
+    ReClammPoolImmutableData
+} from "../../contracts/interfaces/IReClammPool.sol";
 
 contract ReClammPoolTest is BaseReClammTest {
+    using SafeCast for *;
     using FixedPoint for uint256;
     using SafeCast for *;
 
@@ -66,7 +72,7 @@ contract ReClammPoolTest is BaseReClammTest {
         ReClammPool(pool).setPriceShiftDailyRate(priceShiftDailyRate);
 
         uint256 actualTimeConstant = ReClammPool(pool).getTimeConstant();
-        assertEq(actualTimeConstant, expectedTimeConstant, "Invalid timeConstant");
+        assertEq(actualTimeConstant, expectedTimeConstant, "Invalid priceShiftDailyRangeInSeconds");
     }
 
     function testGetPriceRatioState() public {
@@ -81,15 +87,19 @@ contract ReClammPoolTest is BaseReClammTest {
             _DEFAULT_FOURTH_ROOT_PRICE_RATIO,
             "Invalid default endFourthRootPriceRatio"
         );
-        assertEq(priceRatioState.startTime, 0, "Invalid default startTime");
-        assertEq(priceRatioState.endTime, block.timestamp, "Invalid default endTime");
+        assertEq(priceRatioState.priceRatioUpdateStartTime, 0, "Invalid default priceRatioUpdateStartTime");
+        assertEq(priceRatioState.priceRatioUpdateEndTime, block.timestamp, "Invalid default priceRatioUpdateEndTime");
 
         uint256 oldFourthRootPriceRatio = priceRatioState.endFourthRootPriceRatio;
         uint256 newFourthRootPriceRatio = 5e18;
-        uint256 newStartTime = block.timestamp;
-        uint256 newEndTime = block.timestamp + 1 hours;
+        uint256 newPriceRatioUpdateStartTime = block.timestamp;
+        uint256 newPriceRatioUpdateEndTime = block.timestamp + 1 hours;
         vm.prank(admin);
-        ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, newStartTime, newEndTime);
+        ReClammPool(pool).setPriceRatioState(
+            newFourthRootPriceRatio,
+            newPriceRatioUpdateStartTime,
+            newPriceRatioUpdateEndTime
+        );
 
         priceRatioState = ReClammPool(pool).getPriceRatioState();
         assertEq(
@@ -102,15 +112,122 @@ contract ReClammPoolTest is BaseReClammTest {
             newFourthRootPriceRatio,
             "Invalid new endFourthRootPriceRatio"
         );
-        assertEq(priceRatioState.startTime, newStartTime, "Invalid new startTime");
-        assertEq(priceRatioState.endTime, newEndTime, "Invalid new endTime");
+        assertEq(
+            priceRatioState.priceRatioUpdateStartTime,
+            newPriceRatioUpdateStartTime,
+            "Invalid new priceRatioUpdateStartTime"
+        );
+        assertEq(
+            priceRatioState.priceRatioUpdateEndTime,
+            newPriceRatioUpdateEndTime,
+            "Invalid new priceRatioUpdateEndTime"
+        );
+    }
+
+    function testGetReClammPoolDynamicData() public {
+        // Modify values using setters
+        uint256 newPriceShiftDailyRate = 200e16;
+        uint64 newCenterednessMargin = 50e16;
+        uint256 endFourthRootPriceRatio = 8e18;
+        uint256 newStaticSwapFeePercentage = 5e16;
+
+        PriceRatioState memory state = PriceRatioState({
+            startFourthRootPriceRatio: ReClammPool(pool).getCurrentFourthRootPriceRatio(),
+            endFourthRootPriceRatio: endFourthRootPriceRatio.toUint96(),
+            priceRatioUpdateStartTime: block.timestamp.toUint32(),
+            priceRatioUpdateEndTime: (block.timestamp + 1 days).toUint32()
+        });
+
+        (uint256[] memory currentVirtualBalances, ) = ReClammPool(pool).getCurrentVirtualBalances();
+
+        vm.startPrank(admin);
+        ReClammPool(pool).setPriceRatioState(
+            state.endFourthRootPriceRatio,
+            state.priceRatioUpdateStartTime,
+            state.priceRatioUpdateEndTime
+        );
+        ReClammPool(pool).setPriceShiftDailyRate(newPriceShiftDailyRate);
+        ReClammPool(pool).setCenterednessMargin(newCenterednessMargin);
+        vault.setStaticSwapFeePercentage(pool, newStaticSwapFeePercentage);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + 6 hours);
+
+        uint96 currentFourthRootPriceRatio = ReClammMath.calculateFourthRootPriceRatio(
+            block.timestamp.toUint32(),
+            state.startFourthRootPriceRatio,
+            state.endFourthRootPriceRatio,
+            state.priceRatioUpdateStartTime,
+            state.priceRatioUpdateEndTime
+        );
+
+        // Get initial dynamic data.
+        ReClammPoolDynamicData memory data = ReClammPool(pool).getReClammPoolDynamicData();
+
+        // Check balances.
+        assertEq(data.balancesLiveScaled18.length, 2, "Invalid number of balances");
+        (, , , uint256[] memory balancesLiveScaled18) = vault.getPoolTokenInfo(pool);
+        assertEq(data.balancesLiveScaled18[daiIdx], balancesLiveScaled18[daiIdx], "Invalid DAI balance");
+        assertEq(data.balancesLiveScaled18[usdcIdx], balancesLiveScaled18[usdcIdx], "Invalid USDC balance");
+
+        // Check token rates.
+        assertEq(data.tokenRates.length, 2, "Invalid number of token rates");
+        (, uint256[] memory tokenRates) = vault.getPoolTokenRates(pool);
+        assertEq(data.tokenRates[daiIdx], tokenRates[daiIdx], "Invalid DAI token rate");
+        assertEq(data.tokenRates[usdcIdx], tokenRates[usdcIdx], "Invalid USDC token rate");
+
+        assertEq(data.staticSwapFeePercentage, newStaticSwapFeePercentage, "Invalid static swap fee percentage");
+        assertEq(data.totalSupply, ReClammPool(pool).totalSupply(), "Invalid total supply");
+
+        // Check pool specific parameters.
+        assertEq(data.lastTimestamp, block.timestamp - 6 hours, "Invalid last timestamp");
+        assertEq(
+            data.currentFourthRootPriceRatio,
+            currentFourthRootPriceRatio,
+            "Invalid current fourth root price ratio"
+        );
+        assertEq(
+            data.startFourthRootPriceRatio,
+            state.startFourthRootPriceRatio,
+            "Invalid start fourth root price ratio"
+        );
+        assertEq(data.endFourthRootPriceRatio, state.endFourthRootPriceRatio, "Invalid end fourth root price ratio");
+        assertEq(data.priceRatioUpdateStartTime, state.priceRatioUpdateStartTime, "Invalid start time");
+        assertEq(data.priceRatioUpdateEndTime, state.priceRatioUpdateEndTime, "Invalid end time");
+
+        assertEq(data.centerednessMargin, newCenterednessMargin, "Invalid centeredness margin");
+        assertEq(data.priceShiftDailyRangeInSeconds, newPriceShiftDailyRate / 124649, "Invalid time constant");
+        assertEq(data.lastVirtualBalances.length, 2, "Invalid number of last virtual balances");
+        assertEq(data.lastVirtualBalances[daiIdx], currentVirtualBalances[daiIdx], "Invalid DAI last virtual balance");
+        assertEq(
+            data.lastVirtualBalances[usdcIdx],
+            currentVirtualBalances[usdcIdx],
+            "Invalid USDC last virtual balance"
+        );
+
+        assertEq(data.isPoolInitialized, true, "Pool should remain initialized");
+        assertEq(data.isPoolPaused, false, "Pool should remain unpaused");
+        assertEq(data.isPoolInRecoveryMode, false, "Pool should remain not in recovery mode");
+    }
+
+    function testGetReClammPoolImmutableData() public view {
+        ReClammPoolImmutableData memory data = ReClammPool(pool).getReClammPoolImmutableData();
+        assertEq(data.tokens.length, 2, "Invalid number of tokens");
+        assertEq(data.decimalScalingFactors.length, 2, "Invalid number of decimal scaling factors");
+
+        assertEq(address(data.tokens[daiIdx]), address(dai), "Invalid DAI token");
+        assertEq(address(data.tokens[usdcIdx]), address(usdc), "Invalid USDC token");
+
+        // Tokens with 18 decimals do not scale, so the scaling factor is 1.
+        assertEq(data.decimalScalingFactors[daiIdx], 1, "Invalid DAI decimal scaling factor");
+        assertEq(data.decimalScalingFactors[usdcIdx], 1, "Invalid USDC decimal scaling factor");
     }
 
     function testSetFourthRootPriceRatio() public {
         uint96 endFourthRootPriceRatio = 2e18;
-        uint32 startTime = uint32(block.timestamp);
+        uint32 priceRatioUpdateStartTime = uint32(block.timestamp);
         uint32 duration = 1 hours;
-        uint32 endTime = uint32(block.timestamp) + duration;
+        uint32 priceRatioUpdateEndTime = uint32(block.timestamp) + duration;
 
         uint96 startFourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
         vm.prank(admin);
@@ -118,10 +235,14 @@ contract ReClammPoolTest is BaseReClammTest {
         emit IReClammPool.PriceRatioStateUpdated(
             startFourthRootPriceRatio,
             endFourthRootPriceRatio,
-            startTime,
-            endTime
+            priceRatioUpdateStartTime,
+            priceRatioUpdateEndTime
         );
-        ReClammPool(pool).setPriceRatioState(endFourthRootPriceRatio, startTime, endTime);
+        ReClammPool(pool).setPriceRatioState(
+            endFourthRootPriceRatio,
+            priceRatioUpdateStartTime,
+            priceRatioUpdateEndTime
+        );
 
         skip(duration / 2);
         uint96 fourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
@@ -129,8 +250,8 @@ contract ReClammPoolTest is BaseReClammTest {
             uint32(block.timestamp),
             startFourthRootPriceRatio,
             endFourthRootPriceRatio,
-            startTime,
-            endTime
+            priceRatioUpdateStartTime,
+            priceRatioUpdateEndTime
         );
 
         assertEq(fourthRootPriceRatio, mathFourthRootPriceRatio, "FourthRootPriceRatio not updated correctly");

@@ -313,12 +313,12 @@ contract ReClammMathTest is BaseReClammTest {
         uint32 currentTime,
         uint96 startFourthRootPriceRatio,
         uint96 endFourthRootPriceRatio,
-        uint32 startTime,
-        uint32 endTime
+        uint32 priceRatioUpdateStartTime,
+        uint32 priceRatioUpdateEndTime
     ) public pure {
-        endTime = SafeCast.toUint32(bound(endTime, 2, type(uint32).max - 1));
-        startTime = SafeCast.toUint32(bound(startTime, 1, endTime - 1));
-        currentTime = SafeCast.toUint32(bound(currentTime, startTime, endTime));
+        priceRatioUpdateEndTime = SafeCast.toUint32(bound(priceRatioUpdateEndTime, 2, type(uint32).max - 1));
+        priceRatioUpdateStartTime = SafeCast.toUint32(bound(priceRatioUpdateStartTime, 1, priceRatioUpdateEndTime - 1));
+        currentTime = SafeCast.toUint32(bound(currentTime, priceRatioUpdateStartTime, priceRatioUpdateEndTime));
 
         endFourthRootPriceRatio = SafeCast.toUint96(bound(endFourthRootPriceRatio, FixedPoint.ONE, type(uint96).max));
         startFourthRootPriceRatio = SafeCast.toUint96(bound(endFourthRootPriceRatio, FixedPoint.ONE, type(uint96).max));
@@ -327,8 +327,8 @@ contract ReClammMathTest is BaseReClammTest {
             currentTime,
             startFourthRootPriceRatio,
             endFourthRootPriceRatio,
-            startTime,
-            endTime
+            priceRatioUpdateStartTime,
+            priceRatioUpdateEndTime
         );
 
         currentTime++;
@@ -336,8 +336,8 @@ contract ReClammMathTest is BaseReClammTest {
             currentTime,
             startFourthRootPriceRatio,
             endFourthRootPriceRatio,
-            startTime,
-            endTime
+            priceRatioUpdateStartTime,
+            priceRatioUpdateEndTime
         );
 
         if (startFourthRootPriceRatio >= endFourthRootPriceRatio) {
@@ -427,16 +427,16 @@ contract ReClammMathTest is BaseReClammTest {
     function testCalculateFourthRootPriceRatioWhenCurrentTimeIsAfterEndTime() public pure {
         uint96 startFourthRootPriceRatio = 100;
         uint96 endFourthRootPriceRatio = 200;
-        uint32 startTime = 0;
-        uint32 endTime = 50;
+        uint32 priceRatioUpdateStartTime = 0;
+        uint32 priceRatioUpdateEndTime = 50;
         uint32 currentTime = 100;
 
         uint96 fourthRootPriceRatio = ReClammMath.calculateFourthRootPriceRatio(
             currentTime,
             startFourthRootPriceRatio,
             endFourthRootPriceRatio,
-            startTime,
-            endTime
+            priceRatioUpdateStartTime,
+            priceRatioUpdateEndTime
         );
 
         assertEq(
@@ -449,16 +449,16 @@ contract ReClammMathTest is BaseReClammTest {
     function testCalculateFourthRootPriceRatioWhenCurrentTimeIsBeforeStartTime() public pure {
         uint96 startFourthRootPriceRatio = 100;
         uint96 endFourthRootPriceRatio = 200;
-        uint32 startTime = 50;
-        uint32 endTime = 100;
+        uint32 priceRatioUpdateStartTime = 50;
+        uint32 priceRatioUpdateEndTime = 100;
         uint32 currentTime = 0;
 
         uint96 fourthRootPriceRatio = ReClammMath.calculateFourthRootPriceRatio(
             currentTime,
             startFourthRootPriceRatio,
             endFourthRootPriceRatio,
-            startTime,
-            endTime
+            priceRatioUpdateStartTime,
+            priceRatioUpdateEndTime
         );
 
         assertEq(
@@ -474,16 +474,16 @@ contract ReClammMathTest is BaseReClammTest {
     {
         uint96 startFourthRootPriceRatio = 100;
         uint96 endFourthRootPriceRatio = 100;
-        uint32 startTime = 0;
-        uint32 endTime = 100;
+        uint32 priceRatioUpdateStartTime = 0;
+        uint32 priceRatioUpdateEndTime = 100;
         uint32 currentTime = 50;
 
         uint96 fourthRootPriceRatio = ReClammMath.calculateFourthRootPriceRatio(
             currentTime,
             startFourthRootPriceRatio,
             endFourthRootPriceRatio,
-            startTime,
-            endTime
+            priceRatioUpdateStartTime,
+            priceRatioUpdateEndTime
         );
 
         assertEq(
