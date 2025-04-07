@@ -19,6 +19,7 @@ remappings = [
     '@balancer-labs/v3-pool-utils/=lib/balancer-v3-monorepo/pkg/pool-utils/',
     '@balancer-labs/v3-solidity-utils/=lib/balancer-v3-monorepo/pkg/solidity-utils/',
     '@balancer-labs/v3-pool-gyro/=lib/balancer-v3-monorepo/pkg/pool-gyro/',
+    '@balancer-labs/v3-pool-weighted/=lib/balancer-v3-monorepo/pkg/pool-weighted/',
 ]
 optimizer = true
 optimizer_runs = 999

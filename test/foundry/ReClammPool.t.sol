@@ -6,6 +6,12 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { IAuthentication } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/helpers/IAuthentication.sol";
+import {
+    AddLiquidityKind,
+    PoolSwapParams,
+    RemoveLiquidityKind
+} from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
+import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultErrors.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
@@ -23,6 +29,43 @@ contract ReClammPoolTest is BaseReClammTest {
     using SafeCast for *;
     using FixedPoint for uint256;
     using SafeCast for *;
+
+    function testOnSwapOnlyVault() public {
+        PoolSwapParams memory request;
+        vm.expectRevert(abi.encodeWithSelector(IVaultErrors.SenderIsNotVault.selector, address(this)));
+        ReClammPool(pool).onSwap(request);
+    }
+
+    function testOnBeforeInitializeOnlyVault() public {
+        vm.expectRevert(abi.encodeWithSelector(IVaultErrors.SenderIsNotVault.selector, address(this)));
+        ReClammPool(pool).onBeforeInitialize(new uint256[](2), bytes(""));
+    }
+
+    function testOnBeforeAddLiquidityOnlyVault() public {
+        vm.expectRevert(abi.encodeWithSelector(IVaultErrors.SenderIsNotVault.selector, address(this)));
+        ReClammPool(pool).onBeforeAddLiquidity(
+            address(this),
+            address(this),
+            AddLiquidityKind.PROPORTIONAL,
+            new uint256[](2),
+            0,
+            new uint256[](2),
+            bytes("")
+        );
+    }
+
+    function testOnBeforeRemoveLiquidityOnlyVault() public {
+        vm.expectRevert(abi.encodeWithSelector(IVaultErrors.SenderIsNotVault.selector, address(this)));
+        ReClammPool(pool).onBeforeRemoveLiquidity(
+            address(this),
+            address(this),
+            RemoveLiquidityKind.PROPORTIONAL,
+            1,
+            new uint256[](2),
+            new uint256[](2),
+            bytes("")
+        );
+    }
 
     function testGetCurrentFourthRootPriceRatio() public view {
         uint256 fourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
@@ -87,13 +130,17 @@ contract ReClammPoolTest is BaseReClammTest {
             _DEFAULT_FOURTH_ROOT_PRICE_RATIO,
             "Invalid default endFourthRootPriceRatio"
         );
-        assertEq(priceRatioState.priceRatioUpdateStartTime, 0, "Invalid default priceRatioUpdateStartTime");
+        assertEq(
+            priceRatioState.priceRatioUpdateStartTime,
+            block.timestamp,
+            "Invalid default priceRatioUpdateStartTime"
+        );
         assertEq(priceRatioState.priceRatioUpdateEndTime, block.timestamp, "Invalid default priceRatioUpdateEndTime");
 
         uint256 oldFourthRootPriceRatio = priceRatioState.endFourthRootPriceRatio;
         uint256 newFourthRootPriceRatio = 5e18;
         uint256 newPriceRatioUpdateStartTime = block.timestamp;
-        uint256 newPriceRatioUpdateEndTime = block.timestamp + 1 hours;
+        uint256 newPriceRatioUpdateEndTime = block.timestamp + 6 hours;
         vm.prank(admin);
         ReClammPool(pool).setPriceRatioState(
             newFourthRootPriceRatio,
@@ -221,12 +268,36 @@ contract ReClammPoolTest is BaseReClammTest {
         // Tokens with 18 decimals do not scale, so the scaling factor is 1.
         assertEq(data.decimalScalingFactors[daiIdx], 1, "Invalid DAI decimal scaling factor");
         assertEq(data.decimalScalingFactors[usdcIdx], 1, "Invalid USDC decimal scaling factor");
+
+        assertEq(data.minCenterednessMargin, 0, "Invalid min centeredness margin");
+        assertEq(data.maxCenterednessMargin, FixedPoint.ONE, "Invalid max centeredness margin");
+        assertEq(data.minTokenBalanceScaled18, 1e14, "Invalid min token balance");
+        assertEq(data.minPoolCenteredness, 1e3, "Invalid min pool centeredness");
+        assertEq(data.maxPriceShiftDailyRate, 500e16, "Invalid max price shift daily rate");
+        assertEq(data.minPriceRatioUpdateDuration, 6 hours, "Invalid min price ratio update duration");
+    }
+
+    function testSetFourthRootPriceRatioShortDuration() public {
+        uint96 endFourthRootPriceRatio = 2e18;
+        uint32 timeOffset = 1 hours;
+        uint32 priceRatioUpdateStartTime = uint32(block.timestamp) - timeOffset;
+        uint32 duration = 6 hours;
+        uint32 priceRatioUpdateEndTime = priceRatioUpdateStartTime + duration;
+
+        vm.expectRevert(IReClammPool.PriceRatioUpdateDurationTooShort.selector);
+        vm.prank(admin);
+        ReClammPool(pool).setPriceRatioState(
+            endFourthRootPriceRatio,
+            priceRatioUpdateStartTime,
+            priceRatioUpdateEndTime
+        );
     }
 
     function testSetFourthRootPriceRatio() public {
         uint96 endFourthRootPriceRatio = 2e18;
-        uint32 priceRatioUpdateStartTime = uint32(block.timestamp);
-        uint32 duration = 1 hours;
+        uint32 timeOffset = 1 hours;
+        uint32 priceRatioUpdateStartTime = uint32(block.timestamp) - timeOffset;
+        uint32 duration = 6 hours;
         uint32 priceRatioUpdateEndTime = uint32(block.timestamp) + duration;
 
         uint96 startFourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
@@ -235,14 +306,15 @@ contract ReClammPoolTest is BaseReClammTest {
         emit IReClammPool.PriceRatioStateUpdated(
             startFourthRootPriceRatio,
             endFourthRootPriceRatio,
-            priceRatioUpdateStartTime,
+            block.timestamp,
             priceRatioUpdateEndTime
         );
-        ReClammPool(pool).setPriceRatioState(
+        uint256 actualPriceRatioUpdateStartTime = ReClammPool(pool).setPriceRatioState(
             endFourthRootPriceRatio,
             priceRatioUpdateStartTime,
             priceRatioUpdateEndTime
         );
+        assertEq(actualPriceRatioUpdateStartTime, block.timestamp, "Invalid updated actual price ratio start time");
 
         skip(duration / 2);
         uint96 fourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
@@ -250,7 +322,7 @@ contract ReClammPoolTest is BaseReClammTest {
             uint32(block.timestamp),
             startFourthRootPriceRatio,
             endFourthRootPriceRatio,
-            priceRatioUpdateStartTime,
+            actualPriceRatioUpdateStartTime.toUint32(),
             priceRatioUpdateEndTime
         );
 

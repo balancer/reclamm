@@ -240,7 +240,6 @@ library ReClammMath {
         // Skip the update if the start and end price ratio are the same, because the virtual balances are already
         // calculated.
         if (
-            _priceRatioState.priceRatioUpdateStartTime != 0 &&
             currentTimestamp > _priceRatioState.priceRatioUpdateStartTime &&
             lastTimestamp < _priceRatioState.priceRatioUpdateEndTime &&
             _priceRatioState.startFourthRootPriceRatio != _priceRatioState.endFourthRootPriceRatio
@@ -257,7 +256,7 @@ library ReClammMath {
 
         // If the pool is out of range, track the market price by moving the price interval.
         if (isPoolInRange(balancesScaled18, currentVirtualBalances, centerednessMargin) == false) {
-            currentVirtualBalances = calculateVirtualBalancesOutOfRange(
+            currentVirtualBalances = calculateVirtualBalancesUpdatingPriceRange(
                 currentFourthRootPriceRatio,
                 balancesScaled18,
                 currentVirtualBalances,
@@ -319,7 +318,7 @@ library ReClammMath {
     }
 
     /**
-     * @notice Calculate the virtual balances of the pool when the pool is out of range.
+     * @notice Calculate the virtual balances of the pool when the pool is out of range, effectively moving price range.
      * @dev This function will track the market price by moving the price interval. It will increase the pool
      * centeredness and change the token prices.
      *
@@ -332,7 +331,7 @@ library ReClammMath {
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @return virtualBalances The new virtual balances of the pool
      */
-    function calculateVirtualBalancesOutOfRange(
+    function calculateVirtualBalancesUpdatingPriceRange(
         uint256 currentFourthRootPriceRatio,
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances,
@@ -354,14 +353,11 @@ library ReClammMath {
             )
         );
         // Va = (Ra * (Vb + Rb)) / (((priceRatio - 1) * Vb) - Rb)
-        virtualBalances[indexTokenUndervalued] = (
-            balancesScaled18[indexTokenUndervalued].mulDown(
-                virtualBalances[indexTokenOvervalued] + balancesScaled18[indexTokenOvervalued]
-            )
-        ).divDown(
-                (priceRatio - FixedPoint.ONE).mulDown(virtualBalances[indexTokenOvervalued]) -
-                    balancesScaled18[indexTokenOvervalued]
-            );
+        virtualBalances[indexTokenUndervalued] =
+            (balancesScaled18[indexTokenUndervalued] *
+                (virtualBalances[indexTokenOvervalued] + balancesScaled18[indexTokenOvervalued])) /
+            ((priceRatio - FixedPoint.ONE).mulDown(virtualBalances[indexTokenOvervalued]) -
+                balancesScaled18[indexTokenOvervalued]);
 
         return virtualBalances;
     }
@@ -444,10 +440,8 @@ library ReClammMath {
         );
 
         return
-            uint256(startFourthRootPriceRatio)
-                .mulDown(LogExpMath.pow(endFourthRootPriceRatio, exponent))
-                .divDown(LogExpMath.pow(startFourthRootPriceRatio, exponent))
-                .toUint96();
+            ((uint256(startFourthRootPriceRatio) * LogExpMath.pow(endFourthRootPriceRatio, exponent)) /
+                LogExpMath.pow(startFourthRootPriceRatio, exponent)).toUint96();
     }
 
     /**

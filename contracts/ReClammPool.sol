@@ -17,6 +17,7 @@ import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/Fixe
 import { BalancerPoolToken } from "@balancer-labs/v3-vault/contracts/BalancerPoolToken.sol";
 import { Version } from "@balancer-labs/v3-solidity-utils/contracts/helpers/Version.sol";
 import { PoolInfo } from "@balancer-labs/v3-pool-utils/contracts/PoolInfo.sol";
+import { GradualValueChange } from "@balancer-labs/v3-pool-weighted/contracts/lib/GradualValueChange.sol";
 import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
 
 import {
@@ -52,6 +53,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 internal constant _MIN_TOKEN_BALANCE_SCALED18 = 1e14;
     uint256 internal constant _MIN_POOL_CENTEREDNESS = 1e3;
 
+    uint256 internal constant _MAX_PRICE_SHIFT_DAILY_RATE = 500e16; // 500%
+
+    uint256 internal constant _MIN_PRICE_RATIO_UPDATE_DURATION = 6 hours;
+
     PriceRatioState internal _priceRatioState;
     uint32 internal _lastTimestamp;
     uint128 internal _priceShiftDailyRangeInSeconds;
@@ -86,7 +91,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     {
         _setPriceShiftDailyRate(params.priceShiftDailyRate);
         _setCenterednessMargin(params.centerednessMargin);
-        _setPriceRatioState(params.fourthRootPriceRatio, 0, block.timestamp);
+        _setPriceRatioState(params.fourthRootPriceRatio, block.timestamp, block.timestamp);
     }
 
     /********************************************************
@@ -114,7 +119,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IBasePool
-    function onSwap(PoolSwapParams memory request) public virtual returns (uint256 amountCalculatedScaled18) {
+    function onSwap(PoolSwapParams memory request) public virtual onlyVault returns (uint256 amountCalculatedScaled18) {
         (uint256[] memory currentVirtualBalances, bool changed) = _getCurrentVirtualBalances(request.balancesScaled18);
 
         if (changed) {
@@ -370,6 +375,12 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     function getReClammPoolImmutableData() external view returns (ReClammPoolImmutableData memory data) {
         data.tokens = _vault.getPoolTokens(address(this));
         (data.decimalScalingFactors, ) = _vault.getPoolTokenRates(address(this));
+        data.minCenterednessMargin = _MIN_CENTEREDNESS_MARGIN;
+        data.maxCenterednessMargin = _MAX_CENTEREDNESS_MARGIN;
+        data.minTokenBalanceScaled18 = _MIN_TOKEN_BALANCE_SCALED18;
+        data.minPoolCenteredness = _MIN_POOL_CENTEREDNESS;
+        data.maxPriceShiftDailyRate = _MAX_PRICE_SHIFT_DAILY_RATE;
+        data.minPriceRatioUpdateDuration = _MIN_PRICE_RATIO_UPDATE_DURATION;
     }
 
     /// @inheritdoc IReClammPool
@@ -377,8 +388,18 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256 endFourthRootPriceRatio,
         uint256 priceRatioUpdateStartTime,
         uint256 priceRatioUpdateEndTime
-    ) external onlySwapFeeManagerOrGovernance(address(this)) {
-        _setPriceRatioState(endFourthRootPriceRatio, priceRatioUpdateStartTime, priceRatioUpdateEndTime);
+    ) external onlySwapFeeManagerOrGovernance(address(this)) returns (uint256 actualPriceRatioUpdateStartTime) {
+        actualPriceRatioUpdateStartTime = GradualValueChange.resolveStartTime(
+            priceRatioUpdateStartTime,
+            priceRatioUpdateEndTime
+        );
+
+        // We've already validated that end time >= start time at this point.
+        if (priceRatioUpdateEndTime - actualPriceRatioUpdateStartTime < _MIN_PRICE_RATIO_UPDATE_DURATION) {
+            revert PriceRatioUpdateDurationTooShort();
+        }
+
+        _setPriceRatioState(endFourthRootPriceRatio, actualPriceRatioUpdateStartTime, priceRatioUpdateEndTime);
     }
 
     /// @inheritdoc IReClammPool
@@ -424,8 +445,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256 priceRatioUpdateStartTime,
         uint256 priceRatioUpdateEndTime
     ) internal {
-        if (priceRatioUpdateStartTime > priceRatioUpdateEndTime) {
-            revert GradualUpdateTimeTravel(priceRatioUpdateStartTime, priceRatioUpdateEndTime);
+        if (priceRatioUpdateStartTime > priceRatioUpdateEndTime || priceRatioUpdateStartTime < block.timestamp) {
+            revert InvalidStartTime();
         }
 
         uint96 startFourthRootPriceRatio = _calculateCurrentFourthRootPriceRatio();
@@ -463,6 +484,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     function _setPriceShiftDailyRate(uint256 priceShiftDailyRate) internal {
+        if (priceShiftDailyRate > _MAX_PRICE_SHIFT_DAILY_RATE) {
+            revert PriceShiftDailyRateTooHigh();
+        }
+
         _priceShiftDailyRangeInSeconds = ReClammMath.computePriceShiftDailyRate(priceShiftDailyRate);
 
         emit PriceShiftDailyRateUpdated(priceShiftDailyRate, _priceShiftDailyRangeInSeconds);
