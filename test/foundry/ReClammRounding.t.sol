@@ -88,8 +88,8 @@ contract ReClammRoundingTest is BaseReClammTest {
             PriceRatioState({
                 startFourthRootPriceRatio: fourthRootPriceRatio,
                 endFourthRootPriceRatio: fourthRootPriceRatio,
-                startTime: 0,
-                endTime: 0
+                priceRatioUpdateStartTime: 0,
+                priceRatioUpdateEndTime: 0
             })
         );
         uint256 amountOut = mathMock.calculateOutGivenIn(
@@ -150,8 +150,8 @@ contract ReClammRoundingTest is BaseReClammTest {
             PriceRatioState({
                 startFourthRootPriceRatio: fourthRootPriceRatio,
                 endFourthRootPriceRatio: fourthRootPriceRatio,
-                startTime: 0,
-                endTime: 0
+                priceRatioUpdateStartTime: 0,
+                priceRatioUpdateEndTime: 0
             })
         );
         uint256 amountIn = mathMock.calculateInGivenOut(
