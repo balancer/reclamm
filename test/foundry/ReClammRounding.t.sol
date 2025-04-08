@@ -21,9 +21,6 @@ contract ReClammRoundingTest is BaseReClammTest {
 
     uint256 internal constant _MIN_SWAP_AMOUNT = 1e12;
 
-    uint256 internal constant _MIN_PRICE = 1e14; // 0.0001
-    uint256 internal constant _MAX_PRICE = 1e24; // 1_000_000
-    uint256 internal constant _MIN_PRICE_RATIO = 1.1e18;
     uint256 internal constant _MAX_TIME_CONSTANT = FixedPoint.ONE - 1;
 
     uint256 internal constant _MIN_SWAP_FEE = 0;
