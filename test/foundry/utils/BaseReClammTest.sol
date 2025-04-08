@@ -146,6 +146,11 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
             vm.assume(dai.balanceOf(lp) > _initialBalances[daiIdx]);
             _initialBalances[usdcIdx] = poolInitAmount.mulDown(proportion);
             vm.assume(usdc.balanceOf(lp) > _initialBalances[usdcIdx]);
+        } else {
+            _initialBalances[usdcIdx] = poolInitAmount;
+            vm.assume(usdc.balanceOf(lp) > _initialBalances[usdcIdx]);
+            _initialBalances[daiIdx] = poolInitAmount.mulDown(proportion);
+            vm.assume(dai.balanceOf(lp) > _initialBalances[daiIdx]);
         }
 
         vm.startPrank(lp);

@@ -42,12 +42,14 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
     uint256 private _saltIndex = 0;
 
     constructor() {
+        // This is used only by E2E tests. They require a pool with the same initial balance in both tokens, so this
+        // setup covers it.
         defaultParams = DefaultDeployParams({
             name: "ReClamm Pool",
             symbol: "RECLAMMPOOL",
-            defaultMinPrice: 1000e18,
-            defaultMaxPrice: 4000e18,
-            defaultTargetPrice: 2500e18,
+            defaultMinPrice: 0.5e18,
+            defaultMaxPrice: 2e18,
+            defaultTargetPrice: 1e18,
             defaultPriceShiftDailyRate: 100e16, // 100%
             defaultCenterednessMargin: 10e16, // 10%
             poolVersion: "ReClamm Pool v1",
