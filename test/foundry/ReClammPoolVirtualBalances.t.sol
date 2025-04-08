@@ -32,7 +32,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
             uint256[] memory theoreticalBalances,
             uint256[] memory theoreticalVirtualBalances,
             uint256 theoreticalPriceRatio
-        ) = ReClammMath.getTheoreticalPriceRatioAndBalances(
+        ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
                 _DEFAULT_MIN_PRICE,
                 _DEFAULT_MAX_PRICE,
                 _DEFAULT_TARGET_PRICE
@@ -43,20 +43,20 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         assertEq(_initialFourthRootPriceRatio, theoreticalPriceRatio, "Invalid fourthRootPriceRatio");
 
         // Don't need to check balances of token[0], since the balance ratio was calculated based on it.
-        assertApproxEqAbs(
+        assertApproxEqRel(
             _initialBalances[1],
             theoreticalBalances[1].mulDown(balanceRatio),
             _INITIAL_PARAMS_ERROR,
             "Invalid balance B"
         );
 
-        assertApproxEqAbs(
+        assertApproxEqRel(
             _initialVirtualBalances[0],
             theoreticalVirtualBalances[0].mulDown(balanceRatio),
             _INITIAL_PARAMS_ERROR,
             "Invalid virtual A balance"
         );
-        assertApproxEqAbs(
+        assertApproxEqRel(
             _initialVirtualBalances[1],
             theoreticalVirtualBalances[1].mulDown(balanceRatio),
             _INITIAL_PARAMS_ERROR,
@@ -316,7 +316,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
 
     function _assumePoolInRange(uint256 newMinPrice, uint256 newMaxPrice, uint256 newTargetPrice) internal pure {
         (uint256[] memory balances, uint256[] memory virtualBalances, ) = ReClammMath
-            .getTheoreticalPriceRatioAndBalances(newMinPrice, newMaxPrice, newTargetPrice);
+            .computeTheoreticalPriceRatioAndBalances(newMinPrice, newMaxPrice, newTargetPrice);
 
         uint256 centeredness = ReClammMath.calculateCenteredness(balances, virtualBalances);
         vm.assume(centeredness > _DEFAULT_CENTEREDNESS_MARGIN);

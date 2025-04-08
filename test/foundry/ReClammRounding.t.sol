@@ -43,11 +43,8 @@ contract ReClammRoundingTest is BaseReClammTest {
             maxPrice - minPrice.mulDown((_MIN_PRICE_RATIO - FixedPoint.ONE) / 2)
         );
 
-        (uint256[] memory balances, uint256[] memory virtualBalances, ) = mathMock.getTheoreticalPriceRatioAndBalances(
-            minPrice,
-            maxPrice,
-            targetPrice
-        );
+        (uint256[] memory balances, uint256[] memory virtualBalances, ) = mathMock
+            .computeTheoreticalPriceRatioAndBalances(minPrice, maxPrice, targetPrice);
 
         uint256 invariantRoundedUp = mathMock.computeInvariant(balances, virtualBalances, Rounding.ROUND_UP);
         uint256 invariantRoundedDown = mathMock.computeInvariant(balances, virtualBalances, Rounding.ROUND_DOWN);
@@ -75,7 +72,7 @@ contract ReClammRoundingTest is BaseReClammTest {
         );
 
         (uint256[] memory balances, uint256[] memory virtualBalances, uint256 fourthRootPriceRatio) = mathMock
-            .getTheoreticalPriceRatioAndBalances(minPrice, maxPrice, targetPrice);
+            .computeTheoreticalPriceRatioAndBalances(minPrice, maxPrice, targetPrice);
 
         (uint256 tokenInIndex, uint256 tokenOutIndex) = isTokenAIn ? (0, 1) : (1, 0);
 
@@ -147,7 +144,7 @@ contract ReClammRoundingTest is BaseReClammTest {
         );
 
         (uint256[] memory balances, uint256[] memory virtualBalances, uint256 fourthRootPriceRatio) = mathMock
-            .getTheoreticalPriceRatioAndBalances(minPrice, maxPrice, targetPrice);
+            .computeTheoreticalPriceRatioAndBalances(minPrice, maxPrice, targetPrice);
 
         (uint256 tokenInIndex, uint256 tokenOutIndex) = isTokenAIn ? (0, 1) : (1, 0);
 

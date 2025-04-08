@@ -74,7 +74,7 @@ contract ReClammMathMock {
             );
     }
 
-    function getTheoreticalPriceRatioAndBalances(
+    function computeTheoreticalPriceRatioAndBalances(
         uint256 minPrice,
         uint256 maxPrice,
         uint256 targetPrice
@@ -83,7 +83,7 @@ contract ReClammMathMock {
         pure
         returns (uint256[] memory realBalances, uint256[] memory virtualBalances, uint256 fourthRootPriceRatio)
     {
-        return ReClammMath.getTheoreticalPriceRatioAndBalances(minPrice, maxPrice, targetPrice);
+        return ReClammMath.computeTheoreticalPriceRatioAndBalances(minPrice, maxPrice, targetPrice);
     }
 
     function getCurrentVirtualBalances(

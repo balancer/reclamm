@@ -239,7 +239,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             uint256[] memory theoreticalRealBalances,
             uint256[] memory theoreticalVirtualBalances,
             uint256 fourthRootPriceRatio
-        ) = ReClammMath.getTheoreticalPriceRatioAndBalances(
+        ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
                 _INITIAL_MIN_PRICE,
                 _INITIAL_MAX_PRICE,
                 _INITIAL_TARGET_PRICE
@@ -344,7 +344,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IReClammPool
     function computeInitialBalanceRatio() external view returns (uint256 balanceRatio) {
-        (uint256[] memory realBalances, , ) = ReClammMath.getTheoreticalPriceRatioAndBalances(
+        (uint256[] memory realBalances, , ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
             _INITIAL_MIN_PRICE,
             _INITIAL_MAX_PRICE,
             _INITIAL_TARGET_PRICE
