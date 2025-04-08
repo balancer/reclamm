@@ -318,7 +318,7 @@ library ReClammMath {
     }
 
     /**
-     * @notice Calculate the virtual balances of the pool when the pool is out of range, effectively moving price range.
+     * @notice Calculate the virtual balances when the pool is out of range, effectively adjusting the price range.
      * @dev This function will track the market price by moving the price interval. It will increase the pool
      * centeredness and change the token prices.
      *
