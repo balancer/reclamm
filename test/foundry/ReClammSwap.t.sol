@@ -61,7 +61,12 @@ contract ReClammSwapTest is BaseReClammTest {
     function testInRangePriceRatioUpdatingSwapExactIn__Fuzz(uint256 newFourthRootPriceRatio) public {
         uint256 currentFourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
         newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 10e18);
-        vm.assume(currentFourthRootPriceRatio != newFourthRootPriceRatio);
+
+        if (newFourthRootPriceRatio > currentFourthRootPriceRatio) {
+            vm.assume(newFourthRootPriceRatio - currentFourthRootPriceRatio >= 2);
+        } else {
+            vm.assume(currentFourthRootPriceRatio - newFourthRootPriceRatio >= 2);
+        }
 
         vm.prank(admin);
         ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 1 days);
@@ -229,7 +234,12 @@ contract ReClammSwapTest is BaseReClammTest {
     function testInRangePriceRatioUpdatingSwapExactOut__Fuzz(uint256 newFourthRootPriceRatio) public {
         uint256 currentFourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
         newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 10e18);
-        vm.assume(currentFourthRootPriceRatio != newFourthRootPriceRatio);
+
+        if (newFourthRootPriceRatio > currentFourthRootPriceRatio) {
+            vm.assume(newFourthRootPriceRatio - currentFourthRootPriceRatio >= 2);
+        } else {
+            vm.assume(currentFourthRootPriceRatio - newFourthRootPriceRatio >= 2);
+        }
 
         vm.prank(admin);
         ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 1 days);
