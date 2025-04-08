@@ -42,13 +42,13 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
      * @param name The name of the pool
      * @param symbol The symbol of the pool
      * @param tokens An array of descriptors for the tokens the pool will manage
+     * @param roleAccounts Addresses the Vault will allow to change certain pool settings
+     * @param swapFeePercentage Initial swap fee percentage
      * @param initialMinPrice The initial minimum price of the pool
      * @param initialMaxPrice The initial maximum price of the pool
      * @param initialTargetPrice The initial target price of the pool
      * @param priceShiftDailyRate The allowed change in a virtual balance per day
      * @param centerednessMargin How far the price can be from the center before the price range starts to move
-     * @param roleAccounts Addresses the Vault will allow to change certain pool settings
-     * @param swapFeePercentage Initial swap fee percentage
      * @param salt The salt value that will be passed to deployment
      */
     function create(
