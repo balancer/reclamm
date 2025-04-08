@@ -365,7 +365,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function getTimeConstant() external view returns (uint256) {
+    function getPriceShiftDailyRateInSeconds() external view returns (uint256) {
         return _priceShiftDailyRangeInSeconds;
     }
 

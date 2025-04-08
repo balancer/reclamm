@@ -207,7 +207,7 @@ interface IReClammPool is IBasePool {
      * @dev The time constant is an internal representation of the raw price shift daily rate, expressed in seconds.
      * @return priceShiftDailyRangeInSeconds The time constant
      */
-    function getTimeConstant() external view returns (uint256 priceShiftDailyRangeInSeconds);
+    function getPriceShiftDailyRateInSeconds() external view returns (uint256 priceShiftDailyRangeInSeconds);
 
     /**
      * @notice Returns the current price ratio state.

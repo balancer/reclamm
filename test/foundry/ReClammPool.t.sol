@@ -67,14 +67,18 @@ contract ReClammPoolTest is BaseReClammTest {
         );
     }
 
-    function testGetTimeConstant() public {
+    function testGetPriceShiftDailyRateInSeconds() public {
         uint256 priceShiftDailyRate = 20e16;
-        uint256 expectedTimeConstant = ReClammMath.computePriceShiftDailyRate(priceShiftDailyRate);
+        uint256 expectedPriceShiftDailyRateInSeconds = ReClammMath.computePriceShiftDailyRate(priceShiftDailyRate);
         vm.prank(admin);
         ReClammPool(pool).setPriceShiftDailyRate(priceShiftDailyRate);
 
-        uint256 actualTimeConstant = ReClammPool(pool).getTimeConstant();
-        assertEq(actualTimeConstant, expectedTimeConstant, "Invalid priceShiftDailyRangeInSeconds");
+        uint256 actualPriceShiftDailyRateInSeconds = ReClammPool(pool).getPriceShiftDailyRateInSeconds();
+        assertEq(
+            actualPriceShiftDailyRateInSeconds,
+            expectedPriceShiftDailyRateInSeconds,
+            "Invalid priceShiftDailyRangeInSeconds"
+        );
     }
 
     function testGetPriceRatioState() public {
