@@ -44,8 +44,6 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     uint256 internal constant _MAX_PRICE = 1e24; // 1_000_000
     uint256 internal constant _MIN_PRICE_RATIO = 1.1e18;
 
-    uint256 internal defaultFourthRootPriceRatio;
-
     // 0.0001 tokens.
     uint256 internal constant _MIN_TOKEN_BALANCE = 1e14;
     // 1 billion tokens.
