@@ -34,16 +34,19 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     uint256 internal constant _DEFAULT_SWAP_FEE = 0; // 0%
     string internal constant _POOL_VERSION = "ReClamm Pool v1";
 
+    uint256 internal constant _DEFAULT_MIN_PRICE = 1000e18;
+    uint256 internal constant _DEFAULT_MAX_PRICE = 4000e18;
+    uint256 internal constant _DEFAULT_TARGET_PRICE = 2500e18;
     uint256 internal constant _DEFAULT_PRICE_SHIFT_DAILY_RATE = 100e16; // 100%
-    uint96 internal constant _DEFAULT_FOURTH_ROOT_PRICE_RATIO = 1.41421356e18; // Price Range of 4 (fourth square root is 1.41)
     uint64 internal constant _DEFAULT_CENTEREDNESS_MARGIN = 20e16; // 20%
+    uint256 internal defaultFourthRootPriceRatio;
 
     // 0.0001 tokens.
     uint256 internal constant _MIN_TOKEN_BALANCE = 1e14;
     // 1 billion tokens.
     uint256 internal constant _MAX_TOKEN_BALANCE = 1e9 * 1e18;
 
-    uint96 private _fourthRootPriceRatio = _DEFAULT_FOURTH_ROOT_PRICE_RATIO;
+    uint96 private _fourthRootPriceRatio;
     uint256 private _priceShiftDailyRate = _DEFAULT_PRICE_SHIFT_DAILY_RATE;
     uint256[] private _initialBalances = new uint256[](2);
 
@@ -55,13 +58,11 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     uint256 internal usdcIdx;
 
     function setUp() public virtual override {
-        if (_initialBalances[0] == 0 && _initialBalances[1] == 0) {
-            setInitialBalances(poolInitAmount, poolInitAmount);
-        }
-
         super.setUp();
 
-        (daiIdx, usdcIdx) = getSortedIndexes(address(dai), address(usdc));
+        defaultFourthRootPriceRatio = Math.sqrt(
+            Math.sqrt((_DEFAULT_MAX_PRICE * FixedPoint.ONE).divDown(_DEFAULT_MIN_PRICE)) * FixedPoint.ONE
+        );
     }
 
     function setPriceRatio(uint256 priceRatio) internal {
@@ -116,8 +117,10 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
             vault.buildTokenConfig(sortedTokens),
             roleAccounts,
             _DEFAULT_SWAP_FEE,
+            _DEFAULT_MIN_PRICE,
+            _DEFAULT_MAX_PRICE,
+            _DEFAULT_TARGET_PRICE,
             _DEFAULT_PRICE_SHIFT_DAILY_RATE,
-            fourthRootPriceRatio(),
             _DEFAULT_CENTEREDNESS_MARGIN,
             bytes32(saltNumber++)
         );
@@ -129,8 +132,10 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
                 name: name,
                 symbol: symbol,
                 version: _POOL_VERSION,
+                initialMinPrice: _DEFAULT_MIN_PRICE,
+                initialMaxPrice: _DEFAULT_MAX_PRICE,
+                initialTargetPrice: _DEFAULT_TARGET_PRICE,
                 priceShiftDailyRate: _DEFAULT_PRICE_SHIFT_DAILY_RATE,
-                fourthRootPriceRatio: fourthRootPriceRatio(),
                 centerednessMargin: _DEFAULT_CENTEREDNESS_MARGIN
             }),
             vault
@@ -138,6 +143,15 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     }
 
     function initPool() internal virtual override {
+        (daiIdx, usdcIdx) = getSortedIndexes(address(dai), address(usdc));
+
+        uint256 proportion = ReClammPool(pool).getInitializationProportion();
+
+        if (daiIdx < usdcIdx) {
+            _initialBalances[daiIdx] = poolInitAmount;
+            _initialBalances[usdcIdx] = poolInitAmount.mulDown(proportion);
+        }
+
         vm.startPrank(lp);
         _initPool(pool, _initialBalances, 0);
         vm.stopPrank();

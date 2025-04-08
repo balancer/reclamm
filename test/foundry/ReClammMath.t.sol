@@ -43,36 +43,6 @@ contract ReClammMathTest is BaseReClammTest {
         );
     }
 
-    function testInitializeVirtualBalances__Fuzz(
-        uint256 balance0,
-        uint256 balance1,
-        uint96 fourthRootPriceRatio
-    ) public pure {
-        balance0 = bound(balance0, 0, _MAX_TOKEN_BALANCE);
-        balance1 = bound(balance1, 0, _MAX_TOKEN_BALANCE);
-        fourthRootPriceRatio = SafeCast.toUint96(bound(fourthRootPriceRatio, FixedPoint.ONE + 1, type(uint96).max));
-
-        uint256[] memory balancesScaled18 = new uint256[](2);
-        balancesScaled18[0] = balance0;
-        balancesScaled18[1] = balance1;
-
-        uint256[] memory virtualBalances = ReClammMath.initializeVirtualBalances(
-            balancesScaled18,
-            fourthRootPriceRatio
-        );
-
-        assertEq(
-            virtualBalances[0],
-            balance0.divDown(fourthRootPriceRatio - FixedPoint.ONE),
-            "Virtual balance 0 should be correct"
-        );
-        assertEq(
-            virtualBalances[1],
-            balance1.divDown(fourthRootPriceRatio - FixedPoint.ONE),
-            "Virtual balance 1 should be correct"
-        );
-    }
-
     function testCalculateInGivenOut__Fuzz(
         uint256 balanceA,
         uint256 balanceB,

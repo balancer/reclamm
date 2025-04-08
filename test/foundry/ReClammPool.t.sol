@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { IAuthentication } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/helpers/IAuthentication.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
@@ -26,7 +27,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
     function testGetCurrentFourthRootPriceRatio() public view {
         uint256 fourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
-        assertEq(fourthRootPriceRatio, _DEFAULT_FOURTH_ROOT_PRICE_RATIO, "Invalid default fourthRootPriceRatio");
+        assertEq(fourthRootPriceRatio, defaultFourthRootPriceRatio, "Invalid default fourthRootPriceRatio");
     }
 
     function testGetCenterednessMargin() public {
@@ -79,12 +80,12 @@ contract ReClammPoolTest is BaseReClammTest {
         PriceRatioState memory priceRatioState = ReClammPool(pool).getPriceRatioState();
         assertEq(
             priceRatioState.startFourthRootPriceRatio,
-            _DEFAULT_FOURTH_ROOT_PRICE_RATIO,
+            defaultFourthRootPriceRatio,
             "Invalid default startFourthRootPriceRatio"
         );
         assertEq(
             priceRatioState.endFourthRootPriceRatio,
-            _DEFAULT_FOURTH_ROOT_PRICE_RATIO,
+            defaultFourthRootPriceRatio,
             "Invalid default endFourthRootPriceRatio"
         );
         assertEq(priceRatioState.priceRatioUpdateStartTime, 0, "Invalid default priceRatioUpdateStartTime");
