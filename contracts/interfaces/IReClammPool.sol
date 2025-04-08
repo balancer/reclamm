@@ -120,6 +120,18 @@ interface IReClammPool is IBasePool {
     /// @dev The difference between end time and start time is too short for the price ratio update.
     error PriceRatioUpdateDurationTooShort();
 
+    /// @dev The price ratio being set matches the current one.
+    error PriceRatioUnchanged();
+
+    /**
+     * @dev Initialization time is not consistent with current time.
+     * This should never happen in practice, as the price ratio update end time timestamp is set at construction time,
+     * and initialization should happen strictly after construction, ensuring the current price ratio state is
+     * consistent.
+     * @param currentTime Current timestamp
+     * @param priceRatioUpdateEndTime The stored end time of the price ratio update
+     */
+    error InconsistentInitTime(uint256 currentTime, uint256 priceRatioUpdateEndTime);
     /**
      * @notice `getRate` from `IRateProvider` was called on a ReClamm Pool.
      * @dev ReClamm Pools should never be nested. This is because the invariant of the pool is used only to calculate
@@ -128,6 +140,8 @@ interface IReClammPool is IBasePool {
      */
     error ReClammPoolBptRateUnsupported();
 
+    /// @dev Function called before initializing the pool.
+    error PoolNotInitialized();
     /********************************************************
                            Events
     ********************************************************/
@@ -211,7 +225,13 @@ interface IReClammPool is IBasePool {
      *
      * @return currentFourthRootPriceRatio The current fourth root of price ratio
      */
-    function getCurrentFourthRootPriceRatio() external view returns (uint96);
+    function getCurrentFourthRootPriceRatio() external view returns (uint256);
+
+    /// @dev Returns true if pool centeredness is inside the centeredness margin; false otherwise.
+    function isPoolInRange() external view returns (bool);
+
+    /// @dev Returns the current centeredness margin (0-100% as a 18-decimal Fixed Point).
+    function getCurrentPoolCenteredness() external view returns (uint256);
 
     /********************************************************
                        Pool State Setters

@@ -120,11 +120,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
     function testGetPriceRatioState() public {
         PriceRatioState memory priceRatioState = ReClammPool(pool).getPriceRatioState();
-        assertEq(
-            priceRatioState.startFourthRootPriceRatio,
-            _DEFAULT_FOURTH_ROOT_PRICE_RATIO,
-            "Invalid default startFourthRootPriceRatio"
-        );
+        assertEq(priceRatioState.startFourthRootPriceRatio, 0, "Invalid default startFourthRootPriceRatio");
         assertEq(
             priceRatioState.endFourthRootPriceRatio,
             _DEFAULT_FOURTH_ROOT_PRICE_RATIO,
@@ -132,10 +128,14 @@ contract ReClammPoolTest is BaseReClammTest {
         );
         assertEq(
             priceRatioState.priceRatioUpdateStartTime,
-            block.timestamp,
+            getTestPoolCreationTimestamp().toUint32(),
             "Invalid default priceRatioUpdateStartTime"
         );
-        assertEq(priceRatioState.priceRatioUpdateEndTime, block.timestamp, "Invalid default priceRatioUpdateEndTime");
+        assertEq(
+            priceRatioState.priceRatioUpdateEndTime,
+            getTestPoolCreationTimestamp().toUint32(),
+            "Invalid default priceRatioUpdateEndTime"
+        );
 
         uint256 oldFourthRootPriceRatio = priceRatioState.endFourthRootPriceRatio;
         uint256 newFourthRootPriceRatio = 5e18;
@@ -179,7 +179,7 @@ contract ReClammPoolTest is BaseReClammTest {
         uint256 newStaticSwapFeePercentage = 5e16;
 
         PriceRatioState memory state = PriceRatioState({
-            startFourthRootPriceRatio: ReClammPool(pool).getCurrentFourthRootPriceRatio(),
+            startFourthRootPriceRatio: ReClammPool(pool).getCurrentFourthRootPriceRatio().toUint96(),
             endFourthRootPriceRatio: endFourthRootPriceRatio.toUint96(),
             priceRatioUpdateStartTime: block.timestamp.toUint32(),
             priceRatioUpdateEndTime: (block.timestamp + 1 days).toUint32()
@@ -300,7 +300,7 @@ contract ReClammPoolTest is BaseReClammTest {
         uint32 duration = 6 hours;
         uint32 priceRatioUpdateEndTime = uint32(block.timestamp) + duration;
 
-        uint96 startFourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
+        uint96 startFourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio().toUint96();
         vm.prank(admin);
         vm.expectEmit();
         emit IReClammPool.PriceRatioStateUpdated(
@@ -317,7 +317,7 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(actualPriceRatioUpdateStartTime, block.timestamp, "Invalid updated actual price ratio start time");
 
         skip(duration / 2);
-        uint96 fourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
+        uint96 fourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio().toUint96();
         uint96 mathFourthRootPriceRatio = ReClammMath.calculateFourthRootPriceRatio(
             uint32(block.timestamp),
             startFourthRootPriceRatio,
@@ -329,7 +329,7 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(fourthRootPriceRatio, mathFourthRootPriceRatio, "FourthRootPriceRatio not updated correctly");
 
         skip(duration / 2 + 1);
-        fourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
+        fourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio().toUint96();
         assertEq(fourthRootPriceRatio, endFourthRootPriceRatio, "FourthRootPriceRatio does not match new value");
     }
 
@@ -447,7 +447,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         assertTrue(ReClammPoolMock(pool).isPoolInRange(), "Pool is out of range");
         assertApproxEqRel(
-            ReClammPoolMock(pool).calculatePoolCenteredness(),
+            ReClammPoolMock(pool).getCurrentPoolCenteredness(),
             _DEFAULT_CENTEREDNESS_MARGIN,
             1e16,
             "Pool centeredness is not close from margin"

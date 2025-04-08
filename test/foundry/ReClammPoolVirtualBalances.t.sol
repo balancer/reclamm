@@ -19,6 +19,7 @@ import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
 contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     using FixedPoint for uint256;
     using ArrayHelpers for *;
+    using SafeCast for *;
 
     uint256 private constant _PRICE_RATIO = 2e18; // Max price is 2x min price.
     uint256 private constant _INITIAL_BALANCE_A = 1_000_000e18;
@@ -108,7 +109,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     function testWithDifferentPriceRatio__Fuzz(uint96 endFourthRootPriceRatio) public {
         endFourthRootPriceRatio = SafeCast.toUint96(bound(endFourthRootPriceRatio, 1.001e18, 1_000_000e18)); // Price range cannot be lower than 1.
 
-        uint96 initialFourthRootPriceRatio = fourthRootPriceRatio();
+        uint96 initialFourthRootPriceRatio = fourthRootPriceRatio().toUint96();
         setFourthRootPriceRatio(endFourthRootPriceRatio);
         (address firstPool, address secondPool) = _createNewPool();
 
@@ -144,6 +145,8 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         endFourthRootPriceRatio = SafeCast.toUint96(bound(endFourthRootPriceRatio, 1.1e18, 10e18));
 
         uint256 initialFourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
+
+        vm.assume(endFourthRootPriceRatio != initialFourthRootPriceRatio);
 
         uint32 duration = 6 hours;
 

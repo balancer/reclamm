@@ -70,6 +70,13 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _;
     }
 
+    modifier onlyWhenInitialized() {
+        if (_vault.isPoolInitialized(address(this)) == false) {
+            revert PoolNotInitialized();
+        }
+        _;
+    }
+
     modifier onlyWhenPoolIsInRange() {
         if (_isPoolInRange() == false) {
             revert PoolIsOutOfRange();
@@ -219,7 +226,13 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256[] memory balancesScaled18,
         bytes memory
     ) public override onlyVault returns (bool) {
-        uint256 currentFourthRootPriceRatio = _calculateCurrentFourthRootPriceRatio();
+        PriceRatioState memory priceRatioState = _priceRatioState;
+        // The end time of the price ratio update must have already passed by now.
+        if (block.timestamp <= priceRatioState.priceRatioUpdateEndTime) {
+            revert InconsistentInitTime(block.timestamp, priceRatioState.priceRatioUpdateEndTime);
+        }
+
+        uint256 currentFourthRootPriceRatio = _calculateCurrentFourthRootPriceRatio(priceRatioState);
         uint256[] memory virtualBalances = ReClammMath.initializeVirtualBalances(
             balancesScaled18,
             currentFourthRootPriceRatio
@@ -337,13 +350,20 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function getCurrentFourthRootPriceRatio() external view override returns (uint96) {
-        return _calculateCurrentFourthRootPriceRatio();
+    function getCurrentFourthRootPriceRatio() external view returns (uint256) {
+        return _calculateCurrentFourthRootPriceRatio(_priceRatioState);
     }
 
-    /********************************************************   
-                        Pool State Setters
-    ********************************************************/
+    /// @inheritdoc IReClammPool
+    function isPoolInRange() external view returns (bool) {
+        return _isPoolInRange();
+    }
+
+    /// @inheritdoc IReClammPool
+    function getCurrentPoolCenteredness() external view returns (uint256) {
+        (, , , uint256[] memory currentBalancesScaled18) = _vault.getPoolTokenInfo(address(this));
+        return ReClammMath.calculateCenteredness(currentBalancesScaled18, _lastVirtualBalances);
+    }
 
     /// @inheritdoc IReClammPool
     function getReClammPoolDynamicData() external view returns (ReClammPoolDynamicData memory data) {
@@ -357,7 +377,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.priceShiftDailyRangeInSeconds = _priceShiftDailyRangeInSeconds;
         data.centerednessMargin = _centerednessMargin;
 
-        data.currentFourthRootPriceRatio = _calculateCurrentFourthRootPriceRatio();
+        data.currentFourthRootPriceRatio = _calculateCurrentFourthRootPriceRatio(_priceRatioState);
 
         PriceRatioState memory state = _priceRatioState;
         data.startFourthRootPriceRatio = state.startFourthRootPriceRatio;
@@ -383,12 +403,21 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.minPriceRatioUpdateDuration = _MIN_PRICE_RATIO_UPDATE_DURATION;
     }
 
+    /********************************************************   
+                        Pool State Setters
+    ********************************************************/
+
     /// @inheritdoc IReClammPool
     function setPriceRatioState(
         uint256 endFourthRootPriceRatio,
         uint256 priceRatioUpdateStartTime,
         uint256 priceRatioUpdateEndTime
-    ) external onlySwapFeeManagerOrGovernance(address(this)) returns (uint256 actualPriceRatioUpdateStartTime) {
+    )
+        external
+        onlySwapFeeManagerOrGovernance(address(this))
+        onlyWhenInitialized
+        returns (uint256 actualPriceRatioUpdateStartTime)
+    {
         actualPriceRatioUpdateStartTime = GradualValueChange.resolveStartTime(
             priceRatioUpdateStartTime,
             priceRatioUpdateEndTime
@@ -405,7 +434,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     /// @inheritdoc IReClammPool
     function setPriceShiftDailyRate(
         uint256 newPriceShiftDailyRate
-    ) external onlySwapFeeManagerOrGovernance(address(this)) {
+    ) external onlyWhenInitialized onlySwapFeeManagerOrGovernance(address(this)) {
         // Update virtual balances before updating the daily rate.
         _setPriceShiftDailyRateAndUpdateVirtualBalances(newPriceShiftDailyRate);
     }
@@ -413,7 +442,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     /// @inheritdoc IReClammPool
     function setCenterednessMargin(
         uint256 newCenterednessMargin
-    ) external onlySwapFeeManagerOrGovernance(address(this)) {
+    ) external onlyWhenInitialized onlySwapFeeManagerOrGovernance(address(this)) {
         _setCenterednessMarginAndUpdateVirtualBalances(newCenterednessMargin);
     }
 
@@ -449,14 +478,20 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             revert InvalidStartTime();
         }
 
-        uint96 startFourthRootPriceRatio = _calculateCurrentFourthRootPriceRatio();
-        uint96 endFourthRootPriceRatio96 = endFourthRootPriceRatio.toUint96();
-        _priceRatioState.startFourthRootPriceRatio = startFourthRootPriceRatio == 0
-            ? endFourthRootPriceRatio96
-            : startFourthRootPriceRatio;
-        _priceRatioState.endFourthRootPriceRatio = endFourthRootPriceRatio96;
-        _priceRatioState.priceRatioUpdateStartTime = priceRatioUpdateStartTime.toUint32();
-        _priceRatioState.priceRatioUpdateEndTime = priceRatioUpdateEndTime.toUint32();
+        PriceRatioState memory priceRatioState = _priceRatioState;
+
+        uint256 startFourthRootPriceRatio = _calculateCurrentFourthRootPriceRatio(priceRatioState);
+
+        if (startFourthRootPriceRatio == endFourthRootPriceRatio) {
+            revert PriceRatioUnchanged();
+        }
+
+        priceRatioState.startFourthRootPriceRatio = startFourthRootPriceRatio.toUint96();
+        priceRatioState.endFourthRootPriceRatio = endFourthRootPriceRatio.toUint96();
+        priceRatioState.priceRatioUpdateStartTime = priceRatioUpdateStartTime.toUint32();
+        priceRatioState.priceRatioUpdateEndTime = priceRatioUpdateEndTime.toUint32();
+
+        _priceRatioState = priceRatioState;
 
         emit PriceRatioStateUpdated(
             startFourthRootPriceRatio,
@@ -582,9 +617,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
      *
      * @return currentFourthRootPriceRatio The current fourth root of price ratio
      */
-    function _calculateCurrentFourthRootPriceRatio() internal view returns (uint96 currentFourthRootPriceRatio) {
-        PriceRatioState memory priceRatioState = _priceRatioState;
-
+    function _calculateCurrentFourthRootPriceRatio(
+        PriceRatioState memory priceRatioState
+    ) internal view returns (uint256 currentFourthRootPriceRatio) {
         currentFourthRootPriceRatio = ReClammMath.calculateFourthRootPriceRatio(
             block.timestamp.toUint32(),
             priceRatioState.startFourthRootPriceRatio,

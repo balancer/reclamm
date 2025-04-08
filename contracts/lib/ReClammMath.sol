@@ -241,8 +241,7 @@ library ReClammMath {
         // calculated.
         if (
             currentTimestamp > _priceRatioState.priceRatioUpdateStartTime &&
-            lastTimestamp < _priceRatioState.priceRatioUpdateEndTime &&
-            _priceRatioState.startFourthRootPriceRatio != _priceRatioState.endFourthRootPriceRatio
+            lastTimestamp < _priceRatioState.priceRatioUpdateEndTime
         ) {
             currentVirtualBalances = calculateVirtualBalancesUpdatingPriceRatio(
                 currentFourthRootPriceRatio,

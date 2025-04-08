@@ -18,13 +18,4 @@ contract ReClammPoolMock is ReClammPool {
     function setLastTimestamp(uint256 newLastTimestamp) external {
         _lastTimestamp = SafeCast.toUint32(newLastTimestamp);
     }
-
-    function isPoolInRange() external view returns (bool) {
-        return _isPoolInRange();
-    }
-
-    function calculatePoolCenteredness() external view returns (uint256) {
-        (, , , uint256[] memory currentBalancesScaled18) = _vault.getPoolTokenInfo(address(this));
-        return ReClammMath.calculateCenteredness(currentBalancesScaled18, _lastVirtualBalances);
-    }
 }

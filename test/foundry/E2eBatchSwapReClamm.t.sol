@@ -15,8 +15,9 @@ contract E2eBatchSwapReClammTest is E2eBatchSwapTest, ReClammPoolContractsDeploy
     function _createPool(
         address[] memory tokens,
         string memory label
-    ) internal override returns (address, bytes memory) {
-        return createReClammPool(tokens, label, vault, lp);
+    ) internal override returns (address pool, bytes memory args) {
+        (pool, args) = createReClammPool(tokens, label, vault, lp);
+        vm.warp(block.timestamp + 1);
     }
 
     function _setUpVariables() internal override {
