@@ -308,13 +308,13 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         return ReClammPool(pool).computeInvariant(balances, Rounding.ROUND_DOWN);
     }
 
-    function _createNewPool() internal returns (address initalPool, address newPool) {
+    function _createNewPool() internal {
         (pool, poolArguments) = createPool();
         approveForPool(IERC20(pool));
         initPool();
     }
 
-    function _assumePoolInRange(uint256 newMinPrice, uint256 newMaxPrice, uint256 newTargetPrice) internal view {
+    function _assumePoolInRange(uint256 newMinPrice, uint256 newMaxPrice, uint256 newTargetPrice) internal pure {
         (uint256[] memory balances, uint256[] memory virtualBalances, ) = ReClammMath
             .getTheoreticalPriceRatioAndBalances(newMinPrice, newMaxPrice, newTargetPrice);
 

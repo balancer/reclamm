@@ -59,9 +59,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     uint256 internal constant _BALANCE_RATIO_TOLERANCE = 1e14; // 0.01%
 
-    uint256 private immutable _initialMinPrice;
-    uint256 private immutable _initialMaxPrice;
-    uint256 private immutable _initialTargetPrice;
+    uint256 private immutable _INITIAL_MIN_PRICE;
+    uint256 private immutable _INITIAL_MAX_PRICE;
+    uint256 private immutable _INITIAL_TARGET_PRICE;
 
     PriceRatioState internal _priceRatioState;
     uint32 internal _lastTimestamp;
@@ -96,9 +96,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         Version(params.version)
     {
         // Initialize immutable params. They are used only during pool initialization.
-        _initialMinPrice = params.initialMinPrice;
-        _initialMaxPrice = params.initialMaxPrice;
-        _initialTargetPrice = params.initialTargetPrice;
+        _INITIAL_MIN_PRICE = params.initialMinPrice;
+        _INITIAL_MAX_PRICE = params.initialMaxPrice;
+        _INITIAL_TARGET_PRICE = params.initialTargetPrice;
 
         // Set dynamic parameters.
         _setPriceShiftDailyRate(params.priceShiftDailyRate);
@@ -239,7 +239,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             uint256[] memory theoreticalRealBalances,
             uint256[] memory theoreticalVirtualBalances,
             uint256 fourthRootPriceRatio
-        ) = ReClammMath.getTheoreticalPriceRatioAndBalances(_initialMinPrice, _initialMaxPrice, _initialTargetPrice);
+        ) = ReClammMath.getTheoreticalPriceRatioAndBalances(
+                _INITIAL_MIN_PRICE,
+                _INITIAL_MAX_PRICE,
+                _INITIAL_TARGET_PRICE
+            );
 
         uint256 realProportion = balancesScaled18[1].divDown(balancesScaled18[0]);
         uint256 theoreticalProportion = theoreticalRealBalances[1].divDown(theoreticalRealBalances[0]);
@@ -341,9 +345,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     /// @inheritdoc IReClammPool
     function computeInitialBalanceRatio() external view returns (uint256 balanceRatio) {
         (uint256[] memory realBalances, , ) = ReClammMath.getTheoreticalPriceRatioAndBalances(
-            _initialMinPrice,
-            _initialMaxPrice,
-            _initialTargetPrice
+            _INITIAL_MIN_PRICE,
+            _INITIAL_MAX_PRICE,
+            _INITIAL_TARGET_PRICE
         );
         balanceRatio = realBalances[1].divDown(realBalances[0]);
     }
@@ -414,9 +418,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     function getReClammPoolImmutableData() external view returns (ReClammPoolImmutableData memory data) {
         data.tokens = _vault.getPoolTokens(address(this));
         (data.decimalScalingFactors, ) = _vault.getPoolTokenRates(address(this));
-        data.initialMinPrice = _initialMinPrice;
-        data.initialMaxPrice = _initialMaxPrice;
-        data.initialTargetPrice = _initialTargetPrice;
+        data.initialMinPrice = _INITIAL_MIN_PRICE;
+        data.initialMaxPrice = _INITIAL_MAX_PRICE;
+        data.initialTargetPrice = _INITIAL_TARGET_PRICE;
         data.minCenterednessMargin = _MIN_CENTEREDNESS_MARGIN;
         data.maxCenterednessMargin = _MAX_CENTEREDNESS_MARGIN;
         data.minTokenBalanceScaled18 = _MIN_TOKEN_BALANCE_SCALED18;
