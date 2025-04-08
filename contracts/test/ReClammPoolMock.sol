@@ -8,7 +8,6 @@ import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol"
 
 import { ReClammPool } from "../ReClammPool.sol";
 import { ReClammPoolParams } from "../interfaces/IReClammPool.sol";
-import { ReClammMath } from "../lib/ReClammMath.sol";
 
 contract ReClammPoolMock is ReClammPool {
     constructor(ReClammPoolParams memory params, IVault vault) ReClammPool(params, vault) {
