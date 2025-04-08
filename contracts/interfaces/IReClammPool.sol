@@ -31,6 +31,11 @@ struct ReClammPoolParams {
  * @param initialMinPrice The initial minimum price of the pool
  * @param initialMaxPrice The initial maximum price of the pool
  * @param initialTargetPrice The initial target price of the pool
+ * @param minCenterednessMargin The minimum centeredness margin for the pool, as a percentage in 18-decimal FP.
+ * @param maxCenterednessMargin The maximum centeredness margin for the pool, as a percentage in 18-decimal FP.
+ * @param minTokenBalanceScaled18 The minimum token balance for the pool, scaled to 18 decimals.
+ * @param maxPriceShiftDailyRate The maximum daily rate for the pool's price shift, as a percentage in 18-decimal FP.
+ * @param minPriceRatioUpdateDuration The minimum duration for the price ratio update, expressed in seconds.
  */
 struct ReClammPoolImmutableData {
     IERC20[] tokens;
@@ -38,6 +43,12 @@ struct ReClammPoolImmutableData {
     uint256 initialMinPrice;
     uint256 initialMaxPrice;
     uint256 initialTargetPrice;
+    uint256 minCenterednessMargin;
+    uint256 maxCenterednessMargin;
+    uint256 minTokenBalanceScaled18;
+    uint256 minPoolCenteredness;
+    uint256 maxPriceShiftDailyRate;
+    uint256 minPriceRatioUpdateDuration;
 }
 
 /**
@@ -93,9 +104,6 @@ interface IReClammPool is IBasePool {
                            Errors
     ********************************************************/
 
-    /// @dev Indicates that the start time is after the end time.
-    error GradualUpdateTimeTravel(uint256 resolvedStartTime, uint256 endTime);
-
     /// @dev The function is not implemented.
     error NotImplemented();
 
@@ -113,6 +121,15 @@ interface IReClammPool is IBasePool {
 
     /// @dev The pool is out of range before or after the operation.
     error PoolIsOutOfRange();
+
+    /// @dev The start time for the price ratio update is invalid (either in the past or after the given end time).
+    error InvalidStartTime();
+
+    /// @dev The daily price shift rate is too high.
+    error PriceShiftDailyRateTooHigh();
+
+    /// @dev The difference between end time and start time is too short for the price ratio update.
+    error PriceRatioUpdateDurationTooShort();
 
     /**
      * @notice `getRate` from `IRateProvider` was called on a ReClamm Pool.
@@ -250,12 +267,13 @@ interface IReClammPool is IBasePool {
      * @param endFourthRootPriceRatio The new ending value of the fourth root price ratio
      * @param priceRatioUpdateStartTime The timestamp when the price ratio update will start
      * @param priceRatioUpdateEndTime The timestamp when the price ratio update will end
+     * @return actualPriceRatioUpdateStartTime The actual start time for the price ratio update (min: block.timestamp).
      */
     function setPriceRatioState(
         uint256 endFourthRootPriceRatio,
         uint256 priceRatioUpdateStartTime,
         uint256 priceRatioUpdateEndTime
-    ) external;
+    ) external returns (uint256 actualPriceRatioUpdateStartTime);
 
     /**
      * @notice Updates the price shift daily rate.
