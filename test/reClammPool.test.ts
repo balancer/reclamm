@@ -118,7 +118,7 @@ describe('ReClammPool', function () {
     pool = (await deployedAt('ReClammPool', event.args.pool)) as unknown as ReClammPool;
 
     // The initial balances must respect the initialization proportion.
-    const proportion = await pool.getInitializationProportion();
+    const proportion = await pool.computeInitialBalanceRatio();
     if (tokenAIdx < tokenBIdx) {
       initialBalances[tokenAIdx] = INITIAL_BALANCE_A;
       initialBalances[tokenBIdx] = fpMulDown(INITIAL_BALANCE_A, proportion) / bn(1e12);

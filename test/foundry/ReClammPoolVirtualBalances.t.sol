@@ -38,27 +38,27 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
                 _DEFAULT_TARGET_PRICE
             );
 
-        uint256 proportion = _initialBalances[0].divDown(theoreticalBalances[0]);
+        uint256 balanceRatio = _initialBalances[0].divDown(theoreticalBalances[0]);
 
         assertEq(_initialFourthRootPriceRatio, theoreticalPriceRatio, "Invalid fourthRootPriceRatio");
 
-        // Don't need to check balances 0, since the proportion was calculated based on it.
+        // Don't need to check balances of token[0], since the balance ratio was calculated based on it.
         assertApproxEqAbs(
             _initialBalances[1],
-            theoreticalBalances[1].mulDown(proportion),
+            theoreticalBalances[1].mulDown(balanceRatio),
             _INITIAL_PARAMS_ERROR,
             "Invalid balance B"
         );
 
         assertApproxEqAbs(
             _initialVirtualBalances[0],
-            theoreticalVirtualBalances[0].mulDown(proportion),
+            theoreticalVirtualBalances[0].mulDown(balanceRatio),
             _INITIAL_PARAMS_ERROR,
             "Invalid virtual A balance"
         );
         assertApproxEqAbs(
             _initialVirtualBalances[1],
-            theoreticalVirtualBalances[1].mulDown(proportion),
+            theoreticalVirtualBalances[1].mulDown(balanceRatio),
             _INITIAL_PARAMS_ERROR,
             "Invalid virtual B balance"
         );

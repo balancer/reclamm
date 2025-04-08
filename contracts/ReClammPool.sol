@@ -240,10 +240,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256 theoreticalProportion = theoreticalRealBalances[1].divDown(theoreticalRealBalances[0]);
 
         if (
-            realProportion < theoreticalProportion.mulDown(FixedPoint.ONE - _BALANCES_PROPORTION_TOLERANCE) ||
-            realProportion > theoreticalProportion.mulDown(FixedPoint.ONE + _BALANCES_PROPORTION_TOLERANCE)
+            realProportion < theoreticalProportion.mulDown(FixedPoint.ONE - _BALANCE_RATIO_TOLERANCE) ||
+            realProportion > theoreticalProportion.mulDown(FixedPoint.ONE + _BALANCE_RATIO_TOLERANCE)
         ) {
-            revert WrongBalancesProportion();
+            revert BalanceRatioExceedsTolerance();
         }
 
         uint256 scale = balancesScaled18[0].divDown(theoreticalRealBalances[0]);
@@ -334,13 +334,13 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     ********************************************************/
 
     /// @inheritdoc IReClammPool
-    function getInitializationProportion() external view returns (uint256 proportion) {
+    function computeInitialBalanceRatio() external view returns (uint256 balanceRatio) {
         (uint256[] memory realBalances, , ) = ReClammMath.getTheoreticalPriceRatioAndBalances(
             _initialMinPrice,
             _initialMaxPrice,
             _initialTargetPrice
         );
-        proportion = realBalances[1].divDown(realBalances[0]);
+        balanceRatio = realBalances[1].divDown(realBalances[0]);
     }
 
     /// @inheritdoc IReClammPool
