@@ -376,10 +376,7 @@ contract ReClammMathTest is BaseReClammTest {
         );
 
         // Check if price ratio matches the new price ratio
-        uint256 invariant = ReClammMath.computeInvariant(balancesScaled18, newVirtualBalances, Rounding.ROUND_DOWN);
-        uint256 actualFourthRootPriceRatio = Math.sqrt(
-            (invariant * FixedPoint.ONE).divDown(newVirtualBalances[0].mulDown(newVirtualBalances[1]))
-        );
+        uint256 actualFourthRootPriceRatio = _calculateCurrentPriceRatio(balancesScaled18, newVirtualBalances);
 
         uint256 expectedPriceRatio = expectedFourthRootPriceRatio
             .mulDown(expectedFourthRootPriceRatio)
@@ -468,8 +465,8 @@ contract ReClammMathTest is BaseReClammTest {
         uint256[] memory virtualBalances
     ) private pure returns (uint256 newSqwrtPriceRatio) {
         uint256 invariant = ReClammMath.computeInvariant(balancesScaled18, virtualBalances, Rounding.ROUND_DOWN);
-        newSqwrtPriceRatio = Math.sqrt(
-            (invariant * FixedPoint.ONE).divDown(virtualBalances[0]).divDown(virtualBalances[1])
+        newSqwrtPriceRatio = ReClammMath.sqrtScaled18(
+            invariant.divDown(virtualBalances[0]).divDown(virtualBalances[1])
         );
     }
 

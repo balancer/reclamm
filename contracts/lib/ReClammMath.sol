@@ -204,8 +204,8 @@ library ReClammMath {
         // In the formulas below, Ra_max is a random number that defines the maximum real balance of token A, and
         // consequently a random initial liquidity. We will scale all balances according to the actual amount of
         // liquidity provided during initialization.
-        uint256 sqrtPriceRatio = Math.sqrt((maxPrice * FixedPoint.ONE).divDown(minPrice));
-        fourthRootPriceRatio = Math.sqrt(sqrtPriceRatio * FixedPoint.ONE);
+        uint256 sqrtPriceRatio = sqrtScaled18(maxPrice.divDown(minPrice));
+        fourthRootPriceRatio = sqrtScaled18(sqrtPriceRatio);
 
         virtualBalances = new uint256[](2);
         // Va = Ra_max / (sqrtPriceRatio - 1)
@@ -216,9 +216,8 @@ library ReClammMath {
         realBalances = new uint256[](2);
         // Rb = sqrt(targetPrice * Vb + (Ra_max + Va)) - Vb
         realBalances[1] =
-            Math.sqrt(
-                targetPrice.mulUp(virtualBalances[1]).mulUp(_INITIALIZATION_MAX_BALANCE_A + virtualBalances[0]) *
-                    FixedPoint.ONE
+            sqrtScaled18(
+                targetPrice.mulUp(virtualBalances[1]).mulUp(_INITIALIZATION_MAX_BALANCE_A + virtualBalances[0])
             ) -
             virtualBalances[1];
         // Ra = (Rb + Vb - (Va * targetPrice)) / targetPrice
@@ -513,5 +512,14 @@ library ReClammMath {
     function computePriceShiftDailyRate(uint256 priceShiftDailyRate) internal pure returns (uint128) {
         // Divide daily rate by a number of seconds per day (plus some adjustment)
         return (priceShiftDailyRate / _SECONDS_PER_DAY_WITH_ADJUSTMENT).toUint128();
+    }
+
+    /**
+     * @notice Calculate the square root of a value scaled by 18 decimals.
+     * @param valueScaled18 The value to calculate the square root of, scaled by 18 decimals
+     * @return sqrtValueScaled18 The square root of the value scaled by 18 decimals
+     */
+    function sqrtScaled18(uint256 valueScaled18) internal pure returns (uint256) {
+        return Math.sqrt(valueScaled18 * FixedPoint.ONE);
     }
 }
