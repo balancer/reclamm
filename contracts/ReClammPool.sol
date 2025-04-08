@@ -52,7 +52,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 internal constant _MIN_TOKEN_BALANCE_SCALED18 = 1e14;
     uint256 internal constant _MIN_POOL_CENTEREDNESS = 1e3;
 
-    uint256 internal constant _BALANCES_PROPORTION_TOLERANCE = 1e14; // 0.01% tolerance
+    uint256 internal constant _BALANCE_RATIO_TOLERANCE = 1e14; // 0.01%
 
     uint256 private immutable _initialMinPrice;
     uint256 private immutable _initialMaxPrice;

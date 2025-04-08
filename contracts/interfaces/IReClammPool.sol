@@ -123,12 +123,13 @@ interface IReClammPool is IBasePool {
     error ReClammPoolBptRateUnsupported();
 
     /**
-     * @notice The initial balances of the ReClamm Pool must respect the initialization proportion.
-     * @dev The initialization proportion is calculated based on the min, max and target prices. If the proportion is
-     * not respected during initialization, the pool would not respect the prices given during creation. So, it
-     * reverts.
+     * @notice The initial balances of the ReClamm Pool must respect the initialization ratio bounds.
+     * @dev On pool creation, a theoretical balance ratio is computed from the min, max, and target prices. During
+     * initialization, the actual balance ratio is compared to this theoretical value, and must fall within a fixed,
+     * symmetrical tolerance range, or initialization reverts. If it were outside this range, the initial price would
+     * diverge too far from the target price, and the pool would be vulnerable to arbitrage.
      */
-    error WrongBalancesProportion();
+    error BalanceRatioExceedsTolerance();
 
     /********************************************************
                            Events
@@ -163,14 +164,14 @@ interface IReClammPool is IBasePool {
     ********************************************************/
 
     /**
-     * @notice Returns the proportion between balances of token at index 1 and token at index 0.
-     * @dev To keep the pool in the right target price after initialization, with the desired price interval, the
-     * initial balances of the pool need to follow the proportion returned by this function. For example, if this
-     * function returns 200, it means that the user needs to put 200 tokens 1 for each token 0.
+     * @notice Returns the ratio between token balances (index 1 / index 0).
+     * @dev To keep the pool within the target price range after initialization, the initial pool balances need to be
+     * close to the value returned by this function. For example, if this returned 200, the initial balance of token[1]
+     * should be 200 times the initial balance of token[0].
      *
-     * @return proportion The proportion of tokens that should be respected during initialization.
+     * @return balanceRatio The balance ratio that must be respected during initialization
      */
-    function getInitializationProportion() external view returns (uint256 proportion);
+    function computeInitialBalanceRatio() external view returns (uint256 balanceRatio);
 
     /**
      * @notice Returns the current virtual balances and a flag indicating whether they have changed.

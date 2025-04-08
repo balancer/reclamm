@@ -39,8 +39,8 @@ library ReClammMath {
     //    then `x = 100%/(1 - pow(2, 1/(86400+1)))`, which is 124649.
     uint256 private constant _SECONDS_PER_DAY_WITH_ADJUSTMENT = 124649;
 
-    // We need to use a random number to calculate initial virtual balances and real balances. This number will be
-    // scaled later, during initialization.
+    // We need to use a random number to calculate initial virtual and real balances. This number will be scaled later,
+    // during initialization.
     uint256 private constant _INITIALIZATION_MAX_BALANCE_A = 1000 * 1e18;
 
     /**
