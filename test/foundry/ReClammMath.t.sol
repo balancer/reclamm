@@ -22,8 +22,8 @@ contract ReClammMathTest is BaseReClammTest {
     uint256 private constant _SECONDS_PER_DAY_WITH_ADJUSTMENT = 124649;
 
     uint256 private constant _MIN_POOL_CENTEREDNESS = 1e3;
-    uint256 private constant _MAX_CENTEREDNESS_ERROR_ABS = 1e7;
-    uint256 private constant _MAX_PRICE_ERROR_ABS = 1e15;
+    uint256 private constant _MAX_CENTEREDNESS_ERROR_ABS = 5e5;
+    uint256 private constant _MAX_PRICE_ERROR_ABS = 2e13;
 
     ReClammMathMock internal mathContract;
 
@@ -269,13 +269,13 @@ contract ReClammMathTest is BaseReClammTest {
         } else if (ReClammMath.isAboveCenter(balancesScaled18, virtualBalances)) {
             assertApproxEqAbs(
                 centeredness,
-                balance1.mulDown(virtualBalance0).divDown(balance0.mulDown(virtualBalance1)),
+                ((balance1 * virtualBalance0) / balance0).divUp(virtualBalance1),
                 _MAX_CENTEREDNESS_ERROR_ABS
             );
         } else {
             assertApproxEqAbs(
                 centeredness,
-                balance0.mulDown(virtualBalance1).divDown(balance1.mulDown(virtualBalance0)),
+                ((balance0 * virtualBalance1) / balance1).divUp(virtualBalance0),
                 _MAX_CENTEREDNESS_ERROR_ABS
             );
         }

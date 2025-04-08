@@ -212,8 +212,6 @@ library ReClammMath {
         uint64 centerednessMargin,
         PriceRatioState storage priceRatioState
     ) internal view returns (uint256[] memory currentVirtualBalances, bool changed) {
-        // TODO Review rounding
-
         uint32 currentTimestamp = block.timestamp.toUint32();
 
         // If the last timestamp is the same as the current timestamp, virtual balances were already reviewed in the
@@ -306,12 +304,15 @@ library ReClammMath {
         uint256 poolCenteredness = calculateCenteredness(balancesScaled18, lastVirtualBalances);
 
         // Terms of the quadratic equation.
-        uint256 a = currentFourthRootPriceRatio.mulDown(currentFourthRootPriceRatio) - FixedPoint.ONE;
-        uint256 b = balanceTokenUndervalued.mulDown(FixedPoint.ONE + poolCenteredness);
-        uint256 c = balanceTokenUndervalued.mulDown(balanceTokenUndervalued).mulDown(poolCenteredness);
+        uint256 a = currentFourthRootPriceRatio.mulUp(currentFourthRootPriceRatio) - FixedPoint.ONE;
 
         // Using FixedPoint math as minimum as possible to improve the precision of the result.
-        uint256 virtualBalanceUndervalued = (b + Math.sqrt(b * b + 4 * a * c)).divDown(2 * a);
+        // uint256 virtualBalanceUndervalued = (b + Math.sqrt(b * b + 4 * a * c)).divDown(2 * a);
+        uint256 virtualBalanceUndervalued = (balanceTokenUndervalued *
+            ((FixedPoint.ONE + poolCenteredness) +
+                Math.sqrt(
+                    (poolCenteredness * (poolCenteredness + (2e18 + 4 * a))) + (FixedPoint.ONE * FixedPoint.ONE)
+                ))) / (2 * a);
         virtualBalances[indexTokenOvervalued] = ((balanceTokenOvervalued * virtualBalanceUndervalued) /
             balanceTokenUndervalued).divDown(poolCenteredness);
         virtualBalances[indexTokenUndervalued] = virtualBalanceUndervalued;
@@ -340,7 +341,8 @@ library ReClammMath {
         uint32 currentTimestamp,
         uint32 lastTimestamp
     ) internal pure returns (uint256[] memory) {
-        uint256 priceRatio = currentFourthRootPriceRatio.mulDown(currentFourthRootPriceRatio);
+        // Round up price ratio, to round virtual balances down.
+        uint256 priceRatio = currentFourthRootPriceRatio.mulUp(currentFourthRootPriceRatio);
 
         // The token overvalued is the one with low token balance (therefore, rarer and more valuable).
         (uint256 indexTokenUndervalued, uint256 indexTokenOvervalued) = isPoolAboveCenter ? (0, 1) : (1, 0);
@@ -403,9 +405,10 @@ library ReClammMath {
         // The token overvalued is the one with low token balance (therefore, rarer and more valuable).
         (uint256 indexTokenUndervalued, uint256 indexTokenOvervalued) = isPoolAboveCenter ? (0, 1) : (1, 0);
 
+        // Round up the centeredness, so the virtual balances are rounded down when the pool prices are moving.
         return
             ((balancesScaled18[indexTokenOvervalued] * virtualBalances[indexTokenUndervalued]) /
-                balancesScaled18[indexTokenUndervalued]).divDown(virtualBalances[indexTokenOvervalued]);
+                balancesScaled18[indexTokenUndervalued]).divUp(virtualBalances[indexTokenOvervalued]);
     }
 
     /**
