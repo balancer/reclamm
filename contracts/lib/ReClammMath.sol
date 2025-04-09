@@ -216,7 +216,7 @@ library ReClammMath {
         virtualBalances[1] = minPrice.mulDown(virtualBalances[0] + _INITIALIZATION_MAX_BALANCE_A);
 
         realBalances = new uint256[](2);
-        // Rb = sqrt(targetPrice * Vb + (Ra_max + Va)) - Vb
+        // Rb = sqrt(targetPrice * Vb * (Ra_max + Va)) - Vb
         realBalances[1] =
             sqrtScaled18(
                 targetPrice.mulUp(virtualBalances[1]).mulUp(_INITIALIZATION_MAX_BALANCE_A + virtualBalances[0])
