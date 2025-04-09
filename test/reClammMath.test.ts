@@ -17,7 +17,7 @@ import {
   pureComputeInvariant,
   Rounding,
   PriceRatioState,
-  getTheoreticalPriceRatioAndBalances,
+  computeTheoreticalPriceRatioAndBalances,
 } from './utils/reClammMath';
 import { expectEqualWithError } from './utils/relativeError';
 
@@ -145,19 +145,19 @@ describe('ReClammMath', function () {
     });
   });
 
-  context('getTheoreticalPriceRatioAndBalances', () => {
+  context('computeTheoreticalPriceRatioAndBalances', () => {
     it('should return the correct value', async () => {
       const minPrice = fp(1000);
       const maxPrice = fp(4000);
       const targetPrice = fp(2500);
 
       const [theoreticalBalancesSol, virtualBalancesSol, fourthRootPriceRatioSol] =
-        await mathLib.getTheoreticalPriceRatioAndBalances(minPrice, maxPrice, targetPrice);
-      const [theoreticalBalancesJs, virtualBalancesJs, fourthRootPriceRatioJs] = getTheoreticalPriceRatioAndBalances(
-        minPrice,
-        maxPrice,
-        targetPrice
-      );
+        await mathLib.computeTheoreticalPriceRatioAndBalances(minPrice, maxPrice, targetPrice);
+      const {
+        realBalances: theoreticalBalancesJs,
+        virtualBalances: virtualBalancesJs,
+        fourthRootPriceRatio: fourthRootPriceRatioJs,
+      } = computeTheoreticalPriceRatioAndBalances(minPrice, maxPrice, targetPrice);
 
       // Error of 0.0001%, because the sqrt libraries behave a bit differently
       expectEqualWithError(theoreticalBalancesSol[0], theoreticalBalancesJs[0], 0.000001);

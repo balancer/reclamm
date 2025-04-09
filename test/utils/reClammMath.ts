@@ -16,6 +16,12 @@ export enum Rounding {
   ROUND_DOWN,
 }
 
+export type BalancesAndPriceRatio = {
+  realBalances: bigint[];
+  virtualBalances: bigint[];
+  fourthRootPriceRatio: bigint;
+};
+
 export type PriceRatioState = {
   priceRatioUpdateStartTime: number;
   priceRatioUpdateEndTime: number;
@@ -23,7 +29,7 @@ export type PriceRatioState = {
   endFourthRootPriceRatio: bigint;
 };
 
-const _INITIALIZATION_MAX_BALANCE_A = fp(1000);
+const _INITIALIZATION_MAX_BALANCE_A = fp(1000000);
 
 export function getCurrentVirtualBalances(
   balancesScaled18: bigint[],
@@ -202,13 +208,13 @@ export function calculateInGivenOut(
   return fpDivUp(invariant, finalBalances[tokenOutIndex] - amountGivenScaled18) - finalBalances[tokenInIndex];
 }
 
-export function getTheoreticalPriceRatioAndBalances(
+export function computeTheoreticalPriceRatioAndBalances(
   minPrice: bigint,
   maxPrice: bigint,
   targetPrice: bigint
-): [bigint[], bigint[], bigint] {
-  const sqrtPriceRatio = Math.sqrt(fpDivDown(maxPrice * FP_ONE, minPrice));
-  const fourthRootPriceRatio = Math.sqrt(sqrtPriceRatio * FP_ONE);
+): BalancesAndPriceRatio {
+  const sqrtPriceRatio: bigint = bn(Math.sqrt(Number(fpDivDown(maxPrice, minPrice) * FP_ONE)));
+  const fourthRootPriceRatio: bigint = bn(Math.sqrt(Number(sqrtPriceRatio * FP_ONE)));
 
   const virtualBalances: bigint[] = [];
   virtualBalances[0] = fpDivDown(_INITIALIZATION_MAX_BALANCE_A, sqrtPriceRatio - FP_ONE);
@@ -219,8 +225,7 @@ export function getTheoreticalPriceRatioAndBalances(
     bn(
       Math.sqrt(
         Number(
-          fpMulDown(fpMulDown(targetPrice, virtualBalances[1]), _INITIALIZATION_MAX_BALANCE_A + virtualBalances[0]) *
-            FP_ONE
+          fpMulUp(fpMulUp(targetPrice, virtualBalances[1]), _INITIALIZATION_MAX_BALANCE_A + virtualBalances[0]) * FP_ONE
         )
       )
     ) - virtualBalances[1];
@@ -229,7 +234,7 @@ export function getTheoreticalPriceRatioAndBalances(
     targetPrice
   );
 
-  return [realBalances, virtualBalances, fourthRootPriceRatio];
+  return { realBalances, virtualBalances, fourthRootPriceRatio };
 }
 
 export function isPoolInRange(
