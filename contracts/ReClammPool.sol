@@ -13,20 +13,20 @@ import { IHooks } from "@balancer-labs/v3-interfaces/contracts/vault/IHooks.sol"
 import "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { BasePoolAuthentication } from "@balancer-labs/v3-pool-utils/contracts/BasePoolAuthentication.sol";
+import { GradualValueChange } from "@balancer-labs/v3-pool-weighted/contracts/lib/GradualValueChange.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { BalancerPoolToken } from "@balancer-labs/v3-vault/contracts/BalancerPoolToken.sol";
 import { Version } from "@balancer-labs/v3-solidity-utils/contracts/helpers/Version.sol";
 import { PoolInfo } from "@balancer-labs/v3-pool-utils/contracts/PoolInfo.sol";
-import { GradualValueChange } from "@balancer-labs/v3-pool-weighted/contracts/lib/GradualValueChange.sol";
 import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
 
+import { PriceRatioState, ReClammMath, a, b } from "./lib/ReClammMath.sol";
 import {
     ReClammPoolParams,
     ReClammPoolDynamicData,
     ReClammPoolImmutableData,
     IReClammPool
 } from "./interfaces/IReClammPool.sol";
-import { PriceRatioState, ReClammMath } from "./lib/ReClammMath.sol";
 
 contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthentication, Version, BaseHooks {
     using SafeCast for *;
@@ -247,11 +247,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         _checkInitializationBalanceRatio(balancesScaled18, theoreticalRealBalances);
 
-        uint256 scale = balancesScaled18[0].divDown(theoreticalRealBalances[0]);
+        uint256 scale = balancesScaled18[a].divDown(theoreticalRealBalances[a]);
 
         uint256[] memory virtualBalances = new uint256[](2);
-        virtualBalances[0] = theoreticalVirtualBalances[0].mulDown(scale);
-        virtualBalances[1] = theoreticalVirtualBalances[1].mulDown(scale);
+        virtualBalances[a] = theoreticalVirtualBalances[a].mulDown(scale);
+        virtualBalances[b] = theoreticalVirtualBalances[b].mulDown(scale);
 
         _checkInitializationPrices(balancesScaled18, virtualBalances);
 
@@ -287,8 +287,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         // When adding/removing liquidity, round up the virtual balances. This will result in a higher invariant,
         // which favors the vault in swap operations. The virtual balances are not used to calculate a proportional
         // add/remove result.
-        currentVirtualBalances[0] = currentVirtualBalances[0].mulUp(FixedPoint.ONE + proportion);
-        currentVirtualBalances[1] = currentVirtualBalances[1].mulUp(FixedPoint.ONE + proportion);
+        currentVirtualBalances[a] = currentVirtualBalances[a].mulUp(FixedPoint.ONE + proportion);
+        currentVirtualBalances[b] = currentVirtualBalances[b].mulUp(FixedPoint.ONE + proportion);
         _setLastVirtualBalances(currentVirtualBalances);
         _updateTimestamp();
 
@@ -316,14 +316,14 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         // When adding/removing liquidity, round up the virtual balances. This will result in a higher invariant,
         // which favors the vault in swap operations. The virtual balances are not used to calculate a proportional
         // add/remove result.
-        currentVirtualBalances[0] = currentVirtualBalances[0].mulUp(FixedPoint.ONE - proportion);
-        currentVirtualBalances[1] = currentVirtualBalances[1].mulUp(FixedPoint.ONE - proportion);
+        currentVirtualBalances[a] = currentVirtualBalances[a].mulUp(FixedPoint.ONE - proportion);
+        currentVirtualBalances[b] = currentVirtualBalances[b].mulUp(FixedPoint.ONE - proportion);
         _setLastVirtualBalances(currentVirtualBalances);
         _updateTimestamp();
 
         if (
-            balancesScaled18[0].mulDown(proportion.complement()) < _MIN_TOKEN_BALANCE_SCALED18 ||
-            balancesScaled18[1].mulDown(proportion.complement()) < _MIN_TOKEN_BALANCE_SCALED18
+            balancesScaled18[a].mulDown(proportion.complement()) < _MIN_TOKEN_BALANCE_SCALED18 ||
+            balancesScaled18[b].mulDown(proportion.complement()) < _MIN_TOKEN_BALANCE_SCALED18
         ) {
             // If one of the token balances is below 1e18, the update of price ratio is not accurate.
             revert TokenBalanceTooLow();
@@ -343,7 +343,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             _INITIAL_MAX_PRICE,
             _INITIAL_TARGET_PRICE
         );
-        balanceRatio = realBalances[1].divDown(realBalances[0]);
+        balanceRatio = realBalances[b].divDown(realBalances[a]);
     }
 
     /// @inheritdoc IReClammPool
@@ -650,8 +650,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256[] memory balancesScaled18,
         uint256[] memory theoreticalRealBalances
     ) internal pure {
-        uint256 realBalanceRatio = balancesScaled18[1].divDown(balancesScaled18[0]);
-        uint256 theoreticalBalanceRatio = theoreticalRealBalances[1].divDown(theoreticalRealBalances[0]);
+        uint256 realBalanceRatio = balancesScaled18[b].divDown(balancesScaled18[a]);
+        uint256 theoreticalBalanceRatio = theoreticalRealBalances[b].divDown(theoreticalRealBalances[a]);
 
         uint256 ratioLowerBound = theoreticalBalanceRatio.mulDown(FixedPoint.ONE - _BALANCE_RATIO_AND_PRICE_TOLERANCE);
         uint256 ratioUpperBound = theoreticalBalanceRatio.mulDown(FixedPoint.ONE + _BALANCE_RATIO_AND_PRICE_TOLERANCE);
@@ -667,19 +667,19 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256[] memory virtualBalances
     ) internal view {
         // Compare current spot price with initialization target price.
-        uint256 spotPrice = (balancesScaled18[1] + virtualBalances[1]).divDown(
-            balancesScaled18[0] + virtualBalances[0]
+        uint256 spotPrice = (balancesScaled18[b] + virtualBalances[b]).divDown(
+            balancesScaled18[a] + virtualBalances[a]
         );
         _comparePrice(spotPrice, _INITIAL_TARGET_PRICE);
 
         uint256 currentInvariant = ReClammMath.computeInvariant(balancesScaled18, virtualBalances, Rounding.ROUND_DOWN);
 
         // Compare current min price with initialization min price.
-        uint256 currentMinPrice = (virtualBalances[1] * virtualBalances[1]) / currentInvariant;
+        uint256 currentMinPrice = (virtualBalances[b] * virtualBalances[b]) / currentInvariant;
         _comparePrice(currentMinPrice, _INITIAL_MIN_PRICE);
 
         // Compare current max price with initialization max price.
-        uint256 currentMaxPrice = currentInvariant.divDown(virtualBalances[0]).divDown(virtualBalances[0]);
+        uint256 currentMaxPrice = currentInvariant.divDown(virtualBalances[a]).divDown(virtualBalances[a]);
         _comparePrice(currentMaxPrice, _INITIAL_MAX_PRICE);
     }
 

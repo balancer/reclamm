@@ -18,6 +18,11 @@ struct PriceRatioState {
     uint32 priceRatioUpdateEndTime;
 }
 
+// ReClamm pools are always 2-token pools, and the documentation assigns the first token (in sorted order) the
+// subscript `a`, and the second token `b`. Define these here to make the code more readable and self-documenting.
+uint256 constant a = 0;
+uint256 constant b = 1;
+
 library ReClammMath {
     using FixedPoint for uint256;
     using SafeCast for *;
@@ -99,7 +104,7 @@ library ReClammMath {
             ? FixedPoint.mulDown
             : FixedPoint.mulUp;
 
-        return _mulUpOrDown((balancesScaled18[0] + virtualBalances[0]), (balancesScaled18[1] + virtualBalances[1]));
+        return _mulUpOrDown((balancesScaled18[a] + virtualBalances[a]), (balancesScaled18[b] + virtualBalances[b]));
     }
 
     /**
@@ -213,19 +218,19 @@ library ReClammMath {
 
         virtualBalances = new uint256[](2);
         // Va = Ra_max / (sqrtPriceRatio - 1)
-        virtualBalances[0] = _INITIALIZATION_MAX_BALANCE_A.divDown(sqrtPriceRatio - FixedPoint.ONE);
+        virtualBalances[a] = _INITIALIZATION_MAX_BALANCE_A.divDown(sqrtPriceRatio - FixedPoint.ONE);
         // Vb = minPrice * (Va + Ra_max)
-        virtualBalances[1] = minPrice.mulDown(virtualBalances[0] + _INITIALIZATION_MAX_BALANCE_A);
+        virtualBalances[b] = minPrice.mulDown(virtualBalances[a] + _INITIALIZATION_MAX_BALANCE_A);
 
         realBalances = new uint256[](2);
         // Rb = sqrt(targetPrice * Vb * (Ra_max + Va)) - Vb
-        realBalances[1] =
+        realBalances[b] =
             sqrtScaled18(
-                targetPrice.mulUp(virtualBalances[1]).mulUp(_INITIALIZATION_MAX_BALANCE_A + virtualBalances[0])
+                targetPrice.mulUp(virtualBalances[b]).mulUp(_INITIALIZATION_MAX_BALANCE_A + virtualBalances[a])
             ) -
-            virtualBalances[1];
+            virtualBalances[b];
         // Ra = (Rb + Vb - (Va * targetPrice)) / targetPrice
-        realBalances[0] = (realBalances[1] + virtualBalances[1] - virtualBalances[0].mulDown(targetPrice)).divDown(
+        realBalances[a] = (realBalances[b] + virtualBalances[b] - virtualBalances[a].mulDown(targetPrice)).divDown(
             targetPrice
         );
     }
@@ -449,7 +454,7 @@ library ReClammMath {
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances
     ) internal pure returns (uint256) {
-        if (balancesScaled18[0] == 0 || balancesScaled18[1] == 0) {
+        if (balancesScaled18[a] == 0 || balancesScaled18[b] == 0) {
             return 0;
         }
 
@@ -513,10 +518,10 @@ library ReClammMath {
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances
     ) internal pure returns (bool) {
-        if (balancesScaled18[1] == 0) {
+        if (balancesScaled18[b] == 0) {
             return true;
         } else {
-            return balancesScaled18[0].divDown(balancesScaled18[1]) > virtualBalances[0].divDown(virtualBalances[1]);
+            return balancesScaled18[a].divDown(balancesScaled18[b]) > virtualBalances[a].divDown(virtualBalances[b]);
         }
     }
 
