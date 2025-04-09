@@ -28,6 +28,12 @@ library ReClammMath {
     /// @dev The swap result is negative due to a rounding issue.
     error NegativeAmountOut();
 
+    /// @dev Struct created to avoid the stack-too-deep error when calculating virtual balances.
+    struct PoolAboveCenter {
+        bool isPoolAboveCenter;
+        bool isPoolAboveCenterCalculated;
+    }
+
     // We want, after 1 day (86400 seconds) that the pool is out of range, to double the price (or reduce by 50%)
     // with PriceShiftDailyRate = 100%. So, we want to be able to move the virtual balances by the same rate.
     // Therefore, after one day:
@@ -230,11 +236,6 @@ library ReClammMath {
         );
     }
 
-    struct PoolAboveCenter {
-        bool isPoolAboveCenter;
-        bool isPoolAboveCenterCalculated;
-    }
-
     /**
      * @notice Calculate the current virtual balances of the pool.
      * @dev If the pool is in range or the price ratio is not updating, the virtual balances do not change and
@@ -283,6 +284,7 @@ library ReClammMath {
             _priceRatioState.priceRatioUpdateEndTime
         );
 
+        // Using this struct avoids the error "Stack too deep".
         PoolAboveCenter memory poolAboveCenter;
 
         // If the price ratio is updating, shrink/expand the price interval by recalculating the virtual balances.
