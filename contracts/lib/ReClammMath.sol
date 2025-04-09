@@ -354,7 +354,7 @@ library ReClammMath {
         // c = - Ru^2 C
         // where Q0 is the square root of the price ratio, Ru is the undervalued token balance, and C is the
         // centeredness. Applying Bhaskara, we'd have: Vu = (-b + sqrt(b^2 - 4ac)) / 2a.
-        // The Bhaskara above can be simplified buy replacing a, b and c with the terms above, which leads to:
+        // The Bhaskara above can be simplified by replacing a, b and c with the terms above, which leads to:
         // Vu = Ru(1 + C + sqrt(1 + C (C + 4 Q0 - 2))) / 2(Q0 - 1)
 
         uint256 sqrtPriceRatio = currentFourthRootPriceRatio.mulUp(currentFourthRootPriceRatio);
