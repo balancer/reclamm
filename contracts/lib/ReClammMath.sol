@@ -27,12 +27,6 @@ library ReClammMath {
     using FixedPoint for uint256;
     using SafeCast for *;
 
-    /// @dev The swap result is bigger than the real balance of the token.
-    error AmountOutBiggerThanBalance();
-
-    /// @dev The swap result is negative due to a rounding issue.
-    error NegativeAmountOut();
-
     // We want, after 1 day (86400 seconds) that the pool is out of range, to double the price (or reduce by 50%)
     // with PriceShiftDailyRate = 100%. So, we want to be able to move the virtual balances by the same rate.
     // Therefore, after one day:
@@ -48,6 +42,12 @@ library ReClammMath {
     // during initialization. Choosing a big number will keep precision with large liquidity initializations.
     uint256 private constant _INITIALIZATION_MAX_BALANCE_A = 1e6 * 1e18;
 
+    /// @notice The swap result is greater than the real balance of the token.
+    error AmountOutGreaterThanBalance();
+
+    /// @notice The swap result is negative due to a rounding issue.
+    error NegativeAmountOut();
+    
     /**
      * @notice Get the current virtual balances and compute the invariant of the pool using constant product.
      * @param balancesScaled18 Current pool balances, sorted in token registration order
@@ -141,8 +141,8 @@ library ReClammMath {
 
         amountOutScaled18 = currentTotalTokenOutPoolBalance - newTotalTokenOutPoolBalance;
         if (amountOutScaled18 > balancesScaled18[tokenOutIndex]) {
-            // Amount out cannot be bigger than the real balance of the token.
-            revert AmountOutBiggerThanBalance();
+            // Amount out cannot be greater than the real balance of the token.
+            revert AmountOutGreaterThanBalance();
         }
     }
 
@@ -163,8 +163,8 @@ library ReClammMath {
         uint256 amountOutScaled18
     ) internal pure returns (uint256 amountInScaled18) {
         if (amountOutScaled18 > balancesScaled18[tokenOutIndex]) {
-            // Amount out cannot be bigger than the real balance of the token in the pool.
-            revert AmountOutBiggerThanBalance();
+            // Amount out cannot be greater than the real balance of the token in the pool.
+            revert AmountOutGreaterThanBalance();
         }
 
         // Round up, so the swapper absorbs rounding imprecisions (rounds in favor of the vault).

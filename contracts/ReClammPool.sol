@@ -29,9 +29,8 @@ import {
 } from "./interfaces/IReClammPool.sol";
 
 contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthentication, Version, BaseHooks {
-    using SafeCast for *;
     using FixedPoint for uint256;
-    using SafeCast for uint256;
+    using SafeCast for *;
 
     // uint256 private constant _MIN_SWAP_FEE_PERCENTAGE = 0.001e16; // 0.001%
     uint256 internal constant _MIN_SWAP_FEE_PERCENTAGE = 0;
@@ -64,6 +63,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 private immutable _INITIAL_TARGET_PRICE;
 
     PriceRatioState internal _priceRatioState;
+
     uint32 internal _lastTimestamp;
     uint128 internal _priceShiftDailyRangeInSeconds;
     uint64 internal _centerednessMargin;
