@@ -126,11 +126,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
     function testGetPriceRatioState() public {
         PriceRatioState memory priceRatioState = ReClammPool(pool).getPriceRatioState();
-        assertEq(
-            priceRatioState.startFourthRootPriceRatio,
-            0,
-            "Invalid default startFourthRootPriceRatio"
-        );
+        assertEq(priceRatioState.startFourthRootPriceRatio, 0, "Invalid default startFourthRootPriceRatio");
         assertEq(
             priceRatioState.endFourthRootPriceRatio,
             _initialFourthRootPriceRatio,

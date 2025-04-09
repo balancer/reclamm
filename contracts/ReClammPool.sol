@@ -646,9 +646,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             revert TokenBalanceTooLow();
         }
 
-        if (
-            ReClammMath.computeCenteredness(currentBalancesScaled18, currentVirtualBalances) < _MIN_POOL_CENTEREDNESS
-        ) {
+        if (ReClammMath.computeCenteredness(currentBalancesScaled18, currentVirtualBalances) < _MIN_POOL_CENTEREDNESS) {
             // If the pool centeredness is below the minimum, the price ratio update is unreliable.
             revert PoolCenterednessTooLow();
         }
