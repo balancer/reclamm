@@ -220,17 +220,17 @@ export function isPoolInRange(
 export function calculateCenteredness(balancesScaled18: bigint[], virtualBalances: bigint[]): bigint {
   if (balancesScaled18[0] == 0n || balancesScaled18[1] == 0n) {
     return 0n;
-  } else if (isAboveCenter(balancesScaled18, virtualBalances)) {
-    return fpDivDown(
-      fpMulDown(balancesScaled18[1], virtualBalances[0]),
-      fpMulDown(balancesScaled18[0], virtualBalances[1])
-    );
-  } else {
-    return fpDivDown(
-      fpMulDown(balancesScaled18[0], virtualBalances[1]),
-      fpMulDown(balancesScaled18[1], virtualBalances[0])
-    );
   }
+
+  const isPoolAboveCenter = isAboveCenter(balancesScaled18, virtualBalances);
+
+  const [indexTokenUndervalued, indexTokenOvervalued] = isPoolAboveCenter ? [0, 1] : [1, 0];
+
+  return fpDivUp(
+    (balancesScaled18[indexTokenOvervalued] * virtualBalances[indexTokenUndervalued]) /
+      balancesScaled18[indexTokenUndervalued],
+    virtualBalances[indexTokenOvervalued]
+  );
 }
 
 export function calculateFourthRootPriceRatio(

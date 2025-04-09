@@ -465,6 +465,6 @@ class ReClammBenchmark extends Benchmark {
   }
 }
 
-describe.only('ReClammPool Gas Benchmark', function () {
+describe('ReClammPool Gas Benchmark', function () {
   new ReClammBenchmark(__dirname).itBenchmarks();
 });
