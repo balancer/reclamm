@@ -284,7 +284,8 @@ library ReClammMath {
             _priceRatioState.priceRatioUpdateEndTime
         );
 
-        // Using this struct avoids the error "Stack too deep".
+        // Using this struct avoids the error "Stack too deep". Postponing the calculation of isPoolAboveCenter saves
+        // gas when the pool is in range and price ratio is not updating.
         PoolAboveCenter memory poolAboveCenter;
 
         // If the price ratio is updating, shrink/expand the price interval by recalculating the virtual balances.
