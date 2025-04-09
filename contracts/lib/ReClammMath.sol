@@ -303,15 +303,23 @@ library ReClammMath {
         // Calculate the current pool centeredness, which will remain constant.
         uint256 poolCenteredness = calculateCenteredness(balancesScaled18, lastVirtualBalances);
 
-        uint256 a = currentFourthRootPriceRatio.mulUp(currentFourthRootPriceRatio) - FixedPoint.ONE;
+        // The original formula was a quadratic equation, with terms:
+        // a = Q0 - 1
+        // b = - Ru (1 + C)
+        // c = - Ru^2 C
+        // where Q0 is the square root of the price ratio, Ru is the undervalued token balance, and C is the
+        // centeredness. Applying Bhaskara, we'd have: Vu = (b + sqrt(b^2 - 4ac)) / 2a.
+        // The Bhaskara above can be simplified buy replacing a, b and c with the terms above, which leads to:
+        // Vu = Ru(1 + C + sqrt(1 + C (C + 4 Q0 - 2))) / 2(Q0 - 1)
+
+        uint256 sqrtPriceRatio = currentFourthRootPriceRatio.mulUp(currentFourthRootPriceRatio);
 
         // Using FixedPoint math as little as possible to improve the precision of the result.
-        // uint256 virtualBalanceUndervalued = (b + Math.sqrt(b * b + 4 * a * c)).divDown(2 * a);
         uint256 virtualBalanceUndervalued = (balanceTokenUndervalued *
-            ((FixedPoint.ONE + poolCenteredness) +
-                Math.sqrt(
-                    (poolCenteredness * (poolCenteredness + (2e18 + 4 * a))) + 1e36
-                ))) / (2 * a);
+            (FixedPoint.ONE +
+                poolCenteredness +
+                Math.sqrt(poolCenteredness * (poolCenteredness + 4 * sqrtPriceRatio - 2e18) + 1e36))) /
+            (2 * (sqrtPriceRatio - FixedPoint.ONE));
         virtualBalances[indexTokenOvervalued] = ((balanceTokenOvervalued * virtualBalanceUndervalued) /
             balanceTokenUndervalued).divDown(poolCenteredness);
         virtualBalances[indexTokenUndervalued] = virtualBalanceUndervalued;
