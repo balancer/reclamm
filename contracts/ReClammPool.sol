@@ -4,6 +4,7 @@
 pragma solidity ^0.8.24;
 
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import { SignedMath } from "@openzeppelin/contracts/utils/math/SignedMath.sol";
 
 import { ISwapFeePercentageBounds } from "@balancer-labs/v3-interfaces/contracts/vault/ISwapFeePercentageBounds.sol";
 import "@balancer-labs/v3-interfaces/contracts/vault/IUnbalancedLiquidityInvariantRatioBounds.sol";
@@ -58,6 +59,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 internal constant _MIN_PRICE_RATIO_UPDATE_DURATION = 6 hours;
 
     uint256 internal constant _BALANCE_RATIO_AND_PRICE_TOLERANCE = 1e14; // 0.01%
+
+    uint256 internal constant _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA = 1e3;
 
     uint256 private immutable _INITIAL_MIN_PRICE;
     uint256 private immutable _INITIAL_MAX_PRICE;
@@ -445,6 +448,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.minPoolCenteredness = _MIN_POOL_CENTEREDNESS;
         data.maxPriceShiftDailyRate = _MAX_PRICE_SHIFT_DAILY_RATE;
         data.minPriceRatioUpdateDuration = _MIN_PRICE_RATIO_UPDATE_DURATION;
+        data.minFourthRootPriceRatioDelta = _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA;
     }
 
     /********************************************************   
@@ -526,8 +530,12 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         uint256 startFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio(priceRatioState);
 
-        if (startFourthRootPriceRatio == endFourthRootPriceRatio) {
-            revert PriceRatioUnchanged();
+        uint256 fourthRootPriceRatioDelta = SignedMath.abs(
+            startFourthRootPriceRatio.toInt256() - endFourthRootPriceRatio.toInt256()
+        );
+
+        if (fourthRootPriceRatioDelta < _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA) {
+            revert FourthRootPriceRatioDeltaBelowMin(fourthRootPriceRatioDelta);
         }
 
         priceRatioState.startFourthRootPriceRatio = startFourthRootPriceRatio.toUint96();

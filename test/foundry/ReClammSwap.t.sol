@@ -62,11 +62,7 @@ contract ReClammSwapTest is BaseReClammTest {
         uint256 currentFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
         newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 10e18);
 
-        if (newFourthRootPriceRatio > currentFourthRootPriceRatio) {
-            vm.assume(newFourthRootPriceRatio - currentFourthRootPriceRatio >= 2);
-        } else {
-            vm.assume(currentFourthRootPriceRatio - newFourthRootPriceRatio >= 2);
-        }
+        _assumeFourthRootPriceRatioDeltaAboveMin(currentFourthRootPriceRatio, newFourthRootPriceRatio);
 
         vm.prank(admin);
         ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 1 days);
@@ -114,7 +110,7 @@ contract ReClammSwapTest is BaseReClammTest {
 
         uint256 currentFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
         newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 10e18);
-        vm.assume(currentFourthRootPriceRatio != newFourthRootPriceRatio);
+        _assumeFourthRootPriceRatioDeltaAboveMin(currentFourthRootPriceRatio, newFourthRootPriceRatio);
 
         vm.prank(admin);
         ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 1 days);
@@ -281,7 +277,7 @@ contract ReClammSwapTest is BaseReClammTest {
 
         uint256 currentFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
         newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 10e18);
-        vm.assume(currentFourthRootPriceRatio != newFourthRootPriceRatio);
+        _assumeFourthRootPriceRatioDeltaAboveMin(currentFourthRootPriceRatio, newFourthRootPriceRatio);
 
         vm.prank(admin);
         ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 1 days);

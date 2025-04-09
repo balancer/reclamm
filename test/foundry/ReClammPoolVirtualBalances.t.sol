@@ -122,11 +122,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         endFourthRootPriceRatio = SafeCast.toUint96(bound(endFourthRootPriceRatio, 1.1e18, 10e18));
         uint256 initialFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
 
-        if (endFourthRootPriceRatio > initialFourthRootPriceRatio) {
-            vm.assume(endFourthRootPriceRatio - initialFourthRootPriceRatio >= 2);
-        } else {
-            vm.assume(initialFourthRootPriceRatio - endFourthRootPriceRatio >= 2);
-        }
+        _assumeFourthRootPriceRatioDeltaAboveMin(initialFourthRootPriceRatio, endFourthRootPriceRatio);
 
         uint32 duration = 6 hours;
 

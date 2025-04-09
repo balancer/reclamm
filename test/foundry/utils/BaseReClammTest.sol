@@ -41,6 +41,8 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     uint256 internal constant _DEFAULT_PRICE_SHIFT_DAILY_RATE = 100e16; // 100%
     uint64 internal constant _DEFAULT_CENTEREDNESS_MARGIN = 20e16; // 20%
 
+    uint256 internal constant _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA = 1e3;
+
     uint256 internal constant _MIN_PRICE = 1e14; // 0.0001
     uint256 internal constant _MAX_PRICE = 1e24; // 1_000_000
     uint256 internal constant _MIN_PRICE_RATIO = 1.1e18;
@@ -172,5 +174,16 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
         newPoolBalances[usdcIdx] = usdcBalance;
 
         vault.manualSetPoolBalances(pool, newPoolBalances, newPoolBalances);
+    }
+
+    function _assumeFourthRootPriceRatioDeltaAboveMin(
+        uint256 currentFourthRootPriceRatio,
+        uint256 newFourthRootPriceRatio
+    ) internal pure {
+        if (newFourthRootPriceRatio > currentFourthRootPriceRatio) {
+            vm.assume(newFourthRootPriceRatio - currentFourthRootPriceRatio >= _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA);
+        } else {
+            vm.assume(currentFourthRootPriceRatio - newFourthRootPriceRatio >= _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA);
+        }
     }
 }

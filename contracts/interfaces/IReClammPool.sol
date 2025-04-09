@@ -36,6 +36,7 @@ struct ReClammPoolParams {
  * @param minTokenBalanceScaled18 The minimum token balance for the pool, scaled to 18 decimals.
  * @param maxPriceShiftDailyRate The maximum daily rate for the pool's price shift, as a percentage in 18-decimal FP.
  * @param minPriceRatioUpdateDuration The minimum duration for the price ratio update, expressed in seconds.
+ * @param minPriceRatioUpdateDuration The minimum absolute difference between current and new fourth root price ratio.
  */
 struct ReClammPoolImmutableData {
     IERC20[] tokens;
@@ -49,6 +50,7 @@ struct ReClammPoolImmutableData {
     uint256 minPoolCenteredness;
     uint256 maxPriceShiftDailyRate;
     uint256 minPriceRatioUpdateDuration;
+    uint256 minFourthRootPriceRatioDelta;
 }
 
 /**
@@ -131,8 +133,8 @@ interface IReClammPool is IBasePool {
     /// @dev The difference between end time and start time is too short for the price ratio update.
     error PriceRatioUpdateDurationTooShort();
 
-    /// @dev The price ratio being set matches the current one.
-    error PriceRatioUnchanged();
+    /// @dev The price ratio being set is too close to the current one.
+    error FourthRootPriceRatioDeltaBelowMin(uint256 fourthRootPriceRatioDelta);
 
     /**
      * @notice `getRate` from `IRateProvider` was called on a ReClamm Pool.
