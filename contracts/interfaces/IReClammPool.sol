@@ -100,6 +100,34 @@ struct ReClammPoolDynamicData {
 }
 
 interface IReClammPool is IBasePool {
+    /********************************************************
+                           Events
+    ********************************************************/
+
+    /// @notice The Price Ratio State was updated.
+    event PriceRatioStateUpdated(
+        uint256 startFourthRootPriceRatio,
+        uint256 endFourthRootPriceRatio,
+        uint256 priceRatioUpdateStartTime,
+        uint256 priceRatioUpdateEndTime
+    );
+
+    /// @dev The Virtual Balances were updated after a user interaction.
+    event VirtualBalancesUpdated(uint256[] virtualBalances);
+
+    /**
+     * @dev The Price Shift Daily Rate was updated.
+     * @param priceShiftDailyRate The new price shift daily rate
+     * @param priceShiftDailyRangeInSeconds A representation of the price shift daily rate in seconds
+     */
+    event PriceShiftDailyRateUpdated(uint256 priceShiftDailyRate, uint256 priceShiftDailyRangeInSeconds);
+
+    /// @dev The Centeredness Margin was updated.
+    event CenterednessMarginUpdated(uint256 centerednessMargin);
+
+    /// @dev The timestamp of the last user interaction.
+    event LastTimestampUpdated(uint32 lastTimestamp);
+
     /********************************************************   
                            Errors
     ********************************************************/
@@ -152,34 +180,6 @@ interface IReClammPool is IBasePool {
      * @notice The current price interval or spot price is outside the initialization price range.
      */
     error WrongInitializationPrices();
-
-    /********************************************************
-                           Events
-    ********************************************************/
-
-    /// @notice The Price Ratio State was updated.
-    event PriceRatioStateUpdated(
-        uint256 startFourthRootPriceRatio,
-        uint256 endFourthRootPriceRatio,
-        uint256 priceRatioUpdateStartTime,
-        uint256 priceRatioUpdateEndTime
-    );
-
-    /// @dev The Virtual Balances were updated after a user interaction.
-    event VirtualBalancesUpdated(uint256[] virtualBalances);
-
-    /**
-     * @dev The Price Shift Daily Rate was updated.
-     * @param priceShiftDailyRate The new price shift daily rate
-     * @param priceShiftDailyRangeInSeconds A representation of the price shift daily rate in seconds
-     */
-    event PriceShiftDailyRateUpdated(uint256 priceShiftDailyRate, uint256 priceShiftDailyRangeInSeconds);
-
-    /// @dev The Centeredness Margin was updated.
-    event CenterednessMarginUpdated(uint256 centerednessMargin);
-
-    /// @dev The timestamp of the last user interaction.
-    event LastTimestampUpdated(uint32 lastTimestamp);
 
     /********************************************************
                        Pool State Getters
