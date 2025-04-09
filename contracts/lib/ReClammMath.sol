@@ -179,11 +179,13 @@ library ReClammMath {
      *  scaled later during actual pool initialization based on the actual tokens provided
      * 2. Initial virtual balances - Additional balances used to control the pool's price range
      * 3. Fourth root price ratio - A key parameter that helps define the pool's price boundaries
+     *
      * Note: The actual balances used in pool initialization will be proportionally scaled versions
      * of these theoretical values, maintaining the same ratios but adjusted to the actual amount of
      * liquidity provided.
-     * Also, price is defined as (balanceB + virtualBalanceB) / (balanceA + virtualBalanceA),
-     * where A and B are the tokens of the pool, sorted by address (A is the token with the lowest address).
+     *
+     * Price is defined as (balanceB + virtualBalanceB) / (balanceA + virtualBalanceA),
+     * where A and B are the pool tokens, sorted by address (A is the token with the lowest address).
      *
      * @param minPrice The minimum price limit of the pool
      * @param maxPrice The maximum price limit of the pool
