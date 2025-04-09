@@ -238,6 +238,7 @@ library ReClammMath {
      * 2. Shrink/Expand the price interval considering the current fourth root of price ratio. (if price ratio is
      *    updating)
      * 3. Track the market price by moving the price interval. (if pool is out of range)
+     * Note: Virtual balances will be rounded down to improve the swap result in favor of the vault.
      *
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param lastVirtualBalances The last virtual balances, sorted in token registration order
@@ -352,7 +353,7 @@ library ReClammMath {
         // b = - Ru (1 + C)
         // c = - Ru^2 C
         // where Q0 is the square root of the price ratio, Ru is the undervalued token balance, and C is the
-        // centeredness. Applying Bhaskara, we'd have: Vu = (b + sqrt(b^2 - 4ac)) / 2a.
+        // centeredness. Applying Bhaskara, we'd have: Vu = (-b + sqrt(b^2 - 4ac)) / 2a.
         // The Bhaskara above can be simplified buy replacing a, b and c with the terms above, which leads to:
         // Vu = Ru(1 + C + sqrt(1 + C (C + 4 Q0 - 2))) / 2(Q0 - 1)
 
