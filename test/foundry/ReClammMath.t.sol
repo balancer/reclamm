@@ -239,13 +239,15 @@ contract ReClammMathTest is BaseReClammTest {
             assertApproxEqAbs(
                 centeredness,
                 ((balance1 * virtualBalance0) / balance0).divUp(virtualBalance1),
-                _MAX_CENTEREDNESS_ERROR_ABS
+                _MAX_CENTEREDNESS_ERROR_ABS,
+                "Centeredness does not match"
             );
         } else {
             assertApproxEqAbs(
                 centeredness,
                 ((balance0 * virtualBalance1) / balance1).divUp(virtualBalance0),
-                _MAX_CENTEREDNESS_ERROR_ABS
+                _MAX_CENTEREDNESS_ERROR_ABS,
+                "Centeredness does not match"
             );
         }
     }
