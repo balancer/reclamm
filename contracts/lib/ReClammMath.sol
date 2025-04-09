@@ -186,6 +186,8 @@ library ReClammMath {
      *
      * Price is defined as (balanceB + virtualBalanceB) / (balanceA + virtualBalanceA),
      * where A and B are the pool tokens, sorted by address (A is the token with the lowest address).
+     * For example, if the pool is ETH/USDC, and USDC has an address that is smaller than ETH, this price will
+     * be defined as ETH/USDC (How many ETH is needed to buy 1 USDC).
      *
      * @param minPrice The minimum price limit of the pool
      * @param maxPrice The maximum price limit of the pool
