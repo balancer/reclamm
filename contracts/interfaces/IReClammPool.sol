@@ -148,6 +148,11 @@ interface IReClammPool is IBasePool {
      */
     error BalanceRatioExceedsTolerance();
 
+    /**
+     * @notice The current price interval or spot price is outside the initialization price range.
+     */
+    error WrongInitializationPrices();
+
     /********************************************************
                            Events
     ********************************************************/

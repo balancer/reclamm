@@ -57,7 +57,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     uint256 internal constant _MIN_PRICE_RATIO_UPDATE_DURATION = 6 hours;
 
-    uint256 internal constant _BALANCE_RATIO_TOLERANCE = 1e14; // 0.01%
+    uint256 internal constant _BALANCE_RATIO_AND_PRICE_TOLERANCE = 1e14; // 0.01%
 
     uint256 private immutable _INITIAL_MIN_PRICE;
     uint256 private immutable _INITIAL_MAX_PRICE;
@@ -245,21 +245,15 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                 _INITIAL_TARGET_PRICE
             );
 
-        uint256 realBalanceRatio = balancesScaled18[1].divDown(balancesScaled18[0]);
-        uint256 theoreticalBalanceRatio = theoreticalRealBalances[1].divDown(theoreticalRealBalances[0]);
-
-        uint256 ratioLowerBound = theoreticalBalanceRatio.mulDown(FixedPoint.ONE - _BALANCE_RATIO_TOLERANCE);
-        uint256 ratioUpperBound = theoreticalBalanceRatio.mulDown(FixedPoint.ONE + _BALANCE_RATIO_TOLERANCE);
-
-        if (realBalanceRatio < ratioLowerBound || realBalanceRatio > ratioUpperBound) {
-            revert BalanceRatioExceedsTolerance();
-        }
+        _checkInitializationBalanceRatio(balancesScaled18, theoreticalRealBalances);
 
         uint256 scale = balancesScaled18[0].divDown(theoreticalRealBalances[0]);
 
         uint256[] memory virtualBalances = new uint256[](2);
         virtualBalances[0] = theoreticalVirtualBalances[0].mulDown(scale);
         virtualBalances[1] = theoreticalVirtualBalances[1].mulDown(scale);
+
+        _checkInitializationPrices(balancesScaled18, virtualBalances);
 
         if (ReClammMath.calculateCenteredness(balancesScaled18, virtualBalances) < _centerednessMargin) {
             revert PoolCenterednessTooLow();
@@ -649,5 +643,52 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
 
         return ReClammMath.isPoolInRange(balancesScaled18, _lastVirtualBalances, _centerednessMargin);
+    }
+
+    /// @dev Checks that the current balance ratio is within the initialization balance ratio tolerance.
+    function _checkInitializationBalanceRatio(
+        uint256[] memory balancesScaled18,
+        uint256[] memory theoreticalRealBalances
+    ) internal pure {
+        uint256 realBalanceRatio = balancesScaled18[1].divDown(balancesScaled18[0]);
+        uint256 theoreticalBalanceRatio = theoreticalRealBalances[1].divDown(theoreticalRealBalances[0]);
+
+        uint256 ratioLowerBound = theoreticalBalanceRatio.mulDown(FixedPoint.ONE - _BALANCE_RATIO_AND_PRICE_TOLERANCE);
+        uint256 ratioUpperBound = theoreticalBalanceRatio.mulDown(FixedPoint.ONE + _BALANCE_RATIO_AND_PRICE_TOLERANCE);
+
+        if (realBalanceRatio < ratioLowerBound || realBalanceRatio > ratioUpperBound) {
+            revert BalanceRatioExceedsTolerance();
+        }
+    }
+
+    /// @dev Checks that the current price interval and spot price is within the initialization price range.
+    function _checkInitializationPrices(
+        uint256[] memory balancesScaled18,
+        uint256[] memory virtualBalances
+    ) internal view {
+        // Compare current spot price with initialization target price.
+        uint256 spotPrice = (balancesScaled18[1] + virtualBalances[1]).divDown(
+            balancesScaled18[0] + virtualBalances[0]
+        );
+        _comparePrice(spotPrice, _INITIAL_TARGET_PRICE);
+
+        uint256 currentInvariant = ReClammMath.computeInvariant(balancesScaled18, virtualBalances, Rounding.ROUND_DOWN);
+
+        // Compare current min price with initialization min price.
+        uint256 currentMinPrice = (virtualBalances[1] * virtualBalances[1]) / currentInvariant;
+        _comparePrice(currentMinPrice, _INITIAL_MIN_PRICE);
+
+        // Compare current max price with initialization max price.
+        uint256 currentMaxPrice = currentInvariant.divDown(virtualBalances[0]).divDown(virtualBalances[0]);
+        _comparePrice(currentMaxPrice, _INITIAL_MAX_PRICE);
+    }
+
+    function _comparePrice(uint256 currentPrice, uint256 initializationPrice) internal pure {
+        uint256 priceLowerBound = initializationPrice.mulDown(FixedPoint.ONE - _BALANCE_RATIO_AND_PRICE_TOLERANCE);
+        uint256 priceUpperBound = initializationPrice.mulDown(FixedPoint.ONE + _BALANCE_RATIO_AND_PRICE_TOLERANCE);
+
+        if (currentPrice < priceLowerBound || currentPrice > priceUpperBound) {
+            revert WrongInitializationPrices();
+        }
     }
 }
