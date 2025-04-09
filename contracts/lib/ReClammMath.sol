@@ -39,6 +39,10 @@ library ReClammMath {
     //    then `x = 100%/(1 - pow(2, 1/(86400+1)))`, which is 124649.
     uint256 private constant _SECONDS_PER_DAY_WITH_ADJUSTMENT = 124649;
 
+    // We need to use a random number to calculate initial virtual and real balances. This number will be scaled later,
+    // during initialization. Choosing a big number will keep precision with large liquidity initializations.
+    uint256 private constant _INITIALIZATION_MAX_BALANCE_A = 1e6 * 1e18;
+
     /**
      * @notice Get the current virtual balances and compute the invariant of the pool using constant product.
      * @param balancesScaled18 Current pool balances, sorted in token registration order
@@ -169,21 +173,61 @@ library ReClammMath {
     }
 
     /**
-     * @notice Calculate the initial virtual balances of the pool.
-     * @dev The initial virtual balances are calculated based on the initial fourth root of price ratio and the
-     * initial balances.
+     * @notice Computes the theoretical initial state of a ReClamm pool based on its price parameters.
+     * @dev This function calculates three key components needed to initialize a ReClamm pool:
+     * 1. Initial real token balances - Using a reference value (_INITIALIZATION_MAX_BALANCE_A) that will be
+     *  scaled later during actual pool initialization based on the actual tokens provided
+     * 2. Initial virtual balances - Additional balances used to control the pool's price range
+     * 3. Fourth root price ratio - A key parameter that helps define the pool's price boundaries
      *
-     * @param balancesScaled18 Current pool balances, sorted in token registration order
-     * @param fourthRootPriceRatio The initial fourth root of price ratio of the pool
-     * @return virtualBalances The initial virtual balances of the pool
+     * Note: The actual balances used in pool initialization will be proportionally scaled versions
+     * of these theoretical values, maintaining the same ratios but adjusted to the actual amount of
+     * liquidity provided.
+     *
+     * Price is defined as (balanceB + virtualBalanceB) / (balanceA + virtualBalanceA),
+     * where A and B are the pool tokens, sorted by address (A is the token with the lowest address).
+     * For example, if the pool is ETH/USDC, and USDC has an address that is smaller than ETH, this price will
+     * be defined as ETH/USDC (How many ETH is needed to buy 1 USDC).
+     *
+     * @param minPrice The minimum price limit of the pool
+     * @param maxPrice The maximum price limit of the pool
+     * @param targetPrice The desired initial price point within the range
+     * @return realBalances Array of theoretical initial token balances [token0, token1]
+     * @return virtualBalances Array of theoretical initial virtual balances [virtual0, virtual1]
+     * @return fourthRootPriceRatio The fourth root of maxPrice/minPrice ratio
      */
-    function initializeVirtualBalances(
-        uint256[] memory balancesScaled18,
-        uint256 fourthRootPriceRatio
-    ) internal pure returns (uint256[] memory virtualBalances) {
-        virtualBalances = new uint256[](balancesScaled18.length);
-        virtualBalances[0] = balancesScaled18[0].divDown(fourthRootPriceRatio - FixedPoint.ONE);
-        virtualBalances[1] = balancesScaled18[1].divDown(fourthRootPriceRatio - FixedPoint.ONE);
+    function computeTheoreticalPriceRatioAndBalances(
+        uint256 minPrice,
+        uint256 maxPrice,
+        uint256 targetPrice
+    )
+        internal
+        pure
+        returns (uint256[] memory realBalances, uint256[] memory virtualBalances, uint256 fourthRootPriceRatio)
+    {
+        // In the formulas below, Ra_max is a random number that defines the maximum real balance of token A, and
+        // consequently a random initial liquidity. We will scale all balances according to the actual amount of
+        // liquidity provided during initialization.
+        uint256 sqrtPriceRatio = sqrtScaled18(maxPrice.divDown(minPrice));
+        fourthRootPriceRatio = sqrtScaled18(sqrtPriceRatio);
+
+        virtualBalances = new uint256[](2);
+        // Va = Ra_max / (sqrtPriceRatio - 1)
+        virtualBalances[0] = _INITIALIZATION_MAX_BALANCE_A.divDown(sqrtPriceRatio - FixedPoint.ONE);
+        // Vb = minPrice * (Va + Ra_max)
+        virtualBalances[1] = minPrice.mulDown(virtualBalances[0] + _INITIALIZATION_MAX_BALANCE_A);
+
+        realBalances = new uint256[](2);
+        // Rb = sqrt(targetPrice * Vb * (Ra_max + Va)) - Vb
+        realBalances[1] =
+            sqrtScaled18(
+                targetPrice.mulUp(virtualBalances[1]).mulUp(_INITIALIZATION_MAX_BALANCE_A + virtualBalances[0])
+            ) -
+            virtualBalances[1];
+        // Ra = (Rb + Vb - (Va * targetPrice)) / targetPrice
+        realBalances[0] = (realBalances[1] + virtualBalances[1] - virtualBalances[0].mulDown(targetPrice)).divDown(
+            targetPrice
+        );
     }
 
     /**
@@ -472,5 +516,14 @@ library ReClammMath {
     function computePriceShiftDailyRate(uint256 priceShiftDailyRate) internal pure returns (uint128) {
         // Divide daily rate by a number of seconds per day (plus some adjustment)
         return (priceShiftDailyRate / _SECONDS_PER_DAY_WITH_ADJUSTMENT).toUint128();
+    }
+
+    /**
+     * @notice Calculate the square root of a value scaled by 18 decimals.
+     * @param valueScaled18 The value to calculate the square root of, scaled by 18 decimals
+     * @return sqrtValueScaled18 The square root of the value scaled by 18 decimals
+     */
+    function sqrtScaled18(uint256 valueScaled18) internal pure returns (uint256) {
+        return Math.sqrt(valueScaled18 * FixedPoint.ONE);
     }
 }
