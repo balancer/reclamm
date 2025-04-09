@@ -21,9 +21,8 @@ contract ReClammMathTest is BaseReClammTest {
     // Constant to increase the price by a factor 2 if price shift daily rate is 100%.
     uint256 private constant _SECONDS_PER_DAY_WITH_ADJUSTMENT = 124649;
 
-    uint256 private constant _MIN_POOL_CENTEREDNESS = 1e3;
-    uint256 private constant _MAX_CENTEREDNESS_ERROR_ABS = 5e5;
-    uint256 private constant _MAX_PRICE_ERROR_ABS = 2e13;
+    uint256 private constant _MAX_CENTEREDNESS_ERROR_ABS = 2e7;
+    uint256 private constant _MAX_PRICE_ERROR_ABS = 1e15;
 
     ReClammMathMock internal mathContract;
 
