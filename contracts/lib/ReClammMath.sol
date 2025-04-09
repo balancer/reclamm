@@ -360,6 +360,7 @@ library ReClammMath {
         uint256 sqrtPriceRatio = currentFourthRootPriceRatio.mulUp(currentFourthRootPriceRatio);
 
         // Using FixedPoint math as little as possible to improve the precision of the result.
+        // Note: The input of Math.sqrt must be a 36 decimals number, so the result is 18 decimals.
         uint256 virtualBalanceUndervalued = (balanceTokenUndervalued *
             (FixedPoint.ONE +
                 poolCenteredness +
