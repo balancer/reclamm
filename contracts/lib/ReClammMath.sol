@@ -303,15 +303,14 @@ library ReClammMath {
         // Calculate the current pool centeredness, which will remain constant.
         uint256 poolCenteredness = calculateCenteredness(balancesScaled18, lastVirtualBalances);
 
-        // Terms of the quadratic equation.
         uint256 a = currentFourthRootPriceRatio.mulUp(currentFourthRootPriceRatio) - FixedPoint.ONE;
 
-        // Using FixedPoint math as minimum as possible to improve the precision of the result.
+        // Using FixedPoint math as little as possible to improve the precision of the result.
         // uint256 virtualBalanceUndervalued = (b + Math.sqrt(b * b + 4 * a * c)).divDown(2 * a);
         uint256 virtualBalanceUndervalued = (balanceTokenUndervalued *
             ((FixedPoint.ONE + poolCenteredness) +
                 Math.sqrt(
-                    (poolCenteredness * (poolCenteredness + (2e18 + 4 * a))) + (FixedPoint.ONE * FixedPoint.ONE)
+                    (poolCenteredness * (poolCenteredness + (2e18 + 4 * a))) + 1e36
                 ))) / (2 * a);
         virtualBalances[indexTokenOvervalued] = ((balanceTokenOvervalued * virtualBalanceUndervalued) /
             balanceTokenUndervalued).divDown(poolCenteredness);
