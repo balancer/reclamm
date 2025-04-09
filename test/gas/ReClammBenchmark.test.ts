@@ -43,14 +43,17 @@ class ReClammBenchmark extends Benchmark {
 
     const salt = toBeHex(this.counter++, 32);
 
+    // The min, max and target prices were chosen to make sure the balance of token 1 is equal to balance of token 0.
     const tx = await factory.create(
       `ReClamm Pool`,
       `RECLAMM`,
       buildTokenConfig(poolTokens, withRate),
       roleAccounts,
       fp(0.1), // 10% swap fee percentage
+      fp(0.5), // 0.5 min price
+      fp(2), // 2 max price
+      fp(1), // 1 target price
       fp(1), // 100% price shift daily rate
-      fp(2), // price ratio of 16 (2^4)
       fp(0.2), // 20% centeredness margin
       salt
     );
