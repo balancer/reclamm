@@ -176,7 +176,7 @@ library ReClammMath {
      * @notice Computes the theoretical initial state of a ReClamm pool based on its price parameters.
      * @dev This function calculates three key components needed to initialize a ReClamm pool:
      * 1. Initial real token balances - Using a reference value (_INITIALIZATION_MAX_BALANCE_A) that will be
-     *    scaled later during actual pool initialization based on the actual tokens provided
+     *  scaled later during actual pool initialization based on the actual tokens provided
      * 2. Initial virtual balances - Additional balances used to control the pool's price range
      * 3. Fourth root price ratio - A key parameter that helps define the pool's price boundaries
      * Note: The actual balances used in pool initialization will be proportionally scaled versions
