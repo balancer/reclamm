@@ -4,13 +4,18 @@ pragma solidity ^0.8.24;
 
 import "forge-std/Test.sol";
 
-import { IRateProvider } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/helpers/IRateProvider.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 import { ERC20TestToken } from "@balancer-labs/v3-solidity-utils/contracts/test/ERC20TestToken.sol";
+import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { E2eBatchSwapTest } from "@balancer-labs/v3-vault/test/foundry/E2eBatchSwap.t.sol";
 
 import { ReClammPoolContractsDeployer } from "./utils/ReClammPoolContractsDeployer.sol";
+import { ReClammPool } from "../../contracts/ReClammPool.sol";
 
 contract E2eBatchSwapReClammTest is E2eBatchSwapTest, ReClammPoolContractsDeployer {
+    using FixedPoint for uint256;
+
     /// @notice Overrides BaseVaultTest _createPool(). This pool is used by E2eBatchSwapTest tests.
     function _createPool(
         address[] memory tokens,
@@ -18,6 +23,21 @@ contract E2eBatchSwapReClammTest is E2eBatchSwapTest, ReClammPoolContractsDeploy
     ) internal override returns (address pool, bytes memory args) {
         (pool, args) = createReClammPool(tokens, label, vault, lp);
         vm.warp(block.timestamp + 1);
+    }
+
+    function _initPool(
+        address poolToInit,
+        uint256[] memory amountsIn,
+        uint256 minBptOut
+    ) internal override returns (uint256) {
+        (IERC20[] memory tokens, , , ) = vault.getPoolTokenInfo(poolToInit);
+        uint256 balanceRatio = ReClammPool(poolToInit).computeInitialBalanceRatio();
+
+        uint256[] memory initialBalances = new uint256[](2);
+        initialBalances[0] = amountsIn[0];
+        initialBalances[1] = amountsIn[0].mulDown(balanceRatio);
+
+        return router.initialize(poolToInit, tokens, initialBalances, minBptOut, false, bytes(""));
     }
 
     function _setUpVariables() internal override {

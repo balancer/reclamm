@@ -14,15 +14,23 @@ struct ReClammPoolParams {
     string symbol;
     string version;
     uint256 priceShiftDailyRate;
-    uint96 fourthRootPriceRatio;
     uint64 centerednessMargin;
+    uint256 initialMinPrice;
+    uint256 initialMaxPrice;
+    uint256 initialTargetPrice;
 }
 
 /**
  * @notice ReClamm Pool data that cannot change after deployment.
+ * @dev Note that the initial prices are used only during pool initialization. After the initialization, the prices
+ * will shift according to price ratio and pool centeredness.
+ *
  * @param tokens Pool tokens, sorted in token registration order
  * @param decimalScalingFactors Conversion factor used to adjust for token decimals for uniform precision in
  * calculations. FP(1) for 18-decimal tokens
+ * @param initialMinPrice The initial minimum price of the pool
+ * @param initialMaxPrice The initial maximum price of the pool
+ * @param initialTargetPrice The initial target price of the pool
  * @param minCenterednessMargin The minimum centeredness margin for the pool, as a percentage in 18-decimal FP.
  * @param maxCenterednessMargin The maximum centeredness margin for the pool, as a percentage in 18-decimal FP.
  * @param minTokenBalanceScaled18 The minimum token balance for the pool, scaled to 18 decimals.
@@ -32,6 +40,9 @@ struct ReClammPoolParams {
 struct ReClammPoolImmutableData {
     IERC20[] tokens;
     uint256[] decimalScalingFactors;
+    uint256 initialMinPrice;
+    uint256 initialMaxPrice;
+    uint256 initialTargetPrice;
     uint256 minCenterednessMargin;
     uint256 maxCenterednessMargin;
     uint256 minTokenBalanceScaled18;
@@ -142,6 +153,20 @@ interface IReClammPool is IBasePool {
 
     /// @dev Function called before initializing the pool.
     error PoolNotInitialized();
+    /**
+     * @notice The initial balances of the ReClamm Pool must respect the initialization ratio bounds.
+     * @dev On pool creation, a theoretical balance ratio is computed from the min, max, and target prices. During
+     * initialization, the actual balance ratio is compared to this theoretical value, and must fall within a fixed,
+     * symmetrical tolerance range, or initialization reverts. If it were outside this range, the initial price would
+     * diverge too far from the target price, and the pool would be vulnerable to arbitrage.
+     */
+    error BalanceRatioExceedsTolerance();
+
+    /**
+     * @notice The current price interval or spot price is outside the initialization price range.
+     */
+    error WrongInitializationPrices();
+
     /********************************************************
                            Events
     ********************************************************/
@@ -175,6 +200,16 @@ interface IReClammPool is IBasePool {
     ********************************************************/
 
     /**
+     * @notice Returns the ratio between token balances (index 1 / index 0).
+     * @dev To keep the pool within the target price range after initialization, the initial pool balances need to be
+     * close to the value returned by this function. For example, if this returned 200, the initial balance of token[1]
+     * should be 200 times the initial balance of token[0].
+     *
+     * @return balanceRatio The balance ratio that must be respected during initialization
+     */
+    function computeInitialBalanceRatio() external view returns (uint256 balanceRatio);
+
+    /**
      * @notice Returns the current virtual balances and a flag indicating whether they have changed.
      * @dev The current virtual balances are calculated based on the last virtual balances. If the pool is in range
      * and the price ratio is not updating, the virtual balances will not change. If the pool is out of range or the
@@ -184,7 +219,10 @@ interface IReClammPool is IBasePool {
      * @return currentVirtualBalances The current virtual balances
      * @return changed Whether the current virtual balances are different from `lastVirtualBalances`
      */
-    function getCurrentVirtualBalances() external view returns (uint256[] memory currentVirtualBalances, bool changed);
+    function computeCurrentVirtualBalances()
+        external
+        view
+        returns (uint256[] memory currentVirtualBalances, bool changed);
 
     /// @notice Returns the timestamp of the last user interaction.
     function getLastTimestamp() external view returns (uint32);
@@ -209,7 +247,7 @@ interface IReClammPool is IBasePool {
      * @dev The time constant is an internal representation of the raw price shift daily rate, expressed in seconds.
      * @return priceShiftDailyRangeInSeconds The time constant
      */
-    function getTimeConstant() external view returns (uint256 priceShiftDailyRangeInSeconds);
+    function getPriceShiftDailyRateInSeconds() external view returns (uint256 priceShiftDailyRangeInSeconds);
 
     /**
      * @notice Returns the current price ratio state.
@@ -225,13 +263,13 @@ interface IReClammPool is IBasePool {
      *
      * @return currentFourthRootPriceRatio The current fourth root of price ratio
      */
-    function getCurrentFourthRootPriceRatio() external view returns (uint256);
+    function computeCurrentFourthRootPriceRatio() external view returns (uint256);
 
     /// @dev Returns true if pool centeredness is inside the centeredness margin; false otherwise.
     function isPoolInRange() external view returns (bool);
 
     /// @dev Returns the current centeredness margin (0-100% as a 18-decimal Fixed Point).
-    function getCurrentPoolCenteredness() external view returns (uint256);
+    function computeCurrentPoolCenteredness() external view returns (uint256);
 
     /********************************************************
                        Pool State Setters

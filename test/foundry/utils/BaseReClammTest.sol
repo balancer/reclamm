@@ -35,18 +35,29 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     uint256 internal constant _DEFAULT_SWAP_FEE = 0; // 0%
     string internal constant _POOL_VERSION = "ReClamm Pool v1";
 
+    uint256 internal constant _DEFAULT_MIN_PRICE = 1000e18;
+    uint256 internal constant _DEFAULT_MAX_PRICE = 4000e18;
+    uint256 internal constant _DEFAULT_TARGET_PRICE = 2500e18;
     uint256 internal constant _DEFAULT_PRICE_SHIFT_DAILY_RATE = 100e16; // 100%
-    uint256 internal constant _DEFAULT_FOURTH_ROOT_PRICE_RATIO = 1.41421356e18; // Price Range of 4 (fourth square root is 1.41)
-    uint256 internal constant _DEFAULT_CENTEREDNESS_MARGIN = 20e16; // 20%
+    uint64 internal constant _DEFAULT_CENTEREDNESS_MARGIN = 20e16; // 20%
+
+    uint256 internal constant _MIN_PRICE = 1e14; // 0.0001
+    uint256 internal constant _MAX_PRICE = 1e24; // 1_000_000
+    uint256 internal constant _MIN_PRICE_RATIO = 1.1e18;
 
     // 0.0001 tokens.
     uint256 internal constant _MIN_TOKEN_BALANCE = 1e14;
     // 1 billion tokens.
     uint256 internal constant _MAX_TOKEN_BALANCE = 1e9 * 1e18;
 
-    uint96 private _fourthRootPriceRatio = _DEFAULT_FOURTH_ROOT_PRICE_RATIO.toUint96();
     uint256 private _priceShiftDailyRate = _DEFAULT_PRICE_SHIFT_DAILY_RATE;
-    uint256[] private _initialBalances = new uint256[](2);
+
+    uint256[] internal _initialBalances;
+    uint256[] internal _initialVirtualBalances;
+    uint256 internal _initialFourthRootPriceRatio;
+    uint256 private _initialMinPrice = _DEFAULT_MIN_PRICE;
+    uint256 private _initialMaxPrice = _DEFAULT_MAX_PRICE;
+    uint256 private _initialTargetPrice = _DEFAULT_TARGET_PRICE;
 
     uint256 internal saltNumber = 0;
 
@@ -58,43 +69,21 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     uint256 internal _creationTimestamp;
 
     function setUp() public virtual override {
-        if (_initialBalances[0] == 0 && _initialBalances[1] == 0) {
-            setInitialBalances(poolInitAmount, poolInitAmount);
-        }
-
         super.setUp();
 
-        (daiIdx, usdcIdx) = getSortedIndexes(address(dai), address(usdc));
+        (, , _initialBalances, ) = vault.getPoolTokenInfo(pool);
+        (_initialVirtualBalances, ) = ReClammPool(pool).computeCurrentVirtualBalances();
+        _initialFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
     }
 
-    function setPriceRatio(uint256 priceRatio) internal {
-        priceRatio = Math.sqrt(priceRatio * FixedPoint.ONE);
-        _fourthRootPriceRatio = SafeCast.toUint96(Math.sqrt(priceRatio * FixedPoint.ONE));
-    }
-
-    function setFourthRootPriceRatio(uint256 endFourthRootPriceRatio) internal {
-        _fourthRootPriceRatio = endFourthRootPriceRatio.toUint96();
-    }
-
-    function fourthRootPriceRatio() internal view returns (uint256) {
-        return _fourthRootPriceRatio;
+    function setInitializationPrices(uint256 newMinPrice, uint256 newMaxPrice, uint256 newTargetPrice) internal {
+        _initialMinPrice = newMinPrice;
+        _initialMaxPrice = newMaxPrice;
+        _initialTargetPrice = newTargetPrice;
     }
 
     function setPriceShiftDailyRate(uint256 priceShiftDailyRate) internal {
         _priceShiftDailyRate = priceShiftDailyRate;
-    }
-
-    function setInitialBalances(uint256 aBalance, uint256 bBalance) internal {
-        _initialBalances[0] = aBalance;
-        _initialBalances[1] = bBalance;
-    }
-
-    function initialBalances() internal view returns (uint256[] memory) {
-        return _initialBalances;
-    }
-
-    function getTestPoolCreationTimestamp() internal view returns (uint256) {
-        return _creationTimestamp;
     }
 
     function createPoolFactory() internal override returns (address) {
@@ -123,9 +112,11 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
             vault.buildTokenConfig(sortedTokens),
             roleAccounts,
             _DEFAULT_SWAP_FEE,
+            _initialMinPrice,
+            _initialMaxPrice,
+            _initialTargetPrice,
             _DEFAULT_PRICE_SHIFT_DAILY_RATE,
-            fourthRootPriceRatio().toUint96(),
-            _DEFAULT_CENTEREDNESS_MARGIN.toUint64(),
+            _DEFAULT_CENTEREDNESS_MARGIN,
             bytes32(saltNumber++)
         );
         vm.label(newPool, label);
@@ -138,17 +129,35 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
                 name: name,
                 symbol: symbol,
                 version: _POOL_VERSION,
+                initialMinPrice: _initialMinPrice,
+                initialMaxPrice: _initialMaxPrice,
+                initialTargetPrice: _initialTargetPrice,
                 priceShiftDailyRate: _DEFAULT_PRICE_SHIFT_DAILY_RATE,
-                fourthRootPriceRatio: fourthRootPriceRatio().toUint96(),
-                centerednessMargin: _DEFAULT_CENTEREDNESS_MARGIN.toUint64()
+                centerednessMargin: _DEFAULT_CENTEREDNESS_MARGIN
             }),
             vault
         );
     }
 
     function initPool() internal virtual override {
-        // Let one second pass between creation and initialization.
-        vm.warp(block.timestamp + 1);
+        (daiIdx, usdcIdx) = getSortedIndexes(address(dai), address(usdc));
+
+        uint256 balanceRatio = ReClammPool(pool).computeInitialBalanceRatio();
+
+        _initialBalances = new uint256[](2);
+
+        if (daiIdx < usdcIdx) {
+            _initialBalances[daiIdx] = poolInitAmount;
+            vm.assume(dai.balanceOf(lp) > _initialBalances[daiIdx]);
+            _initialBalances[usdcIdx] = poolInitAmount.mulDown(balanceRatio);
+            vm.assume(usdc.balanceOf(lp) > _initialBalances[usdcIdx]);
+        } else {
+            _initialBalances[usdcIdx] = poolInitAmount;
+            vm.assume(usdc.balanceOf(lp) > _initialBalances[usdcIdx]);
+            _initialBalances[daiIdx] = poolInitAmount.mulDown(balanceRatio);
+            vm.assume(dai.balanceOf(lp) > _initialBalances[daiIdx]);
+        }
+
         vm.startPrank(lp);
         _initPool(pool, _initialBalances, 0);
         vm.stopPrank();

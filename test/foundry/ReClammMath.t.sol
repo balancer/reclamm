@@ -43,36 +43,6 @@ contract ReClammMathTest is BaseReClammTest {
         );
     }
 
-    function testInitializeVirtualBalances__Fuzz(
-        uint256 balance0,
-        uint256 balance1,
-        uint96 fourthRootPriceRatio
-    ) public pure {
-        balance0 = bound(balance0, 0, _MAX_TOKEN_BALANCE);
-        balance1 = bound(balance1, 0, _MAX_TOKEN_BALANCE);
-        fourthRootPriceRatio = SafeCast.toUint96(bound(fourthRootPriceRatio, FixedPoint.ONE + 1, type(uint96).max));
-
-        uint256[] memory balancesScaled18 = new uint256[](2);
-        balancesScaled18[0] = balance0;
-        balancesScaled18[1] = balance1;
-
-        uint256[] memory virtualBalances = ReClammMath.initializeVirtualBalances(
-            balancesScaled18,
-            fourthRootPriceRatio
-        );
-
-        assertEq(
-            virtualBalances[0],
-            balance0.divDown(fourthRootPriceRatio - FixedPoint.ONE),
-            "Virtual balance 0 should be correct"
-        );
-        assertEq(
-            virtualBalances[1],
-            balance1.divDown(fourthRootPriceRatio - FixedPoint.ONE),
-            "Virtual balance 1 should be correct"
-        );
-    }
-
     function testCalculateInGivenOut__Fuzz(
         uint256 balanceA,
         uint256 balanceB,
@@ -240,10 +210,10 @@ contract ReClammMathTest is BaseReClammTest {
 
         bool isInRange = ReClammMath.isPoolInRange(balancesScaled18, virtualBalances, centerednessMargin);
 
-        assertEq(isInRange, ReClammMath.calculateCenteredness(balancesScaled18, virtualBalances) >= centerednessMargin);
+        assertEq(isInRange, ReClammMath.computeCenteredness(balancesScaled18, virtualBalances) >= centerednessMargin);
     }
 
-    function testCalculateCenteredness__Fuzz(
+    function testComputeCenteredness__Fuzz(
         uint256 balance0,
         uint256 balance1,
         uint256 virtualBalance0,
@@ -262,7 +232,7 @@ contract ReClammMathTest is BaseReClammTest {
         virtualBalances[0] = virtualBalance0;
         virtualBalances[1] = virtualBalance1;
 
-        uint256 centeredness = ReClammMath.calculateCenteredness(balancesScaled18, virtualBalances);
+        uint256 centeredness = ReClammMath.computeCenteredness(balancesScaled18, virtualBalances);
 
         if (balance0 == 0 || balance1 == 0) {
             assertEq(centeredness, 0);
@@ -309,7 +279,7 @@ contract ReClammMathTest is BaseReClammTest {
         }
     }
 
-    function testCalculateFourthRootPriceRatio__Fuzz(
+    function testcomputeFourthRootPriceRatio__Fuzz(
         uint32 currentTime,
         uint96 startFourthRootPriceRatio,
         uint96 endFourthRootPriceRatio,
@@ -323,7 +293,7 @@ contract ReClammMathTest is BaseReClammTest {
         endFourthRootPriceRatio = SafeCast.toUint96(bound(endFourthRootPriceRatio, FixedPoint.ONE, type(uint96).max));
         startFourthRootPriceRatio = SafeCast.toUint96(bound(endFourthRootPriceRatio, FixedPoint.ONE, type(uint96).max));
 
-        uint96 fourthRootPriceRatio = ReClammMath.calculateFourthRootPriceRatio(
+        uint96 fourthRootPriceRatio = ReClammMath.computeFourthRootPriceRatio(
             currentTime,
             startFourthRootPriceRatio,
             endFourthRootPriceRatio,
@@ -332,7 +302,7 @@ contract ReClammMathTest is BaseReClammTest {
         );
 
         currentTime++;
-        uint256 nextFourthRootPriceRatio = ReClammMath.calculateFourthRootPriceRatio(
+        uint256 nextFourthRootPriceRatio = ReClammMath.computeFourthRootPriceRatio(
             currentTime,
             startFourthRootPriceRatio,
             endFourthRootPriceRatio,
@@ -383,7 +353,7 @@ contract ReClammMathTest is BaseReClammTest {
 
         vm.assume(balancesScaled18[0].mulDown(lastVirtualBalances[1]) > 0);
         vm.assume(balancesScaled18[1].mulDown(lastVirtualBalances[0]) > 0);
-        uint256 oldCenteredness = ReClammMath.calculateCenteredness(balancesScaled18, lastVirtualBalances);
+        uint256 oldCenteredness = ReClammMath.computeCenteredness(balancesScaled18, lastVirtualBalances);
 
         vm.assume(oldCenteredness > _MIN_POOL_CENTEREDNESS);
 
@@ -397,7 +367,7 @@ contract ReClammMathTest is BaseReClammTest {
         // Check if centeredness is the same
         vm.assume(balancesScaled18[0].mulDown(newVirtualBalances[1]) > 0);
         vm.assume(balancesScaled18[1].mulDown(newVirtualBalances[0]) > 0);
-        uint256 newCenteredness = ReClammMath.calculateCenteredness(balancesScaled18, newVirtualBalances);
+        uint256 newCenteredness = ReClammMath.computeCenteredness(balancesScaled18, newVirtualBalances);
         assertApproxEqAbs(
             newCenteredness,
             oldCenteredness,
@@ -406,10 +376,7 @@ contract ReClammMathTest is BaseReClammTest {
         );
 
         // Check if price ratio matches the new price ratio
-        uint256 invariant = ReClammMath.computeInvariant(balancesScaled18, newVirtualBalances, Rounding.ROUND_DOWN);
-        uint256 actualFourthRootPriceRatio = Math.sqrt(
-            (invariant * FixedPoint.ONE).divDown(newVirtualBalances[0].mulDown(newVirtualBalances[1]))
-        );
+        uint256 actualFourthRootPriceRatio = _calculateCurrentPriceRatio(balancesScaled18, newVirtualBalances);
 
         uint256 expectedPriceRatio = expectedFourthRootPriceRatio
             .mulDown(expectedFourthRootPriceRatio)
@@ -424,14 +391,14 @@ contract ReClammMathTest is BaseReClammTest {
         assertApproxEqAbs(expectedPriceRatio, actualPriceRatio, _MAX_PRICE_ERROR_ABS, "Price Ratio should be correct");
     }
 
-    function testCalculateFourthRootPriceRatioWhenCurrentTimeIsAfterEndTime() public pure {
+    function testcomputeFourthRootPriceRatioWhenCurrentTimeIsAfterEndTime() public pure {
         uint96 startFourthRootPriceRatio = 100;
         uint96 endFourthRootPriceRatio = 200;
         uint32 priceRatioUpdateStartTime = 0;
         uint32 priceRatioUpdateEndTime = 50;
         uint32 currentTime = 100;
 
-        uint96 fourthRootPriceRatio = ReClammMath.calculateFourthRootPriceRatio(
+        uint96 fourthRootPriceRatio = ReClammMath.computeFourthRootPriceRatio(
             currentTime,
             startFourthRootPriceRatio,
             endFourthRootPriceRatio,
@@ -446,14 +413,14 @@ contract ReClammMathTest is BaseReClammTest {
         );
     }
 
-    function testCalculateFourthRootPriceRatioWhenCurrentTimeIsBeforeStartTime() public pure {
+    function testcomputeFourthRootPriceRatioWhenCurrentTimeIsBeforeStartTime() public pure {
         uint96 startFourthRootPriceRatio = 100;
         uint96 endFourthRootPriceRatio = 200;
         uint32 priceRatioUpdateStartTime = 50;
         uint32 priceRatioUpdateEndTime = 100;
         uint32 currentTime = 0;
 
-        uint96 fourthRootPriceRatio = ReClammMath.calculateFourthRootPriceRatio(
+        uint96 fourthRootPriceRatio = ReClammMath.computeFourthRootPriceRatio(
             currentTime,
             startFourthRootPriceRatio,
             endFourthRootPriceRatio,
@@ -468,7 +435,7 @@ contract ReClammMathTest is BaseReClammTest {
         );
     }
 
-    function testCalculateFourthRootPriceRatioWhenStartFourthRootPriceRatioIsEqualToEndFourthRootPriceRatio()
+    function testcomputeFourthRootPriceRatioWhenStartFourthRootPriceRatioIsEqualToEndFourthRootPriceRatio()
         public
         pure
     {
@@ -478,7 +445,7 @@ contract ReClammMathTest is BaseReClammTest {
         uint32 priceRatioUpdateEndTime = 100;
         uint32 currentTime = 50;
 
-        uint96 fourthRootPriceRatio = ReClammMath.calculateFourthRootPriceRatio(
+        uint96 fourthRootPriceRatio = ReClammMath.computeFourthRootPriceRatio(
             currentTime,
             startFourthRootPriceRatio,
             endFourthRootPriceRatio,
@@ -498,8 +465,8 @@ contract ReClammMathTest is BaseReClammTest {
         uint256[] memory virtualBalances
     ) private pure returns (uint256 newSqwrtPriceRatio) {
         uint256 invariant = ReClammMath.computeInvariant(balancesScaled18, virtualBalances, Rounding.ROUND_DOWN);
-        newSqwrtPriceRatio = Math.sqrt(
-            (invariant * FixedPoint.ONE).divDown(virtualBalances[0]).divDown(virtualBalances[1])
+        newSqwrtPriceRatio = ReClammMath.sqrtScaled18(
+            invariant.divDown(virtualBalances[0]).divDown(virtualBalances[1])
         );
     }
 

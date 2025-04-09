@@ -16,6 +16,12 @@ export enum Rounding {
   ROUND_DOWN,
 }
 
+export type BalancesAndPriceRatio = {
+  realBalances: bigint[];
+  virtualBalances: bigint[];
+  fourthRootPriceRatio: bigint;
+};
+
 export type PriceRatioState = {
   priceRatioUpdateStartTime: number;
   priceRatioUpdateEndTime: number;
@@ -23,7 +29,9 @@ export type PriceRatioState = {
   endFourthRootPriceRatio: bigint;
 };
 
-export function getCurrentVirtualBalances(
+const _INITIALIZATION_MAX_BALANCE_A = fp(1000000);
+
+export function computeCurrentVirtualBalances(
   balancesScaled18: bigint[],
   lastVirtualBalances: bigint[],
   priceShiftDailyRangeInSeconds: bigint,
@@ -40,7 +48,7 @@ export function getCurrentVirtualBalances(
 
   let changed = false;
 
-  const currentFourthRootPriceRatio = calculateFourthRootPriceRatio(
+  const currentFourthRootPriceRatio = computeFourthRootPriceRatio(
     currentTimestamp,
     priceRatioState.startFourthRootPriceRatio,
     priceRatioState.endFourthRootPriceRatio,
@@ -100,7 +108,7 @@ export function calculateVirtualBalancesUpdatingPriceRatio(
 ): bigint[] {
   let virtualBalances = [...lastVirtualBalances];
 
-  const centeredness = calculateCenteredness(balancesScaled18, lastVirtualBalances);
+  const centeredness = computeCenteredness(balancesScaled18, lastVirtualBalances);
 
   if (isPoolAboveCenter) {
     const a = fpMulDown(currentFourthRootPriceRatio, currentFourthRootPriceRatio) - fp(1);
@@ -143,7 +151,7 @@ export function computeInvariant(
   priceRatioState: PriceRatioState,
   rounding: Rounding
 ): bigint {
-  const [currentVirtualBalances, _] = getCurrentVirtualBalances(
+  const [currentVirtualBalances, _] = computeCurrentVirtualBalances(
     balancesScaled18,
     lastVirtualBalances,
     priceShiftDailyRangeInSeconds,
@@ -200,12 +208,33 @@ export function calculateInGivenOut(
   return fpDivUp(invariant, finalBalances[tokenOutIndex] - amountGivenScaled18) - finalBalances[tokenInIndex];
 }
 
-export function initializeVirtualBalances(balancesScaled18: bigint[], fourthRootPriceRatio: bigint): bigint[] {
-  const virtualBalances = [0n, 0n];
-  virtualBalances[0] = fpDivDown(balancesScaled18[0], fourthRootPriceRatio - FP_ONE);
-  virtualBalances[1] = fpDivDown(balancesScaled18[1], fourthRootPriceRatio - FP_ONE);
+export function computeTheoreticalPriceRatioAndBalances(
+  minPrice: bigint,
+  maxPrice: bigint,
+  targetPrice: bigint
+): BalancesAndPriceRatio {
+  const sqrtPriceRatio: bigint = bn(Math.sqrt(Number(fpDivDown(maxPrice, minPrice) * FP_ONE)));
+  const fourthRootPriceRatio: bigint = bn(Math.sqrt(Number(sqrtPriceRatio * FP_ONE)));
 
-  return virtualBalances;
+  const virtualBalances: bigint[] = [];
+  virtualBalances[0] = fpDivDown(_INITIALIZATION_MAX_BALANCE_A, sqrtPriceRatio - FP_ONE);
+  virtualBalances[1] = fpMulDown(minPrice, virtualBalances[0] + _INITIALIZATION_MAX_BALANCE_A);
+
+  const realBalances: bigint[] = [];
+  realBalances[1] =
+    bn(
+      Math.sqrt(
+        Number(
+          fpMulUp(fpMulUp(targetPrice, virtualBalances[1]), _INITIALIZATION_MAX_BALANCE_A + virtualBalances[0]) * FP_ONE
+        )
+      )
+    ) - virtualBalances[1];
+  realBalances[0] = fpDivDown(
+    realBalances[1] + virtualBalances[1] - fpMulDown(virtualBalances[0], targetPrice),
+    targetPrice
+  );
+
+  return { realBalances, virtualBalances, fourthRootPriceRatio };
 }
 
 export function isPoolInRange(
@@ -213,11 +242,11 @@ export function isPoolInRange(
   virtualBalances: bigint[],
   centerednessMargin: bigint
 ): boolean {
-  const centeredness = calculateCenteredness(balancesScaled18, virtualBalances);
+  const centeredness = computeCenteredness(balancesScaled18, virtualBalances);
   return centeredness >= centerednessMargin;
 }
 
-export function calculateCenteredness(balancesScaled18: bigint[], virtualBalances: bigint[]): bigint {
+export function computeCenteredness(balancesScaled18: bigint[], virtualBalances: bigint[]): bigint {
   if (balancesScaled18[0] == 0n || balancesScaled18[1] == 0n) {
     return 0n;
   } else if (isAboveCenter(balancesScaled18, virtualBalances)) {
@@ -233,7 +262,7 @@ export function calculateCenteredness(balancesScaled18: bigint[], virtualBalance
   }
 }
 
-export function calculateFourthRootPriceRatio(
+export function computeFourthRootPriceRatio(
   currentTime: number,
   startFourthRootPriceRatio: BigNumberish,
   endFourthRootPriceRatio: BigNumberish,

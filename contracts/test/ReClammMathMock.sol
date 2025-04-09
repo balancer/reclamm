@@ -74,14 +74,19 @@ contract ReClammMathMock {
             );
     }
 
-    function initializeVirtualBalances(
-        uint256[] memory balancesScaled18,
-        uint256 fourthRootPriceRatio
-    ) external pure returns (uint256[] memory virtualBalances) {
-        return ReClammMath.initializeVirtualBalances(balancesScaled18, fourthRootPriceRatio);
+    function computeTheoreticalPriceRatioAndBalances(
+        uint256 minPrice,
+        uint256 maxPrice,
+        uint256 targetPrice
+    )
+        external
+        pure
+        returns (uint256[] memory realBalances, uint256[] memory virtualBalances, uint256 fourthRootPriceRatio)
+    {
+        return ReClammMath.computeTheoreticalPriceRatioAndBalances(minPrice, maxPrice, targetPrice);
     }
 
-    function getCurrentVirtualBalances(
+    function computeCurrentVirtualBalances(
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
         uint256 c,
@@ -89,7 +94,7 @@ contract ReClammMathMock {
         uint64 centerednessMargin
     ) external view returns (uint256[] memory virtualBalances, bool changed) {
         return
-            ReClammMath.getCurrentVirtualBalances(
+            ReClammMath.computeCurrentVirtualBalances(
                 balancesScaled18,
                 lastVirtualBalances,
                 c,
@@ -107,14 +112,14 @@ contract ReClammMathMock {
         return ReClammMath.isPoolInRange(balancesScaled18, virtualBalances, centerednessMargin);
     }
 
-    function calculateCenteredness(
+    function computeCenteredness(
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances
     ) external pure returns (uint256) {
-        return ReClammMath.calculateCenteredness(balancesScaled18, virtualBalances);
+        return ReClammMath.computeCenteredness(balancesScaled18, virtualBalances);
     }
 
-    function calculateFourthRootPriceRatio(
+    function computeFourthRootPriceRatio(
         uint32 currentTime,
         uint96 startFourthRootPriceRatio,
         uint96 endFourthRootPriceRatio,
@@ -122,7 +127,7 @@ contract ReClammMathMock {
         uint32 endTime
     ) external pure returns (uint256) {
         return
-            ReClammMath.calculateFourthRootPriceRatio(
+            ReClammMath.computeFourthRootPriceRatio(
                 currentTime,
                 startFourthRootPriceRatio,
                 endFourthRootPriceRatio,
