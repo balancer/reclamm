@@ -245,13 +245,13 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                 _INITIAL_TARGET_PRICE
             );
 
-        uint256 realProportion = balancesScaled18[1].divDown(balancesScaled18[0]);
-        uint256 theoreticalProportion = theoreticalRealBalances[1].divDown(theoreticalRealBalances[0]);
+        uint256 realBalanceRatio = balancesScaled18[1].divDown(balancesScaled18[0]);
+        uint256 theoreticalBalanceRatio = theoreticalRealBalances[1].divDown(theoreticalRealBalances[0]);
 
-        if (
-            realProportion < theoreticalProportion.mulDown(FixedPoint.ONE - _BALANCE_RATIO_TOLERANCE) ||
-            realProportion > theoreticalProportion.mulDown(FixedPoint.ONE + _BALANCE_RATIO_TOLERANCE)
-        ) {
+        uint256 ratioLowerBound = theoreticalBalanceRatio.mulDown(FixedPoint.ONE - _BALANCE_RATIO_TOLERANCE);
+        uint256 ratioUpperBound = theoreticalBalanceRatio.mulDown(FixedPoint.ONE + _BALANCE_RATIO_TOLERANCE);
+
+        if (realBalanceRatio < ratioLowerBound || realBalanceRatio > ratioUpperBound) {
             revert BalanceRatioExceedsTolerance();
         }
 
