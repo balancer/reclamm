@@ -135,15 +135,6 @@ interface IReClammPool is IBasePool {
     error PriceRatioUnchanged();
 
     /**
-     * @dev Initialization time is not consistent with current time.
-     * This should never happen in practice, as the price ratio update end time timestamp is set at construction time,
-     * and initialization should happen strictly after construction, ensuring the current price ratio state is
-     * consistent.
-     * @param currentTime Current timestamp
-     * @param priceRatioUpdateEndTime The stored end time of the price ratio update
-     */
-    error InconsistentInitTime(uint256 currentTime, uint256 priceRatioUpdateEndTime);
-    /**
      * @notice `getRate` from `IRateProvider` was called on a ReClamm Pool.
      * @dev ReClamm Pools should never be nested. This is because the invariant of the pool is used only to calculate
      * swaps. However, when tracking the market price or shrinking/expanding the liquidity concentration, the invariant
@@ -265,10 +256,22 @@ interface IReClammPool is IBasePool {
      */
     function computeCurrentFourthRootPriceRatio() external view returns (uint256);
 
-    /// @dev Returns true if pool centeredness is inside the centeredness margin; false otherwise.
+    /**
+     * @notice Compute whether the pool is in range (i.e., the centeredness is greater than the centeredness margin).
+     * @dev This function can only be called when the vault is locked (i.e., not from inside an operation). It relies
+     * on the pool balances, which can be manipulated if the Vault is unlocked.
+     *
+     * @return isInRange True if pool centeredness is within the centeredness margin
+     */
     function isPoolInRange() external view returns (bool);
 
-    /// @dev Returns the current centeredness margin (0-100% as a 18-decimal Fixed Point).
+    /**
+     * @notice Compute the current pool centeredness (a measure of how pool balance).
+     * @dev A value of 0 means the pool is at the edge (i.e., one of the real balances is zero). A value of
+     * FixedPoint.ONE means the balances (and market price) are exactly in the middle of the range.
+     *
+     * @return poolCenteredness The current centeredness margin (0-100% as a 18-decimal FP value)
+     */
     function computeCurrentPoolCenteredness() external view returns (uint256);
 
     /********************************************************
