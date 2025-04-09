@@ -207,8 +207,8 @@ export function getTheoreticalPriceRatioAndBalances(
   maxPrice: bigint,
   targetPrice: bigint
 ): [bigint[], bigint[], bigint] {
-  const sqrtPriceRatio = bn(Math.sqrt(Number(fpDivDown(maxPrice * FP_ONE, minPrice))));
-  const fourthRootPriceRatio = bn(Math.sqrt(Number(sqrtPriceRatio * FP_ONE)));
+  const sqrtPriceRatio = Math.sqrt(fpDivDown(maxPrice * FP_ONE, minPrice));
+  const fourthRootPriceRatio = Math.sqrt(sqrtPriceRatio * FP_ONE);
 
   const virtualBalances: bigint[] = [];
   virtualBalances[0] = fpDivDown(_INITIALIZATION_MAX_BALANCE_A, sqrtPriceRatio - FP_ONE);
