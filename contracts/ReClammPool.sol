@@ -51,7 +51,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     // centeredness is the divisor in many calculations, zero values would revert, and even near-zero values are
     // problematic. Imposing this limit on centeredness (i.e., reverting if an operation would cause the centeredness
     // to decrease below this threshold) keeps the math well-behaved.
-    uint256 internal constant _MIN_TOKEN_BALANCE_SCALED18 = 1e14;
+    uint256 internal constant _MIN_TOKEN_BALANCE_SCALED18 = 1e12;
     uint256 internal constant _MIN_POOL_CENTEREDNESS = 1e3;
 
     uint256 internal constant _MAX_PRICE_SHIFT_DAILY_RATE = 500e16; // 500%
