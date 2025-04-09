@@ -106,6 +106,9 @@ contract ReClammRoundingTest is BaseReClammTest {
             amountGivenScaled18
         );
 
+        // Assume the pool has enough balance to pay the swap.
+        vm.assume(amountOut <= balances[tokenOutIndex] - _MIN_TOKEN_BALANCE);
+
         uint256 roundedUpAmountIn = amountGivenScaled18 + 1;
         uint256 roundedDownAmountIn = amountGivenScaled18 - 1;
 

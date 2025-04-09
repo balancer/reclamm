@@ -238,6 +238,7 @@ library ReClammMath {
      * 2. Shrink/Expand the price interval considering the current fourth root of price ratio. (if price ratio is
      *    updating)
      * 3. Track the market price by moving the price interval. (if pool is out of range)
+     * Note: Virtual balances will be rounded down to improve the swap result in favor of the vault.
      *
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param lastVirtualBalances The last virtual balances, sorted in token registration order
@@ -256,8 +257,6 @@ library ReClammMath {
         uint64 centerednessMargin,
         PriceRatioState storage priceRatioState
     ) internal view returns (uint256[] memory currentVirtualBalances, bool changed) {
-        // TODO Review rounding
-
         uint32 currentTimestamp = block.timestamp.toUint32();
 
         // If the last timestamp is the same as the current timestamp, virtual balances were already reviewed in the
@@ -349,13 +348,24 @@ library ReClammMath {
         // Calculate the current pool centeredness, which will remain constant.
         uint256 poolCenteredness = calculateCenteredness(balancesScaled18, lastVirtualBalances);
 
-        // Terms of the quadratic equation.
-        uint256 a = currentFourthRootPriceRatio.mulDown(currentFourthRootPriceRatio) - FixedPoint.ONE;
-        uint256 b = balanceTokenUndervalued.mulDown(FixedPoint.ONE + poolCenteredness);
-        uint256 c = balanceTokenUndervalued.mulDown(balanceTokenUndervalued).mulDown(poolCenteredness);
+        // The original formula was a quadratic equation, with terms:
+        // a = Q0 - 1
+        // b = - Ru (1 + C)
+        // c = - Ru^2 C
+        // where Q0 is the square root of the price ratio, Ru is the undervalued token balance, and C is the
+        // centeredness. Applying Bhaskara, we'd have: Vu = (-b + sqrt(b^2 - 4ac)) / 2a.
+        // The Bhaskara above can be simplified by replacing a, b and c with the terms above, which leads to:
+        // Vu = Ru(1 + C + sqrt(1 + C (C + 4 Q0 - 2))) / 2(Q0 - 1)
 
-        // Using FixedPoint math as minimum as possible to improve the precision of the result.
-        uint256 virtualBalanceUndervalued = (b + Math.sqrt(b * b + 4 * a * c)).divDown(2 * a);
+        uint256 sqrtPriceRatio = currentFourthRootPriceRatio.mulUp(currentFourthRootPriceRatio);
+
+        // Using FixedPoint math as little as possible to improve the precision of the result.
+        // Note: The input of Math.sqrt must be a 36 decimals number, so the result is 18 decimals.
+        uint256 virtualBalanceUndervalued = (balanceTokenUndervalued *
+            (FixedPoint.ONE +
+                poolCenteredness +
+                Math.sqrt(poolCenteredness * (poolCenteredness + 4 * sqrtPriceRatio - 2e18) + 1e36))) /
+            (2 * (sqrtPriceRatio - FixedPoint.ONE));
         virtualBalances[indexTokenOvervalued] = ((balanceTokenOvervalued * virtualBalanceUndervalued) /
             balanceTokenUndervalued).divDown(poolCenteredness);
         virtualBalances[indexTokenUndervalued] = virtualBalanceUndervalued;
@@ -384,7 +394,8 @@ library ReClammMath {
         uint32 currentTimestamp,
         uint32 lastTimestamp
     ) internal pure returns (uint256[] memory) {
-        uint256 priceRatio = currentFourthRootPriceRatio.mulDown(currentFourthRootPriceRatio);
+        // Round up price ratio, to round virtual balances down.
+        uint256 priceRatio = currentFourthRootPriceRatio.mulUp(currentFourthRootPriceRatio);
 
         // The token overvalued is the one with low token balance (therefore, rarer and more valuable).
         (uint256 indexTokenUndervalued, uint256 indexTokenOvervalued) = isPoolAboveCenter ? (0, 1) : (1, 0);
@@ -447,9 +458,10 @@ library ReClammMath {
         // The token overvalued is the one with low token balance (therefore, rarer and more valuable).
         (uint256 indexTokenUndervalued, uint256 indexTokenOvervalued) = isPoolAboveCenter ? (0, 1) : (1, 0);
 
+        // Round up the centeredness, so the virtual balances are rounded down when the pool prices are moving.
         return
             ((balancesScaled18[indexTokenOvervalued] * virtualBalances[indexTokenUndervalued]) /
-                balancesScaled18[indexTokenUndervalued]).divDown(virtualBalances[indexTokenOvervalued]);
+                balancesScaled18[indexTokenUndervalued]).divUp(virtualBalances[indexTokenOvervalued]);
     }
 
     /**
