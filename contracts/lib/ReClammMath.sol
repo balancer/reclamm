@@ -33,10 +33,11 @@ library ReClammMath {
     /// @notice The swap result is negative due to a rounding issue.
     error NegativeAmountOut();
 
-    /// @dev Struct created to avoid the stack-too-deep error when calculating virtual balances.
-    struct PoolAboveCenter {
-        bool isPoolAboveCenter;
-        bool isFlagSet;
+    /// @notice
+    enum PoolAboveCenter {
+        TRUE,
+        FALSE,
+        UNKNOWN
     }
 
     // At a PriceShiftDailyRate of 100%, we want to be able to change the price of an out-of-range pool by a factor
@@ -294,7 +295,7 @@ library ReClammMath {
 
         // Postponing the calculation of isPoolAboveCenter saves gas when the pool is in range and the price ratio
         // is not updating.
-        PoolAboveCenter memory poolAboveCenter;
+        PoolAboveCenter poolAboveCenter = PoolAboveCenter.UNKNOWN;
 
         // If the price ratio is updating, shrink/expand the price interval by recalculating the virtual balances.
         // Skip the update if the start and end price ratio are the same, because the virtual balances are already
@@ -303,14 +304,15 @@ library ReClammMath {
             currentTimestamp > priceRatioState.priceRatioUpdateStartTime &&
             lastTimestamp < priceRatioState.priceRatioUpdateEndTime
         ) {
-            poolAboveCenter.isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances);
-            poolAboveCenter.isFlagSet = true;
+            poolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances)
+                ? PoolAboveCenter.TRUE
+                : PoolAboveCenter.FALSE;
 
             currentVirtualBalances = calculateVirtualBalancesUpdatingPriceRatio(
                 currentFourthRootPriceRatio,
                 balancesScaled18,
                 lastVirtualBalances,
-                poolAboveCenter.isPoolAboveCenter
+                poolAboveCenter == PoolAboveCenter.TRUE
             );
 
             changed = true;
@@ -318,16 +320,17 @@ library ReClammMath {
 
         // If the pool is out of range, track the market price by moving the price interval.
         if (isPoolInRange(balancesScaled18, currentVirtualBalances, centerednessMargin) == false) {
-            if (poolAboveCenter.isFlagSet == false) {
-                poolAboveCenter.isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances);
-                // Not setting `isFlagSet`, because it's not read again in this function.
+            if (poolAboveCenter == PoolAboveCenter.UNKNOWN) {
+                poolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances)
+                    ? PoolAboveCenter.TRUE
+                    : PoolAboveCenter.FALSE;
             }
 
             currentVirtualBalances = calculateVirtualBalancesUpdatingPriceRange(
                 currentFourthRootPriceRatio,
                 balancesScaled18,
                 currentVirtualBalances,
-                poolAboveCenter.isPoolAboveCenter,
+                poolAboveCenter == PoolAboveCenter.TRUE,
                 priceShiftDailyRangeInSeconds,
                 currentTimestamp,
                 lastTimestamp
