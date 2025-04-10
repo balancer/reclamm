@@ -15,6 +15,10 @@ import {
     RemoveLiquidityKind
 } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
+import { CastingHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/CastingHelpers.sol";
+import { InputHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/InputHelpers.sol";
+import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
+
 import { PriceRatioState, ReClammMath } from "../../contracts/lib/ReClammMath.sol";
 import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
@@ -27,7 +31,9 @@ import {
 } from "../../contracts/interfaces/IReClammPool.sol";
 
 contract ReClammPoolTest is BaseReClammTest {
+    using CastingHelpers for IERC20[];
     using FixedPoint for uint256;
+    using ArrayHelpers for *;
     using SafeCast for *;
 
     uint256 private constant _NEW_CENTEREDNESS_MARGIN = 30e16;
@@ -555,6 +561,31 @@ contract ReClammPoolTest is BaseReClammTest {
         uint256[] memory lastVirtualBalances = ReClammPoolMock(pool).getLastVirtualBalances();
         assertEq(lastVirtualBalances[daiIdx], virtualBalancesBefore[daiIdx], "DAI virtual balance does not match");
         assertEq(lastVirtualBalances[usdcIdx], virtualBalancesBefore[usdcIdx], "USDC virtual balance does not match");
+    }
+
+    function testComputePriceRangeBeforeInitialized() public {
+        IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens);
+
+        (address pool, ) = _createPool(
+            [address(sortedTokens[0]), address(sortedTokens[1])].toMemoryArray(),
+            "BeforeInitTest"
+        );
+
+        assertFalse(vault.isPoolInitialized(pool), "Pool is initialized");
+
+        (uint256 minPrice, uint256 maxPrice) = ReClammPool(pool).computeCurrentPriceRange();
+        assertEq(minPrice, _DEFAULT_MIN_PRICE);
+        assertEq(maxPrice, _DEFAULT_MAX_PRICE);
+    }
+
+    function testComputePriceRangeAfterInitialized() public view {
+        assertTrue(vault.isPoolInitialized(pool), "Pool is initialized");
+        assertFalse(vault.isUnlocked(), "Vault is unlocked");
+
+        // Should still be the initial values as nothing has changed.
+        (uint256 minPrice, uint256 maxPrice) = ReClammPool(pool).computeCurrentPriceRange();
+        assertApproxEqAbs(minPrice, _DEFAULT_MIN_PRICE, 2e6);
+        assertApproxEqAbs(maxPrice, _DEFAULT_MAX_PRICE, 2e6);
     }
 
     function testCreateWithInvalidMinPrice() public {

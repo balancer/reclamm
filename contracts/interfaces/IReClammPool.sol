@@ -226,6 +226,18 @@ interface IReClammPool is IBasePool {
     function computeInitialBalanceRatio() external view returns (uint256 balanceRatio);
 
     /**
+     * @notice Computes current operating price range.
+     * @dev The prices are given as token A in terms of token B. The computation involves the current live balances
+     * (though it should not be sensitive to them), so manipulating the result of this function is theoretically
+     * possible while the Vault is unlocked. Ensure that the Vault is locked before calling this function if this
+     * side effect is undesired (does not apply to off-chain calls).
+     *
+     * @return minPrice The lower limit of the current price range
+     * @return maxPrice The upper limit of the current price range
+     */
+    function computeCurrentPriceRange() external view returns (uint256 minPrice, uint256 maxPrice);
+
+    /**
      * @notice Computes the current virtual balances and a flag indicating whether they have changed.
      * @dev The current virtual balances are calculated based on the last virtual balances. If the pool is in range
      * and the price ratio is not updating, the virtual balances will not change. If the pool is out of range or the
