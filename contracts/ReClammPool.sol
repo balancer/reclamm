@@ -230,22 +230,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             liquidityManagement.enableDonation == false;
     }
 
-    function computeCurrentPriceRatio() external view onlyWhenVaultIsLocked returns (uint256 priceRatio) {
-        if (_vault.isPoolInitialized(address(this))) {
-            (, , , uint256[] memory realBalances) = _vault.getPoolTokenInfo(address(this));
-            (uint256[] memory virtualBalances, ) = _getCurrentVirtualBalances(realBalances);
-
-            // Pmax(a) = (Vb + Rb) / Va
-            // Pmin(a) = Vb / (Va + Ra)
-            uint256 pMax = (virtualBalances[1] + realBalances[1]).divDown(virtualBalances[0]);
-            uint256 pMin = virtualBalances[1].divDown(virtualBalances[0] + realBalances[0]);
-
-            priceRatio = pMax.divDown(pMin);
-        } else {
-            priceRatio = _INITIAL_MAX_PRICE.divDown(_INITIAL_MIN_PRICE);
-        }
-    }
-
     /// @inheritdoc IHooks
     function onBeforeInitialize(
         uint256[] memory balancesScaled18,
@@ -360,6 +344,24 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             _INITIAL_TARGET_PRICE
         );
         balanceRatio = realBalances[1].divDown(realBalances[0]);
+    }
+
+    // @inheritdoc IReclammPool
+    function computeCurrentPriceRatio() external view onlyWhenVaultIsLocked returns (uint256 priceRatio) {
+        if (_vault.isPoolInitialized(address(this))) {
+            (, , , uint256[] memory realBalances) = _vault.getPoolTokenInfo(address(this));
+            (uint256[] memory virtualBalances, ) = _getCurrentVirtualBalances(realBalances);
+
+            // Pmax(a) = (Vb + Rb) / Va
+            uint256 pMax = (virtualBalances[1] + realBalances[1]).divDown(virtualBalances[0]);
+            // Pmin(a) = Vb / (Va + Ra)
+            uint256 pMin = virtualBalances[1].divDown(virtualBalances[0] + realBalances[0]);
+
+            uint256 sqrtPriceRatio = pMax.divDown(pMin);
+            priceRatio = sqrtPriceRatio.mulDown(sqrtPriceRatio);
+        } else {
+            priceRatio = _INITIAL_MAX_PRICE.divDown(_INITIAL_MIN_PRICE);
+        }
     }
 
     /// @inheritdoc IReClammPool

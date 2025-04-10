@@ -186,7 +186,7 @@ interface IReClammPool is IBasePool {
     ********************************************************/
 
     /**
-     * @notice Returns the ratio between token balances (index 1 / index 0).
+     * @notice Computes the ratio between token balances (index 1 / index 0).
      * @dev To keep the pool within the target price range after initialization, the initial pool balances need to be
      * close to the value returned by this function. For example, if this returned 200, the initial balance of token[1]
      * should be 200 times the initial balance of token[0].
@@ -194,6 +194,13 @@ interface IReClammPool is IBasePool {
      * @return balanceRatio The balance ratio that must be respected during initialization
      */
     function computeInitialBalanceRatio() external view returns (uint256 balanceRatio);
+
+    /**
+     * @notice Computes the ratio between the maximum and minimum prices in the current range.
+     * @dev The prices are given as token A in terms of token B.
+     * @return priceRatio The price ratio based on the current virtual balances
+     */
+    function computeCurrentPriceRatio() external view returns (uint256 priceRatio);
 
     /**
      * @notice Returns the current virtual balances and a flag indicating whether they have changed.
