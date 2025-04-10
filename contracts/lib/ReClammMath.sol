@@ -18,6 +18,11 @@ struct PriceRatioState {
     uint32 priceRatioUpdateEndTime;
 }
 
+// ReClamm pools are always 2-token pools, and the documentation assigns the first token (in sorted order) the
+// subscript `a`, and the second token `b`. Define these here to make the code more readable and self-documenting.
+uint256 constant a = 0;
+uint256 constant b = 1;
+
 library ReClammMath {
     using FixedPoint for uint256;
     using SafeCast for *;
@@ -34,9 +39,9 @@ library ReClammMath {
         bool isFlagSet;
     }
 
-    // We want, after 1 day (86400 seconds) that the pool is out of range, to double the price (or reduce by 50%)
-    // with PriceShiftDailyRate = 100%. So, we want to be able to move the virtual balances by the same rate.
-    // Therefore, after one day:
+    // At a PriceShiftDailyRate of 100%, we want to be able to change the price of an out-of-range pool by a factor
+    // of two, either doubling or halving it over the course of a day (86,400 seconds). The virtual balances must
+    // change at the same rate. Therefore, if we want to double it in a day:
     //
     // 1. `Vnext = 2*Vcurrent`
     // 2. In the equation `Vnext = Vcurrent * (1 - tau)^(n+1)`, isolate tau.
@@ -45,9 +50,16 @@ library ReClammMath {
     //    then `x = 100%/(1 - pow(2, 1/(86400+1)))`, which is 124649.
     uint256 private constant _SECONDS_PER_DAY_WITH_ADJUSTMENT = 124649;
 
-    // We need to use a random number to calculate initial virtual and real balances. This number will be scaled later,
-    // during initialization. Choosing a big number will keep precision with large liquidity initializations.
+    // We need to use a random number to calculate the initial virtual and real balances. This number will be scaled
+    // later, during initialization, according to the actual liquidity added. Choosing a large number will maintain
+    // precision when the pool is initialized with large amounts.
     uint256 private constant _INITIALIZATION_MAX_BALANCE_A = 1e6 * 1e18;
+
+    /// @notice The swap result is greater than the real balance of the token (i.e., the balance would drop below zero).
+    error AmountOutGreaterThanBalance();
+
+    /// @notice The swap result is negative due to a rounding issue.
+    error NegativeAmountOut();
 
     /**
      * @notice Get the current virtual balances and compute the invariant of the pool using constant product.
@@ -84,12 +96,14 @@ library ReClammMath {
 
     /**
      * @notice Compute the invariant of the pool using constant product.
-     * @dev Notice that the invariant is computed as (x+a)(y+b), without square root. This is because the calculations
-     * of virtual balance updates are easier with this invariant. Different from other pools, the invariant of ReClamm
-     * will change over time if pool is out of range or price ratio is updating, so the pool is not composable.
-     * Therefore, the BPT value is meaningless. Moreover, only add/remove liquidity proportional is supported, which
-     * does not require the invariant. So, it does not matter if the invariant and liquidity relation is not linear,
-     * and the invariant is used mostly to calculate swaps.
+     * @dev Note that the invariant is computed as (x+a)(y+b), without a square root. This is because the calculations
+     * of virtual balance updates are easier with this invariant. Unlike most other pools, the ReClamm invariant will
+     * change over time, if the pool is out of range or the price ratio is updating, so these pools are not composable.
+     * Therefore, the BPT value is meaningless.
+     *
+     * Consequently, liquidity can only be added or removed proportionally, as these operations do not depend on the
+     * invariant. Therefore, it does not matter that the relationship between the invariant and liquidity is non-
+     * linear; the invariant is only used to calculate swaps.
      *
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param virtualBalances The last virtual balances, sorted in token registration order
@@ -105,7 +119,7 @@ library ReClammMath {
             ? FixedPoint.mulDown
             : FixedPoint.mulUp;
 
-        return _mulUpOrDown((balancesScaled18[0] + virtualBalances[0]), (balancesScaled18[1] + virtualBalances[1]));
+        return _mulUpOrDown((balancesScaled18[a] + virtualBalances[a]), (balancesScaled18[b] + virtualBalances[b]));
     }
 
     /**
@@ -124,10 +138,10 @@ library ReClammMath {
         uint256 tokenOutIndex,
         uint256 amountInScaled18
     ) internal pure returns (uint256 amountOutScaled18) {
-        // Round up, so the swapper absorbs rounding imprecisions (rounds in favor of the vault).
+        // Round up, so the swapper absorbs rounding imprecisions (rounds in favor of the Vault).
         uint256 invariant = computeInvariant(balancesScaled18, virtualBalances, Rounding.ROUND_UP);
         // Total (virtual + real) token out amount that should stay in the pool after the swap. Rounding division up,
-        // which will round the token out amount down, favoring the vault.
+        // which will round the token out amount down, favoring the Vault.
         uint256 newTotalTokenOutPoolBalance = invariant.divUp(
             balancesScaled18[tokenInIndex] + virtualBalances[tokenInIndex] + amountInScaled18
         );
@@ -142,8 +156,8 @@ library ReClammMath {
 
         amountOutScaled18 = currentTotalTokenOutPoolBalance - newTotalTokenOutPoolBalance;
         if (amountOutScaled18 > balancesScaled18[tokenOutIndex]) {
-            // Amount out cannot be bigger than the real balance of the token.
-            revert AmountOutBiggerThanBalance();
+            // Amount out cannot be greater than the real balance of the token.
+            revert AmountOutGreaterThanBalance();
         }
     }
 
@@ -164,14 +178,14 @@ library ReClammMath {
         uint256 amountOutScaled18
     ) internal pure returns (uint256 amountInScaled18) {
         if (amountOutScaled18 > balancesScaled18[tokenOutIndex]) {
-            // Amount out cannot be bigger than the real balance of the token in the pool.
-            revert AmountOutBiggerThanBalance();
+            // Amount out cannot be greater than the real balance of the token in the pool.
+            revert AmountOutGreaterThanBalance();
         }
 
-        // Round up, so the swapper absorbs rounding imprecisions (rounds in favor of the vault).
+        // Round up, so the swapper absorbs any imprecision due to rounding (i.e., it rounds in favor of the Vault).
         uint256 invariant = computeInvariant(balancesScaled18, virtualBalances, Rounding.ROUND_UP);
 
-        // Rounding division up, which will round the token in amount up, favoring the vault.
+        // Rounding division up, which will round the `tokenIn` amount up, favoring the Vault.
         amountInScaled18 =
             invariant.divUp(balancesScaled18[tokenOutIndex] + virtualBalances[tokenOutIndex] - amountOutScaled18) -
             balancesScaled18[tokenInIndex] -
@@ -182,7 +196,7 @@ library ReClammMath {
      * @notice Computes the theoretical initial state of a ReClamm pool based on its price parameters.
      * @dev This function calculates three key components needed to initialize a ReClamm pool:
      * 1. Initial real token balances - Using a reference value (_INITIALIZATION_MAX_BALANCE_A) that will be
-     *  scaled later during actual pool initialization based on the actual tokens provided
+     *    scaled later during actual pool initialization based on the actual tokens provided
      * 2. Initial virtual balances - Additional balances used to control the pool's price range
      * 3. Fourth root price ratio - A key parameter that helps define the pool's price boundaries
      *
@@ -193,13 +207,13 @@ library ReClammMath {
      * Price is defined as (balanceB + virtualBalanceB) / (balanceA + virtualBalanceA),
      * where A and B are the pool tokens, sorted by address (A is the token with the lowest address).
      * For example, if the pool is ETH/USDC, and USDC has an address that is smaller than ETH, this price will
-     * be defined as ETH/USDC (How many ETH is needed to buy 1 USDC).
+     * be defined as ETH/USDC (meaning, how much ETH is required to buy 1 USDC).
      *
      * @param minPrice The minimum price limit of the pool
      * @param maxPrice The maximum price limit of the pool
      * @param targetPrice The desired initial price point within the range
-     * @return realBalances Array of theoretical initial token balances [token0, token1]
-     * @return virtualBalances Array of theoretical initial virtual balances [virtual0, virtual1]
+     * @return realBalances Array of theoretical initial token balances [tokenA, tokenB]
+     * @return virtualBalances Array of theoretical initial virtual balances [virtualA, virtualB]
      * @return fourthRootPriceRatio The fourth root of maxPrice/minPrice ratio
      */
     function computeTheoreticalPriceRatioAndBalances(
@@ -219,19 +233,19 @@ library ReClammMath {
 
         virtualBalances = new uint256[](2);
         // Va = Ra_max / (sqrtPriceRatio - 1)
-        virtualBalances[0] = _INITIALIZATION_MAX_BALANCE_A.divDown(sqrtPriceRatio - FixedPoint.ONE);
+        virtualBalances[a] = _INITIALIZATION_MAX_BALANCE_A.divDown(sqrtPriceRatio - FixedPoint.ONE);
         // Vb = minPrice * (Va + Ra_max)
-        virtualBalances[1] = minPrice.mulDown(virtualBalances[0] + _INITIALIZATION_MAX_BALANCE_A);
+        virtualBalances[b] = minPrice.mulDown(virtualBalances[a] + _INITIALIZATION_MAX_BALANCE_A);
 
         realBalances = new uint256[](2);
         // Rb = sqrt(targetPrice * Vb * (Ra_max + Va)) - Vb
-        realBalances[1] =
+        realBalances[b] =
             sqrtScaled18(
-                targetPrice.mulUp(virtualBalances[1]).mulUp(_INITIALIZATION_MAX_BALANCE_A + virtualBalances[0])
+                targetPrice.mulUp(virtualBalances[b]).mulUp(_INITIALIZATION_MAX_BALANCE_A + virtualBalances[a])
             ) -
-            virtualBalances[1];
+            virtualBalances[b];
         // Ra = (Rb + Vb - (Va * targetPrice)) / targetPrice
-        realBalances[0] = (realBalances[1] + virtualBalances[1] - virtualBalances[0].mulDown(targetPrice)).divDown(
+        realBalances[a] = (realBalances[b] + virtualBalances[b] - virtualBalances[a].mulDown(targetPrice)).divDown(
             targetPrice
         );
     }
@@ -241,10 +255,11 @@ library ReClammMath {
      * @dev If the pool is in range or the price ratio is not updating, the virtual balances do not change and
      * lastVirtualBalances are returned. Otherwise, follow these three steps:
      * 1. Calculate the current fourth root of price ratio.
-     * 2. Shrink/Expand the price interval considering the current fourth root of price ratio. (if price ratio is
-     *    updating)
-     * 3. Track the market price by moving the price interval. (if pool is out of range)
-     * Note: Virtual balances will be rounded down to improve the swap result in favor of the vault.
+     * 2. Shrink/Expand the price interval considering the current fourth root of price ratio (if the price ratio
+     *    is updating).
+     * 3. Track the market price by moving the price interval (if the pool is out of range).
+     *
+     * Note: Virtual balances will be rounded down so that the swap result favors the Vault.
      *
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param lastVirtualBalances The last virtual balances, sorted in token registration order
@@ -371,11 +386,10 @@ library ReClammMath {
         // centeredness. Applying Bhaskara, we'd have: Vu = (-b + sqrt(b^2 - 4ac)) / 2a.
         // The Bhaskara above can be simplified by replacing a, b and c with the terms above, which leads to:
         // Vu = Ru(1 + C + sqrt(1 + C (C + 4 Q0 - 2))) / 2(Q0 - 1)
-
         uint256 sqrtPriceRatio = currentFourthRootPriceRatio.mulUp(currentFourthRootPriceRatio);
 
         // Using FixedPoint math as little as possible to improve the precision of the result.
-        // Note: The input of Math.sqrt must be a 36 decimals number, so the result is 18 decimals.
+        // Note: The input of Math.sqrt must be a 36-decimal number, so that the final result is 18 decimals.
         uint256 virtualBalanceUndervalued = (balanceTokenUndervalued *
             (FixedPoint.ONE +
                 poolCenteredness +
@@ -388,8 +402,8 @@ library ReClammMath {
 
     /**
      * @notice Calculate the virtual balances when the pool is out of range, effectively adjusting the price range.
-     * @dev This function will track the market price by moving the price interval. It will increase the pool
-     * centeredness and change the token prices.
+     * @dev This function will track the market price by moving the price interval. Note that it will increase the
+     * pool centeredness and change the token prices.
      *
      * @param currentFourthRootPriceRatio The current fourth root of price ratio of the pool
      * @param balancesScaled18 Current pool balances, sorted in token registration order
@@ -412,7 +426,7 @@ library ReClammMath {
         // Round up price ratio, to round virtual balances down.
         uint256 priceRatio = currentFourthRootPriceRatio.mulUp(currentFourthRootPriceRatio);
 
-        // The token overvalued is the one with low token balance (therefore, rarer and more valuable).
+        // The overvalued token is the one with a lower token balance (therefore, rarer and more valuable).
         (uint256 indexTokenUndervalued, uint256 indexTokenOvervalued) = isPoolAboveCenter ? (0, 1) : (1, 0);
 
         // Vb = Vb * (1 - priceShiftDailyRangeInSeconds)^(Tcurr - Tlast)
@@ -464,13 +478,13 @@ library ReClammMath {
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances
     ) internal pure returns (uint256) {
-        if (balancesScaled18[0] == 0 || balancesScaled18[1] == 0) {
+        if (balancesScaled18[a] == 0 || balancesScaled18[b] == 0) {
             return 0;
         }
 
         bool isPoolAboveCenter = isAboveCenter(balancesScaled18, virtualBalances);
 
-        // The token overvalued is the one with low token balance (therefore, rarer and more valuable).
+        // The overvalued token is the one with a lower token balance (therefore, rarer and more valuable).
         (uint256 indexTokenUndervalued, uint256 indexTokenOvervalued) = isPoolAboveCenter ? (0, 1) : (1, 0);
 
         // Round up the centeredness, so the virtual balances are rounded down when the pool prices are moving.
@@ -515,7 +529,7 @@ library ReClammMath {
     }
 
     /**
-     * @notice Check if the pool is above center.
+     * @notice Check whether the pool is above center.
      * @dev The pool is above center if the ratio of the real balances is greater than the ratio of the virtual
      * balances.
      *
@@ -527,17 +541,17 @@ library ReClammMath {
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances
     ) internal pure returns (bool) {
-        if (balancesScaled18[1] == 0) {
+        if (balancesScaled18[b] == 0) {
             return true;
         } else {
-            return balancesScaled18[0].divDown(balancesScaled18[1]) > virtualBalances[0].divDown(virtualBalances[1]);
+            return balancesScaled18[a].divDown(balancesScaled18[b]) > virtualBalances[a].divDown(virtualBalances[b]);
         }
     }
 
     /**
-     * @notice Convert a raw daily rate into the time constant value used internally.
+     * @notice Convert a raw daily rate into the value used internally.
      * @param priceShiftDailyRate The price shift daily rate
-     * @return priceShiftDailyRangeInSeconds The time constant
+     * @return priceShiftDailyRangeInSeconds Represents how fast the pool can move the virtual balances per day
      */
     function computePriceShiftDailyRate(uint256 priceShiftDailyRate) internal pure returns (uint128) {
         // Divide daily rate by a number of seconds per day (plus some adjustment)
