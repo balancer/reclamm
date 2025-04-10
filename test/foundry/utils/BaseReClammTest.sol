@@ -70,8 +70,8 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
         super.setUp();
 
         (, , _initialBalances, ) = vault.getPoolTokenInfo(pool);
-        (_initialVirtualBalances, ) = ReClammPool(pool).getCurrentVirtualBalances();
-        _initialFourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
+        (_initialVirtualBalances, ) = ReClammPool(pool).computeCurrentVirtualBalances();
+        _initialFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
     }
 
     function setInitializationPrices(uint256 newMinPrice, uint256 newMaxPrice, uint256 newTargetPrice) internal {

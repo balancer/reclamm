@@ -70,7 +70,7 @@ library ReClammMath {
         PriceRatioState storage priceRatioState,
         Rounding rounding
     ) internal view returns (uint256 invariant) {
-        (uint256[] memory currentVirtualBalances, ) = getCurrentVirtualBalances(
+        (uint256[] memory currentVirtualBalances, ) = computeCurrentVirtualBalances(
             balancesScaled18,
             lastVirtualBalances,
             priceShiftDailyRangeInSeconds,
@@ -258,7 +258,7 @@ library ReClammMath {
      * @return currentVirtualBalances The current virtual balances of the pool
      * @return changed Whether the virtual balances have changed and must be updated in the pool
      */
-    function getCurrentVirtualBalances(
+    function computeCurrentVirtualBalances(
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
         uint256 priceShiftDailyRangeInSeconds,

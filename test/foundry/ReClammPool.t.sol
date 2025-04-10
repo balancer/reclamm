@@ -71,7 +71,7 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function testGetCurrentFourthRootPriceRatio() public view {
-        uint256 fourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
+        uint256 fourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
         assertEq(fourthRootPriceRatio, _initialFourthRootPriceRatio, "Invalid default fourthRootPriceRatio");
     }
 
@@ -184,13 +184,13 @@ contract ReClammPoolTest is BaseReClammTest {
         uint256 newStaticSwapFeePercentage = 5e16;
 
         PriceRatioState memory state = PriceRatioState({
-            startFourthRootPriceRatio: ReClammPool(pool).getCurrentFourthRootPriceRatio(),
+            startFourthRootPriceRatio: ReClammPool(pool).computeCurrentFourthRootPriceRatio(),
             endFourthRootPriceRatio: endFourthRootPriceRatio.toUint96(),
             priceRatioUpdateStartTime: block.timestamp.toUint32(),
             priceRatioUpdateEndTime: (block.timestamp + 1 days).toUint32()
         });
 
-        (uint256[] memory currentVirtualBalances, ) = ReClammPool(pool).getCurrentVirtualBalances();
+        (uint256[] memory currentVirtualBalances, ) = ReClammPool(pool).computeCurrentVirtualBalances();
 
         vm.startPrank(admin);
         ReClammPool(pool).setPriceRatioState(
@@ -305,7 +305,7 @@ contract ReClammPoolTest is BaseReClammTest {
         uint32 duration = 6 hours;
         uint32 priceRatioUpdateEndTime = uint32(block.timestamp) + duration;
 
-        uint96 startFourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
+        uint96 startFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
         vm.prank(admin);
         vm.expectEmit();
         emit IReClammPool.PriceRatioStateUpdated(
@@ -322,7 +322,7 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(actualPriceRatioUpdateStartTime, block.timestamp, "Invalid updated actual price ratio start time");
 
         skip(duration / 2);
-        uint96 fourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
+        uint96 fourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
         uint96 mathFourthRootPriceRatio = ReClammMath.calculateFourthRootPriceRatio(
             uint32(block.timestamp),
             startFourthRootPriceRatio,
@@ -334,7 +334,7 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(fourthRootPriceRatio, mathFourthRootPriceRatio, "FourthRootPriceRatio not updated correctly");
 
         skip(duration / 2 + 1);
-        fourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
+        fourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
         assertEq(fourthRootPriceRatio, endFourthRootPriceRatio, "FourthRootPriceRatio does not match new value");
     }
 
@@ -370,7 +370,7 @@ contract ReClammPoolTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         // Check if the last virtual balances stored in the pool are different from the current virtual balances.
-        (uint256[] memory virtualBalancesBefore, ) = ReClammPool(pool).getCurrentVirtualBalances();
+        (uint256[] memory virtualBalancesBefore, ) = ReClammPool(pool).computeCurrentVirtualBalances();
         uint256[] memory lastVirtualBalancesBeforeSet = ReClammPoolMock(pool).getLastVirtualBalances();
 
         assertNotEq(
@@ -439,7 +439,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
     function testOutOfRangeAfterSetCenterednessMargin() public {
         // Move the pool close to the current margin.
-        (uint256[] memory virtualBalances, ) = ReClammPool(pool).getCurrentVirtualBalances();
+        (uint256[] memory virtualBalances, ) = ReClammPool(pool).computeCurrentVirtualBalances();
         uint256 newBalanceB = 100e18;
 
         // Pool Centeredness = Ra * Vb / (Rb * Va). Make centeredness = margin, and you have the equation below.
@@ -470,7 +470,7 @@ contract ReClammPoolTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         // Check if the last virtual balances stored in the pool are different from the current virtual balances.
-        (uint256[] memory virtualBalancesBefore, ) = ReClammPool(pool).getCurrentVirtualBalances();
+        (uint256[] memory virtualBalancesBefore, ) = ReClammPool(pool).computeCurrentVirtualBalances();
         uint256[] memory lastVirtualBalancesBeforeSet = ReClammPoolMock(pool).getLastVirtualBalances();
 
         assertNotEq(

@@ -131,7 +131,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IBasePool
     function onSwap(PoolSwapParams memory request) public virtual onlyVault returns (uint256 amountCalculatedScaled18) {
-        (uint256[] memory currentVirtualBalances, bool changed) = _getCurrentVirtualBalances(request.balancesScaled18);
+        (uint256[] memory currentVirtualBalances, bool changed) = _computeCurrentVirtualBalances(
+            request.balancesScaled18
+        );
 
         if (changed) {
             _setLastVirtualBalances(currentVirtualBalances);
@@ -207,7 +209,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /********************************************************
-                        Hooks Functions
+                        Hook Functions
     ********************************************************/
 
     /// @inheritdoc IHooks
@@ -283,7 +285,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         // Rounding proportion up, which will round the virtual balances up.
         uint256 proportion = minBptAmountOut.divUp(totalSupply);
 
-        (uint256[] memory currentVirtualBalances, ) = _getCurrentVirtualBalances(balancesScaled18);
+        (uint256[] memory currentVirtualBalances, ) = _computeCurrentVirtualBalances(balancesScaled18);
         // When adding/removing liquidity, round up the virtual balances. This will result in a higher invariant,
         // which favors the vault in swap operations. The virtual balances are not used to calculate a proportional
         // add/remove result.
@@ -312,7 +314,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         // Rounding proportion down, which will round the virtual balances up.
         uint256 proportion = maxBptAmountIn.divDown(totalSupply);
 
-        (uint256[] memory currentVirtualBalances, ) = _getCurrentVirtualBalances(balancesScaled18);
+        (uint256[] memory currentVirtualBalances, ) = _computeCurrentVirtualBalances(balancesScaled18);
         // When adding/removing liquidity, round up the virtual balances. This will result in a higher invariant,
         // which favors the vault in swap operations. The virtual balances are not used to calculate a proportional
         // add/remove result.
@@ -347,9 +349,13 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function getCurrentVirtualBalances() external view returns (uint256[] memory currentVirtualBalances, bool changed) {
+    function computeCurrentVirtualBalances()
+        external
+        view
+        returns (uint256[] memory currentVirtualBalances, bool changed)
+    {
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
-        (currentVirtualBalances, changed) = _getCurrentVirtualBalances(balancesScaled18);
+        (currentVirtualBalances, changed) = _computeCurrentVirtualBalances(balancesScaled18);
     }
 
     /// @inheritdoc IReClammPool
@@ -378,8 +384,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function getCurrentFourthRootPriceRatio() external view override returns (uint96) {
-        return _calculateCurrentFourthRootPriceRatio();
+    function computeCurrentFourthRootPriceRatio() external view override returns (uint96) {
+        return _computeCurrentFourthRootPriceRatio();
     }
 
     /// @inheritdoc IReClammPool
@@ -394,7 +400,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.priceShiftDailyRangeInSeconds = _priceShiftDailyRateInSeconds;
         data.centerednessMargin = _centerednessMargin;
 
-        data.currentFourthRootPriceRatio = _calculateCurrentFourthRootPriceRatio();
+        data.currentFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio();
 
         PriceRatioState memory state = _priceRatioState;
         data.startFourthRootPriceRatio = state.startFourthRootPriceRatio;
@@ -465,10 +471,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                         Internal Helpers
     ********************************************************/
 
-    function _getCurrentVirtualBalances(
+    function _computeCurrentVirtualBalances(
         uint256[] memory balancesScaled18
     ) internal view returns (uint256[] memory currentVirtualBalances, bool changed) {
-        (currentVirtualBalances, changed) = ReClammMath.getCurrentVirtualBalances(
+        (currentVirtualBalances, changed) = ReClammMath.computeCurrentVirtualBalances(
             balancesScaled18,
             _lastVirtualBalances,
             _priceShiftDailyRateInSeconds,
@@ -493,7 +499,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             revert InvalidStartTime();
         }
 
-        uint96 startFourthRootPriceRatio = _calculateCurrentFourthRootPriceRatio();
+        uint96 startFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio();
         uint96 endFourthRootPriceRatio96 = endFourthRootPriceRatio.toUint96();
         _priceRatioState.startFourthRootPriceRatio = startFourthRootPriceRatio == 0
             ? endFourthRootPriceRatio96
@@ -517,7 +523,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     ) internal onlyWhenVaultIsLocked {
         // Update virtual balances with current daily rate.
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
-        (uint256[] memory currentVirtualBalances, bool changed) = _getCurrentVirtualBalances(balancesScaled18);
+        (uint256[] memory currentVirtualBalances, bool changed) = _computeCurrentVirtualBalances(balancesScaled18);
         if (changed) {
             _setLastVirtualBalances(currentVirtualBalances);
         }
@@ -546,7 +552,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     ) internal onlyWhenVaultIsLocked onlyWhenPoolIsInRange {
         // Update the virtual balances using the current daily rate.
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
-        (uint256[] memory currentVirtualBalances, bool changed) = _getCurrentVirtualBalances(balancesScaled18);
+        (uint256[] memory currentVirtualBalances, bool changed) = _computeCurrentVirtualBalances(balancesScaled18);
         if (changed) {
             _setLastVirtualBalances(currentVirtualBalances);
         }
@@ -626,7 +632,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
      *
      * @return currentFourthRootPriceRatio The current fourth root of price ratio
      */
-    function _calculateCurrentFourthRootPriceRatio() internal view returns (uint96 currentFourthRootPriceRatio) {
+    function _computeCurrentFourthRootPriceRatio() internal view returns (uint96 currentFourthRootPriceRatio) {
         PriceRatioState memory priceRatioState = _priceRatioState;
 
         currentFourthRootPriceRatio = ReClammMath.calculateFourthRootPriceRatio(

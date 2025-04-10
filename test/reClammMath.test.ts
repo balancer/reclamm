@@ -329,7 +329,7 @@ describe('ReClammMath', function () {
     }> => {
       await (await mathLib.setPriceRatioState(priceRatioState)).wait();
 
-      const [contractCurrentVirtualBalances, contractChanged] = await mathLib.getCurrentVirtualBalances(
+      const [contractCurrentVirtualBalances, contractChanged] = await mathLib.computeCurrentVirtualBalances(
         balancesScaled18,
         lastVirtualBalances,
         TIME_CONSTANT,

@@ -206,7 +206,7 @@ interface IReClammPool is IBasePool {
     ********************************************************/
 
     /**
-     * @notice Returns the ratio between the token balances (B/A).
+     * @notice Computes the ratio between the token balances (B/A).
      * @dev To keep the pool within the target price range after initialization, the initial pool balances need to be
      * close to the value returned by this function. For example, if this returned 200, the initial balance of tokenB
      * should be 200 times the initial balance of tokenA.
@@ -216,7 +216,7 @@ interface IReClammPool is IBasePool {
     function computeInitialBalanceRatio() external view returns (uint256 balanceRatio);
 
     /**
-     * @notice Returns the current virtual balances and a flag indicating whether they have changed.
+     * @notice Computes the current virtual balances and a flag indicating whether they have changed.
      * @dev The current virtual balances are calculated based on the last virtual balances. If the pool is in range
      * and the price ratio is not updating, the virtual balances will not change. If the pool is out of range or the
      * price ratio is updating, this function will calculate the new virtual balances based on the timestamp of the
@@ -225,7 +225,10 @@ interface IReClammPool is IBasePool {
      * @return currentVirtualBalances The current virtual balances
      * @return changed Whether the current virtual balances are different from `lastVirtualBalances`
      */
-    function getCurrentVirtualBalances() external view returns (uint256[] memory currentVirtualBalances, bool changed);
+    function computeCurrentVirtualBalances()
+        external
+        view
+        returns (uint256[] memory currentVirtualBalances, bool changed);
 
     /**
      * @notice Getter for the timestamp of the last user interaction.
@@ -263,13 +266,13 @@ interface IReClammPool is IBasePool {
     function getPriceRatioState() external view returns (PriceRatioState memory priceRatioState);
 
     /**
-     * @notice Returns the current fourth root of price ratio.
+     * @notice Computes the current fourth root of price ratio.
      * @dev The current fourth root of price ratio is an interpolation of the price ratio between the start and end
      * values in the price ratio state, using the percentage elapsed between the start and end times.
      *
      * @return currentFourthRootPriceRatio The current fourth root of price ratio
      */
-    function getCurrentFourthRootPriceRatio() external view returns (uint96);
+    function computeCurrentFourthRootPriceRatio() external view returns (uint96);
 
     /**
      * @notice Get dynamic pool data relevant to swap/add/remove calculations.

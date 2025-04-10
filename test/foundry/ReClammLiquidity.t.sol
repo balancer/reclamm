@@ -37,13 +37,13 @@ contract ReClammLiquidityTest is BaseReClammTest {
         maxAmountsIn[daiIdx] = dai.balanceOf(alice);
         maxAmountsIn[usdcIdx] = usdc.balanceOf(alice);
 
-        (uint256[] memory virtualBalancesBefore, ) = ReClammPool(pool).getCurrentVirtualBalances();
+        (uint256[] memory virtualBalancesBefore, ) = ReClammPool(pool).computeCurrentVirtualBalances();
         (, , uint256[] memory balancesBefore, ) = vault.getPoolTokenInfo(pool);
 
         vm.prank(alice);
         router.addLiquidityProportional(pool, maxAmountsIn, exactBptAmountOut, false, "");
 
-        (uint256[] memory virtualBalancesAfter, ) = ReClammPool(pool).getCurrentVirtualBalances();
+        (uint256[] memory virtualBalancesAfter, ) = ReClammPool(pool).computeCurrentVirtualBalances();
         (, , uint256[] memory balancesAfter, ) = vault.getPoolTokenInfo(pool);
 
         // Check if virtual balances were correctly updated.
@@ -77,7 +77,7 @@ contract ReClammLiquidityTest is BaseReClammTest {
 
         vm.warp(block.timestamp + 6 hours);
 
-        (uint256[] memory virtualBalancesBefore, ) = ReClammPool(pool).getCurrentVirtualBalances();
+        (uint256[] memory virtualBalancesBefore, ) = ReClammPool(pool).computeCurrentVirtualBalances();
 
         // Make sure pool is out of range, so the virtual balances should be updated by the addLiquidity call.
         vm.assume(
@@ -95,7 +95,7 @@ contract ReClammLiquidityTest is BaseReClammTest {
         vm.prank(alice);
         router.addLiquidityProportional(pool, maxAmountsIn, exactBptAmountOut, false, "");
 
-        (uint256[] memory virtualBalancesAfter, ) = ReClammPool(pool).getCurrentVirtualBalances();
+        (uint256[] memory virtualBalancesAfter, ) = ReClammPool(pool).computeCurrentVirtualBalances();
 
         // Check if virtual balances were correctly updated.
         uint256 proportion = exactBptAmountOut.divUp(totalSupply);
@@ -193,13 +193,13 @@ contract ReClammLiquidityTest is BaseReClammTest {
         minAmountsOut[daiIdx] = 0;
         minAmountsOut[usdcIdx] = 0;
 
-        (uint256[] memory virtualBalancesBefore, ) = ReClammPool(pool).getCurrentVirtualBalances();
+        (uint256[] memory virtualBalancesBefore, ) = ReClammPool(pool).computeCurrentVirtualBalances();
         (, , uint256[] memory balancesBefore, ) = vault.getPoolTokenInfo(pool);
 
         vm.prank(lp);
         router.removeLiquidityProportional(pool, exactBptAmountIn, minAmountsOut, false, "");
 
-        (uint256[] memory virtualBalancesAfter, ) = ReClammPool(pool).getCurrentVirtualBalances();
+        (uint256[] memory virtualBalancesAfter, ) = ReClammPool(pool).computeCurrentVirtualBalances();
         (, , uint256[] memory balancesAfter, ) = vault.getPoolTokenInfo(pool);
 
         // Check if virtual balances were correctly updated.
@@ -233,7 +233,7 @@ contract ReClammLiquidityTest is BaseReClammTest {
 
         vm.warp(block.timestamp + 6 hours);
 
-        (uint256[] memory virtualBalancesBefore, ) = ReClammPool(pool).getCurrentVirtualBalances();
+        (uint256[] memory virtualBalancesBefore, ) = ReClammPool(pool).computeCurrentVirtualBalances();
 
         // Make sure pool is out of range, so the virtual balances should be updated by the addLiquidity call.
         vm.assume(
@@ -251,7 +251,7 @@ contract ReClammLiquidityTest is BaseReClammTest {
         vm.prank(lp);
         router.removeLiquidityProportional(pool, exactBptAmountIn, minAmountsOut, false, "");
 
-        (uint256[] memory virtualBalancesAfter, ) = ReClammPool(pool).getCurrentVirtualBalances();
+        (uint256[] memory virtualBalancesAfter, ) = ReClammPool(pool).computeCurrentVirtualBalances();
 
         // Check if virtual balances were correctly updated.
         uint256 proportion = exactBptAmountIn.divDown(totalSupply);

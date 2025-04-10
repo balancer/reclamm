@@ -86,18 +86,18 @@ contract ReClammMathMock {
         return ReClammMath.computeTheoreticalPriceRatioAndBalances(minPrice, maxPrice, targetPrice);
     }
 
-    function getCurrentVirtualBalances(
+    function computeCurrentVirtualBalances(
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
-        uint256 c,
+        uint256 priceShiftDailyRangeInSeconds,
         uint32 lastTimestamp,
         uint64 centerednessMargin
     ) external view returns (uint256[] memory virtualBalances, bool changed) {
         return
-            ReClammMath.getCurrentVirtualBalances(
+            ReClammMath.computeCurrentVirtualBalances(
                 balancesScaled18,
                 lastVirtualBalances,
-                c,
+                priceShiftDailyRangeInSeconds,
                 lastTimestamp,
                 centerednessMargin,
                 _priceRatioState
