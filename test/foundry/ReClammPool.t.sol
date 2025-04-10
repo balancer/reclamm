@@ -543,7 +543,10 @@ contract ReClammPoolTest is BaseReClammTest {
     function testComputePriceRangeBeforeInitialized() public {
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens);
 
-        (address pool, ) = _createPool([address(sortedTokens[0]), address(sortedTokens[1])].toMemoryArray(), "BeforeInitTest");
+        (address pool, ) = _createPool(
+            [address(sortedTokens[0]), address(sortedTokens[1])].toMemoryArray(),
+            "BeforeInitTest"
+        );
 
         assertFalse(vault.isPoolInitialized(pool), "Pool is initialized");
 
@@ -559,5 +562,5 @@ contract ReClammPoolTest is BaseReClammTest {
         (uint256 minPrice, uint256 maxPrice) = ReClammPool(pool).computeCurrentPriceRange();
         assertApproxEqAbs(minPrice, _DEFAULT_MIN_PRICE, 2e6);
         assertApproxEqAbs(maxPrice, _DEFAULT_MAX_PRICE, 2e6);
-    } 
+    }
 }
