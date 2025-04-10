@@ -48,7 +48,7 @@ library ReClammMath {
 
     /// @notice The swap result is negative due to a rounding issue.
     error NegativeAmountOut();
-    
+
     /**
      * @notice Get the current virtual balances and compute the invariant of the pool using constant product.
      * @param balancesScaled18 Current pool balances, sorted in token registration order
