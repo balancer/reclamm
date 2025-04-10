@@ -14,8 +14,8 @@ import { LogExpMath } from "@balancer-labs/v3-solidity-utils/contracts/math/LogE
 struct PriceRatioState {
     uint96 startFourthRootPriceRatio;
     uint96 endFourthRootPriceRatio;
-    uint32 startTime;
-    uint32 endTime;
+    uint32 priceRatioUpdateStartTime;
+    uint32 priceRatioUpdateEndTime;
 }
 
 library ReClammMath {
@@ -39,11 +39,15 @@ library ReClammMath {
     //    then `x = 100%/(1 - pow(2, 1/(86400+1)))`, which is 124649.
     uint256 private constant _SECONDS_PER_DAY_WITH_ADJUSTMENT = 124649;
 
+    // We need to use a random number to calculate initial virtual and real balances. This number will be scaled later,
+    // during initialization. Choosing a big number will keep precision with large liquidity initializations.
+    uint256 private constant _INITIALIZATION_MAX_BALANCE_A = 1e6 * 1e18;
+
     /**
      * @notice Get the current virtual balances and compute the invariant of the pool using constant product.
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param lastVirtualBalances The last virtual balances, sorted in token registration order
-     * @param timeConstant IncreaseDayRate divided by 124649
+     * @param priceShiftDailyRangeInSeconds IncreaseDayRate divided by 124649
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @param centerednessMargin A symmetrical measure of how closely an unbalanced pool can approach the limits of the
      * price range before it is considered out of range
@@ -54,7 +58,7 @@ library ReClammMath {
     function computeInvariant(
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
-        uint256 timeConstant,
+        uint256 priceShiftDailyRangeInSeconds,
         uint32 lastTimestamp,
         uint64 centerednessMargin,
         PriceRatioState storage priceRatioState,
@@ -63,7 +67,7 @@ library ReClammMath {
         (uint256[] memory currentVirtualBalances, ) = getCurrentVirtualBalances(
             balancesScaled18,
             lastVirtualBalances,
-            timeConstant,
+            priceShiftDailyRangeInSeconds,
             lastTimestamp,
             centerednessMargin,
             priceRatioState
@@ -169,21 +173,61 @@ library ReClammMath {
     }
 
     /**
-     * @notice Calculate the initial virtual balances of the pool.
-     * @dev The initial virtual balances are calculated based on the initial fourth root of price ratio and the
-     * initial balances.
+     * @notice Computes the theoretical initial state of a ReClamm pool based on its price parameters.
+     * @dev This function calculates three key components needed to initialize a ReClamm pool:
+     * 1. Initial real token balances - Using a reference value (_INITIALIZATION_MAX_BALANCE_A) that will be
+     *  scaled later during actual pool initialization based on the actual tokens provided
+     * 2. Initial virtual balances - Additional balances used to control the pool's price range
+     * 3. Fourth root price ratio - A key parameter that helps define the pool's price boundaries
      *
-     * @param balancesScaled18 Current pool balances, sorted in token registration order
-     * @param fourthRootPriceRatio The initial fourth root of price ratio of the pool
-     * @return virtualBalances The initial virtual balances of the pool
+     * Note: The actual balances used in pool initialization will be proportionally scaled versions
+     * of these theoretical values, maintaining the same ratios but adjusted to the actual amount of
+     * liquidity provided.
+     *
+     * Price is defined as (balanceB + virtualBalanceB) / (balanceA + virtualBalanceA),
+     * where A and B are the pool tokens, sorted by address (A is the token with the lowest address).
+     * For example, if the pool is ETH/USDC, and USDC has an address that is smaller than ETH, this price will
+     * be defined as ETH/USDC (How many ETH is needed to buy 1 USDC).
+     *
+     * @param minPrice The minimum price limit of the pool
+     * @param maxPrice The maximum price limit of the pool
+     * @param targetPrice The desired initial price point within the range
+     * @return realBalances Array of theoretical initial token balances [token0, token1]
+     * @return virtualBalances Array of theoretical initial virtual balances [virtual0, virtual1]
+     * @return fourthRootPriceRatio The fourth root of maxPrice/minPrice ratio
      */
-    function initializeVirtualBalances(
-        uint256[] memory balancesScaled18,
-        uint256 fourthRootPriceRatio
-    ) internal pure returns (uint256[] memory virtualBalances) {
-        virtualBalances = new uint256[](balancesScaled18.length);
-        virtualBalances[0] = balancesScaled18[0].divDown(fourthRootPriceRatio - FixedPoint.ONE);
-        virtualBalances[1] = balancesScaled18[1].divDown(fourthRootPriceRatio - FixedPoint.ONE);
+    function computeTheoreticalPriceRatioAndBalances(
+        uint256 minPrice,
+        uint256 maxPrice,
+        uint256 targetPrice
+    )
+        internal
+        pure
+        returns (uint256[] memory realBalances, uint256[] memory virtualBalances, uint256 fourthRootPriceRatio)
+    {
+        // In the formulas below, Ra_max is a random number that defines the maximum real balance of token A, and
+        // consequently a random initial liquidity. We will scale all balances according to the actual amount of
+        // liquidity provided during initialization.
+        uint256 sqrtPriceRatio = sqrtScaled18(maxPrice.divDown(minPrice));
+        fourthRootPriceRatio = sqrtScaled18(sqrtPriceRatio);
+
+        virtualBalances = new uint256[](2);
+        // Va = Ra_max / (sqrtPriceRatio - 1)
+        virtualBalances[0] = _INITIALIZATION_MAX_BALANCE_A.divDown(sqrtPriceRatio - FixedPoint.ONE);
+        // Vb = minPrice * (Va + Ra_max)
+        virtualBalances[1] = minPrice.mulDown(virtualBalances[0] + _INITIALIZATION_MAX_BALANCE_A);
+
+        realBalances = new uint256[](2);
+        // Rb = sqrt(targetPrice * Vb * (Ra_max + Va)) - Vb
+        realBalances[1] =
+            sqrtScaled18(
+                targetPrice.mulUp(virtualBalances[1]).mulUp(_INITIALIZATION_MAX_BALANCE_A + virtualBalances[0])
+            ) -
+            virtualBalances[1];
+        // Ra = (Rb + Vb - (Va * targetPrice)) / targetPrice
+        realBalances[0] = (realBalances[1] + virtualBalances[1] - virtualBalances[0].mulDown(targetPrice)).divDown(
+            targetPrice
+        );
     }
 
     /**
@@ -194,10 +238,11 @@ library ReClammMath {
      * 2. Shrink/Expand the price interval considering the current fourth root of price ratio. (if price ratio is
      *    updating)
      * 3. Track the market price by moving the price interval. (if pool is out of range)
+     * Note: Virtual balances will be rounded down to improve the swap result in favor of the vault.
      *
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param lastVirtualBalances The last virtual balances, sorted in token registration order
-     * @param timeConstant IncreaseDayRate divided by 124649
+     * @param priceShiftDailyRangeInSeconds IncreaseDayRate divided by 124649
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @param centerednessMargin A limit of the pool centeredness that defines if pool is out of range
      * @param priceRatioState A struct containing start and end price ratios and a time interval
@@ -207,13 +252,11 @@ library ReClammMath {
     function getCurrentVirtualBalances(
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
-        uint256 timeConstant,
+        uint256 priceShiftDailyRangeInSeconds,
         uint32 lastTimestamp,
         uint64 centerednessMargin,
         PriceRatioState storage priceRatioState
     ) internal view returns (uint256[] memory currentVirtualBalances, bool changed) {
-        // TODO Review rounding
-
         uint32 currentTimestamp = block.timestamp.toUint32();
 
         // If the last timestamp is the same as the current timestamp, virtual balances were already reviewed in the
@@ -230,8 +273,8 @@ library ReClammMath {
             currentTimestamp,
             _priceRatioState.startFourthRootPriceRatio,
             _priceRatioState.endFourthRootPriceRatio,
-            _priceRatioState.startTime,
-            _priceRatioState.endTime
+            _priceRatioState.priceRatioUpdateStartTime,
+            _priceRatioState.priceRatioUpdateEndTime
         );
 
         bool isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances);
@@ -240,9 +283,8 @@ library ReClammMath {
         // Skip the update if the start and end price ratio are the same, because the virtual balances are already
         // calculated.
         if (
-            _priceRatioState.startTime != 0 &&
-            currentTimestamp > _priceRatioState.startTime &&
-            lastTimestamp < _priceRatioState.endTime &&
+            currentTimestamp > _priceRatioState.priceRatioUpdateStartTime &&
+            lastTimestamp < _priceRatioState.priceRatioUpdateEndTime &&
             _priceRatioState.startFourthRootPriceRatio != _priceRatioState.endFourthRootPriceRatio
         ) {
             currentVirtualBalances = calculateVirtualBalancesUpdatingPriceRatio(
@@ -257,12 +299,12 @@ library ReClammMath {
 
         // If the pool is out of range, track the market price by moving the price interval.
         if (isPoolInRange(balancesScaled18, currentVirtualBalances, centerednessMargin) == false) {
-            currentVirtualBalances = calculateVirtualBalancesOutOfRange(
+            currentVirtualBalances = calculateVirtualBalancesUpdatingPriceRange(
                 currentFourthRootPriceRatio,
                 balancesScaled18,
                 currentVirtualBalances,
                 isPoolAboveCenter,
-                timeConstant,
+                priceShiftDailyRangeInSeconds,
                 currentTimestamp,
                 lastTimestamp
             );
@@ -306,20 +348,31 @@ library ReClammMath {
         // Calculate the current pool centeredness, which will remain constant.
         uint256 poolCenteredness = calculateCenteredness(balancesScaled18, lastVirtualBalances);
 
-        // Terms of the quadratic equation.
-        uint256 a = currentFourthRootPriceRatio.mulDown(currentFourthRootPriceRatio) - FixedPoint.ONE;
-        uint256 b = balanceTokenUndervalued.mulDown(FixedPoint.ONE + poolCenteredness);
-        uint256 c = balanceTokenUndervalued.mulDown(balanceTokenUndervalued).mulDown(poolCenteredness);
+        // The original formula was a quadratic equation, with terms:
+        // a = Q0 - 1
+        // b = - Ru (1 + C)
+        // c = - Ru^2 C
+        // where Q0 is the square root of the price ratio, Ru is the undervalued token balance, and C is the
+        // centeredness. Applying Bhaskara, we'd have: Vu = (-b + sqrt(b^2 - 4ac)) / 2a.
+        // The Bhaskara above can be simplified by replacing a, b and c with the terms above, which leads to:
+        // Vu = Ru(1 + C + sqrt(1 + C (C + 4 Q0 - 2))) / 2(Q0 - 1)
 
-        // Using FixedPoint math as minimum as possible to improve the precision of the result.
-        uint256 virtualBalanceUndervalued = (b + Math.sqrt(b * b + 4 * a * c)).divDown(2 * a);
+        uint256 sqrtPriceRatio = currentFourthRootPriceRatio.mulUp(currentFourthRootPriceRatio);
+
+        // Using FixedPoint math as little as possible to improve the precision of the result.
+        // Note: The input of Math.sqrt must be a 36 decimals number, so the result is 18 decimals.
+        uint256 virtualBalanceUndervalued = (balanceTokenUndervalued *
+            (FixedPoint.ONE +
+                poolCenteredness +
+                Math.sqrt(poolCenteredness * (poolCenteredness + 4 * sqrtPriceRatio - 2e18) + 1e36))) /
+            (2 * (sqrtPriceRatio - FixedPoint.ONE));
         virtualBalances[indexTokenOvervalued] = ((balanceTokenOvervalued * virtualBalanceUndervalued) /
             balanceTokenUndervalued).divDown(poolCenteredness);
         virtualBalances[indexTokenUndervalued] = virtualBalanceUndervalued;
     }
 
     /**
-     * @notice Calculate the virtual balances of the pool when the pool is out of range.
+     * @notice Calculate the virtual balances when the pool is out of range, effectively adjusting the price range.
      * @dev This function will track the market price by moving the price interval. It will increase the pool
      * centeredness and change the token prices.
      *
@@ -327,38 +380,39 @@ library ReClammMath {
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param virtualBalances The last virtual balances, sorted in token registration order
      * @param isPoolAboveCenter Whether the pool is above or below the center
-     * @param timeConstant IncreaseDayRate divided by 124649
+     * @param priceShiftDailyRangeInSeconds IncreaseDayRate divided by 124649
      * @param currentTimestamp The current timestamp
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @return virtualBalances The new virtual balances of the pool
      */
-    function calculateVirtualBalancesOutOfRange(
+    function calculateVirtualBalancesUpdatingPriceRange(
         uint256 currentFourthRootPriceRatio,
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances,
         bool isPoolAboveCenter,
-        uint256 timeConstant,
+        uint256 priceShiftDailyRangeInSeconds,
         uint32 currentTimestamp,
         uint32 lastTimestamp
     ) internal pure returns (uint256[] memory) {
-        uint256 priceRatio = currentFourthRootPriceRatio.mulDown(currentFourthRootPriceRatio);
+        // Round up price ratio, to round virtual balances down.
+        uint256 priceRatio = currentFourthRootPriceRatio.mulUp(currentFourthRootPriceRatio);
 
         // The token overvalued is the one with low token balance (therefore, rarer and more valuable).
         (uint256 indexTokenUndervalued, uint256 indexTokenOvervalued) = isPoolAboveCenter ? (0, 1) : (1, 0);
 
-        // Vb = Vb * (1 - timeConstant)^(Tcurr - Tlast)
+        // Vb = Vb * (1 - priceShiftDailyRangeInSeconds)^(Tcurr - Tlast)
         virtualBalances[indexTokenOvervalued] = virtualBalances[indexTokenOvervalued].mulDown(
-            LogExpMath.pow(FixedPoint.ONE - timeConstant, (currentTimestamp - lastTimestamp) * FixedPoint.ONE)
+            LogExpMath.pow(
+                FixedPoint.ONE - priceShiftDailyRangeInSeconds,
+                (currentTimestamp - lastTimestamp) * FixedPoint.ONE
+            )
         );
         // Va = (Ra * (Vb + Rb)) / (((priceRatio - 1) * Vb) - Rb)
-        virtualBalances[indexTokenUndervalued] = (
-            balancesScaled18[indexTokenUndervalued].mulDown(
-                virtualBalances[indexTokenOvervalued] + balancesScaled18[indexTokenOvervalued]
-            )
-        ).divDown(
-                (priceRatio - FixedPoint.ONE).mulDown(virtualBalances[indexTokenOvervalued]) -
-                    balancesScaled18[indexTokenOvervalued]
-            );
+        virtualBalances[indexTokenUndervalued] =
+            (balancesScaled18[indexTokenUndervalued] *
+                (virtualBalances[indexTokenOvervalued] + balancesScaled18[indexTokenOvervalued])) /
+            ((priceRatio - FixedPoint.ONE).mulDown(virtualBalances[indexTokenOvervalued]) -
+                balancesScaled18[indexTokenOvervalued]);
 
         return virtualBalances;
     }
@@ -404,9 +458,10 @@ library ReClammMath {
         // The token overvalued is the one with low token balance (therefore, rarer and more valuable).
         (uint256 indexTokenUndervalued, uint256 indexTokenOvervalued) = isPoolAboveCenter ? (0, 1) : (1, 0);
 
+        // Round up the centeredness, so the virtual balances are rounded down when the pool prices are moving.
         return
             ((balancesScaled18[indexTokenOvervalued] * virtualBalances[indexTokenUndervalued]) /
-                balancesScaled18[indexTokenUndervalued]).divDown(virtualBalances[indexTokenOvervalued]);
+                balancesScaled18[indexTokenUndervalued]).divUp(virtualBalances[indexTokenOvervalued]);
     }
 
     /**
@@ -417,32 +472,32 @@ library ReClammMath {
      * @param currentTime The current timestamp
      * @param startFourthRootPriceRatio The start fourth root of price ratio of the pool
      * @param endFourthRootPriceRatio The end fourth root of price ratio of the pool
-     * @param startTime The timestamp of the last user interaction with the pool
-     * @param endTime The timestamp of the next user interaction with the pool
+     * @param priceRatioUpdateStartTime The timestamp of the last user interaction with the pool
+     * @param priceRatioUpdateEndTime The timestamp of the next user interaction with the pool
      * @return fourthRootPriceRatio The fourth root of price ratio of the pool
      */
     function calculateFourthRootPriceRatio(
         uint32 currentTime,
         uint96 startFourthRootPriceRatio,
         uint96 endFourthRootPriceRatio,
-        uint32 startTime,
-        uint32 endTime
+        uint32 priceRatioUpdateStartTime,
+        uint32 priceRatioUpdateEndTime
     ) internal pure returns (uint96) {
-        if (currentTime <= startTime) {
+        if (currentTime <= priceRatioUpdateStartTime) {
             return startFourthRootPriceRatio;
-        } else if (currentTime >= endTime) {
+        } else if (currentTime >= priceRatioUpdateEndTime) {
             return endFourthRootPriceRatio;
         } else if (startFourthRootPriceRatio == endFourthRootPriceRatio) {
             return endFourthRootPriceRatio;
         }
 
-        uint256 exponent = uint256(currentTime - startTime).divDown(endTime - startTime);
+        uint256 exponent = uint256(currentTime - priceRatioUpdateStartTime).divDown(
+            priceRatioUpdateEndTime - priceRatioUpdateStartTime
+        );
 
         return
-            uint256(startFourthRootPriceRatio)
-                .mulDown(LogExpMath.pow(endFourthRootPriceRatio, exponent))
-                .divDown(LogExpMath.pow(startFourthRootPriceRatio, exponent))
-                .toUint96();
+            ((uint256(startFourthRootPriceRatio) * LogExpMath.pow(endFourthRootPriceRatio, exponent)) /
+                LogExpMath.pow(startFourthRootPriceRatio, exponent)).toUint96();
     }
 
     /**
@@ -468,10 +523,19 @@ library ReClammMath {
     /**
      * @notice Convert a raw daily rate into the time constant value used internally.
      * @param priceShiftDailyRate The price shift daily rate
-     * @return timeConstant The time constant
+     * @return priceShiftDailyRangeInSeconds The time constant
      */
     function computePriceShiftDailyRate(uint256 priceShiftDailyRate) internal pure returns (uint128) {
         // Divide daily rate by a number of seconds per day (plus some adjustment)
         return (priceShiftDailyRate / _SECONDS_PER_DAY_WITH_ADJUSTMENT).toUint128();
+    }
+
+    /**
+     * @notice Calculate the square root of a value scaled by 18 decimals.
+     * @param valueScaled18 The value to calculate the square root of, scaled by 18 decimals
+     * @return sqrtValueScaled18 The square root of the value scaled by 18 decimals
+     */
+    function sqrtScaled18(uint256 valueScaled18) internal pure returns (uint256) {
+        return Math.sqrt(valueScaled18 * FixedPoint.ONE);
     }
 }

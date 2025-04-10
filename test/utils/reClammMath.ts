@@ -16,17 +16,25 @@ export enum Rounding {
   ROUND_DOWN,
 }
 
-type PriceRatioState = {
-  startTime: number;
-  endTime: number;
+export type BalancesAndPriceRatio = {
+  realBalances: bigint[];
+  virtualBalances: bigint[];
+  fourthRootPriceRatio: bigint;
+};
+
+export type PriceRatioState = {
+  priceRatioUpdateStartTime: number;
+  priceRatioUpdateEndTime: number;
   startFourthRootPriceRatio: bigint;
   endFourthRootPriceRatio: bigint;
 };
 
+const _INITIALIZATION_MAX_BALANCE_A = fp(1000000);
+
 export function getCurrentVirtualBalances(
   balancesScaled18: bigint[],
   lastVirtualBalances: bigint[],
-  timeConstant: bigint,
+  priceShiftDailyRangeInSeconds: bigint,
   lastTimestamp: bigint,
   currentTimestamp: bigint,
   centerednessMargin: bigint,
@@ -44,16 +52,17 @@ export function getCurrentVirtualBalances(
     currentTimestamp,
     priceRatioState.startFourthRootPriceRatio,
     priceRatioState.endFourthRootPriceRatio,
-    priceRatioState.startTime,
-    priceRatioState.endTime
+    priceRatioState.priceRatioUpdateStartTime,
+    priceRatioState.priceRatioUpdateEndTime
   );
 
   const isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances);
 
   if (
-    priceRatioState.startTime != 0 &&
-    currentTimestamp > priceRatioState.startTime &&
-    (currentTimestamp < priceRatioState.endTime || lastTimestamp < priceRatioState.endTime)
+    priceRatioState.priceRatioUpdateStartTime != 0 &&
+    currentTimestamp > priceRatioState.priceRatioUpdateStartTime &&
+    (currentTimestamp < priceRatioState.priceRatioUpdateEndTime ||
+      lastTimestamp < priceRatioState.priceRatioUpdateEndTime)
   ) {
     virtualBalances = calculateVirtualBalancesUpdatingPriceRatio(
       currentFourthRootPriceRatio,
@@ -67,7 +76,7 @@ export function getCurrentVirtualBalances(
   if (isPoolInRange(balancesScaled18, lastVirtualBalances, centerednessMargin) == false) {
     const priceRatio = fpMulDown(currentFourthRootPriceRatio, currentFourthRootPriceRatio);
 
-    const base = fromFp(FP_ONE - timeConstant);
+    const base = fromFp(FP_ONE - priceShiftDailyRangeInSeconds);
     const exponent = fromFp(fp(currentTimestamp - lastTimestamp));
     const powResult = base.pow(exponent);
 
@@ -135,7 +144,7 @@ export function calculateVirtualBalancesUpdatingPriceRatio(
 export function computeInvariant(
   balancesScaled18: bigint[],
   lastVirtualBalances: bigint[],
-  timeConstant: bigint,
+  priceShiftDailyRangeInSeconds: bigint,
   lastTimestamp: number,
   currentTimestamp: number,
   centerednessMargin: bigint,
@@ -145,7 +154,7 @@ export function computeInvariant(
   const [currentVirtualBalances, _] = getCurrentVirtualBalances(
     balancesScaled18,
     lastVirtualBalances,
-    timeConstant,
+    priceShiftDailyRangeInSeconds,
     lastTimestamp,
     currentTimestamp,
     centerednessMargin,
@@ -199,12 +208,33 @@ export function calculateInGivenOut(
   return fpDivUp(invariant, finalBalances[tokenOutIndex] - amountGivenScaled18) - finalBalances[tokenInIndex];
 }
 
-export function initializeVirtualBalances(balancesScaled18: bigint[], fourthRootPriceRatio: bigint): bigint[] {
-  const virtualBalances = [0n, 0n];
-  virtualBalances[0] = fpDivDown(balancesScaled18[0], fourthRootPriceRatio - FP_ONE);
-  virtualBalances[1] = fpDivDown(balancesScaled18[1], fourthRootPriceRatio - FP_ONE);
+export function computeTheoreticalPriceRatioAndBalances(
+  minPrice: bigint,
+  maxPrice: bigint,
+  targetPrice: bigint
+): BalancesAndPriceRatio {
+  const sqrtPriceRatio: bigint = bn(Math.sqrt(Number(fpDivDown(maxPrice, minPrice) * FP_ONE)));
+  const fourthRootPriceRatio: bigint = bn(Math.sqrt(Number(sqrtPriceRatio * FP_ONE)));
 
-  return virtualBalances;
+  const virtualBalances: bigint[] = [];
+  virtualBalances[0] = fpDivDown(_INITIALIZATION_MAX_BALANCE_A, sqrtPriceRatio - FP_ONE);
+  virtualBalances[1] = fpMulDown(minPrice, virtualBalances[0] + _INITIALIZATION_MAX_BALANCE_A);
+
+  const realBalances: bigint[] = [];
+  realBalances[1] =
+    bn(
+      Math.sqrt(
+        Number(
+          fpMulUp(fpMulUp(targetPrice, virtualBalances[1]), _INITIALIZATION_MAX_BALANCE_A + virtualBalances[0]) * FP_ONE
+        )
+      )
+    ) - virtualBalances[1];
+  realBalances[0] = fpDivDown(
+    realBalances[1] + virtualBalances[1] - fpMulDown(virtualBalances[0], targetPrice),
+    targetPrice
+  );
+
+  return { realBalances, virtualBalances, fourthRootPriceRatio };
 }
 
 export function isPoolInRange(
@@ -219,35 +249,37 @@ export function isPoolInRange(
 export function calculateCenteredness(balancesScaled18: bigint[], virtualBalances: bigint[]): bigint {
   if (balancesScaled18[0] == 0n || balancesScaled18[1] == 0n) {
     return 0n;
-  } else if (isAboveCenter(balancesScaled18, virtualBalances)) {
-    return fpDivDown(
-      fpMulDown(balancesScaled18[1], virtualBalances[0]),
-      fpMulDown(balancesScaled18[0], virtualBalances[1])
-    );
-  } else {
-    return fpDivDown(
-      fpMulDown(balancesScaled18[0], virtualBalances[1]),
-      fpMulDown(balancesScaled18[1], virtualBalances[0])
-    );
   }
+
+  const isPoolAboveCenter = isAboveCenter(balancesScaled18, virtualBalances);
+
+  const [indexTokenUndervalued, indexTokenOvervalued] = isPoolAboveCenter ? [0, 1] : [1, 0];
+
+  return fpDivUp(
+    (balancesScaled18[indexTokenOvervalued] * virtualBalances[indexTokenUndervalued]) /
+      balancesScaled18[indexTokenUndervalued],
+    virtualBalances[indexTokenOvervalued]
+  );
 }
 
 export function calculateFourthRootPriceRatio(
   currentTime: number,
   startFourthRootPriceRatio: BigNumberish,
   endFourthRootPriceRatio: BigNumberish,
-  startTime: number,
-  endTime: number
+  priceRatioUpdateStartTime: number,
+  priceRatioUpdateEndTime: number
 ): bigint {
-  if (currentTime <= startTime) {
+  if (currentTime <= priceRatioUpdateStartTime) {
     return bn(startFourthRootPriceRatio);
-  } else if (currentTime >= endTime) {
+  } else if (currentTime >= priceRatioUpdateEndTime) {
     return bn(endFourthRootPriceRatio);
   } else if (startFourthRootPriceRatio == endFourthRootPriceRatio) {
     return bn(endFourthRootPriceRatio);
   }
 
-  const exponent = fromFp(fpDivDown(currentTime - startTime, endTime - startTime));
+  const exponent = fromFp(
+    fpDivDown(currentTime - priceRatioUpdateStartTime, priceRatioUpdateEndTime - priceRatioUpdateStartTime)
+  );
 
   return fpDivDown(
     fpMulDown(startFourthRootPriceRatio, fp(fromFp(endFourthRootPriceRatio).pow(exponent))),

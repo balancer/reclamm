@@ -20,132 +20,114 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     using FixedPoint for uint256;
     using ArrayHelpers for *;
 
-    uint256 private constant _PRICE_RATIO = 2e18; // Max price is 2x min price.
-    uint256 private constant _INITIAL_BALANCE_A = 1_000_000e18;
-    uint256 private constant _INITIAL_BALANCE_B = 100_000e18;
+    uint256 private constant _INITIAL_PARAMS_ERROR = 1e6;
 
     function setUp() public virtual override {
-        setPriceRatio(_PRICE_RATIO);
-        setInitialBalances(_INITIAL_BALANCE_A, _INITIAL_BALANCE_B);
         setPriceShiftDailyRate(0);
         super.setUp();
     }
 
     function testInitialParams() public view {
-        uint256[] memory virtualBalances = _calculateVirtualBalances();
+        (
+            uint256[] memory theoreticalBalances,
+            uint256[] memory theoreticalVirtualBalances,
+            uint256 theoreticalPriceRatio
+        ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
+                _DEFAULT_MIN_PRICE,
+                _DEFAULT_MAX_PRICE,
+                _DEFAULT_TARGET_PRICE
+            );
 
-        (uint256[] memory curentVirtualBalances, ) = ReClammPool(pool).getCurrentVirtualBalances();
+        uint256 balanceRatio = _initialBalances[0].divDown(theoreticalBalances[0]);
 
-        assertEq(
-            ReClammPool(pool).getCurrentFourthRootPriceRatio(),
-            fourthRootPriceRatio(),
-            "Invalid fourthRootPriceRatio"
+        assertEq(_initialFourthRootPriceRatio, theoreticalPriceRatio, "Invalid fourthRootPriceRatio");
+
+        // Don't need to check balances of token[0], since the balance ratio was calculated based on it.
+        assertApproxEqRel(
+            _initialBalances[1],
+            theoreticalBalances[1].mulDown(balanceRatio),
+            _INITIAL_PARAMS_ERROR,
+            "Invalid balance B"
         );
-        assertEq(curentVirtualBalances[0], virtualBalances[0], "Invalid virtual A balance");
-        assertEq(curentVirtualBalances[1], virtualBalances[1], "Invalid virtual B balance");
+
+        assertApproxEqRel(
+            _initialVirtualBalances[0],
+            theoreticalVirtualBalances[0].mulDown(balanceRatio),
+            _INITIAL_PARAMS_ERROR,
+            "Invalid virtual A balance"
+        );
+        assertApproxEqRel(
+            _initialVirtualBalances[1],
+            theoreticalVirtualBalances[1].mulDown(balanceRatio),
+            _INITIAL_PARAMS_ERROR,
+            "Invalid virtual B balance"
+        );
     }
 
-    function testWithDifferentInitialBalances__Fuzz(int256 diffCoefficient) public {
-        // This test verifies the virtual balances of two pools, where the real balances
-        // differ by a certain coefficient while maintaining the balance ratio.
-
-        diffCoefficient = bound(diffCoefficient, -100, 100);
-        if (diffCoefficient >= -1 && diffCoefficient <= 1) {
-            diffCoefficient = 2;
-        }
-
-        uint256[] memory newInitialBalances = new uint256[](2);
-        if (diffCoefficient > 0) {
-            newInitialBalances[0] = _INITIAL_BALANCE_A * uint256(diffCoefficient);
-            newInitialBalances[1] = _INITIAL_BALANCE_B * uint256(diffCoefficient);
-        } else {
-            newInitialBalances[0] = _INITIAL_BALANCE_A / uint256(-diffCoefficient);
-            newInitialBalances[1] = _INITIAL_BALANCE_B / uint256(-diffCoefficient);
-        }
-
-        setInitialBalances(newInitialBalances[0], newInitialBalances[1]);
-        (address firstPool, address secondPool) = _createNewPool();
-
-        assertEq(
-            ReClammPool(firstPool).getCurrentFourthRootPriceRatio(),
-            fourthRootPriceRatio(),
-            "Invalid fourthRootPriceRatio for firstPool"
-        );
-        assertEq(
-            ReClammPool(secondPool).getCurrentFourthRootPriceRatio(),
-            fourthRootPriceRatio(),
-            "Invalid fourthRootPriceRatio for newPool"
+    function testInitializationWithPrices__Fuzz(
+        uint256 newMinPrice,
+        uint256 newMaxPrice,
+        uint256 newTargetPrice
+    ) public {
+        newMinPrice = bound(newMinPrice, _MIN_PRICE, _MAX_PRICE.divDown(_MIN_PRICE_RATIO));
+        newMaxPrice = bound(newMaxPrice, newMinPrice.mulUp(_MIN_PRICE_RATIO), _MAX_PRICE);
+        newTargetPrice = bound(
+            newTargetPrice,
+            newMinPrice + newMinPrice.mulDown((_MIN_PRICE_RATIO - FixedPoint.ONE) / 2),
+            newMaxPrice - newMinPrice.mulDown((_MIN_PRICE_RATIO - FixedPoint.ONE) / 2)
         );
 
-        (uint256[] memory curentFirstPoolVirtualBalances, ) = ReClammPool(firstPool).getCurrentVirtualBalances();
-        (uint256[] memory curentNewPoolVirtualBalances, ) = ReClammPool(secondPool).getCurrentVirtualBalances();
+        // Assume the pool is in range, else the initialization will revert.
+        _assumePoolInRange(newMinPrice, newMaxPrice, newTargetPrice);
 
-        if (diffCoefficient > 0) {
-            assertGt(
-                curentNewPoolVirtualBalances[0],
-                curentFirstPoolVirtualBalances[0],
-                "Virtual A balance should be greater for newPool"
-            );
-            assertGt(
-                curentNewPoolVirtualBalances[1],
-                curentFirstPoolVirtualBalances[1],
-                "Virtual B balance should be greater for newPool"
-            );
-        } else {
-            assertLt(
-                curentNewPoolVirtualBalances[0],
-                curentFirstPoolVirtualBalances[0],
-                "Virtual A balance should be less for newPool"
-            );
-            assertLt(
-                curentNewPoolVirtualBalances[1],
-                curentFirstPoolVirtualBalances[1],
-                "Virtual B balance should be less for newPool"
-            );
-        }
-    }
+        setInitializationPrices(newMinPrice, newMaxPrice, newTargetPrice);
+        _createNewPool();
 
-    function testWithDifferentPriceRatio__Fuzz(uint96 endFourthRootPriceRatio) public {
-        endFourthRootPriceRatio = SafeCast.toUint96(bound(endFourthRootPriceRatio, 1.001e18, 1_000_000e18)); // Price range cannot be lower than 1.
+        (, , uint256[] memory balances, ) = vault.getPoolTokenInfo(pool);
+        (uint256[] memory virtualBalances, ) = ReClammPool(pool).getCurrentVirtualBalances();
 
-        uint96 initialFourthRootPriceRatio = fourthRootPriceRatio();
-        setFourthRootPriceRatio(endFourthRootPriceRatio);
-        (address firstPool, address secondPool) = _createNewPool();
+        uint256 currentPrice = (balances[usdcIdx] + virtualBalances[usdcIdx]).divDown(
+            balances[daiIdx] + virtualBalances[daiIdx]
+        );
 
-        (uint256[] memory curentFirstPoolVirtualBalances, ) = ReClammPool(firstPool).getCurrentVirtualBalances();
-        (uint256[] memory curentNewPoolVirtualBalances, ) = ReClammPool(secondPool).getCurrentVirtualBalances();
+        assertApproxEqRel(currentPrice, newTargetPrice, _INITIAL_PARAMS_ERROR, "Current price does not match");
 
-        if (endFourthRootPriceRatio > initialFourthRootPriceRatio) {
-            assertLt(
-                curentNewPoolVirtualBalances[0],
-                curentFirstPoolVirtualBalances[0],
-                "Virtual A balance should be less for newPool"
-            );
-            assertLt(
-                curentNewPoolVirtualBalances[1],
-                curentFirstPoolVirtualBalances[1],
-                "Virtual B balance should be less for newPool"
-            );
-        } else {
-            assertGe(
-                curentNewPoolVirtualBalances[0],
-                curentFirstPoolVirtualBalances[0],
-                "Virtual A balance should be greater for newPool"
-            );
-            assertGe(
-                curentNewPoolVirtualBalances[1],
-                curentFirstPoolVirtualBalances[1],
-                "Virtual B balance should be greater for newPool"
-            );
-        }
+        uint256 balanceDaiEdge = (virtualBalances[usdcIdx] - virtualBalances[daiIdx].mulDown(newMinPrice)).divDown(
+            newMinPrice
+        );
+        uint256 invariantDaiEdge = ReClammPool(pool).computeInvariant(
+            [balanceDaiEdge, 0].toMemoryArray(),
+            Rounding.ROUND_DOWN
+        );
+
+        uint256 balanceUsdcEdge = virtualBalances[daiIdx].mulDown(newMaxPrice) - virtualBalances[usdcIdx];
+        uint256 invariantUsdcEdge = ReClammPool(pool).computeInvariant(
+            [0, balanceUsdcEdge].toMemoryArray(),
+            Rounding.ROUND_DOWN
+        );
+
+        uint256 newInvariant = _getCurrentInvariant();
+
+        assertApproxEqRel(
+            invariantDaiEdge,
+            invariantUsdcEdge,
+            _INITIAL_PARAMS_ERROR,
+            "Invariant at the edges should be equal"
+        );
+        assertApproxEqRel(invariantDaiEdge, newInvariant, _INITIAL_PARAMS_ERROR, "Invariant should be equal");
     }
 
     function testChangingDifferentPriceRatio__Fuzz(uint96 endFourthRootPriceRatio) public {
         endFourthRootPriceRatio = SafeCast.toUint96(bound(endFourthRootPriceRatio, 1.1e18, 10e18));
-
         uint256 initialFourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
 
-        uint32 duration = 2 hours;
+        if (endFourthRootPriceRatio > initialFourthRootPriceRatio) {
+            vm.assume(endFourthRootPriceRatio - initialFourthRootPriceRatio >= 2);
+        } else {
+            vm.assume(initialFourthRootPriceRatio - endFourthRootPriceRatio >= 2);
+        }
+
+        uint32 duration = 6 hours;
 
         (uint256[] memory poolVirtualBalancesBefore, ) = ReClammPool(pool).getCurrentVirtualBalances();
 
@@ -183,9 +165,8 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     }
 
     function testSwapExactIn__Fuzz(uint256 exactAmountIn) public {
-        exactAmountIn = bound(exactAmountIn, 1e6, _INITIAL_BALANCE_A);
+        exactAmountIn = bound(exactAmountIn, 1e6, _initialBalances[daiIdx]);
 
-        (uint256[] memory oldVirtualBalances, ) = ReClammPool(pool).getCurrentVirtualBalances();
         uint256 invariantBefore = _getCurrentInvariant();
 
         vm.prank(alice);
@@ -194,15 +175,18 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         uint256 invariantAfter = _getCurrentInvariant();
         assertLe(invariantBefore, invariantAfter, "Invariant should not decrease");
 
-        (uint256[] memory newVirtualBalances, ) = ReClammPool(pool).getCurrentVirtualBalances();
-        assertEq(newVirtualBalances[0], oldVirtualBalances[0], "Virtual A balances do not match");
-        assertEq(newVirtualBalances[1], oldVirtualBalances[1], "Virtual B balances do not match");
+        (uint256[] memory currentVirtualBalances, ) = ReClammPool(pool).getCurrentVirtualBalances();
+        assertEq(currentVirtualBalances[daiIdx], _initialVirtualBalances[daiIdx], "DAI Virtual balances do not match");
+        assertEq(
+            currentVirtualBalances[usdcIdx],
+            _initialVirtualBalances[usdcIdx],
+            "USDC Virtual balances do not match"
+        );
     }
 
     function testSwapExactOut__Fuzz(uint256 exactAmountOut) public {
-        exactAmountOut = bound(exactAmountOut, 1e6, _INITIAL_BALANCE_B - _MIN_TOKEN_BALANCE - 1);
+        exactAmountOut = bound(exactAmountOut, 1e6, _initialBalances[usdcIdx] - _MIN_TOKEN_BALANCE - 1);
 
-        uint256[] memory virtualBalances = _calculateVirtualBalances();
         uint256 invariantBefore = _getCurrentInvariant();
 
         vm.prank(alice);
@@ -212,12 +196,18 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         assertLe(invariantBefore, invariantAfter, "Invariant should not decrease");
 
         (uint256[] memory currentVirtualBalances, ) = ReClammPool(pool).getCurrentVirtualBalances();
-        assertEq(currentVirtualBalances[0], virtualBalances[0], "Virtual A balances don't equal");
-        assertEq(currentVirtualBalances[1], virtualBalances[1], "Virtual B balances don't equal");
+        assertEq(currentVirtualBalances[daiIdx], _initialVirtualBalances[daiIdx], "DAI Virtual balances do not match");
+        assertEq(
+            currentVirtualBalances[usdcIdx],
+            _initialVirtualBalances[usdcIdx],
+            "USDC Virtual balances do not match"
+        );
     }
 
-    function testAddLiquidity__Fuzz(uint256 exactBptAmountOut) public {
-        exactBptAmountOut = bound(exactBptAmountOut, 1e18, 10_000e18);
+    function testAddLiquidityProportional__Fuzz(uint256 exactBptAmountOut) public {
+        exactBptAmountOut = bound(exactBptAmountOut, 1e6, 10_000e18);
+
+        uint256 currentTotalSupply = ReClammPool(pool).totalSupply();
 
         uint256 invariantBefore = _getCurrentInvariant();
 
@@ -231,14 +221,43 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         );
 
         uint256 invariantAfter = _getCurrentInvariant();
+        (, , uint256[] memory balancesAfter, ) = vault.getPoolTokenInfo(pool);
+        (uint256[] memory virtualBalancesAfter, ) = ReClammPool(pool).getCurrentVirtualBalances();
 
         assertGt(invariantAfter, invariantBefore, "Invariant should increase");
 
-        // TODO: add check for virtual balances
+        assertApproxEqRel(
+            balancesAfter[daiIdx],
+            _initialBalances[daiIdx].mulDown(FixedPoint.ONE + exactBptAmountOut.divDown(currentTotalSupply)),
+            _INITIAL_PARAMS_ERROR,
+            "DAI balances do not match"
+        );
+        assertApproxEqRel(
+            balancesAfter[usdcIdx],
+            _initialBalances[usdcIdx].mulDown(FixedPoint.ONE + exactBptAmountOut.divDown(currentTotalSupply)),
+            _INITIAL_PARAMS_ERROR,
+            "USDC balances do not match"
+        );
+
+        assertApproxEqRel(
+            virtualBalancesAfter[daiIdx],
+            _initialVirtualBalances[daiIdx].mulDown(FixedPoint.ONE + exactBptAmountOut.divDown(currentTotalSupply)),
+            _INITIAL_PARAMS_ERROR,
+            "DAI virtual balances do not match"
+        );
+        assertApproxEqRel(
+            virtualBalancesAfter[usdcIdx],
+            _initialVirtualBalances[usdcIdx].mulDown(FixedPoint.ONE + exactBptAmountOut.divDown(currentTotalSupply)),
+            _INITIAL_PARAMS_ERROR,
+            "USDC virtual balances do not match"
+        );
     }
 
     function testRemoveLiquidity__Fuzz(uint256 exactBptAmountIn) public {
-        exactBptAmountIn = bound(exactBptAmountIn, 1e18, 10_000e18);
+        // Leave at least 10% of tokens in the pool to don't trigger the error TokenBalanceTooLow().
+        exactBptAmountIn = bound(exactBptAmountIn, 1e8, (9 * ReClammPool(pool).balanceOf(lp)) / 10);
+
+        uint256 currentTotalSupply = ReClammPool(pool).totalSupply();
 
         uint256 invariantBefore = _getCurrentInvariant();
 
@@ -252,9 +271,36 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         );
 
         uint256 invariantAfter = _getCurrentInvariant();
+        (, , uint256[] memory balancesAfter, ) = vault.getPoolTokenInfo(pool);
+        (uint256[] memory virtualBalancesAfter, ) = ReClammPool(pool).getCurrentVirtualBalances();
+
         assertLt(invariantAfter, invariantBefore, "Invariant should decrease");
 
-        // TODO: add check for virtual balances
+        assertApproxEqRel(
+            balancesAfter[daiIdx],
+            _initialBalances[daiIdx].mulDown(FixedPoint.ONE - exactBptAmountIn.divDown(currentTotalSupply)),
+            _INITIAL_PARAMS_ERROR,
+            "DAI balances do not match"
+        );
+        assertApproxEqRel(
+            balancesAfter[usdcIdx],
+            _initialBalances[usdcIdx].mulDown(FixedPoint.ONE - exactBptAmountIn.divDown(currentTotalSupply)),
+            _INITIAL_PARAMS_ERROR,
+            "USDC balances do not match"
+        );
+
+        assertApproxEqRel(
+            virtualBalancesAfter[daiIdx],
+            _initialVirtualBalances[daiIdx].mulDown(FixedPoint.ONE - exactBptAmountIn.divDown(currentTotalSupply)),
+            _INITIAL_PARAMS_ERROR,
+            "DAI virtual balances do not match"
+        );
+        assertApproxEqRel(
+            virtualBalancesAfter[usdcIdx],
+            _initialVirtualBalances[usdcIdx].mulDown(FixedPoint.ONE - exactBptAmountIn.divDown(currentTotalSupply)),
+            _INITIAL_PARAMS_ERROR,
+            "USDC virtual balances do not match"
+        );
     }
 
     function _getCurrentInvariant() internal view returns (uint256) {
@@ -262,19 +308,17 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         return ReClammPool(pool).computeInvariant(balances, Rounding.ROUND_DOWN);
     }
 
-    function _calculateVirtualBalances() internal view returns (uint256[] memory virtualBalances) {
-        virtualBalances = new uint256[](2);
-
-        uint256 fourthRootPriceRatioMinusOne = fourthRootPriceRatio() - FixedPoint.ONE;
-        virtualBalances[0] = _INITIAL_BALANCE_A.divDown(fourthRootPriceRatioMinusOne);
-        virtualBalances[1] = _INITIAL_BALANCE_B.divDown(fourthRootPriceRatioMinusOne);
-    }
-
-    function _createNewPool() internal returns (address initalPool, address newPool) {
-        initalPool = pool;
+    function _createNewPool() internal {
         (pool, poolArguments) = createPool();
         approveForPool(IERC20(pool));
         initPool();
-        newPool = pool;
+    }
+
+    function _assumePoolInRange(uint256 newMinPrice, uint256 newMaxPrice, uint256 newTargetPrice) internal pure {
+        (uint256[] memory balances, uint256[] memory virtualBalances, ) = ReClammMath
+            .computeTheoreticalPriceRatioAndBalances(newMinPrice, newMaxPrice, newTargetPrice);
+
+        uint256 centeredness = ReClammMath.calculateCenteredness(balances, virtualBalances);
+        vm.assume(centeredness > _DEFAULT_CENTEREDNESS_MARGIN);
     }
 }

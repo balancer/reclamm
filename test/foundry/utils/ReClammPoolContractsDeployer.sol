@@ -27,9 +27,11 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
     struct DefaultDeployParams {
         string name;
         string symbol;
+        uint256 defaultMinPrice;
+        uint256 defaultMaxPrice;
+        uint256 defaultTargetPrice;
         uint256 defaultPriceShiftDailyRate;
         uint256 defaultCenterednessMargin;
-        uint96 defaultFourthRootPriceRatio;
         string poolVersion;
         string factoryVersion;
     }
@@ -40,12 +42,16 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
     uint256 private _saltIndex = 0;
 
     constructor() {
+        // This is used only by E2E tests. They require a pool with the same initial balance in both tokens, so this
+        // setup covers it.
         defaultParams = DefaultDeployParams({
             name: "ReClamm Pool",
             symbol: "RECLAMMPOOL",
+            defaultMinPrice: 0.5e18,
+            defaultMaxPrice: 2e18,
+            defaultTargetPrice: 1e18,
             defaultPriceShiftDailyRate: 100e16, // 100%
             defaultCenterednessMargin: 10e16, // 10%
-            defaultFourthRootPriceRatio: 1.41421356e18, // Price Range of 4 (fourth square root is 1.41)
             poolVersion: "ReClamm Pool v1",
             factoryVersion: "ReClamm Pool Factory v1"
         });
@@ -90,8 +96,10 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
                 : vault.buildTokenConfig(_tokens, _rateProviders),
             roleAccounts,
             0,
+            defaultParams.defaultMinPrice,
+            defaultParams.defaultMaxPrice,
+            defaultParams.defaultTargetPrice,
             defaultParams.defaultPriceShiftDailyRate,
-            defaultParams.defaultFourthRootPriceRatio,
             SafeCast.toUint64(defaultParams.defaultCenterednessMargin),
             bytes32(_saltIndex++)
         );
@@ -103,8 +111,10 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
                 name: defaultParams.name,
                 symbol: defaultParams.symbol,
                 version: defaultParams.poolVersion,
+                initialMinPrice: defaultParams.defaultMinPrice,
+                initialMaxPrice: defaultParams.defaultMaxPrice,
+                initialTargetPrice: defaultParams.defaultTargetPrice,
                 priceShiftDailyRate: defaultParams.defaultPriceShiftDailyRate,
-                fourthRootPriceRatio: defaultParams.defaultFourthRootPriceRatio,
                 centerednessMargin: SafeCast.toUint64(defaultParams.defaultCenterednessMargin)
             }),
             vault
