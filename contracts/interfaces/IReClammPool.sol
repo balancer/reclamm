@@ -132,7 +132,7 @@ interface IReClammPool is IBasePool {
 
     /**
      * @notice The price shift daily rate was updated.
-     * @dev This will be emitted on deployment, and when changed by governance.
+     * @dev This will be emitted on deployment, and when changed by governance or the swap manager.
      * @param priceShiftDailyRate The new price shift daily rate
      * @param priceShiftDailyRangeInSeconds A representation of the price shift daily rate in seconds
      */
@@ -140,7 +140,7 @@ interface IReClammPool is IBasePool {
 
     /**
      * @notice The centeredness margin was updated.
-     * @dev This will be emitted on deployment, and when changed by governance.
+     * @dev This will be emitted on deployment, and when changed by governance or the swap manager.
      * @param centerednessMargin The new centeredness margin
      */
     event CenterednessMarginUpdated(uint256 centerednessMargin);
