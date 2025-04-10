@@ -64,7 +64,7 @@ library ReClammMath {
         PriceRatioState storage priceRatioState,
         Rounding rounding
     ) internal view returns (uint256 invariant) {
-        (uint256[] memory currentVirtualBalances, ) = getCurrentVirtualBalances(
+        (uint256[] memory currentVirtualBalances, ) = computeCurrentVirtualBalances(
             balancesScaled18,
             lastVirtualBalances,
             priceShiftDailyRangeInSeconds,
@@ -245,17 +245,17 @@ library ReClammMath {
      * @param priceShiftDailyRangeInSeconds IncreaseDayRate divided by 124649
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @param centerednessMargin A limit of the pool centeredness that defines if pool is out of range
-     * @param priceRatioState A struct containing start and end price ratios and a time interval
+     * @param storedPriceRatioState A struct containing start and end price ratios and a time interval
      * @return currentVirtualBalances The current virtual balances of the pool
      * @return changed Whether the virtual balances have changed and must be updated in the pool
      */
-    function getCurrentVirtualBalances(
+    function computeCurrentVirtualBalances(
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
         uint256 priceShiftDailyRangeInSeconds,
         uint32 lastTimestamp,
         uint64 centerednessMargin,
-        PriceRatioState storage priceRatioState
+        PriceRatioState storage storedPriceRatioState
     ) internal view returns (uint256[] memory currentVirtualBalances, bool changed) {
         uint32 currentTimestamp = block.timestamp.toUint32();
 
@@ -267,14 +267,14 @@ library ReClammMath {
 
         currentVirtualBalances = lastVirtualBalances;
 
-        PriceRatioState memory _priceRatioState = priceRatioState;
+        PriceRatioState memory priceRatioState = storedPriceRatioState;
 
-        uint256 currentFourthRootPriceRatio = calculateFourthRootPriceRatio(
+        uint256 currentFourthRootPriceRatio = computeFourthRootPriceRatio(
             currentTimestamp,
-            _priceRatioState.startFourthRootPriceRatio,
-            _priceRatioState.endFourthRootPriceRatio,
-            _priceRatioState.priceRatioUpdateStartTime,
-            _priceRatioState.priceRatioUpdateEndTime
+            priceRatioState.startFourthRootPriceRatio,
+            priceRatioState.endFourthRootPriceRatio,
+            priceRatioState.priceRatioUpdateStartTime,
+            priceRatioState.priceRatioUpdateEndTime
         );
 
         bool isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances);
@@ -283,9 +283,8 @@ library ReClammMath {
         // Skip the update if the start and end price ratio are the same, because the virtual balances are already
         // calculated.
         if (
-            currentTimestamp > _priceRatioState.priceRatioUpdateStartTime &&
-            lastTimestamp < _priceRatioState.priceRatioUpdateEndTime &&
-            _priceRatioState.startFourthRootPriceRatio != _priceRatioState.endFourthRootPriceRatio
+            currentTimestamp > priceRatioState.priceRatioUpdateStartTime &&
+            lastTimestamp < priceRatioState.priceRatioUpdateEndTime
         ) {
             currentVirtualBalances = calculateVirtualBalancesUpdatingPriceRatio(
                 currentFourthRootPriceRatio,
@@ -346,7 +345,7 @@ library ReClammMath {
         virtualBalances = new uint256[](2);
 
         // Calculate the current pool centeredness, which will remain constant.
-        uint256 poolCenteredness = calculateCenteredness(balancesScaled18, lastVirtualBalances);
+        uint256 poolCenteredness = computeCenteredness(balancesScaled18, lastVirtualBalances);
 
         // The original formula was a quadratic equation, with terms:
         // a = Q0 - 1
@@ -431,7 +430,7 @@ library ReClammMath {
         uint256[] memory virtualBalances,
         uint256 centerednessMargin
     ) internal pure returns (bool) {
-        uint256 centeredness = calculateCenteredness(balancesScaled18, virtualBalances);
+        uint256 centeredness = computeCenteredness(balancesScaled18, virtualBalances);
         return centeredness >= centerednessMargin;
     }
 
@@ -445,7 +444,7 @@ library ReClammMath {
      * @param virtualBalances The last virtual balances, sorted in token registration order
      * @return poolCenteredness The centeredness of the pool
      */
-    function calculateCenteredness(
+    function computeCenteredness(
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances
     ) internal pure returns (uint256) {
@@ -476,19 +475,18 @@ library ReClammMath {
      * @param priceRatioUpdateEndTime The timestamp of the next user interaction with the pool
      * @return fourthRootPriceRatio The fourth root of price ratio of the pool
      */
-    function calculateFourthRootPriceRatio(
+    function computeFourthRootPriceRatio(
         uint32 currentTime,
         uint96 startFourthRootPriceRatio,
         uint96 endFourthRootPriceRatio,
         uint32 priceRatioUpdateStartTime,
         uint32 priceRatioUpdateEndTime
     ) internal pure returns (uint96) {
-        if (currentTime <= priceRatioUpdateStartTime) {
+        // if start and end time are the same, return end value.
+        if (currentTime >= priceRatioUpdateEndTime) {
+            return endFourthRootPriceRatio;
+        } else if (currentTime <= priceRatioUpdateStartTime) {
             return startFourthRootPriceRatio;
-        } else if (currentTime >= priceRatioUpdateEndTime) {
-            return endFourthRootPriceRatio;
-        } else if (startFourthRootPriceRatio == endFourthRootPriceRatio) {
-            return endFourthRootPriceRatio;
         }
 
         uint256 exponent = uint256(currentTime - priceRatioUpdateStartTime).divDown(
