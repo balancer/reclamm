@@ -7,6 +7,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { IAuthentication } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/helpers/IAuthentication.sol";
+import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultErrors.sol";
 import {
     AddLiquidityKind,
     PoolSwapParams,
@@ -16,7 +17,6 @@ import {
 import { CastingHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/CastingHelpers.sol";
 import { InputHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/InputHelpers.sol";
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
-import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultErrors.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 
 import { PriceRatioState, ReClammMath } from "../../contracts/lib/ReClammMath.sol";
@@ -396,6 +396,15 @@ contract ReClammPoolTest is BaseReClammTest {
         ReClammPool(pool).setPriceShiftDailyRate(newPriceShiftDailyRate);
     }
 
+    function testSetPriceShiftDailyRateVaultState() public {
+        vault.forceUnlock();
+        assertTrue(vault.isUnlocked(), "Vault is locked");
+
+        vm.prank(admin);
+        vm.expectRevert(IReClammPool.VaultIsNotLocked.selector);
+        ReClammPool(pool).setPriceShiftDailyRate(200e16);
+    }
+
     function testSetPriceShiftDailyRateUpdatingVirtualBalance() public {
         // Move the pool to the edge of the price interval, so the virtual balances will change over time.
         _setPoolBalances(_MIN_TOKEN_BALANCE, 100e18);
@@ -463,6 +472,15 @@ contract ReClammPoolTest is BaseReClammTest {
     function testSetCenterednessMarginPermissioned() public {
         vm.prank(alice);
         vm.expectRevert(IAuthentication.SenderNotAllowed.selector);
+        ReClammPool(pool).setCenterednessMargin(_NEW_CENTEREDNESS_MARGIN);
+    }
+
+    function testSetCenterednessMarginVaultState() public {
+        vault.forceUnlock();
+        assertTrue(vault.isUnlocked(), "Vault is locked");
+
+        vm.prank(admin);
+        vm.expectRevert(IReClammPool.VaultIsNotLocked.selector);
         ReClammPool(pool).setCenterednessMargin(_NEW_CENTEREDNESS_MARGIN);
     }
 
@@ -557,10 +575,29 @@ contract ReClammPoolTest is BaseReClammTest {
 
     function testComputePriceRangeAfterInitialized() public view {
         assertTrue(vault.isPoolInitialized(pool), "Pool is initialized");
+        assertFalse(vault.isUnlocked(), "Vault is unlocked");
 
         // Should still be the initial values as nothing has changed.
         (uint256 minPrice, uint256 maxPrice) = ReClammPool(pool).computeCurrentPriceRange();
         assertApproxEqAbs(minPrice, _DEFAULT_MIN_PRICE, 2e6);
         assertApproxEqAbs(maxPrice, _DEFAULT_MAX_PRICE, 2e6);
+    }
+
+    function testComputePriceRangeVaultState() public {
+        vault.forceUnlock();
+        assertTrue(vault.isUnlocked(), "Vault is locked");
+
+        // Should still be the initial values as nothing has changed.
+        vm.expectRevert(IReClammPool.VaultIsNotLocked.selector);
+        ReClammPool(pool).computeCurrentPriceRange();
+    }
+
+    function testIsPoolInRangeVaultState() public {
+        vault.forceUnlock();
+        assertTrue(vault.isUnlocked(), "Vault is locked");
+
+        // Should still be the initial values as nothing has changed.
+        vm.expectRevert(IReClammPool.VaultIsNotLocked.selector);
+        ReClammPool(pool).isPoolInRange();
     }
 }
