@@ -221,6 +221,9 @@ interface IReClammPool is IBasePool {
      * price ratio is updating, this function will calculate the new virtual balances based on the timestamp of the
      * last user interaction. Note that virtual balances are always scaled18 values.
      *
+     * Current virtual balances might change as a result of an operation, manipulating the value to some degree.
+     * Ensure that the vault is locked before calling this function if this side effect is undesired.
+     *
      * @return currentVirtualBalances The current virtual balances
      * @return changed Whether the current virtual balances are different from `lastVirtualBalances`
      */
@@ -275,6 +278,10 @@ interface IReClammPool is IBasePool {
      * @dev This function can only be called when the vault is locked (i.e., not from inside an operation). It relies
      * on the pool balances, which can be manipulated if the Vault is unlocked.
      *
+     * Current centeredness margin is affected by the current live balances, so manipulating the result of this function
+     * is possible while the Vault is unlocked. Ensure that the Vault is locked before calling this function if this
+     * side effect is undesired (does not apply to off-chain calls).
+     *
      * @return isInRange True if pool centeredness is within the centeredness margin
      */
     function isPoolInRange() external view returns (bool);
@@ -284,13 +291,13 @@ interface IReClammPool is IBasePool {
      * @dev A value of 0 means the pool is at the edge (i.e., one of the real balances is zero). A value of
      * FixedPoint.ONE means the balances (and market price) are exactly in the middle of the range.
      *
+     * Current centeredness margin is affected by the current live balances, so manipulating the result of this function
+     * is possible while the Vault is unlocked. Ensure that the Vault is locked before calling this function if this
+     * side effect is undesired (does not apply to off-chain calls).
+     *
      * @return poolCenteredness The current centeredness margin (0-100% as a 18-decimal FP value)
      */
     function computeCurrentPoolCenteredness() external view returns (uint256);
-
-    /********************************************************
-                       Pool State Setters
-    ********************************************************/
 
     /**
      * @notice Get dynamic pool data relevant to swap/add/remove calculations.
@@ -303,6 +310,10 @@ interface IReClammPool is IBasePool {
      * @return data A struct containing all immutable ReClamm pool parameters
      */
     function getReClammPoolImmutableData() external view returns (ReClammPoolImmutableData memory data);
+
+    /********************************************************
+                       Pool State Setters
+    ********************************************************/
 
     /**
      * @notice Resets the price ratio update by setting a new end fourth root price ratio and time range.
