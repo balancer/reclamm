@@ -26,7 +26,8 @@
     "prettier": "npx prettier --write --plugin=prettier-plugin-solidity 'contracts/**/*.sol' 'test/**/*.sol'",
     "test": "yarn test:hardhat && yarn test:forge",
     "test:hardhat": "hardhat test",
-    "test:forge": "yarn build && REUSING_HARDHAT_ARTIFACTS=true forge test --ffi -vvv"
+    "test:forge": "yarn build && REUSING_HARDHAT_ARTIFACTS=true forge test --ffi -vvv",
+    "test:medusa": "medusa fuzz --config medusa.json"
   },
   "packageManager": "yarn@4.0.0-rc.42",
   "dependencies": {
