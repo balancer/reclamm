@@ -271,10 +271,6 @@ interface IReClammPool is IBasePool {
      */
     function getCurrentFourthRootPriceRatio() external view returns (uint96);
 
-    /********************************************************
-                       Pool State Setters
-    ********************************************************/
-
     /**
      * @notice Get dynamic pool data relevant to swap/add/remove calculations.
      * @return data A struct containing all dynamic ReClamm pool parameters
@@ -287,10 +283,14 @@ interface IReClammPool is IBasePool {
      */
     function getReClammPoolImmutableData() external view returns (ReClammPoolImmutableData memory data);
 
+    /********************************************************
+                       Pool State Setters
+    ********************************************************/
+
     /**
      * @notice Resets the price ratio update by setting a new end fourth root price ratio and time range.
      * @dev The price ratio is calculated by interpolating between the start and end times. The start price ratio will
-     * be set to the current fourth root price ratio of the pool.
+     * be set to the current fourth root price ratio of the pool. This is a permissioned function.
      *
      * @param endFourthRootPriceRatio The new ending value of the fourth root price ratio
      * @param priceRatioUpdateStartTime The timestamp when the price ratio update will start
@@ -306,7 +306,7 @@ interface IReClammPool is IBasePool {
     /**
      * @notice Updates the price shift daily rate.
      * @dev This function is considered a user interaction, and therefore recalculates the virtual balances and sets
-     * the last timestamp.
+     * the last timestamp. This is a permissioned function.
      *
      * @param newPriceShiftDailyRate The new price shift daily rate
      */
@@ -315,6 +315,8 @@ interface IReClammPool is IBasePool {
     /**
      * @notice Set the centeredness margin.
      * @dev This function is considered a user action, so it will update the last timestamp and virtual balances.
+     * This is a permissioned function.
+     *
      * @param newCenterednessMargin The new centeredness margin
      */
     function setCenterednessMargin(uint256 newCenterednessMargin) external;
