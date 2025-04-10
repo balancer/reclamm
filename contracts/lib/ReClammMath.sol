@@ -27,10 +27,10 @@ library ReClammMath {
     using FixedPoint for uint256;
     using SafeCast for *;
 
-    /// @dev The swap result is bigger than the real balance of the token.
-    error AmountOutBiggerThanBalance();
+    /// @notice The swap result is greater than the real balance of the token (i.e., the balance would drop below zero).
+    error AmountOutGreaterThanBalance();
 
-    /// @dev The swap result is negative due to a rounding issue.
+    /// @notice The swap result is negative due to a rounding issue.
     error NegativeAmountOut();
 
     /// @dev Struct created to avoid the stack-too-deep error when calculating virtual balances.
@@ -54,12 +54,6 @@ library ReClammMath {
     // later, during initialization, according to the actual liquidity added. Choosing a large number will maintain
     // precision when the pool is initialized with large amounts.
     uint256 private constant _INITIALIZATION_MAX_BALANCE_A = 1e6 * 1e18;
-
-    /// @notice The swap result is greater than the real balance of the token (i.e., the balance would drop below zero).
-    error AmountOutGreaterThanBalance();
-
-    /// @notice The swap result is negative due to a rounding issue.
-    error NegativeAmountOut();
 
     /**
      * @notice Get the current virtual balances and compute the invariant of the pool using constant product.
