@@ -58,17 +58,27 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     uint256 internal constant _BALANCE_RATIO_AND_PRICE_TOLERANCE = 1e14; // 0.01%
 
+    // These immutables are only used during initialization, to set the virtual balances and price ratio in a more
+    // user-friendly manner.
     uint256 private immutable _INITIAL_MIN_PRICE;
     uint256 private immutable _INITIAL_MAX_PRICE;
     uint256 private immutable _INITIAL_TARGET_PRICE;
 
     PriceRatioState internal _priceRatioState;
 
+    // Timestamp of the last user interaction.
     uint32 internal _lastTimestamp;
+
+    // Internal representation of the speed at which the pool moves the virtual balances when out of range.
     uint128 internal _priceShiftDailyRateInSeconds;
+
+    // Used to define the "operating range" of the pool (i.e., where the virtual balances are constant).
     uint64 internal _centerednessMargin;
+
+    // The virtual balances at the time of the last user interaction.
     uint256[] internal _lastVirtualBalances;
 
+    // Protect functions that would otherwise be vulnerable to manipulation through transient liquidity.
     modifier onlyWhenVaultIsLocked() {
         if (_vault.isUnlocked()) {
             revert VaultIsNotLocked();
@@ -95,7 +105,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         BasePoolAuthentication(vault, msg.sender)
         Version(params.version)
     {
-        // Initialize immutable params. They are used only during pool initialization.
+        // Initialize immutable params. These are only used during pool initialization.
         _INITIAL_MIN_PRICE = params.initialMinPrice;
         _INITIAL_MAX_PRICE = params.initialMaxPrice;
         _INITIAL_TARGET_PRICE = params.initialTargetPrice;
@@ -125,7 +135,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IBasePool
     function computeBalance(uint256[] memory, uint256, uint256) external pure returns (uint256) {
-        // The pool does not accept unbalanced adds and removes, so this function does not need to be implemented.
+        // The pool does not allow unbalanced adds and removes, so this function does not need to be implemented.
         revert NotImplemented();
     }
 
@@ -316,8 +326,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         (uint256[] memory currentVirtualBalances, ) = _computeCurrentVirtualBalances(balancesScaled18);
         // When adding/removing liquidity, round up the virtual balances. This will result in a higher invariant,
-        // which favors the vault in swap operations. The virtual balances are not used to calculate a proportional
-        // add/remove result.
+        // which favors the vault in swap operations. The virtual balances are not used in the proportional
+        // add/remove calculations.
         currentVirtualBalances[a] = currentVirtualBalances[a].mulUp(FixedPoint.ONE - proportion);
         currentVirtualBalances[b] = currentVirtualBalances[b].mulUp(FixedPoint.ONE - proportion);
         _setLastVirtualBalances(currentVirtualBalances);
@@ -327,7 +337,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             balancesScaled18[a].mulDown(proportion.complement()) < _MIN_TOKEN_BALANCE_SCALED18 ||
             balancesScaled18[b].mulDown(proportion.complement()) < _MIN_TOKEN_BALANCE_SCALED18
         ) {
-            // If one of the token balances is below 1e18, the update of price ratio is not accurate.
+            // If a token balance fell below the minimum balance, the price ratio update would lose precision.
             revert TokenBalanceTooLow();
         }
 
@@ -529,7 +539,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         }
         _updateTimestamp();
 
-        // Update time constant.
+        // Update the price shift rate.
         _setPriceShiftDailyRate(priceShiftDailyRate);
     }
 
@@ -571,7 +581,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             revert InvalidCenterednessMargin();
         }
 
-        _centerednessMargin = centerednessMargin.toUint64();
+        _centerednessMargin = uint64(centerednessMargin);
 
         emit CenterednessMarginUpdated(centerednessMargin);
     }

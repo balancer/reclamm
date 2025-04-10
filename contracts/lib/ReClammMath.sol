@@ -529,9 +529,9 @@ library ReClammMath {
     }
 
     /**
-     * @notice Convert a raw daily rate into the time constant value used internally.
+     * @notice Convert a raw daily rate into the value used internally.
      * @param priceShiftDailyRate The price shift daily rate
-     * @return priceShiftDailyRangeInSeconds The time constant
+     * @return priceShiftDailyRangeInSeconds Represents how fast the pool can move the virtual balances per day
      */
     function computePriceShiftDailyRate(uint256 priceShiftDailyRate) internal pure returns (uint128) {
         // Divide daily rate by a number of seconds per day (plus some adjustment)
