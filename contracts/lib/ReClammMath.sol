@@ -27,6 +27,19 @@ library ReClammMath {
     using FixedPoint for uint256;
     using SafeCast for *;
 
+    /// @notice The swap result is greater than the real balance of the token (i.e., the balance would drop below zero).
+    error AmountOutGreaterThanBalance();
+
+    /// @notice The swap result is negative due to a rounding issue.
+    error NegativeAmountOut();
+
+    /// @notice
+    enum PoolAboveCenter {
+        TRUE,
+        FALSE,
+        UNKNOWN
+    }
+
     // At a PriceShiftDailyRate of 100%, we want to be able to change the price of an out-of-range pool by a factor
     // of two, either doubling or halving it over the course of a day (86,400 seconds). The virtual balances must
     // change at the same rate. Therefore, if we want to double it in a day:
@@ -42,12 +55,6 @@ library ReClammMath {
     // later, during initialization, according to the actual liquidity added. Choosing a large number will maintain
     // precision when the pool is initialized with large amounts.
     uint256 private constant _INITIALIZATION_MAX_BALANCE_A = 1e6 * 1e18;
-
-    /// @notice The swap result is greater than the real balance of the token (i.e., the balance would drop below zero).
-    error AmountOutGreaterThanBalance();
-
-    /// @notice The swap result is negative due to a rounding issue.
-    error NegativeAmountOut();
 
     /**
      * @notice Get the current virtual balances and compute the invariant of the pool using constant product.
@@ -286,7 +293,9 @@ library ReClammMath {
             priceRatioState.priceRatioUpdateEndTime
         );
 
-        bool isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances);
+        // Postponing the calculation of isPoolAboveCenter saves gas when the pool is in range and the price ratio
+        // is not updating.
+        PoolAboveCenter poolAboveCenter = PoolAboveCenter.UNKNOWN;
 
         // If the price ratio is updating, shrink/expand the price interval by recalculating the virtual balances.
         // Skip the update if the start and end price ratio are the same, because the virtual balances are already
@@ -295,11 +304,15 @@ library ReClammMath {
             currentTimestamp > priceRatioState.priceRatioUpdateStartTime &&
             lastTimestamp < priceRatioState.priceRatioUpdateEndTime
         ) {
+            poolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances)
+                ? PoolAboveCenter.TRUE
+                : PoolAboveCenter.FALSE;
+
             currentVirtualBalances = calculateVirtualBalancesUpdatingPriceRatio(
                 currentFourthRootPriceRatio,
                 balancesScaled18,
                 lastVirtualBalances,
-                isPoolAboveCenter
+                poolAboveCenter == PoolAboveCenter.TRUE
             );
 
             changed = true;
@@ -307,11 +320,17 @@ library ReClammMath {
 
         // If the pool is out of range, track the market price by moving the price interval.
         if (isPoolInRange(balancesScaled18, currentVirtualBalances, centerednessMargin) == false) {
+            if (poolAboveCenter == PoolAboveCenter.UNKNOWN) {
+                poolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances)
+                    ? PoolAboveCenter.TRUE
+                    : PoolAboveCenter.FALSE;
+            }
+
             currentVirtualBalances = calculateVirtualBalancesUpdatingPriceRange(
                 currentFourthRootPriceRatio,
                 balancesScaled18,
                 currentVirtualBalances,
-                isPoolAboveCenter,
+                poolAboveCenter == PoolAboveCenter.TRUE,
                 priceShiftDailyRangeInSeconds,
                 currentTimestamp,
                 lastTimestamp
