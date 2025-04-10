@@ -196,11 +196,12 @@ interface IReClammPool is IBasePool {
     function computeInitialBalanceRatio() external view returns (uint256 balanceRatio);
 
     /**
-     * @notice Computes the ratio between the maximum and minimum prices in the current range.
+     * @notice Computes current operating price range.
      * @dev The prices are given as token A in terms of token B.
-     * @return priceRatio The price ratio based on the current virtual balances
+     * @return minPrice The lower limit of the current price range
+     * @return maxPrice The upper limit of the current price range
      */
-    function computeCurrentPriceRatio() external view returns (uint256 priceRatio);
+    function computeCurrentPriceRange() external view returns (uint256 minPrice, uint256 maxPrice);
 
     /**
      * @notice Returns the current virtual balances and a flag indicating whether they have changed.

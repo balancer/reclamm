@@ -346,21 +346,37 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         balanceRatio = realBalances[1].divDown(realBalances[0]);
     }
 
-    // @inheritdoc IReclammPool
-    function computeCurrentPriceRatio() external view onlyWhenVaultIsLocked returns (uint256 priceRatio) {
+    /// @inheritdoc IReClammPool
+    function computeCurrentPriceRange()
+        external
+        view
+        onlyWhenVaultIsLocked
+        returns (uint256 minPrice, uint256 maxPrice)
+    {
         if (_vault.isPoolInitialized(address(this))) {
-            (, , , uint256[] memory realBalances) = _vault.getPoolTokenInfo(address(this));
-            (uint256[] memory virtualBalances, ) = _getCurrentVirtualBalances(realBalances);
+            (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
+            (uint256[] memory virtualBalances, ) = _getCurrentVirtualBalances(balancesScaled18);
 
-            // Pmax(a) = (Vb + Rb) / Va
-            uint256 pMax = (virtualBalances[1] + realBalances[1]).divDown(virtualBalances[0]);
-            // Pmin(a) = Vb / (Va + Ra)
-            uint256 pMin = virtualBalances[1].divDown(virtualBalances[0] + realBalances[0]);
+            uint256 currentInvariant = ReClammMath.computeInvariant(
+                balancesScaled18,
+                virtualBalances,
+                Rounding.ROUND_DOWN
+            );
 
-            uint256 sqrtPriceRatio = pMax.divDown(pMin);
-            priceRatio = sqrtPriceRatio.mulDown(sqrtPriceRatio);
+            // Pmax(a) = (Rb_max + Vb)/Va
+            // We don't have Rb_max, but: invariant=(Rb_max + Vb)(Va)
+            // Then, (Rb_max + Vb) = invariant/Va, and:
+            // Pmax(a) = invariant / Va^2
+            maxPrice = currentInvariant.divDown(virtualBalances[0].mulDown(virtualBalances[0]));
+
+            // Similarly, Pmin(a) = Vb / (Va + Ra_max)
+            // We don't have Ra_max, but: invariant=(Ra_max + Va)(Vb)
+            // Then, (Va + Ra_max) = invariant/Vb, and:
+            // Pmin(a) = Vb^2 / invariant
+            minPrice = virtualBalances[1].mulDivUp(virtualBalances[1], currentInvariant);
         } else {
-            priceRatio = _INITIAL_MAX_PRICE.divDown(_INITIAL_MIN_PRICE);
+            minPrice = _INITIAL_MIN_PRICE;
+            maxPrice = _INITIAL_MAX_PRICE;
         }
     }
 
