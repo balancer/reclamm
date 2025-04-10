@@ -105,6 +105,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         BasePoolAuthentication(vault, msg.sender)
         Version(params.version)
     {
+        if (params.initialMinPrice == 0 || params.initialTargetPrice == 0) {
+            // If either of these prices were 0, pool initialization would fail with division by zero.
+            revert InvalidInitialPrice();
+        }
+
         // Initialize immutable params. These are only used during pool initialization.
         _INITIAL_MIN_PRICE = params.initialMinPrice;
         _INITIAL_MAX_PRICE = params.initialMaxPrice;
