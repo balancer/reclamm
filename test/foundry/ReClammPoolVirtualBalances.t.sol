@@ -19,6 +19,7 @@ import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
 contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     using FixedPoint for uint256;
     using ArrayHelpers for *;
+    using SafeCast for *;
 
     uint256 private constant _INITIAL_PARAMS_ERROR = 1e6;
 
@@ -121,11 +122,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         endFourthRootPriceRatio = SafeCast.toUint96(bound(endFourthRootPriceRatio, 1.1e18, 10e18));
         uint256 initialFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
 
-        if (endFourthRootPriceRatio > initialFourthRootPriceRatio) {
-            vm.assume(endFourthRootPriceRatio - initialFourthRootPriceRatio >= 2);
-        } else {
-            vm.assume(initialFourthRootPriceRatio - endFourthRootPriceRatio >= 2);
-        }
+        _assumeFourthRootPriceRatioDeltaAboveMin(initialFourthRootPriceRatio, endFourthRootPriceRatio);
 
         uint32 duration = 6 hours;
 
@@ -318,7 +315,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         (uint256[] memory balances, uint256[] memory virtualBalances, ) = ReClammMath
             .computeTheoreticalPriceRatioAndBalances(newMinPrice, newMaxPrice, newTargetPrice);
 
-        uint256 centeredness = ReClammMath.calculateCenteredness(balances, virtualBalances);
+        uint256 centeredness = ReClammMath.computeCenteredness(balances, virtualBalances);
         vm.assume(centeredness > _DEFAULT_CENTEREDNESS_MARGIN);
     }
 }
