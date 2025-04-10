@@ -5,12 +5,12 @@ import { ethers } from 'hardhat';
 import { expect } from 'chai';
 import { bn, fp } from '@balancer-labs/v3-helpers/src/numbers';
 import {
-  calculateCenteredness,
+  computeCenteredness,
   calculateInGivenOut,
   calculateOutGivenIn,
-  calculateFourthRootPriceRatio,
+  computeFourthRootPriceRatio,
   computeInvariant,
-  getCurrentVirtualBalances,
+  computeCurrentVirtualBalances,
   isAboveCenter,
   isPoolInRange,
   computePriceShiftDailyRate,
@@ -87,13 +87,13 @@ describe('ReClammMath', function () {
     });
   });
 
-  context('calculateCenteredness', () => {
+  context('computeCenteredness', () => {
     it('balancesScaled18[0] == 0', async () => {
       const balances = [bn(0), bn(100e18)];
       const virtualBalances = [bn(100e18), bn(100e18)];
 
-      const res = await mathLib.calculateCenteredness(balances, virtualBalances);
-      expect(res).to.equal(await calculateCenteredness(balances, virtualBalances));
+      const res = await mathLib.computeCenteredness(balances, virtualBalances);
+      expect(res).to.equal(await computeCenteredness(balances, virtualBalances));
       expect(res).to.equal(0n);
     });
 
@@ -101,8 +101,8 @@ describe('ReClammMath', function () {
       const balances = [bn(100e18), bn(0)];
       const virtualBalances = [bn(100e18), bn(100e18)];
 
-      const res = await mathLib.calculateCenteredness(balances, virtualBalances);
-      expect(res).to.equal(await calculateCenteredness(balances, virtualBalances));
+      const res = await mathLib.computeCenteredness(balances, virtualBalances);
+      expect(res).to.equal(await computeCenteredness(balances, virtualBalances));
       expect(res).to.equal(0n);
     });
 
@@ -110,8 +110,8 @@ describe('ReClammMath', function () {
       const balances = [bn(100e18), bn(100e18)];
       const virtualBalances = [bn(90e18), bn(100e18)];
 
-      const res = await mathLib.calculateCenteredness(balances, virtualBalances);
-      expect(res).to.equal(await calculateCenteredness(balances, virtualBalances));
+      const res = await mathLib.computeCenteredness(balances, virtualBalances);
+      expect(res).to.equal(await computeCenteredness(balances, virtualBalances));
       expect(res).to.not.equal(0n);
     });
 
@@ -119,8 +119,8 @@ describe('ReClammMath', function () {
       const balances = [bn(100e18), bn(100e18)];
       const virtualBalances = [bn(110e18), bn(100e18)];
 
-      const res = await mathLib.calculateCenteredness(balances, virtualBalances);
-      expect(res).to.equal(await calculateCenteredness(balances, virtualBalances));
+      const res = await mathLib.computeCenteredness(balances, virtualBalances);
+      expect(res).to.equal(await computeCenteredness(balances, virtualBalances));
       expect(res).to.not.equal(0n);
     });
   });
@@ -210,7 +210,7 @@ describe('ReClammMath', function () {
     });
   });
 
-  context('calculateFourthRootPriceRatio', () => {
+  context('computeFourthRootPriceRatio', () => {
     it('should return endFourthRootPriceRatioFp when currentTime > endTime', async () => {
       const currentTime = 100;
       const startFourthRootPriceRatioFp = bn(100e18);
@@ -218,14 +218,14 @@ describe('ReClammMath', function () {
       const priceRatioUpdateStartTime = 1;
       const priceRatioUpdateEndTime = 50;
 
-      const contractResult = await mathLib.calculateFourthRootPriceRatio(
+      const contractResult = await mathLib.computeFourthRootPriceRatio(
         currentTime,
         startFourthRootPriceRatioFp,
         endFourthRootPriceRatioFp,
         priceRatioUpdateStartTime,
         priceRatioUpdateEndTime
       );
-      const mathResult = calculateFourthRootPriceRatio(
+      const mathResult = computeFourthRootPriceRatio(
         currentTime,
         startFourthRootPriceRatioFp,
         endFourthRootPriceRatioFp,
@@ -244,14 +244,14 @@ describe('ReClammMath', function () {
       const priceRatioUpdateStartTime = 1;
       const priceRatioUpdateEndTime = 50;
 
-      const contractResult = await mathLib.calculateFourthRootPriceRatio(
+      const contractResult = await mathLib.computeFourthRootPriceRatio(
         currentTime,
         startFourthRootPriceRatioFp,
         endFourthRootPriceRatioFp,
         priceRatioUpdateStartTime,
         priceRatioUpdateEndTime
       );
-      const mathResult = calculateFourthRootPriceRatio(
+      const mathResult = computeFourthRootPriceRatio(
         currentTime,
         startFourthRootPriceRatioFp,
         endFourthRootPriceRatioFp,
@@ -270,14 +270,14 @@ describe('ReClammMath', function () {
       const priceRatioUpdateStartTime = 1;
       const priceRatioUpdateEndTime = 50;
 
-      const contractResult = await mathLib.calculateFourthRootPriceRatio(
+      const contractResult = await mathLib.computeFourthRootPriceRatio(
         currentTime,
         startFourthRootPriceRatioFp,
         endFourthRootPriceRatioFp,
         priceRatioUpdateStartTime,
         priceRatioUpdateEndTime
       );
-      const mathResult = calculateFourthRootPriceRatio(
+      const mathResult = computeFourthRootPriceRatio(
         currentTime,
         startFourthRootPriceRatioFp,
         endFourthRootPriceRatioFp,
@@ -296,14 +296,14 @@ describe('ReClammMath', function () {
       const priceRatioUpdateStartTime = 1;
       const priceRatioUpdateEndTime = 50;
 
-      const contractResult = await mathLib.calculateFourthRootPriceRatio(
+      const contractResult = await mathLib.computeFourthRootPriceRatio(
         currentTime,
         startFourthRootPriceRatioFp,
         endFourthRootPriceRatioFp,
         priceRatioUpdateStartTime,
         priceRatioUpdateEndTime
       );
-      const mathResult = calculateFourthRootPriceRatio(
+      const mathResult = computeFourthRootPriceRatio(
         currentTime,
         startFourthRootPriceRatioFp,
         endFourthRootPriceRatioFp,
@@ -317,7 +317,7 @@ describe('ReClammMath', function () {
     });
   });
 
-  context('getCurrentVirtualBalances', () => {
+  context('computeCurrentVirtualBalances', () => {
     const computeCheckAndReturnContractVirtualBalances = async (
       balancesScaled18: bigint[],
       lastVirtualBalances: bigint[],
@@ -329,7 +329,7 @@ describe('ReClammMath', function () {
     }> => {
       await (await mathLib.setPriceRatioState(priceRatioState)).wait();
 
-      const [contractCurrentVirtualBalances, contractChanged] = await mathLib.getCurrentVirtualBalances(
+      const [contractCurrentVirtualBalances, contractChanged] = await mathLib.computeCurrentVirtualBalances(
         balancesScaled18,
         lastVirtualBalances,
         TIME_CONSTANT,
@@ -339,7 +339,7 @@ describe('ReClammMath', function () {
 
       const blockTimestamp = await getTimestampFromLastBlock();
 
-      const [jsCurrentVirtualBalances, jsChanged] = getCurrentVirtualBalances(
+      const [jsCurrentVirtualBalances, jsChanged] = computeCurrentVirtualBalances(
         balancesScaled18,
         lastVirtualBalances,
         TIME_CONSTANT,

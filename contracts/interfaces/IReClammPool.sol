@@ -36,6 +36,7 @@ struct ReClammPoolParams {
  * @param minTokenBalanceScaled18 The minimum token balance for the pool, scaled to 18 decimals.
  * @param maxPriceShiftDailyRate The maximum daily rate for the pool's price shift, as a percentage in 18-decimal FP.
  * @param minPriceRatioUpdateDuration The minimum duration for the price ratio update, expressed in seconds.
+ * @param minPriceRatioUpdateDuration The minimum absolute difference between current and new fourth root price ratio.
  */
 struct ReClammPoolImmutableData {
     IERC20[] tokens;
@@ -49,6 +50,7 @@ struct ReClammPoolImmutableData {
     uint256 minPoolCenteredness;
     uint256 maxPriceShiftDailyRate;
     uint256 minPriceRatioUpdateDuration;
+    uint256 minFourthRootPriceRatioDelta;
 }
 
 /**
@@ -131,6 +133,9 @@ interface IReClammPool is IBasePool {
     /// @dev The difference between end time and start time is too short for the price ratio update.
     error PriceRatioUpdateDurationTooShort();
 
+    /// @dev The price ratio being set is too close to the current one.
+    error FourthRootPriceRatioDeltaBelowMin(uint256 fourthRootPriceRatioDelta);
+
     /**
      * @notice `getRate` from `IRateProvider` was called on a ReClamm Pool.
      * @dev ReClamm Pools should never be nested. This is because the invariant of the pool is used only to calculate
@@ -139,6 +144,8 @@ interface IReClammPool is IBasePool {
      */
     error ReClammPoolBptRateUnsupported();
 
+    /// @dev Function called before initializing the pool.
+    error PoolNotInitialized();
     /**
      * @notice The initial balances of the ReClamm Pool must respect the initialization ratio bounds.
      * @dev On pool creation, a theoretical balance ratio is computed from the min, max, and target prices. During
@@ -205,7 +212,10 @@ interface IReClammPool is IBasePool {
      * @return currentVirtualBalances The current virtual balances
      * @return changed Whether the current virtual balances are different from `lastVirtualBalances`
      */
-    function getCurrentVirtualBalances() external view returns (uint256[] memory currentVirtualBalances, bool changed);
+    function computeCurrentVirtualBalances()
+        external
+        view
+        returns (uint256[] memory currentVirtualBalances, bool changed);
 
     /// @notice Returns the timestamp of the last user interaction.
     function getLastTimestamp() external view returns (uint32);
@@ -246,7 +256,25 @@ interface IReClammPool is IBasePool {
      *
      * @return currentFourthRootPriceRatio The current fourth root of price ratio
      */
-    function getCurrentFourthRootPriceRatio() external view returns (uint96);
+    function computeCurrentFourthRootPriceRatio() external view returns (uint256);
+
+    /**
+     * @notice Compute whether the pool is in range (i.e., the centeredness is greater than the centeredness margin).
+     * @dev This function can only be called when the vault is locked (i.e., not from inside an operation). It relies
+     * on the pool balances, which can be manipulated if the Vault is unlocked.
+     *
+     * @return isInRange True if pool centeredness is within the centeredness margin
+     */
+    function isPoolInRange() external view returns (bool);
+
+    /**
+     * @notice Compute the current pool centeredness (a measure of how pool balance).
+     * @dev A value of 0 means the pool is at the edge (i.e., one of the real balances is zero). A value of
+     * FixedPoint.ONE means the balances (and market price) are exactly in the middle of the range.
+     *
+     * @return poolCenteredness The current centeredness margin (0-100% as a 18-decimal FP value)
+     */
+    function computeCurrentPoolCenteredness() external view returns (uint256);
 
     /********************************************************
                        Pool State Setters
