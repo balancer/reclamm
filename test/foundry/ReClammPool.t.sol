@@ -364,6 +364,15 @@ contract ReClammPoolTest is BaseReClammTest {
         ReClammPool(pool).getRate();
     }
 
+    function testSetPriceShiftDailyRateVaultUnlocked() public {
+        vault.forceUnlock();
+
+        uint256 newPriceShiftDailyRate = 200e16;
+        vm.prank(admin);
+        vm.expectRevert(IReClammPool.VaultIsNotLocked.selector);
+        ReClammPool(pool).setPriceShiftDailyRate(newPriceShiftDailyRate);
+    }
+
     function testSetPriceShiftDailyRatePoolNotInitialized() public {
         vault.manualSetInitializedPool(pool, false);
 
@@ -431,6 +440,14 @@ contract ReClammPoolTest is BaseReClammTest {
 
         assertEq(lastVirtualBalances[daiIdx], virtualBalancesBefore[daiIdx], "DAI virtual balances do not match");
         assertEq(lastVirtualBalances[usdcIdx], virtualBalancesBefore[usdcIdx], "USDC virtual balances do not match");
+    }
+
+    function testSetCenterednessMarginVaultUnlocked() public {
+        vault.forceUnlock();
+
+        vm.prank(admin);
+        vm.expectRevert(IReClammPool.VaultIsNotLocked.selector);
+        ReClammPool(pool).setCenterednessMargin(_NEW_CENTEREDNESS_MARGIN);
     }
 
     function testSetCenterednessMarginPoolNotInitialized() public {
