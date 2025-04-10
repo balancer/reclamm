@@ -65,7 +65,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     PriceRatioState internal _priceRatioState;
 
     uint32 internal _lastTimestamp;
-    uint128 internal _priceShiftDailyRangeInSeconds;
+    uint128 internal _priceShiftDailyRateInSeconds;
     uint64 internal _centerednessMargin;
     uint256[] internal _lastVirtualBalances;
 
@@ -115,7 +115,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             ReClammMath.computeInvariant(
                 balancesScaled18,
                 _lastVirtualBalances,
-                _priceShiftDailyRangeInSeconds,
+                _priceShiftDailyRateInSeconds,
                 _lastTimestamp,
                 _centerednessMargin,
                 _priceRatioState,
@@ -369,7 +369,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IReClammPool
     function getPriceShiftDailyRateInSeconds() external view returns (uint256) {
-        return _priceShiftDailyRangeInSeconds;
+        return _priceShiftDailyRateInSeconds;
     }
 
     /// @inheritdoc IReClammPool
@@ -391,7 +391,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         data.lastTimestamp = _lastTimestamp;
         data.lastVirtualBalances = _lastVirtualBalances;
-        data.priceShiftDailyRangeInSeconds = _priceShiftDailyRangeInSeconds;
+        data.priceShiftDailyRangeInSeconds = _priceShiftDailyRateInSeconds;
         data.centerednessMargin = _centerednessMargin;
 
         data.currentFourthRootPriceRatio = _calculateCurrentFourthRootPriceRatio();
@@ -471,7 +471,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         (currentVirtualBalances, changed) = ReClammMath.getCurrentVirtualBalances(
             balancesScaled18,
             _lastVirtualBalances,
-            _priceShiftDailyRangeInSeconds,
+            _priceShiftDailyRateInSeconds,
             _lastTimestamp,
             _centerednessMargin,
             _priceRatioState
@@ -532,9 +532,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             revert PriceShiftDailyRateTooHigh();
         }
 
-        _priceShiftDailyRangeInSeconds = ReClammMath.computePriceShiftDailyRate(priceShiftDailyRate);
+        _priceShiftDailyRateInSeconds = ReClammMath.computePriceShiftDailyRate(priceShiftDailyRate);
 
-        emit PriceShiftDailyRateUpdated(priceShiftDailyRate, _priceShiftDailyRangeInSeconds);
+        emit PriceShiftDailyRateUpdated(priceShiftDailyRate, _priceShiftDailyRateInSeconds);
     }
 
     /**
