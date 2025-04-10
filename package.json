@@ -24,9 +24,9 @@
     "lint:solidity": "npx prettier --check --plugin=prettier-plugin-solidity 'contracts/**/*.sol' ''test/**/*.sol'' && npx solhint 'contracts/**/*.sol'",
     "lint:typescript": "NODE_NO_WARNINGS=1 eslint  --ext .ts --ignore-path ./.eslintignore  --max-warnings 0",
     "prettier": "npx prettier --write --plugin=prettier-plugin-solidity 'contracts/**/*.sol' 'test/**/*.sol'",
-    "test": "yarn test:hardhat && yarn test:forge",
+    "test": "yarn test:forge",
     "test:hardhat": "hardhat test",
-    "test:forge": "yarn build && REUSING_HARDHAT_ARTIFACTS=true forge test --ffi -vvv"
+    "test:forge": "yarn build && REUSING_HARDHAT_ARTIFACTS=true forge test --ffi -vvv --fail-fast"
   },
   "packageManager": "yarn@4.0.0-rc.42",
   "dependencies": {
@@ -37,6 +37,7 @@
   "devDependencies": {
     "@ethersproject/abi": "^5.7.0",
     "@ethersproject/providers": "^5.7.2",
+    "@morenabarboni/sumo": "^2.5.4",
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.6",
     "@nomicfoundation/hardhat-ethers": "^3.0.5",
     "@nomicfoundation/hardhat-ignition": "^0.15.0",
