@@ -31,7 +31,7 @@ library ReClammMath {
     /// @dev Struct created to avoid the stack-too-deep error when calculating virtual balances.
     struct PoolAboveCenter {
         bool isPoolAboveCenter;
-        bool isPoolAboveCenterCalculated;
+        bool isFlagSet;
     }
 
     // We want, after 1 day (86400 seconds) that the pool is out of range, to double the price (or reduce by 50%)
