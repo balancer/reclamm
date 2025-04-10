@@ -283,13 +283,8 @@ contract ReClammPoolTest is BaseReClammTest {
 
         vm.expectRevert(IReClammPool.PoolNotInitialized.selector);
         vm.prank(admin);
-        ReClammPool(pool).setPriceRatioState(
-            1,
-            block.timestamp,
-            block.timestamp
-        );
+        ReClammPool(pool).setPriceRatioState(1, block.timestamp, block.timestamp);
     }
-
 
     function testSetFourthRootPriceRatioShortDuration() public {
         uint96 endFourthRootPriceRatio = 2e18;

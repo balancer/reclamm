@@ -100,7 +100,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _ensureVaultIsInRange();
     }
 
-    function _ensureVaultIsInRange() internal view{
+    function _ensureVaultIsInRange() internal view {
         if (_isPoolInRange() == false) {
             revert PoolIsOutOfRange();
         }

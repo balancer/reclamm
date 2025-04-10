@@ -39,8 +39,7 @@ contract E2eSwapReClammTest is E2eSwapTest, ReClammPoolContractsDeployer {
         address[] memory tokens,
         string memory label
     ) internal override returns (address newPool, bytes memory poolArgs) {
-        (newPool, poolArgs) = createReClammPool(tokens, label, vault, lp);
-        vm.warp(block.timestamp + 1);
+        return createReClammPool(tokens, label, vault, lp);
     }
 
     function _initPool(

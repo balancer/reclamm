@@ -392,6 +392,50 @@ contract ReClammMathTest is BaseReClammTest {
         assertApproxEqAbs(expectedPriceRatio, actualPriceRatio, _MAX_PRICE_ERROR_ABS, "Price Ratio should be correct");
     }
 
+    function testcomputeFourthRootPriceRatioWhenCurrentTimeIsEndTime() public pure {
+        uint96 startFourthRootPriceRatio = 100;
+        uint96 endFourthRootPriceRatio = 200;
+        uint32 priceRatioUpdateStartTime = 0;
+        uint32 priceRatioUpdateEndTime = 100;
+        uint32 currentTime = 100;
+
+        uint96 fourthRootPriceRatio = ReClammMath.computeFourthRootPriceRatio(
+            currentTime,
+            startFourthRootPriceRatio,
+            endFourthRootPriceRatio,
+            priceRatioUpdateStartTime,
+            priceRatioUpdateEndTime
+        );
+
+        assertEq(
+            fourthRootPriceRatio,
+            endFourthRootPriceRatio,
+            "FourthRootPriceRatio should be equal to endFourthRootPriceRatio"
+        );
+    }
+
+    function testcomputeFourthRootPriceRatioWhenCurrentTimeIsEndTimeAndStartTime() public pure {
+        uint96 startFourthRootPriceRatio = 100;
+        uint96 endFourthRootPriceRatio = 200;
+        uint32 priceRatioUpdateStartTime = 100;
+        uint32 priceRatioUpdateEndTime = 100;
+        uint32 currentTime = 100;
+
+        uint96 fourthRootPriceRatio = ReClammMath.computeFourthRootPriceRatio(
+            currentTime,
+            startFourthRootPriceRatio,
+            endFourthRootPriceRatio,
+            priceRatioUpdateStartTime,
+            priceRatioUpdateEndTime
+        );
+
+        assertEq(
+            fourthRootPriceRatio,
+            endFourthRootPriceRatio,
+            "FourthRootPriceRatio should be equal to endFourthRootPriceRatio"
+        );
+    }
+
     function testcomputeFourthRootPriceRatioWhenCurrentTimeIsAfterEndTime() public pure {
         uint96 startFourthRootPriceRatio = 100;
         uint96 endFourthRootPriceRatio = 200;
@@ -411,6 +455,28 @@ contract ReClammMathTest is BaseReClammTest {
             fourthRootPriceRatio,
             endFourthRootPriceRatio,
             "FourthRootPriceRatio should be equal to endFourthRootPriceRatio"
+        );
+    }
+
+    function testcomputeFourthRootPriceRatioWhenCurrentTimeIsStartTime() public pure {
+        uint96 startFourthRootPriceRatio = 100;
+        uint96 endFourthRootPriceRatio = 200;
+        uint32 priceRatioUpdateStartTime = 50;
+        uint32 priceRatioUpdateEndTime = 100;
+        uint32 currentTime = 50;
+
+        uint96 fourthRootPriceRatio = ReClammMath.computeFourthRootPriceRatio(
+            currentTime,
+            startFourthRootPriceRatio,
+            endFourthRootPriceRatio,
+            priceRatioUpdateStartTime,
+            priceRatioUpdateEndTime
+        );
+
+        assertEq(
+            fourthRootPriceRatio,
+            startFourthRootPriceRatio,
+            "FourthRootPriceRatio should be equal to startFourthRootPriceRatio"
         );
     }
 
