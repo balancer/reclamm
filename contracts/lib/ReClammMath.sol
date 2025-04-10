@@ -296,7 +296,7 @@ library ReClammMath {
             _priceRatioState.startFourthRootPriceRatio != _priceRatioState.endFourthRootPriceRatio
         ) {
             poolAboveCenter.isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances);
-            poolAboveCenter.isPoolAboveCenterCalculated = true;
+            poolAboveCenter.isFlagSet = true;
 
             currentVirtualBalances = calculateVirtualBalancesUpdatingPriceRatio(
                 currentFourthRootPriceRatio,
@@ -310,7 +310,7 @@ library ReClammMath {
 
         // If the pool is out of range, track the market price by moving the price interval.
         if (isPoolInRange(balancesScaled18, currentVirtualBalances, centerednessMargin) == false) {
-            if (poolAboveCenter.isPoolAboveCenterCalculated == false) {
+            if (poolAboveCenter.isFlagSet == false) {
                 poolAboveCenter.isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances);
                 // Not setting `isFlagSet`, because it's not read again in this function.
             }
