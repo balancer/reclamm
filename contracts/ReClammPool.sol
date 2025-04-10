@@ -633,6 +633,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             revert InvalidCenterednessMargin();
         }
 
+        // Straight cast is safe since the range is validated above (and tests ensure the margins fit in uint64).
         _centerednessMargin = uint64(centerednessMargin);
 
         emit CenterednessMarginUpdated(centerednessMargin);
