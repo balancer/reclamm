@@ -62,6 +62,7 @@ contract ReClammLiquidityTest is BaseReClammTest {
         );
 
         _checkPriceAndCenteredness(balancesBefore, balancesAfter, virtualBalancesBefore, virtualBalancesAfter);
+
         _checkInvariant(
             balancesBefore,
             balancesAfter,
