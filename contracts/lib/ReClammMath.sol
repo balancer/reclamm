@@ -312,6 +312,7 @@ library ReClammMath {
         if (isPoolInRange(balancesScaled18, currentVirtualBalances, centerednessMargin) == false) {
             if (poolAboveCenter.isPoolAboveCenterCalculated == false) {
                 poolAboveCenter.isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances);
+                // Not setting `isFlagSet`, because it's not read again in this function.
             }
 
             currentVirtualBalances = calculateVirtualBalancesUpdatingPriceRange(
