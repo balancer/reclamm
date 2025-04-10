@@ -12,9 +12,11 @@ import {
     PoolSwapParams,
     RemoveLiquidityKind
 } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
+
+import { CastingHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/CastingHelpers.sol";
+import { InputHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/InputHelpers.sol";
 import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultErrors.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
-import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import { PriceRatioState, ReClammMath } from "../../contracts/lib/ReClammMath.sol";
 import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
@@ -27,7 +29,7 @@ import {
 } from "../../contracts/interfaces/IReClammPool.sol";
 
 contract ReClammPoolTest is BaseReClammTest {
-    using SafeCast for *;
+    using CastingHelpers for address[];
     using FixedPoint for uint256;
     using SafeCast for *;
 
@@ -497,4 +499,14 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(lastVirtualBalances[daiIdx], virtualBalancesBefore[daiIdx], "DAI virtual balance does not match");
         assertEq(lastVirtualBalances[usdcIdx], virtualBalancesBefore[usdcIdx], "USDC virtual balance does not match");
     }
+
+    function testComputePriceRangeBeforeInitialized() public {
+        IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens.asIERC20());
+
+        (address pool, ) = _createPool(sortedTokens, "BeforeInitTest");
+
+        (uint256 minPrice, uint256 maxPrice) = ReClammPool(pool).computeCurrentPriceRange();
+        assertEq(minPrice, _DEFAULT_MIN_PRICE);
+        assertEq(maxPrice, _DEFAULT_MAX_PRICE);
+    } 
 }
