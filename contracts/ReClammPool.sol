@@ -691,10 +691,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         );
     }
 
-    /**
-     * @dev This function relies on the pool balance, which can be manipulated if the vault is unlocked.
-     * It can be called nonetheless,
-     */
+    /// @dev This function relies on the pool balance, which can be manipulated if the vault is unlocked.
     function _isPoolInRange() internal view returns (bool) {
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
 
