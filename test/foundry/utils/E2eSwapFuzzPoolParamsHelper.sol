@@ -33,7 +33,7 @@ contract E2eSwapFuzzPoolParamsHelper is Test {
         uint256 maxBPT = pool.computeInvariant([MAX_BALANCE, MAX_BALANCE].toMemoryArray(), Rounding.ROUND_UP);
         uint256 exactBptAmountOut = bound(params[0], FixedPoint.ONE, maxBPT);
 
-        uint256 minPrice = bound(params[1], MIN_PRICE, MAX_PRICE);
+        uint256 minPrice = bound(params[1], MIN_PRICE, MAX_PRICE - 1);
         uint256 maxPrice = bound(params[2], minPrice, MAX_PRICE);
 
         uint256 priceRatio = maxPrice.divDown(minPrice);

@@ -21,10 +21,10 @@ contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest, ReClamm
     using ArrayHelpers for *;
     using FixedPoint for uint256;
 
-    uint256 private constant MAX_BALANCE = 1_000 * FixedPoint.ONE;
-    uint256 private constant MIN_PRICE = FixedPoint.ONE;
-    uint256 private constant MAX_PRICE = 1_000 * FixedPoint.ONE;
-    uint256 private constant MAX_DAYS_FOR_PRICE_CHANGE = 10 days;
+    uint256 internal constant MAX_BALANCE = 1_000_000_000_000 * FixedPoint.ONE;
+    uint256 internal constant MIN_PRICE = FixedPoint.ONE;
+    uint256 internal constant MAX_PRICE = 1_000_000_000_000 * FixedPoint.ONE;
+    uint256 internal constant MAX_DAYS_FOR_PRICE_CHANGE = 10 days;
 
     function setUp() public override {
         E2eSwapTest.setUp();
