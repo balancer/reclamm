@@ -472,8 +472,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256 priceRatioUpdateEndTime
     )
         external
-        onlySwapFeeManagerOrGovernance(address(this))
         onlyWhenInitialized
+        onlySwapFeeManagerOrGovernance(address(this))
         returns (uint256 actualPriceRatioUpdateStartTime)
     {
         actualPriceRatioUpdateStartTime = GradualValueChange.resolveStartTime(
@@ -492,7 +492,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     /// @inheritdoc IReClammPool
     function setPriceShiftDailyRate(
         uint256 newPriceShiftDailyRate
-    ) external onlyWhenInitialized onlySwapFeeManagerOrGovernance(address(this)) {
+    ) external onlyWhenInitialized onlyWhenVaultIsLocked onlySwapFeeManagerOrGovernance(address(this)) {
         // Update virtual balances before updating the daily rate.
         _setPriceShiftDailyRateAndUpdateVirtualBalances(newPriceShiftDailyRate);
     }
@@ -500,7 +500,13 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     /// @inheritdoc IReClammPool
     function setCenterednessMargin(
         uint256 newCenterednessMargin
-    ) external onlyWhenInitialized onlySwapFeeManagerOrGovernance(address(this)) {
+    )
+        external
+        onlyWhenInitialized
+        onlyWhenVaultIsLocked
+        onlyWhenPoolIsInRange
+        onlySwapFeeManagerOrGovernance(address(this))
+    {
         _setCenterednessMarginAndUpdateVirtualBalances(newCenterednessMargin);
     }
 
@@ -565,9 +571,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// Using the pool balances to update the virtual balances is dangerous with an unlocked vault, since the balances
     /// are manipulable.
-    function _setPriceShiftDailyRateAndUpdateVirtualBalances(
-        uint256 priceShiftDailyRate
-    ) internal onlyWhenVaultIsLocked {
+    function _setPriceShiftDailyRateAndUpdateVirtualBalances(uint256 priceShiftDailyRate) internal {
         // Update virtual balances with current daily rate.
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
         (uint256[] memory currentVirtualBalances, bool changed) = _computeCurrentVirtualBalances(balancesScaled18);
@@ -594,9 +598,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
      * @dev This function relies on the pool balance, which can be manipulated if the vault is unlocked. Also, the pool
      * must be in range before and after the operation, or the pool owner could arb the pool.
      */
-    function _setCenterednessMarginAndUpdateVirtualBalances(
-        uint256 centerednessMargin
-    ) internal onlyWhenVaultIsLocked onlyWhenPoolIsInRange {
+    function _setCenterednessMarginAndUpdateVirtualBalances(uint256 centerednessMargin) internal {
         // Update the virtual balances using the current daily rate.
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
         (uint256[] memory currentVirtualBalances, bool changed) = _computeCurrentVirtualBalances(balancesScaled18);
@@ -689,8 +691,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         );
     }
 
-    /// @dev This function relies on the pool balance, which can be manipulated if the vault is unlocked.
-    function _isPoolInRange() internal view onlyWhenVaultIsLocked returns (bool) {
+    /**
+     * @dev This function relies on the pool balance, which can be manipulated if the vault is unlocked.
+     * It can be called nonetheless,
+     */
+    function _isPoolInRange() internal view returns (bool) {
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
 
         return ReClammMath.isPoolInRange(balancesScaled18, _lastVirtualBalances, _centerednessMargin);
