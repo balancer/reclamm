@@ -278,6 +278,19 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(data.minPriceRatioUpdateDuration, 6 hours, "Invalid min price ratio update duration");
     }
 
+    function testSetFourthRootPriceRatioPoolNotInitialized() public {
+        vault.manualSetInitializedPool(pool, false);
+
+        vm.expectRevert(IReClammPool.PoolNotInitialized.selector);
+        vm.prank(admin);
+        ReClammPool(pool).setPriceRatioState(
+            1,
+            block.timestamp,
+            block.timestamp
+        );
+    }
+
+
     function testSetFourthRootPriceRatioShortDuration() public {
         uint96 endFourthRootPriceRatio = 2e18;
         uint32 timeOffset = 1 hours;
@@ -286,6 +299,23 @@ contract ReClammPoolTest is BaseReClammTest {
         uint32 priceRatioUpdateEndTime = priceRatioUpdateStartTime + duration;
 
         vm.expectRevert(IReClammPool.PriceRatioUpdateDurationTooShort.selector);
+        vm.prank(admin);
+        ReClammPool(pool).setPriceRatioState(
+            endFourthRootPriceRatio,
+            priceRatioUpdateStartTime,
+            priceRatioUpdateEndTime
+        );
+    }
+
+    function testSetFourthRootPriceRatioSmallDelta() public {
+        uint256 delta = _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA - 1;
+        uint96 startFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
+        uint96 endFourthRootPriceRatio = startFourthRootPriceRatio + delta.toUint96();
+        uint32 priceRatioUpdateStartTime = uint32(block.timestamp);
+        uint32 duration = 6 hours;
+        uint32 priceRatioUpdateEndTime = priceRatioUpdateStartTime + duration;
+
+        vm.expectRevert(abi.encodeWithSelector(IReClammPool.FourthRootPriceRatioDeltaBelowMin.selector, delta));
         vm.prank(admin);
         ReClammPool(pool).setPriceRatioState(
             endFourthRootPriceRatio,
@@ -337,6 +367,15 @@ contract ReClammPoolTest is BaseReClammTest {
     function testGetRate() public {
         vm.expectRevert(IReClammPool.ReClammPoolBptRateUnsupported.selector);
         ReClammPool(pool).getRate();
+    }
+
+    function testSetPriceShiftDailyRatePoolNotInitialized() public {
+        vault.manualSetInitializedPool(pool, false);
+
+        uint256 newPriceShiftDailyRate = 200e16;
+        vm.prank(admin);
+        vm.expectRevert(IReClammPool.PoolNotInitialized.selector);
+        ReClammPool(pool).setPriceShiftDailyRate(newPriceShiftDailyRate);
     }
 
     function testSetPriceShiftDailyRate() public {
@@ -397,6 +436,14 @@ contract ReClammPoolTest is BaseReClammTest {
 
         assertEq(lastVirtualBalances[daiIdx], virtualBalancesBefore[daiIdx], "DAI virtual balances do not match");
         assertEq(lastVirtualBalances[usdcIdx], virtualBalancesBefore[usdcIdx], "USDC virtual balances do not match");
+    }
+
+    function testSetCenterednessMarginPoolNotInitialized() public {
+        vault.manualSetInitializedPool(pool, false);
+
+        vm.prank(admin);
+        vm.expectRevert(IReClammPool.PoolNotInitialized.selector);
+        ReClammPool(pool).setCenterednessMargin(_NEW_CENTEREDNESS_MARGIN);
     }
 
     function testSetCenterednessMargin() public {

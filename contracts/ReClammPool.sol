@@ -73,24 +73,34 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256[] internal _lastVirtualBalances;
 
     modifier onlyWhenVaultIsLocked() {
+        _ensureVaultIsLocked();
+        _;
+    }
+
+    function _ensureVaultIsLocked() internal view {
         if (_vault.isUnlocked()) {
             revert VaultIsNotLocked();
         }
-        _;
     }
 
     modifier onlyWhenInitialized() {
-        if (_vault.isPoolInitialized(address(this)) == false) {
-            revert PoolNotInitialized();
-        }
+        _ensureVaultIsInitialized();
         _;
     }
 
-    modifier onlyWhenPoolIsInRange() {
-        if (_isPoolInRange() == false) {
-            revert PoolIsOutOfRange();
+    function _ensureVaultIsInitialized() internal view {
+        if (_vault.isPoolInitialized(address(this)) == false) {
+            revert PoolNotInitialized();
         }
+    }
+
+    modifier onlyWhenPoolIsInRange() {
+        _ensureVaultIsInRange();
         _;
+        _ensureVaultIsInRange();
+    }
+
+    function _ensureVaultIsInRange() internal view{
         if (_isPoolInRange() == false) {
             revert PoolIsOutOfRange();
         }
