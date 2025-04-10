@@ -564,13 +564,4 @@ contract ReClammPoolTest is BaseReClammTest {
         assertApproxEqAbs(minPrice, _DEFAULT_MIN_PRICE, 2e6);
         assertApproxEqAbs(maxPrice, _DEFAULT_MAX_PRICE, 2e6);
     }
-
-    function testComputePriceRangeVaultState() public {
-        vault.forceUnlock();
-        assertTrue(vault.isUnlocked(), "Vault is locked");
-
-        // Should still be the initial values as nothing has changed.
-        vm.expectRevert(IReClammPool.VaultIsNotLocked.selector);
-        ReClammPool(pool).computeCurrentPriceRange();
-    }
 }

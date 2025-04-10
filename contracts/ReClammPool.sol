@@ -369,12 +369,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function computeCurrentPriceRange()
-        external
-        view
-        onlyWhenVaultIsLocked
-        returns (uint256 minPrice, uint256 maxPrice)
-    {
+    function computeCurrentPriceRange() external view returns (uint256 minPrice, uint256 maxPrice) {
         if (_vault.isPoolInitialized(address(this))) {
             (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
             (uint256[] memory virtualBalances, ) = _computeCurrentVirtualBalances(balancesScaled18);
@@ -385,17 +380,17 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                 Rounding.ROUND_DOWN
             );
 
-            // Pmax(a) = (Rb_max + Vb)/Va
-            // We don't have Rb_max, but: invariant=(Rb_max + Vb)(Va)
-            // Then, (Rb_max + Vb) = invariant/Va, and:
-            // Pmax(a) = invariant / Va^2
-            maxPrice = currentInvariant.divDown(virtualBalances[0].mulDown(virtualBalances[0]));
-
             // Similarly, Pmin(a) = Vb / (Va + Ra_max)
             // We don't have Ra_max, but: invariant=(Ra_max + Va)(Vb)
             // Then, (Va + Ra_max) = invariant/Vb, and:
             // Pmin(a) = Vb^2 / invariant
             minPrice = virtualBalances[1].mulDivUp(virtualBalances[1], currentInvariant);
+
+            // Pmax(a) = (Rb_max + Vb)/Va
+            // We don't have Rb_max, but: invariant=(Rb_max + Vb)(Va)
+            // Then, (Rb_max + Vb) = invariant/Va, and:
+            // Pmax(a) = invariant / Va^2
+            maxPrice = currentInvariant.divDown(virtualBalances[0].mulDown(virtualBalances[0]));
         } else {
             minPrice = _INITIAL_MIN_PRICE;
             maxPrice = _INITIAL_MAX_PRICE;
