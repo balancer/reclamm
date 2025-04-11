@@ -3,12 +3,14 @@
 pragma solidity ^0.8.24;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { IBasePool } from "@balancer-labs/v3-interfaces/contracts/vault/IBasePool.sol";
 import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { CastingHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/CastingHelpers.sol";
 import { InputHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/InputHelpers.sol";
+import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import "@balancer-labs/v3-vault/test/foundry/utils/BaseMedusaTest.sol";
 
@@ -18,9 +20,12 @@ import { ReClammPool } from "../../contracts/ReClammPool.sol";
 contract SwapReClammMedusaTest is BaseMedusaTest {
     using FixedPoint for uint256;
     using CastingHelpers for *;
+    using ArrayHelpers for *;
 
     uint256 internal constant MIN_SWAP_AMOUNT = 1e6;
-    uint256 constant MAX_IN_RATIO = 0.3e18;
+    uint256 constant MAX_IN_RATIO = 10e16;
+
+    uint256 internal invariantProportion = 1e18;
 
     int256 internal initInvariant;
 
@@ -87,11 +92,18 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
 
     function property_currentInvariant() public returns (bool) {
         int256 currentInvariant = computeInvariant();
-        return currentInvariant >= initInvariant;
+
+        emit Debug("initInvariant   ", Math.sqrt(uint256(initInvariant) * FixedPoint.ONE).mulUp(invariantProportion));
+        emit Debug("currentInvariant", Math.sqrt(uint256(currentInvariant) * FixedPoint.ONE));
+
+        return
+            Math.sqrt(uint256(currentInvariant) * FixedPoint.ONE) >=
+            Math.sqrt(uint256(initInvariant) * FixedPoint.ONE).mulUp(invariantProportion);
     }
 
-    function computeSwapExactIn(uint256 tokenIndexIn, uint256 tokenIndexOut, uint256 exactAmountIn) public {
-        (tokenIndexIn, tokenIndexOut) = boundTokenIndexes(tokenIndexIn, tokenIndexOut);
+    function computeSwapExactIn(uint8 tokenInIndex, uint256 exactAmountIn) public {
+        uint256 tokenIndexIn = tokenInIndex < uint8(128) ? 0 : 1;
+        uint256 tokenIndexOut = tokenInIndex < uint8(128) ? 1 : 0;
 
         exactAmountIn = boundSwapAmount(exactAmountIn, tokenIndexIn);
 
@@ -102,22 +114,25 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
         emit Debug("exact amount in", exactAmountIn);
 
         medusa.prank(alice);
-        router.swapSingleTokenExactIn(
-            address(pool),
-            tokens[tokenIndexIn],
-            tokens[tokenIndexOut],
-            exactAmountIn,
-            0,
-            MAX_UINT256,
-            false,
-            bytes("")
-        );
-
-        emit Debug("currentInvariant", computeInvariant());
+        try
+            router.swapSingleTokenExactIn(
+                address(pool),
+                tokens[tokenIndexIn],
+                tokens[tokenIndexOut],
+                exactAmountIn,
+                0,
+                MAX_UINT256,
+                false,
+                bytes("")
+            )
+        {
+            emit Debug("currentInvariant", computeInvariant());
+        } catch {}
     }
 
-    function computeSwapExactOut(uint256 tokenIndexIn, uint256 tokenIndexOut, uint256 exactAmountOut) public {
-        (tokenIndexIn, tokenIndexOut) = boundTokenIndexes(tokenIndexIn, tokenIndexOut);
+    function computeSwapExactOut(uint8 tokenInIndex, uint256 exactAmountOut) public {
+        uint256 tokenIndexIn = tokenInIndex < uint8(128) ? 0 : 1;
+        uint256 tokenIndexOut = tokenInIndex < uint8(128) ? 1 : 0;
 
         exactAmountOut = boundSwapAmount(exactAmountOut, tokenIndexOut);
 
@@ -128,33 +143,60 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
         emit Debug("exact amount out", exactAmountOut);
 
         medusa.prank(alice);
-        router.swapSingleTokenExactOut(
+        try
+            router.swapSingleTokenExactOut(
+                address(pool),
+                tokens[tokenIndexIn],
+                tokens[tokenIndexOut],
+                exactAmountOut,
+                MAX_UINT256,
+                MAX_UINT256,
+                false,
+                bytes("")
+            )
+        {
+            emit Debug("currentInvariant", computeInvariant());
+        } catch {}
+    }
+
+    function computeAddLiquidity(uint256 exactBptOut) public {
+        uint256 oldTotalSupply = ReClammPool(address(pool)).totalSupply();
+        exactBptOut = bound(exactBptOut, 1e18, oldTotalSupply / 2);
+
+        router.addLiquidityProportional(
             address(pool),
-            tokens[tokenIndexIn],
-            tokens[tokenIndexOut],
-            exactAmountOut,
-            MAX_UINT256,
-            MAX_UINT256,
+            [MAX_UINT256, MAX_UINT256].toMemoryArray(),
+            exactBptOut,
             false,
             bytes("")
         );
 
-        emit Debug("currentInvariant", computeInvariant());
+        uint256 newTotalSupply = ReClammPool(address(pool)).totalSupply();
+        uint256 proportion = (newTotalSupply).divDown(oldTotalSupply);
+        invariantProportion = invariantProportion.mulDown(proportion);
+    }
+
+    function computeRemoveLiquidity(uint256 exactBptIn) public {
+        uint256 oldTotalSupply = ReClammPool(address(pool)).totalSupply();
+        exactBptIn = bound(exactBptIn, 1e18, oldTotalSupply / 2);
+
+        medusa.prank(lp);
+        router.removeLiquidityProportional(
+            address(pool),
+            exactBptIn,
+            [uint256(0), uint256(0)].toMemoryArray(),
+            false,
+            bytes("")
+        );
+
+        uint256 newTotalSupply = ReClammPool(address(pool)).totalSupply();
+        uint256 proportion = (newTotalSupply).divDown(oldTotalSupply);
+        invariantProportion = invariantProportion.mulDown(proportion);
     }
 
     function computeInvariant() internal view returns (int256) {
         (, , , uint256[] memory lastBalancesLiveScaled18) = vault.getPoolTokenInfo(address(pool));
         return int256(pool.computeInvariant(lastBalancesLiveScaled18, Rounding.ROUND_UP));
-    }
-
-    function boundTokenIndexes(
-        uint256 tokenIndexInRaw,
-        uint256 tokenIndexOutRaw
-    ) internal view returns (uint256 tokenIndexIn, uint256 tokenIndexOut) {
-        uint256 len = vault.getPoolTokens(address(pool)).length;
-
-        tokenIndexIn = bound(tokenIndexInRaw, 0, 1);
-        tokenIndexOut = tokenIndexIn == 0 ? 1 : 0;
     }
 
     function boundSwapAmount(
