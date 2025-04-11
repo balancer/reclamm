@@ -17,9 +17,7 @@ import { Version } from "@balancer-labs/v3-solidity-utils/contracts/helpers/Vers
 import { ReClammPool } from "./ReClammPool.sol";
 import { ReClammPoolParams } from "./interfaces/IReClammPool.sol";
 
-/**
- * @notice ReClammPool factory.
- */
+/// @notice ReClammPool factory.
 contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
     string private _poolVersion;
 

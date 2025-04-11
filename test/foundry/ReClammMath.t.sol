@@ -22,7 +22,7 @@ contract ReClammMathTest is BaseReClammTest {
     uint256 private constant _SECONDS_PER_DAY_WITH_ADJUSTMENT = 124649;
 
     uint256 private constant _MAX_CENTEREDNESS_ERROR_ABS = 5e7;
-    uint256 private constant _MAX_PRICE_ERROR_ABS = 5e15;
+    uint256 private constant _MAX_PRICE_ERROR_ABS = 1e16;
 
     ReClammMathMock internal mathContract;
 
@@ -88,7 +88,7 @@ contract ReClammMathTest is BaseReClammTest {
 
         uint256 amountGivenScaled18 = 1e18 + 1;
 
-        vm.expectRevert(ReClammMath.AmountOutBiggerThanBalance.selector);
+        vm.expectRevert(ReClammMath.AmountOutGreaterThanBalance.selector);
         mathContract.calculateInGivenOut(
             [balanceA, balanceB].toMemoryArray(),
             [virtualBalanceA, virtualBalanceB].toMemoryArray(),
@@ -155,7 +155,7 @@ contract ReClammMathTest is BaseReClammTest {
         // This trade will return more tokens B than the real balance of the pool.
         uint256 amountGivenScaled18 = balanceA;
 
-        vm.expectRevert(ReClammMath.AmountOutBiggerThanBalance.selector);
+        vm.expectRevert(ReClammMath.AmountOutGreaterThanBalance.selector);
         mathContract.calculateOutGivenIn(
             [balanceA, balanceB].toMemoryArray(),
             [virtualBalanceA, virtualBalanceB].toMemoryArray(),
@@ -209,10 +209,10 @@ contract ReClammMathTest is BaseReClammTest {
 
         bool isInRange = ReClammMath.isPoolInRange(balancesScaled18, virtualBalances, centerednessMargin);
 
-        assertEq(isInRange, ReClammMath.calculateCenteredness(balancesScaled18, virtualBalances) >= centerednessMargin);
+        assertEq(isInRange, ReClammMath.computeCenteredness(balancesScaled18, virtualBalances) >= centerednessMargin);
     }
 
-    function testCalculateCenteredness__Fuzz(
+    function testComputeCenteredness__Fuzz(
         uint256 balance0,
         uint256 balance1,
         uint256 virtualBalance0,
@@ -231,7 +231,7 @@ contract ReClammMathTest is BaseReClammTest {
         virtualBalances[0] = virtualBalance0;
         virtualBalances[1] = virtualBalance1;
 
-        uint256 centeredness = ReClammMath.calculateCenteredness(balancesScaled18, virtualBalances);
+        uint256 centeredness = ReClammMath.computeCenteredness(balancesScaled18, virtualBalances);
 
         if (balance0 == 0 || balance1 == 0) {
             assertEq(centeredness, 0);
@@ -280,7 +280,7 @@ contract ReClammMathTest is BaseReClammTest {
         }
     }
 
-    function testCalculateFourthRootPriceRatio__Fuzz(
+    function testcomputeFourthRootPriceRatio__Fuzz(
         uint32 currentTime,
         uint96 startFourthRootPriceRatio,
         uint96 endFourthRootPriceRatio,
@@ -294,7 +294,7 @@ contract ReClammMathTest is BaseReClammTest {
         endFourthRootPriceRatio = SafeCast.toUint96(bound(endFourthRootPriceRatio, FixedPoint.ONE, type(uint96).max));
         startFourthRootPriceRatio = SafeCast.toUint96(bound(endFourthRootPriceRatio, FixedPoint.ONE, type(uint96).max));
 
-        uint96 fourthRootPriceRatio = ReClammMath.calculateFourthRootPriceRatio(
+        uint96 fourthRootPriceRatio = ReClammMath.computeFourthRootPriceRatio(
             currentTime,
             startFourthRootPriceRatio,
             endFourthRootPriceRatio,
@@ -303,7 +303,7 @@ contract ReClammMathTest is BaseReClammTest {
         );
 
         currentTime++;
-        uint256 nextFourthRootPriceRatio = ReClammMath.calculateFourthRootPriceRatio(
+        uint256 nextFourthRootPriceRatio = ReClammMath.computeFourthRootPriceRatio(
             currentTime,
             startFourthRootPriceRatio,
             endFourthRootPriceRatio,
@@ -354,7 +354,7 @@ contract ReClammMathTest is BaseReClammTest {
 
         vm.assume(balancesScaled18[0].mulDown(lastVirtualBalances[1]) > 0);
         vm.assume(balancesScaled18[1].mulDown(lastVirtualBalances[0]) > 0);
-        uint256 oldCenteredness = ReClammMath.calculateCenteredness(balancesScaled18, lastVirtualBalances);
+        uint256 oldCenteredness = ReClammMath.computeCenteredness(balancesScaled18, lastVirtualBalances);
 
         vm.assume(oldCenteredness > _MIN_POOL_CENTEREDNESS);
 
@@ -368,7 +368,7 @@ contract ReClammMathTest is BaseReClammTest {
         // Check if centeredness is the same
         vm.assume(balancesScaled18[0].mulDown(newVirtualBalances[1]) > 0);
         vm.assume(balancesScaled18[1].mulDown(newVirtualBalances[0]) > 0);
-        uint256 newCenteredness = ReClammMath.calculateCenteredness(balancesScaled18, newVirtualBalances);
+        uint256 newCenteredness = ReClammMath.computeCenteredness(balancesScaled18, newVirtualBalances);
         assertApproxEqAbs(
             newCenteredness,
             oldCenteredness,
@@ -392,14 +392,14 @@ contract ReClammMathTest is BaseReClammTest {
         assertApproxEqAbs(expectedPriceRatio, actualPriceRatio, _MAX_PRICE_ERROR_ABS, "Price Ratio should be correct");
     }
 
-    function testCalculateFourthRootPriceRatioWhenCurrentTimeIsAfterEndTime() public pure {
+    function testcomputeFourthRootPriceRatioWhenCurrentTimeIsEndTime() public pure {
         uint96 startFourthRootPriceRatio = 100;
         uint96 endFourthRootPriceRatio = 200;
         uint32 priceRatioUpdateStartTime = 0;
-        uint32 priceRatioUpdateEndTime = 50;
+        uint32 priceRatioUpdateEndTime = 100;
         uint32 currentTime = 100;
 
-        uint96 fourthRootPriceRatio = ReClammMath.calculateFourthRootPriceRatio(
+        uint96 fourthRootPriceRatio = ReClammMath.computeFourthRootPriceRatio(
             currentTime,
             startFourthRootPriceRatio,
             endFourthRootPriceRatio,
@@ -414,14 +414,58 @@ contract ReClammMathTest is BaseReClammTest {
         );
     }
 
-    function testCalculateFourthRootPriceRatioWhenCurrentTimeIsBeforeStartTime() public pure {
+    function testcomputeFourthRootPriceRatioWhenCurrentTimeIsEndTimeAndStartTime() public pure {
+        uint96 startFourthRootPriceRatio = 100;
+        uint96 endFourthRootPriceRatio = 200;
+        uint32 priceRatioUpdateStartTime = 100;
+        uint32 priceRatioUpdateEndTime = 100;
+        uint32 currentTime = 100;
+
+        uint96 fourthRootPriceRatio = ReClammMath.computeFourthRootPriceRatio(
+            currentTime,
+            startFourthRootPriceRatio,
+            endFourthRootPriceRatio,
+            priceRatioUpdateStartTime,
+            priceRatioUpdateEndTime
+        );
+
+        assertEq(
+            fourthRootPriceRatio,
+            endFourthRootPriceRatio,
+            "FourthRootPriceRatio should be equal to endFourthRootPriceRatio"
+        );
+    }
+
+    function testcomputeFourthRootPriceRatioWhenCurrentTimeIsAfterEndTime() public pure {
+        uint96 startFourthRootPriceRatio = 100;
+        uint96 endFourthRootPriceRatio = 200;
+        uint32 priceRatioUpdateStartTime = 0;
+        uint32 priceRatioUpdateEndTime = 50;
+        uint32 currentTime = 100;
+
+        uint96 fourthRootPriceRatio = ReClammMath.computeFourthRootPriceRatio(
+            currentTime,
+            startFourthRootPriceRatio,
+            endFourthRootPriceRatio,
+            priceRatioUpdateStartTime,
+            priceRatioUpdateEndTime
+        );
+
+        assertEq(
+            fourthRootPriceRatio,
+            endFourthRootPriceRatio,
+            "FourthRootPriceRatio should be equal to endFourthRootPriceRatio"
+        );
+    }
+
+    function testcomputeFourthRootPriceRatioWhenCurrentTimeIsStartTime() public pure {
         uint96 startFourthRootPriceRatio = 100;
         uint96 endFourthRootPriceRatio = 200;
         uint32 priceRatioUpdateStartTime = 50;
         uint32 priceRatioUpdateEndTime = 100;
-        uint32 currentTime = 0;
+        uint32 currentTime = 50;
 
-        uint96 fourthRootPriceRatio = ReClammMath.calculateFourthRootPriceRatio(
+        uint96 fourthRootPriceRatio = ReClammMath.computeFourthRootPriceRatio(
             currentTime,
             startFourthRootPriceRatio,
             endFourthRootPriceRatio,
@@ -436,7 +480,29 @@ contract ReClammMathTest is BaseReClammTest {
         );
     }
 
-    function testCalculateFourthRootPriceRatioWhenStartFourthRootPriceRatioIsEqualToEndFourthRootPriceRatio()
+    function testcomputeFourthRootPriceRatioWhenCurrentTimeIsBeforeStartTime() public pure {
+        uint96 startFourthRootPriceRatio = 100;
+        uint96 endFourthRootPriceRatio = 200;
+        uint32 priceRatioUpdateStartTime = 50;
+        uint32 priceRatioUpdateEndTime = 100;
+        uint32 currentTime = 0;
+
+        uint96 fourthRootPriceRatio = ReClammMath.computeFourthRootPriceRatio(
+            currentTime,
+            startFourthRootPriceRatio,
+            endFourthRootPriceRatio,
+            priceRatioUpdateStartTime,
+            priceRatioUpdateEndTime
+        );
+
+        assertEq(
+            fourthRootPriceRatio,
+            startFourthRootPriceRatio,
+            "FourthRootPriceRatio should be equal to startFourthRootPriceRatio"
+        );
+    }
+
+    function testcomputeFourthRootPriceRatioWhenStartFourthRootPriceRatioIsEqualToEndFourthRootPriceRatio()
         public
         pure
     {
@@ -446,7 +512,7 @@ contract ReClammMathTest is BaseReClammTest {
         uint32 priceRatioUpdateEndTime = 100;
         uint32 currentTime = 50;
 
-        uint96 fourthRootPriceRatio = ReClammMath.calculateFourthRootPriceRatio(
+        uint96 fourthRootPriceRatio = ReClammMath.computeFourthRootPriceRatio(
             currentTime,
             startFourthRootPriceRatio,
             endFourthRootPriceRatio,

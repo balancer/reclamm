@@ -29,7 +29,7 @@ contract ReClammSwapTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = ReClammPoolMock(pool).getLastVirtualBalances();
-        (uint256[] memory currentVirtualBalances, ) = ReClammPool(pool).getCurrentVirtualBalances();
+        (uint256[] memory currentVirtualBalances, ) = ReClammPool(pool).computeCurrentVirtualBalances();
 
         vm.assume(
             ReClammMath.isPoolInRange(newBalances, lastVirtualBalancesBeforeSwap, _DEFAULT_CENTEREDNESS_MARGIN) == false
@@ -59,14 +59,10 @@ contract ReClammSwapTest is BaseReClammTest {
     }
 
     function testInRangePriceRatioUpdatingSwapExactIn__Fuzz(uint256 newFourthRootPriceRatio) public {
-        uint256 currentFourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
+        uint256 currentFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
         newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 10e18);
 
-        if (newFourthRootPriceRatio > currentFourthRootPriceRatio) {
-            vm.assume(newFourthRootPriceRatio - currentFourthRootPriceRatio >= 2);
-        } else {
-            vm.assume(currentFourthRootPriceRatio - newFourthRootPriceRatio >= 2);
-        }
+        _assumeFourthRootPriceRatioDeltaAboveMin(currentFourthRootPriceRatio, newFourthRootPriceRatio);
 
         vm.prank(admin);
         ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 1 days);
@@ -74,7 +70,7 @@ contract ReClammSwapTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = ReClammPoolMock(pool).getLastVirtualBalances();
-        (uint256[] memory currentVirtualBalances, ) = ReClammPool(pool).getCurrentVirtualBalances();
+        (uint256[] memory currentVirtualBalances, ) = ReClammPool(pool).computeCurrentVirtualBalances();
 
         // If the price ratio is updating, the virtual balances should not match.
         _assertVirtualBalancesDoNotMatch(lastVirtualBalancesBeforeSwap, currentVirtualBalances);
@@ -112,9 +108,9 @@ contract ReClammSwapTest is BaseReClammTest {
         // Set the pool balances.
         uint256[] memory newBalances = _setPoolBalances(daiBalance, usdcBalance);
 
-        uint256 currentFourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
+        uint256 currentFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
         newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 10e18);
-        vm.assume(currentFourthRootPriceRatio != newFourthRootPriceRatio);
+        _assumeFourthRootPriceRatioDeltaAboveMin(currentFourthRootPriceRatio, newFourthRootPriceRatio);
 
         vm.prank(admin);
         ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 1 days);
@@ -122,7 +118,7 @@ contract ReClammSwapTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = ReClammPoolMock(pool).getLastVirtualBalances();
-        (uint256[] memory currentVirtualBalances, ) = ReClammPool(pool).getCurrentVirtualBalances();
+        (uint256[] memory currentVirtualBalances, ) = ReClammPool(pool).computeCurrentVirtualBalances();
 
         vm.assume(
             ReClammMath.isPoolInRange(newBalances, lastVirtualBalancesBeforeSwap, _DEFAULT_CENTEREDNESS_MARGIN) == false
@@ -166,7 +162,7 @@ contract ReClammSwapTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = ReClammPoolMock(pool).getLastVirtualBalances();
-        (uint256[] memory currentVirtualBalances, ) = ReClammPool(pool).getCurrentVirtualBalances();
+        (uint256[] memory currentVirtualBalances, ) = ReClammPool(pool).computeCurrentVirtualBalances();
 
         vm.assume(ReClammMath.isPoolInRange(newBalances, lastVirtualBalancesBeforeSwap, _DEFAULT_CENTEREDNESS_MARGIN));
 
@@ -208,7 +204,7 @@ contract ReClammSwapTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = ReClammPoolMock(pool).getLastVirtualBalances();
-        (uint256[] memory currentVirtualBalances, ) = ReClammPool(pool).getCurrentVirtualBalances();
+        (uint256[] memory currentVirtualBalances, ) = ReClammPool(pool).computeCurrentVirtualBalances();
 
         vm.assume(
             ReClammMath.isPoolInRange(newBalances, lastVirtualBalancesBeforeSwap, _DEFAULT_CENTEREDNESS_MARGIN) == false
@@ -232,7 +228,7 @@ contract ReClammSwapTest is BaseReClammTest {
     }
 
     function testInRangePriceRatioUpdatingSwapExactOut__Fuzz(uint256 newFourthRootPriceRatio) public {
-        uint256 currentFourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
+        uint256 currentFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
         newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 10e18);
 
         if (newFourthRootPriceRatio > currentFourthRootPriceRatio) {
@@ -247,7 +243,7 @@ contract ReClammSwapTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = ReClammPoolMock(pool).getLastVirtualBalances();
-        (uint256[] memory currentVirtualBalances, ) = ReClammPool(pool).getCurrentVirtualBalances();
+        (uint256[] memory currentVirtualBalances, ) = ReClammPool(pool).computeCurrentVirtualBalances();
 
         // If the price ratio is updating, the virtual balances should not match.
         _assertVirtualBalancesDoNotMatch(lastVirtualBalancesBeforeSwap, currentVirtualBalances);
@@ -279,9 +275,9 @@ contract ReClammSwapTest is BaseReClammTest {
         // Set the pool balances.
         uint256[] memory newBalances = _setPoolBalances(daiBalance, usdcBalance);
 
-        uint256 currentFourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
+        uint256 currentFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
         newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 10e18);
-        vm.assume(currentFourthRootPriceRatio != newFourthRootPriceRatio);
+        _assumeFourthRootPriceRatioDeltaAboveMin(currentFourthRootPriceRatio, newFourthRootPriceRatio);
 
         vm.prank(admin);
         ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 1 days);
@@ -289,7 +285,7 @@ contract ReClammSwapTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = ReClammPoolMock(pool).getLastVirtualBalances();
-        (uint256[] memory currentVirtualBalances, ) = ReClammPool(pool).getCurrentVirtualBalances();
+        (uint256[] memory currentVirtualBalances, ) = ReClammPool(pool).computeCurrentVirtualBalances();
 
         vm.assume(
             ReClammMath.isPoolInRange(newBalances, lastVirtualBalancesBeforeSwap, _DEFAULT_CENTEREDNESS_MARGIN) == false
@@ -327,7 +323,7 @@ contract ReClammSwapTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = ReClammPoolMock(pool).getLastVirtualBalances();
-        (uint256[] memory currentVirtualBalances, ) = ReClammPool(pool).getCurrentVirtualBalances();
+        (uint256[] memory currentVirtualBalances, ) = ReClammPool(pool).computeCurrentVirtualBalances();
 
         vm.assume(ReClammMath.isPoolInRange(newBalances, lastVirtualBalancesBeforeSwap, _DEFAULT_CENTEREDNESS_MARGIN));
 
