@@ -611,6 +611,15 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             priceRatioUpdateStartTime,
             priceRatioUpdateEndTime
         );
+        _vault.emitAuxiliaryEvent(
+            "PriceRatioStateUpdated",
+            abi.encode(
+                startFourthRootPriceRatio,
+                endFourthRootPriceRatio,
+                priceRatioUpdateStartTime,
+                priceRatioUpdateEndTime
+            )
+        );
     }
 
     /// Using the pool balances to update the virtual balances is dangerous with an unlocked vault, since the balances
@@ -633,9 +642,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             revert PriceShiftDailyRateTooHigh();
         }
 
-        _priceShiftDailyRateInSeconds = ReClammMath.computePriceShiftDailyRate(priceShiftDailyRate);
+        uint128 dailyRateInSeconds = ReClammMath.computePriceShiftDailyRate(priceShiftDailyRate);
+        _priceShiftDailyRateInSeconds = dailyRateInSeconds;
 
-        emit PriceShiftDailyRateUpdated(priceShiftDailyRate, _priceShiftDailyRateInSeconds);
+        emit PriceShiftDailyRateUpdated(priceShiftDailyRate, dailyRateInSeconds);
+        _vault.emitAuxiliaryEvent("PriceShiftDailyRateUpdated", abi.encode(priceShiftDailyRate, dailyRateInSeconds));
     }
 
     /**
@@ -668,6 +679,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _centerednessMargin = uint64(centerednessMargin);
 
         emit CenterednessMarginUpdated(centerednessMargin);
+        _vault.emitAuxiliaryEvent("CenterednessMarginUpdated", abi.encode(centerednessMargin));
     }
 
     // Updates the last timestamp to the current timestamp.
