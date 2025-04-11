@@ -14,8 +14,8 @@
     "constructorArgs": {},
     "deployerAddress": "0x30000",
     "senderAddresses": ["0x10000", "0x20000", "0x30000"],
-    "blockNumberDelayMax": 60480,
-    "blockTimestampDelayMax": 604800,
+    "blockNumberDelayMax": 0,
+    "blockTimestampDelayMax": 0,
     "blockGasLimit": 1250000000,
     "transactionGasLimit": 125000000,
     "testing": {
