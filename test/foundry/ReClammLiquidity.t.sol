@@ -49,15 +49,15 @@ contract ReClammLiquidityTest is BaseReClammTest {
         (, , uint256[] memory balancesAfter, ) = vault.getPoolTokenInfo(pool);
 
         // Check if virtual balances were correctly updated.
-        uint256 proportion = exactBptAmountOut.divUp(totalSupply);
+        uint256 proportion = exactBptAmountOut.divDown(totalSupply);
         assertEq(
             virtualBalancesAfter[daiIdx],
-            virtualBalancesBefore[daiIdx].mulUp(FixedPoint.ONE + proportion),
+            virtualBalancesBefore[daiIdx].mulDown(FixedPoint.ONE + proportion),
             "DAI virtual balances do not match"
         );
         assertEq(
             virtualBalancesAfter[usdcIdx],
-            virtualBalancesBefore[usdcIdx].mulUp(FixedPoint.ONE + proportion),
+            virtualBalancesBefore[usdcIdx].mulDown(FixedPoint.ONE + proportion),
             "USDC virtual balances do not match"
         );
 
@@ -109,15 +109,15 @@ contract ReClammLiquidityTest is BaseReClammTest {
         (, , uint256[] memory balancesAfter, ) = vault.getPoolTokenInfo(pool);
 
         // Check if virtual balances were correctly updated.
-        uint256 proportion = exactBptAmountOut.divUp(totalSupply);
+        uint256 proportion = exactBptAmountOut.divDown(totalSupply);
         assertEq(
             virtualBalancesAfter[daiIdx],
-            virtualBalancesBefore[daiIdx].mulUp(FixedPoint.ONE + proportion),
+            virtualBalancesBefore[daiIdx].mulDown(FixedPoint.ONE + proportion),
             "DAI virtual balances do not match"
         );
         assertEq(
             virtualBalancesAfter[usdcIdx],
-            virtualBalancesBefore[usdcIdx].mulUp(FixedPoint.ONE + proportion),
+            virtualBalancesBefore[usdcIdx].mulDown(FixedPoint.ONE + proportion),
             "USDC virtual balances do not match"
         );
 
@@ -222,15 +222,15 @@ contract ReClammLiquidityTest is BaseReClammTest {
         (, , uint256[] memory balancesAfter, ) = vault.getPoolTokenInfo(pool);
 
         // Check if virtual balances were correctly updated.
-        uint256 proportion = exactBptAmountIn.divDown(totalSupply);
+        uint256 proportion = exactBptAmountIn.divUp(totalSupply);
         assertEq(
             virtualBalancesAfter[daiIdx],
-            virtualBalancesBefore[daiIdx].mulUp(FixedPoint.ONE - proportion),
+            virtualBalancesBefore[daiIdx].mulDown(FixedPoint.ONE - proportion),
             "DAI virtual balances do not match"
         );
         assertEq(
             virtualBalancesAfter[usdcIdx],
-            virtualBalancesBefore[usdcIdx].mulUp(FixedPoint.ONE - proportion),
+            virtualBalancesBefore[usdcIdx].mulDown(FixedPoint.ONE - proportion),
             "USDC virtual balances do not match"
         );
 
@@ -282,15 +282,15 @@ contract ReClammLiquidityTest is BaseReClammTest {
         (, , uint256[] memory balancesAfter, ) = vault.getPoolTokenInfo(pool);
 
         // Check if virtual balances were correctly updated.
-        uint256 proportion = exactBptAmountIn.divDown(totalSupply);
+        uint256 proportion = exactBptAmountIn.divUp(totalSupply);
         assertEq(
             virtualBalancesAfter[daiIdx],
-            virtualBalancesBefore[daiIdx].mulUp(FixedPoint.ONE - proportion),
+            virtualBalancesBefore[daiIdx].mulDown(FixedPoint.ONE - proportion),
             "DAI virtual balances do not match"
         );
         assertEq(
             virtualBalancesAfter[usdcIdx],
-            virtualBalancesBefore[usdcIdx].mulUp(FixedPoint.ONE - proportion),
+            virtualBalancesBefore[usdcIdx].mulDown(FixedPoint.ONE - proportion),
             "USDC virtual balances do not match"
         );
 
