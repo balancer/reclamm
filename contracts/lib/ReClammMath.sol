@@ -28,18 +28,18 @@ library ReClammMath {
     using SafeCast for *;
     using ReClammMath for bool;
 
-    /// @notice The swap result is greater than the real balance of the token (i.e., the balance would drop below zero).
-    error AmountOutGreaterThanBalance();
-
-    /// @notice The swap result is negative due to a rounding issue.
-    error NegativeAmountOut();
-
     /// @notice Determines whether the pool is above center or not, or if the computation has not taken place yet.
     enum PoolAboveCenter {
         FALSE,
         TRUE,
         UNKNOWN
     }
+
+    /// @notice The swap result is greater than the real balance of the token (i.e., the balance would drop below zero).
+    error AmountOutGreaterThanBalance();
+
+    /// @notice The swap result is negative due to a rounding issue.
+    error NegativeAmountOut();
 
     // At a PriceShiftDailyRate of 100%, we want to be able to change the price of an out-of-range pool by a factor
     // of two, either doubling or halving it over the course of a day (86,400 seconds). The virtual balances must
