@@ -25,6 +25,6 @@ contract ReClammPoolMock is ReClammPool {
 
     function calculatePoolCenteredness() external view returns (uint256) {
         (, , , uint256[] memory currentBalancesScaled18) = _vault.getPoolTokenInfo(address(this));
-        return ReClammMath.calculateCenteredness(currentBalancesScaled18, _lastVirtualBalances);
+        return ReClammMath.calculateCenteredness(currentBalancesScaled18, _getLastVirtualBalances());
     }
 }

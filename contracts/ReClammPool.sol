@@ -31,7 +31,6 @@ import { PriceRatioState, ReClammMath } from "./lib/ReClammMath.sol";
 contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthentication, Version, BaseHooks {
     using SafeCast for *;
     using FixedPoint for uint256;
-    using SafeCast for uint256;
 
     // uint256 private constant _MIN_SWAP_FEE_PERCENTAGE = 0.001e16; // 0.001%
     uint256 internal constant _MIN_SWAP_FEE_PERCENTAGE = 0;
@@ -67,7 +66,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint32 internal _lastTimestamp;
     uint128 internal _priceShiftDailyRangeInSeconds;
     uint64 internal _centerednessMargin;
-    uint256[] internal _lastVirtualBalances;
+    uint128 internal _lastVirtualBalance0;
+    uint128 internal _lastVirtualBalance1;
 
     modifier onlyWhenVaultIsLocked() {
         if (_vault.isUnlocked()) {
@@ -114,7 +114,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         return
             ReClammMath.computeInvariant(
                 balancesScaled18,
-                _lastVirtualBalances,
+                _getLastVirtualBalances(),
                 _priceShiftDailyRangeInSeconds,
                 _lastTimestamp,
                 _centerednessMargin,
@@ -359,7 +359,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IReClammPool
     function getLastVirtualBalances() external view returns (uint256[] memory) {
-        return _lastVirtualBalances;
+        return _getLastVirtualBalances();
     }
 
     /// @inheritdoc IReClammPool
@@ -390,7 +390,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.totalSupply = totalSupply();
 
         data.lastTimestamp = _lastTimestamp;
-        data.lastVirtualBalances = _lastVirtualBalances;
+        data.lastVirtualBalances = _getLastVirtualBalances();
         data.priceShiftDailyRangeInSeconds = _priceShiftDailyRangeInSeconds;
         data.centerednessMargin = _centerednessMargin;
 
@@ -470,7 +470,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     ) internal view returns (uint256[] memory currentVirtualBalances, bool changed) {
         (currentVirtualBalances, changed) = ReClammMath.getCurrentVirtualBalances(
             balancesScaled18,
-            _lastVirtualBalances,
+            _getLastVirtualBalances(),
             _priceShiftDailyRangeInSeconds,
             _lastTimestamp,
             _centerednessMargin,
@@ -479,7 +479,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     function _setLastVirtualBalances(uint256[] memory virtualBalances) internal {
-        _lastVirtualBalances = virtualBalances;
+        _lastVirtualBalance0 = virtualBalances[0].toUint128();
+        _lastVirtualBalance1 = virtualBalances[1].toUint128();
 
         emit VirtualBalancesUpdated(virtualBalances);
     }
@@ -642,7 +643,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     function _isPoolInRange() internal view onlyWhenVaultIsLocked returns (bool) {
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
 
-        return ReClammMath.isPoolInRange(balancesScaled18, _lastVirtualBalances, _centerednessMargin);
+        return ReClammMath.isPoolInRange(balancesScaled18, _getLastVirtualBalances(), _centerednessMargin);
     }
 
     /// @dev Checks that the current balance ratio is within the initialization balance ratio tolerance.
@@ -690,5 +691,13 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         if (currentPrice < priceLowerBound || currentPrice > priceUpperBound) {
             revert WrongInitializationPrices();
         }
+    }
+
+    function _getLastVirtualBalances() internal view returns (uint256[] memory) {
+        uint256[] memory lastVirtualBalances = new uint256[](2);
+        lastVirtualBalances[0] = _lastVirtualBalance0;
+        lastVirtualBalances[1] = _lastVirtualBalance1;
+
+        return lastVirtualBalances;
     }
 }
