@@ -317,15 +317,14 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         // after adding liquidity. This is needed to keep the pool centeredness and price ratio constant.
 
         uint256 poolTotalSupply = _vault.totalSupply(pool);
-        // Rounding proportion up, which will round the virtual balances up.
-        uint256 proportion = minBptAmountOut.divUp(poolTotalSupply);
+        // Rounding proportion down, which will round the virtual balances down.
+        uint256 proportion = minBptAmountOut.divDown(poolTotalSupply);
 
         (uint256[] memory currentVirtualBalances, ) = _computeCurrentVirtualBalances(balancesScaled18);
-        // When adding/removing liquidity, round up the virtual balances. This will result in a higher invariant,
-        // which favors the vault in swap operations. The virtual balances are not used to calculate a proportional
-        // add/remove result.
-        currentVirtualBalances[a] = currentVirtualBalances[a].mulUp(FixedPoint.ONE + proportion);
-        currentVirtualBalances[b] = currentVirtualBalances[b].mulUp(FixedPoint.ONE + proportion);
+        // When adding/removing liquidity, round down the virtual balances. This favors the vault in swap operations.
+        // The virtual balances are not used to calculate a proportional add/remove result.
+        currentVirtualBalances[a] = currentVirtualBalances[a].mulDown(FixedPoint.ONE + proportion);
+        currentVirtualBalances[b] = currentVirtualBalances[b].mulDown(FixedPoint.ONE + proportion);
         _setLastVirtualBalances(currentVirtualBalances);
         _updateTimestamp();
 
@@ -346,15 +345,14 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         // after removing liquidity. This is needed to keep the pool centeredness and price ratio constant.
 
         uint256 poolTotalSupply = _vault.totalSupply(pool);
-        // Rounding proportion down, which will round the virtual balances up.
-        uint256 proportion = maxBptAmountIn.divDown(poolTotalSupply);
+        // Rounding proportion up, which will round the virtual balances down.
+        uint256 proportion = maxBptAmountIn.divUp(poolTotalSupply);
 
         (uint256[] memory currentVirtualBalances, ) = _computeCurrentVirtualBalances(balancesScaled18);
-        // When adding/removing liquidity, round up the virtual balances. This will result in a higher invariant,
-        // which favors the vault in swap operations. The virtual balances are not used in the proportional
-        // add/remove calculations.
-        currentVirtualBalances[a] = currentVirtualBalances[a].mulUp(FixedPoint.ONE - proportion);
-        currentVirtualBalances[b] = currentVirtualBalances[b].mulUp(FixedPoint.ONE - proportion);
+        // When adding/removing liquidity, round down the virtual balances. This favors the vault in swap operations.
+        // The virtual balances are not used to calculate a proportional add/remove result.
+        currentVirtualBalances[a] = currentVirtualBalances[a].mulDown(FixedPoint.ONE - proportion);
+        currentVirtualBalances[b] = currentVirtualBalances[b].mulDown(FixedPoint.ONE - proportion);
         _setLastVirtualBalances(currentVirtualBalances);
         _updateTimestamp();
 
