@@ -588,4 +588,27 @@ contract ReClammPoolTest is BaseReClammTest {
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
         new ReClammPool(params, vault);
     }
+
+    function testToPoolCenterAboveEnum() public pure {
+        assertEq(
+            uint256(ReClammMath.toPoolAboveCenterEnum(false)),
+            uint256(ReClammMath.PoolAboveCenter.FALSE),
+            "Invalid enum value (false)"
+        );
+        assertEq(
+            uint256(ReClammMath.toPoolAboveCenterEnum(true)),
+            uint256(ReClammMath.PoolAboveCenter.TRUE),
+            "Invalid enum value (true)"
+        );
+        assertNotEq(
+            uint256(ReClammMath.toPoolAboveCenterEnum(false)),
+            uint256(ReClammMath.PoolAboveCenter.TRUE),
+            "Invalid enum value (false/true)"
+        );
+        assertNotEq(
+            uint256(ReClammMath.toPoolAboveCenterEnum(true)),
+            uint256(ReClammMath.PoolAboveCenter.FALSE),
+            "Invalid enum value (true/false)"
+        );
+    }
 }

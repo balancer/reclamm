@@ -26,6 +26,7 @@ uint256 constant b = 1;
 library ReClammMath {
     using FixedPoint for uint256;
     using SafeCast for *;
+    using ReClammMath for bool;
 
     /// @notice The swap result is greater than the real balance of the token (i.e., the balance would drop below zero).
     error AmountOutGreaterThanBalance();
@@ -33,10 +34,10 @@ library ReClammMath {
     /// @notice The swap result is negative due to a rounding issue.
     error NegativeAmountOut();
 
-    /// @notice
+    /// @notice Determines whether the pool is above center or not, or if the computation has not taken place yet.
     enum PoolAboveCenter {
-        TRUE,
         FALSE,
+        TRUE,
         UNKNOWN
     }
 
@@ -304,9 +305,7 @@ library ReClammMath {
             currentTimestamp > priceRatioState.priceRatioUpdateStartTime &&
             lastTimestamp < priceRatioState.priceRatioUpdateEndTime
         ) {
-            poolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances)
-                ? PoolAboveCenter.TRUE
-                : PoolAboveCenter.FALSE;
+            poolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances).toPoolAboveCenterEnum();
 
             currentVirtualBalances = calculateVirtualBalancesUpdatingPriceRatio(
                 currentFourthRootPriceRatio,
@@ -321,9 +320,7 @@ library ReClammMath {
         // If the pool is out of range, track the market price by moving the price interval.
         if (isPoolInRange(balancesScaled18, currentVirtualBalances, centerednessMargin) == false) {
             if (poolAboveCenter == PoolAboveCenter.UNKNOWN) {
-                poolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances)
-                    ? PoolAboveCenter.TRUE
-                    : PoolAboveCenter.FALSE;
+                poolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances).toPoolAboveCenterEnum();
             }
 
             currentVirtualBalances = calculateVirtualBalancesUpdatingPriceRange(
@@ -543,6 +540,11 @@ library ReClammMath {
         } else {
             return balancesScaled18[a].divDown(balancesScaled18[b]) > virtualBalances[a].divDown(virtualBalances[b]);
         }
+    }
+
+    /// @notice Convert a boolean value to a PoolAboveCenter enum (only TRUE or FALSE).
+    function toPoolAboveCenterEnum(bool value) internal pure returns (PoolAboveCenter) {
+        return PoolAboveCenter(value.toUint());
     }
 
     /**
