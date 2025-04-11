@@ -443,7 +443,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         data.lastTimestamp = _lastTimestamp;
         data.lastVirtualBalances = _lastVirtualBalances;
-        data.priceShiftDailyRangeInSeconds = _priceShiftDailyRateInSeconds;
+        data.priceShiftDailyRateInSeconds = _priceShiftDailyRateInSeconds;
         data.centerednessMargin = _centerednessMargin;
 
         data.currentFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio(_priceRatioState);

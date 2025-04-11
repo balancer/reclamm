@@ -21,7 +21,7 @@ import {
 } from './utils/reClammMath';
 import { expectEqualWithError } from './utils/relativeError';
 
-const TIME_CONSTANT = fp(1) / 124000n;
+const PRICE_SHIFT_RATE_SECONDS = fp(1) / 124000n;
 const CENTEREDNESS_MARGIN = fp(0.2);
 const BALANCES_IN_RANGE = [fp(1), fp(1)];
 const BALANCES_OUT_OF_RANGE = [fp(1), bn(1e15)];
@@ -332,7 +332,7 @@ describe('ReClammMath', function () {
       const [contractCurrentVirtualBalances, contractChanged] = await mathLib.computeCurrentVirtualBalances(
         balancesScaled18,
         lastVirtualBalances,
-        TIME_CONSTANT,
+        PRICE_SHIFT_RATE_SECONDS,
         lastTimestamp,
         CENTEREDNESS_MARGIN
       );
@@ -342,7 +342,7 @@ describe('ReClammMath', function () {
       const [jsCurrentVirtualBalances, jsChanged] = computeCurrentVirtualBalances(
         balancesScaled18,
         lastVirtualBalances,
-        TIME_CONSTANT,
+        PRICE_SHIFT_RATE_SECONDS,
         lastTimestamp,
         blockTimestamp,
         CENTEREDNESS_MARGIN,
@@ -479,7 +479,7 @@ describe('ReClammMath', function () {
       const res = await mathLib.computeInvariant(
         balancesScaled18,
         lastVirtualBalances,
-        TIME_CONSTANT,
+        PRICE_SHIFT_RATE_SECONDS,
         lastTimestamp,
         CENTEREDNESS_MARGIN,
         rounding
@@ -491,7 +491,7 @@ describe('ReClammMath', function () {
       const jsRes = computeInvariant(
         balancesScaled18,
         lastVirtualBalances,
-        TIME_CONSTANT,
+        PRICE_SHIFT_RATE_SECONDS,
         lastTimestamp,
         currentTimestamp,
         CENTEREDNESS_MARGIN,
@@ -518,7 +518,7 @@ describe('ReClammMath', function () {
       const res = await mathLib.computeInvariant(
         balancesScaled18,
         lastVirtualBalances,
-        TIME_CONSTANT,
+        PRICE_SHIFT_RATE_SECONDS,
         lastTimestamp,
         CENTEREDNESS_MARGIN,
         rounding
@@ -530,7 +530,7 @@ describe('ReClammMath', function () {
       const jsRes = computeInvariant(
         balancesScaled18,
         lastVirtualBalances,
-        TIME_CONSTANT,
+        PRICE_SHIFT_RATE_SECONDS,
         lastTimestamp,
         currentTimestamp,
         CENTEREDNESS_MARGIN,
