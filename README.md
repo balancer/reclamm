@@ -15,3 +15,32 @@ If it's the first time running the project, run `sh ./scripts/install-fresh.sh` 
 # Testing
 
 After installing the dependencies, run `yarn test` to run forge and hardhat tests.
+
+# Static analysis
+
+To run [Slither](https://github.com/crytic/slither) static analyzer, Python 3.8+ is a requirement.
+
+## Installation in virtual environment
+
+This step will create a Python virtual environment with Slither installed. It only needs to be executed once:
+
+```bash
+$ yarn slither-install
+```
+
+## Run analyzer
+
+```bash
+$ yarn slither
+```
+
+The analyzer's global settings can be found in `.slither.config.json`.
+
+Some of the analyzer's known findings are already filtered out using [--triage-mode option](https://github.com/crytic/slither/wiki/Usage#triage-mode); the results of the triage can be found in `slither.db.json` files inside each individual workspace.
+
+To run Slither in triage mode:
+
+```bash
+$ yarn slither:triage
+```
+

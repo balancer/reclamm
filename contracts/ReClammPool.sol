@@ -316,9 +316,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         // This hook makes sure that the virtual balances are increased in the same proportion as the real balances
         // after adding liquidity. This is needed to keep the pool centeredness and price ratio constant.
 
-        uint256 totalSupply = _vault.totalSupply(pool);
+        uint256 poolTotalSupply = _vault.totalSupply(pool);
         // Rounding proportion up, which will round the virtual balances up.
-        uint256 proportion = minBptAmountOut.divUp(totalSupply);
+        uint256 proportion = minBptAmountOut.divUp(poolTotalSupply);
 
         (uint256[] memory currentVirtualBalances, ) = _computeCurrentVirtualBalances(balancesScaled18);
         // When adding/removing liquidity, round up the virtual balances. This will result in a higher invariant,
@@ -345,9 +345,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         // This hook makes sure that the virtual balances are decreased in the same proportion as the real balances
         // after removing liquidity. This is needed to keep the pool centeredness and price ratio constant.
 
-        uint256 totalSupply = _vault.totalSupply(pool);
+        uint256 poolTotalSupply = _vault.totalSupply(pool);
         // Rounding proportion down, which will round the virtual balances up.
-        uint256 proportion = maxBptAmountIn.divDown(totalSupply);
+        uint256 proportion = maxBptAmountIn.divDown(poolTotalSupply);
 
         (uint256[] memory currentVirtualBalances, ) = _computeCurrentVirtualBalances(balancesScaled18);
         // When adding/removing liquidity, round up the virtual balances. This will result in a higher invariant,
@@ -472,7 +472,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         data.lastTimestamp = _lastTimestamp;
         data.lastVirtualBalances = _lastVirtualBalances;
-        data.priceShiftDailyRangeInSeconds = _priceShiftDailyRateInSeconds;
+        data.priceShiftDailyRateInSeconds = _priceShiftDailyRateInSeconds;
         data.centerednessMargin = _centerednessMargin;
 
         data.currentFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio(_priceRatioState);
