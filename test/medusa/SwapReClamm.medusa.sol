@@ -24,6 +24,7 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
 
     uint256 internal constant MIN_SWAP_AMOUNT = 1e6;
     uint256 constant MAX_IN_RATIO = 10e16;
+    uint256 constant MIN_RECLAMM_TOKEN_BALANCE = 1e12;
 
     uint256 internal invariantProportion = 1e18;
 
@@ -161,9 +162,9 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
 
     function computeAddLiquidity(uint256 exactBptOut) public {
         uint256 oldTotalSupply = ReClammPool(address(pool)).totalSupply();
-        // Add a maximum of 25% of the pool (medusa does not fail gracefully).
-        exactBptOut = bound(exactBptOut, 1e18, oldTotalSupply / 10);
+        exactBptOut = bound(exactBptOut, 1e18, oldTotalSupply);
 
+        medusa.prank(lp);
         router.addLiquidityProportional(
             address(pool),
             [MAX_UINT256, MAX_UINT256].toMemoryArray(),
@@ -179,8 +180,17 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
 
     function computeRemoveLiquidity(uint256 exactBptIn) public {
         uint256 oldTotalSupply = ReClammPool(address(pool)).totalSupply();
-        // Remove a maximum of 20% of the pool (medusa does not fail gracefully).
-        exactBptIn = bound(exactBptIn, 1e18, oldTotalSupply / 10);
+        exactBptIn = bound(exactBptIn, 1e18, oldTotalSupply);
+        uint256 proportion = (oldTotalSupply - exactBptIn).divDown(oldTotalSupply);
+
+        // Make sure medusa does not stop if the pool reverts due to lack of liquidity.
+        (, , uint256[] memory balances, ) = vault.getPoolTokenInfo(address(pool));
+        if (
+            balances[0].mulDown(proportion) < MIN_RECLAMM_TOKEN_BALANCE ||
+            balances[1].mulDown(proportion) < MIN_RECLAMM_TOKEN_BALANCE
+        ) {
+            return;
+        }
 
         medusa.prank(lp);
         router.removeLiquidityProportional(
@@ -191,8 +201,6 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
             bytes("")
         );
 
-        uint256 newTotalSupply = ReClammPool(address(pool)).totalSupply();
-        uint256 proportion = (newTotalSupply).divDown(oldTotalSupply);
         invariantProportion = invariantProportion.mulDown(proportion);
     }
 
