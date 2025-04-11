@@ -42,7 +42,7 @@ contract ReClammMathTest is BaseReClammTest {
         );
     }
 
-    function testCalculateInGivenOut__Fuzz(
+    function testComputeInGivenOut__Fuzz(
         uint256 balanceA,
         uint256 balanceB,
         uint256 virtualBalanceA,
@@ -61,7 +61,7 @@ contract ReClammMathTest is BaseReClammTest {
         uint256 maxAmount = tokenIn == 0 ? balanceB : balanceA;
         amountGivenScaled18 = bound(amountGivenScaled18, 1, maxAmount);
 
-        uint256 amountIn = ReClammMath.calculateInGivenOut(
+        uint256 amountIn = ReClammMath.computeInGivenOut(
             [balanceA, balanceB].toMemoryArray(),
             [virtualBalanceA, virtualBalanceB].toMemoryArray(),
             tokenIn,
@@ -80,7 +80,7 @@ contract ReClammMathTest is BaseReClammTest {
         assertEq(amountIn, expected, "Amount in should be correct");
     }
 
-    function testCalculateInGivenOutBiggerThanBalance() public {
+    function testComputeInGivenOutBiggerThanBalance() public {
         uint256 balanceA = 1e18;
         uint256 balanceB = 1e18;
         uint256 virtualBalanceA = 1e18;
@@ -89,7 +89,7 @@ contract ReClammMathTest is BaseReClammTest {
         uint256 amountGivenScaled18 = 1e18 + 1;
 
         vm.expectRevert(ReClammMath.AmountOutGreaterThanBalance.selector);
-        mathContract.calculateInGivenOut(
+        mathContract.computeInGivenOut(
             [balanceA, balanceB].toMemoryArray(),
             [virtualBalanceA, virtualBalanceB].toMemoryArray(),
             0,
@@ -98,7 +98,7 @@ contract ReClammMathTest is BaseReClammTest {
         );
     }
 
-    function testCalculateOutGivenIn__Fuzz(
+    function testComputeOutGivenIn__Fuzz(
         uint256 balanceA,
         uint256 balanceB,
         uint256 virtualBalanceA,
@@ -116,7 +116,7 @@ contract ReClammMathTest is BaseReClammTest {
 
         uint256 maxAmount = tokenIn == 0 ? balanceA : balanceB;
         amountGivenScaled18 = bound(amountGivenScaled18, 1, maxAmount);
-        uint256 expectedAmountOutScaled18 = _calculateOutGivenInAllowError(
+        uint256 expectedAmountOutScaled18 = _computeOutGivenInAllowError(
             [balanceA, balanceB].toMemoryArray(),
             [virtualBalanceA, virtualBalanceB].toMemoryArray(),
             tokenIn,
@@ -125,7 +125,7 @@ contract ReClammMathTest is BaseReClammTest {
         );
         vm.assume(expectedAmountOutScaled18 < (tokenOut == 0 ? balanceA : balanceB));
 
-        uint256 amountOut = ReClammMath.calculateOutGivenIn(
+        uint256 amountOut = ReClammMath.computeOutGivenIn(
             [balanceA, balanceB].toMemoryArray(),
             [virtualBalanceA, virtualBalanceB].toMemoryArray(),
             tokenIn,
@@ -145,7 +145,7 @@ contract ReClammMathTest is BaseReClammTest {
         assertEq(amountOut, expected, "Amount out should be correct");
     }
 
-    function testCalculateOutGivenInBiggerThanBalance() public {
+    function testComputeOutGivenInBiggerThanBalance() public {
         // Pool heavily unbalanced, token B over valued.
         uint256 balanceA = 4e5 * 1e18;
         uint256 balanceB = 1e18;
@@ -156,7 +156,7 @@ contract ReClammMathTest is BaseReClammTest {
         uint256 amountGivenScaled18 = balanceA;
 
         vm.expectRevert(ReClammMath.AmountOutGreaterThanBalance.selector);
-        mathContract.calculateOutGivenIn(
+        mathContract.computeOutGivenIn(
             [balanceA, balanceB].toMemoryArray(),
             [virtualBalanceA, virtualBalanceB].toMemoryArray(),
             0,
@@ -165,7 +165,7 @@ contract ReClammMathTest is BaseReClammTest {
         );
     }
 
-    function testCalculateOutGivenInNegativeAmountOut() public {
+    function testComputeOutGivenInNegativeAmountOut() public {
         // This specific case was found by fuzzing. Rounding the numbers to 1e6 * 1e18 do not revert, because the
         // negative amount is caused by rounding, so exact numbers make the function to succeed.
         uint256 balanceA = 999999999901321691778599;
@@ -177,7 +177,7 @@ contract ReClammMathTest is BaseReClammTest {
         uint256 amountGivenScaled18 = 3;
 
         vm.expectRevert(ReClammMath.NegativeAmountOut.selector);
-        mathContract.calculateOutGivenIn(
+        mathContract.computeOutGivenIn(
             [balanceA, balanceB].toMemoryArray(),
             [virtualBalanceA, virtualBalanceB].toMemoryArray(),
             0,
@@ -186,7 +186,7 @@ contract ReClammMathTest is BaseReClammTest {
         );
     }
 
-    function testIsPoolInRange__Fuzz(
+    function testIsPoolWithinTargetRange__Fuzz(
         uint256 balance0,
         uint256 balance1,
         uint256 virtualBalance0,
@@ -207,7 +207,7 @@ contract ReClammMathTest is BaseReClammTest {
         virtualBalances[0] = virtualBalance0;
         virtualBalances[1] = virtualBalance1;
 
-        bool isInRange = ReClammMath.isPoolInRange(balancesScaled18, virtualBalances, centerednessMargin);
+        bool isInRange = ReClammMath.isPoolWithinTargetRange(balancesScaled18, virtualBalances, centerednessMargin);
 
         assertEq(isInRange, ReClammMath.computeCenteredness(balancesScaled18, virtualBalances) >= centerednessMargin);
     }
@@ -358,7 +358,7 @@ contract ReClammMathTest is BaseReClammTest {
 
         vm.assume(oldCenteredness > _MIN_POOL_CENTEREDNESS);
 
-        uint256[] memory newVirtualBalances = ReClammMath.calculateVirtualBalancesUpdatingPriceRatio(
+        uint256[] memory newVirtualBalances = ReClammMath.computeVirtualBalancesUpdatingPriceRatio(
             expectedFourthRootPriceRatio,
             balancesScaled18,
             lastVirtualBalances,
@@ -537,7 +537,7 @@ contract ReClammMathTest is BaseReClammTest {
         );
     }
 
-    function _calculateOutGivenInAllowError(
+    function _computeOutGivenInAllowError(
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances,
         uint256 tokenInIndex,

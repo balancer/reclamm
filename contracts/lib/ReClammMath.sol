@@ -41,8 +41,9 @@ library ReClammMath {
     /// @notice The swap result is negative due to a rounding issue.
     error NegativeAmountOut();
 
-    // At a PriceShiftDailyRate of 100%, we want to be able to change the price of an out-of-range pool by a factor
-    // of two, either doubling or halving it over the course of a day (86,400 seconds). The virtual balances must
+    // When a pool is outside the target range, we start adjusting the price range by altering the virtual balances,
+    // which affects the price. At a PriceShiftDailyRate of 100%, we want to be able to change the price by a factor
+    // of two: either doubling or halving it over the course of a day (86,400 seconds). The virtual balances must
     // change at the same rate. Therefore, if we want to double it in a day:
     //
     // 1. `Vnext = 2*Vcurrent`
@@ -64,7 +65,7 @@ library ReClammMath {
      * @param priceShiftDailyRateInSeconds IncreaseDayRate divided by 124649
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @param centerednessMargin A symmetrical measure of how closely an unbalanced pool can approach the limits of the
-     * price range before it is considered out of range
+     * price range before it is considered outside the target range
      * @param priceRatioState A struct containing start and end price ratios and a time interval
      * @param rounding Rounding direction to consider when computing the invariant
      * @return invariant The invariant of the pool
@@ -94,8 +95,8 @@ library ReClammMath {
      * @notice Compute the invariant of the pool using constant product.
      * @dev Note that the invariant is computed as (x+a)(y+b), without a square root. This is because the calculations
      * of virtual balance updates are easier with this invariant. Unlike most other pools, the ReClamm invariant will
-     * change over time, if the pool is out of range or the price ratio is updating, so these pools are not composable.
-     * Therefore, the BPT value is meaningless.
+     * change over time, if the pool is outside the target range, or the price ratio is updating, so these pools are
+     * not composable. Therefore, the BPT value is meaningless.
      *
      * Consequently, liquidity can only be added or removed proportionally, as these operations do not depend on the
      * invariant. Therefore, it does not matter that the relationship between the invariant and liquidity is non-
@@ -127,7 +128,7 @@ library ReClammMath {
      * @param amountInScaled18 The exact amount of `tokenIn` (i.e., the amount given in an ExactIn swap)
      * @return amountOutScaled18 The calculated amount of `tokenOut` returned in an ExactIn swap
      */
-    function calculateOutGivenIn(
+    function computeOutGivenIn(
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances,
         uint256 tokenInIndex,
@@ -166,7 +167,7 @@ library ReClammMath {
      * @param amountOutScaled18 The exact amount of `tokenOut` (i.e., the amount given in an ExactOut swap)
      * @return amountInScaled18 The calculated amount of `tokenIn` returned in an ExactOut swap
      */
-    function calculateInGivenOut(
+    function computeInGivenOut(
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances,
         uint256 tokenInIndex,
@@ -207,7 +208,7 @@ library ReClammMath {
      *
      * @param minPrice The minimum price limit of the pool
      * @param maxPrice The maximum price limit of the pool
-     * @param targetPrice The desired initial price point within the range
+     * @param targetPrice The desired initial price point within the total price range (i.e., the midpoint)
      * @return realBalances Array of theoretical initial token balances [tokenA, tokenB]
      * @return virtualBalances Array of theoretical initial virtual balances [virtualA, virtualB]
      * @return fourthRootPriceRatio The fourth root of maxPrice/minPrice ratio
@@ -248,12 +249,13 @@ library ReClammMath {
 
     /**
      * @notice Calculate the current virtual balances of the pool.
-     * @dev If the pool is in range or the price ratio is not updating, the virtual balances do not change and
-     * lastVirtualBalances are returned. Otherwise, follow these three steps:
+     * @dev If the pool is within the target range, or the price ratio is not updating, the virtual balances do not
+     * change, and we return lastVirtualBalances. Otherwise, follow these three steps:
+     *
      * 1. Calculate the current fourth root of price ratio.
      * 2. Shrink/Expand the price interval considering the current fourth root of price ratio (if the price ratio
      *    is updating).
-     * 3. Track the market price by moving the price interval (if the pool is out of range).
+     * 3. Track the market price by moving the price interval (if the pool is outside the target range).
      *
      * Note: Virtual balances will be rounded down so that the swap result favors the Vault.
      *
@@ -261,7 +263,7 @@ library ReClammMath {
      * @param lastVirtualBalances The last virtual balances, sorted in token registration order
      * @param priceShiftDailyRateInSeconds IncreaseDayRate divided by 124649
      * @param lastTimestamp The timestamp of the last user interaction with the pool
-     * @param centerednessMargin A limit of the pool centeredness that defines if pool is out of range
+     * @param centerednessMargin A limit of the pool centeredness that defines if pool is outside the target range
      * @param storedPriceRatioState A struct containing start and end price ratios and a time interval
      * @return currentVirtualBalances The current virtual balances of the pool
      * @return changed Whether the virtual balances have changed and must be updated in the pool
@@ -294,8 +296,8 @@ library ReClammMath {
             priceRatioState.priceRatioUpdateEndTime
         );
 
-        // Postponing the calculation of isPoolAboveCenter saves gas when the pool is in range and the price ratio
-        // is not updating.
+        // Postponing the calculation of isPoolAboveCenter saves gas when the pool is within the target range and the
+        // price ratio is not updating.
         PoolAboveCenter isPoolAboveCenter = PoolAboveCenter.UNKNOWN;
 
         // If the price ratio is updating, shrink/expand the price interval by recalculating the virtual balances.
@@ -307,7 +309,7 @@ library ReClammMath {
         ) {
             isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances).toEnum();
 
-            currentVirtualBalances = calculateVirtualBalancesUpdatingPriceRatio(
+            currentVirtualBalances = computeVirtualBalancesUpdatingPriceRatio(
                 currentFourthRootPriceRatio,
                 balancesScaled18,
                 lastVirtualBalances,
@@ -317,13 +319,13 @@ library ReClammMath {
             changed = true;
         }
 
-        // If the pool is out of range, track the market price by moving the price interval.
-        if (isPoolInRange(balancesScaled18, currentVirtualBalances, centerednessMargin) == false) {
+        // If the pool is outside the target range, track the market price by moving the price interval.
+        if (isPoolWithinTargetRange(balancesScaled18, currentVirtualBalances, centerednessMargin) == false) {
             if (isPoolAboveCenter == PoolAboveCenter.UNKNOWN) {
                 isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances).toEnum();
             }
 
-            currentVirtualBalances = calculateVirtualBalancesUpdatingPriceRange(
+            currentVirtualBalances = computeVirtualBalancesUpdatingPriceRange(
                 currentFourthRootPriceRatio,
                 balancesScaled18,
                 currentVirtualBalances,
@@ -338,7 +340,7 @@ library ReClammMath {
     }
 
     /**
-     * @notice Calculate the virtual balances of the pool when the price ratio is updating.
+     * @notice Compute the virtual balances of the pool when the price ratio is updating.
      * @dev This function uses a Bhaskara formula to shrink/expand the price interval by recalculating the virtual
      * balances. It'll keep the pool centeredness constant, and track the desired price ratio. To derive this formula,
      * we need to solve the following simultaneous equations:
@@ -356,7 +358,7 @@ library ReClammMath {
      * @param isPoolAboveCenter Whether the pool is above or below the center
      * @return virtualBalances The new virtual balances of the pool
      */
-    function calculateVirtualBalancesUpdatingPriceRatio(
+    function computeVirtualBalancesUpdatingPriceRatio(
         uint256 currentFourthRootPriceRatio,
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
@@ -369,7 +371,7 @@ library ReClammMath {
 
         virtualBalances = new uint256[](2);
 
-        // Calculate the current pool centeredness, which will remain constant.
+        // Compute the current pool centeredness, which will remain constant.
         uint256 poolCenteredness = computeCenteredness(balancesScaled18, lastVirtualBalances);
 
         // The original formula was a quadratic equation, with terms:
@@ -395,20 +397,20 @@ library ReClammMath {
     }
 
     /**
-     * @notice Calculate the virtual balances when the pool is out of range, effectively adjusting the price range.
+     * @notice Compute new virtual balances when the pool is outside the target range.
      * @dev This function will track the market price by moving the price interval. Note that it will increase the
      * pool centeredness and change the token prices.
      *
      * @param currentFourthRootPriceRatio The current fourth root of price ratio of the pool
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param virtualBalances The last virtual balances, sorted in token registration order
-     * @param isPoolAboveCenter Whether the pool is above or below the center
+     * @param isPoolAboveCenter Whether the pool is above or below the center of the price range
      * @param priceShiftDailyRateInSeconds IncreaseDayRate divided by 124649
      * @param currentTimestamp The current timestamp
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @return virtualBalances The new virtual balances of the pool
      */
-    function calculateVirtualBalancesUpdatingPriceRange(
+    function computeVirtualBalancesUpdatingPriceRange(
         uint256 currentFourthRootPriceRatio,
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances,
@@ -447,9 +449,9 @@ library ReClammMath {
      * @param virtualBalances The last virtual balances, sorted in token registration order
      * @param centerednessMargin A symmetrical measure of how closely an unbalanced pool can approach the limits of the
      * price range before it is considered out of range
-     * @return isInRange Whether the pool is in range
+     * @return isWithinTargetRange Whether the pool is within the target price range
      */
-    function isPoolInRange(
+    function isPoolWithinTargetRange(
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances,
         uint256 centerednessMargin
@@ -459,7 +461,7 @@ library ReClammMath {
     }
 
     /**
-     * @notice Calculate the centeredness of the pool.
+     * @notice Compute the centeredness of the pool.
      * @dev The centeredness is calculated as the ratio of the real balances divided by the ratio of the virtual
      * balances. It's a percentage value, where 100% means that the token prices are centered, and 0% means that the
      * token prices are at the edge of the price interval.
@@ -488,7 +490,7 @@ library ReClammMath {
     }
 
     /**
-     * @notice Calculate the fourth root of the price ratio of the pool.
+     * @notice Compute the fourth root of the price ratio of the pool.
      * @dev The current fourth root of price ratio is an interpolation of the price ratio between the start and end
      * values in the price ratio state, using the percentage elapsed between the start and end times.
      *

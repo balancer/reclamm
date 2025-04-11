@@ -32,13 +32,17 @@ contract ReClammSwapTest is BaseReClammTest {
         (uint256[] memory currentVirtualBalances, ) = ReClammPool(pool).computeCurrentVirtualBalances();
 
         vm.assume(
-            ReClammMath.isPoolInRange(newBalances, lastVirtualBalancesBeforeSwap, _DEFAULT_CENTEREDNESS_MARGIN) == false
+            ReClammMath.isPoolWithinTargetRange(
+                newBalances,
+                lastVirtualBalancesBeforeSwap,
+                _DEFAULT_CENTEREDNESS_MARGIN
+            ) == false
         );
 
         // If the pool is out of range, the virtual balances should not match.
         _assertVirtualBalancesDoNotMatch(lastVirtualBalancesBeforeSwap, currentVirtualBalances);
 
-        uint256 amountDaiIn = ReClammMath.calculateInGivenOut(
+        uint256 amountDaiIn = ReClammMath.computeInGivenOut(
             newBalances,
             currentVirtualBalances,
             daiIdx,
@@ -75,7 +79,7 @@ contract ReClammSwapTest is BaseReClammTest {
         // If the price ratio is updating, the virtual balances should not match.
         _assertVirtualBalancesDoNotMatch(lastVirtualBalancesBeforeSwap, currentVirtualBalances);
 
-        uint256 amountDaiIn = ReClammMath.calculateInGivenOut(
+        uint256 amountDaiIn = ReClammMath.computeInGivenOut(
             [poolInitAmount, poolInitAmount].toMemoryArray(),
             currentVirtualBalances,
             daiIdx,
@@ -121,13 +125,17 @@ contract ReClammSwapTest is BaseReClammTest {
         (uint256[] memory currentVirtualBalances, ) = ReClammPool(pool).computeCurrentVirtualBalances();
 
         vm.assume(
-            ReClammMath.isPoolInRange(newBalances, lastVirtualBalancesBeforeSwap, _DEFAULT_CENTEREDNESS_MARGIN) == false
+            ReClammMath.isPoolWithinTargetRange(
+                newBalances,
+                lastVirtualBalancesBeforeSwap,
+                _DEFAULT_CENTEREDNESS_MARGIN
+            ) == false
         );
 
         // If the pool is out of range and price ratio is updating, the virtual balances should not match.
         _assertVirtualBalancesDoNotMatch(lastVirtualBalancesBeforeSwap, currentVirtualBalances);
 
-        uint256 amountDaiIn = ReClammMath.calculateInGivenOut(
+        uint256 amountDaiIn = ReClammMath.computeInGivenOut(
             newBalances,
             currentVirtualBalances,
             daiIdx,
@@ -164,12 +172,18 @@ contract ReClammSwapTest is BaseReClammTest {
         uint256[] memory lastVirtualBalancesBeforeSwap = ReClammPoolMock(pool).getLastVirtualBalances();
         (uint256[] memory currentVirtualBalances, ) = ReClammPool(pool).computeCurrentVirtualBalances();
 
-        vm.assume(ReClammMath.isPoolInRange(newBalances, lastVirtualBalancesBeforeSwap, _DEFAULT_CENTEREDNESS_MARGIN));
+        vm.assume(
+            ReClammMath.isPoolWithinTargetRange(
+                newBalances,
+                lastVirtualBalancesBeforeSwap,
+                _DEFAULT_CENTEREDNESS_MARGIN
+            )
+        );
 
         // If the pool is in range, the virtual balances should match.
         _assertVirtualBalancesMatch(lastVirtualBalancesBeforeSwap, currentVirtualBalances);
 
-        uint256 amountDaiIn = ReClammMath.calculateInGivenOut(
+        uint256 amountDaiIn = ReClammMath.computeInGivenOut(
             newBalances,
             currentVirtualBalances,
             daiIdx,
@@ -207,7 +221,11 @@ contract ReClammSwapTest is BaseReClammTest {
         (uint256[] memory currentVirtualBalances, ) = ReClammPool(pool).computeCurrentVirtualBalances();
 
         vm.assume(
-            ReClammMath.isPoolInRange(newBalances, lastVirtualBalancesBeforeSwap, _DEFAULT_CENTEREDNESS_MARGIN) == false
+            ReClammMath.isPoolWithinTargetRange(
+                newBalances,
+                lastVirtualBalancesBeforeSwap,
+                _DEFAULT_CENTEREDNESS_MARGIN
+            ) == false
         );
 
         // If the pool is out of range, the virtual balances should not match.
@@ -288,7 +306,11 @@ contract ReClammSwapTest is BaseReClammTest {
         (uint256[] memory currentVirtualBalances, ) = ReClammPool(pool).computeCurrentVirtualBalances();
 
         vm.assume(
-            ReClammMath.isPoolInRange(newBalances, lastVirtualBalancesBeforeSwap, _DEFAULT_CENTEREDNESS_MARGIN) == false
+            ReClammMath.isPoolWithinTargetRange(
+                newBalances,
+                lastVirtualBalancesBeforeSwap,
+                _DEFAULT_CENTEREDNESS_MARGIN
+            ) == false
         );
 
         // If the pool is out of range and prices are updating, the virtual balances should not match.
@@ -325,7 +347,13 @@ contract ReClammSwapTest is BaseReClammTest {
         uint256[] memory lastVirtualBalancesBeforeSwap = ReClammPoolMock(pool).getLastVirtualBalances();
         (uint256[] memory currentVirtualBalances, ) = ReClammPool(pool).computeCurrentVirtualBalances();
 
-        vm.assume(ReClammMath.isPoolInRange(newBalances, lastVirtualBalancesBeforeSwap, _DEFAULT_CENTEREDNESS_MARGIN));
+        vm.assume(
+            ReClammMath.isPoolWithinTargetRange(
+                newBalances,
+                lastVirtualBalancesBeforeSwap,
+                _DEFAULT_CENTEREDNESS_MARGIN
+            )
+        );
 
         // If the pool is in range, the virtual balances should match.
         _assertVirtualBalancesMatch(lastVirtualBalancesBeforeSwap, currentVirtualBalances);
