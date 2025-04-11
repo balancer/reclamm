@@ -67,7 +67,7 @@ struct ReClammPoolImmutableData {
  * ReClamm:
  * @param lastTimestamp The timestamp of the last user interaction
  * @param lastVirtualBalances The last virtual balances of the pool
- * @param priceShiftDailyRangeInSeconds Represents how fast the pool can move the virtual balances per day
+ * @param priceShiftDailyRateInSeconds Represents how fast the pool can move the virtual balances per day
  * @param centerednessMargin The centeredness margin of the pool
  * @param currentFourthRootPriceRatio The current fourth root price ratio, an interpolation of the price ratio state
  * @param startFourthRootPriceRatio The fourth root price ratio at the start of an update
@@ -88,7 +88,7 @@ struct ReClammPoolDynamicData {
     // ReClamm
     uint256 lastTimestamp;
     uint256[] lastVirtualBalances;
-    uint256 priceShiftDailyRangeInSeconds;
+    uint256 priceShiftDailyRateInSeconds;
     uint256 centerednessMargin;
     uint256 currentFourthRootPriceRatio;
     uint256 startFourthRootPriceRatio;
@@ -134,9 +134,9 @@ interface IReClammPool is IBasePool {
      * @notice The price shift daily rate was updated.
      * @dev This will be emitted on deployment, and when changed by governance or the swap manager.
      * @param priceShiftDailyRate The new price shift daily rate
-     * @param priceShiftDailyRangeInSeconds A representation of the price shift daily rate in seconds
+     * @param priceShiftDailyRateInSeconds A representation of the price shift daily rate in seconds
      */
-    event PriceShiftDailyRateUpdated(uint256 priceShiftDailyRate, uint256 priceShiftDailyRangeInSeconds);
+    event PriceShiftDailyRateUpdated(uint256 priceShiftDailyRate, uint256 priceShiftDailyRateInSeconds);
 
     /**
      * @notice The centeredness margin was updated.

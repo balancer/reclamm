@@ -21,8 +21,6 @@ contract ReClammRoundingTest is BaseReClammTest {
 
     uint256 internal constant _MIN_SWAP_AMOUNT = 1e12;
 
-    uint256 internal constant _MAX_TIME_CONSTANT = FixedPoint.ONE - 1;
-
     uint256 internal constant _MIN_SWAP_FEE = 0;
     // Max swap fee of 50%. In practice this is way too high for a static fee.
     uint256 internal constant _MAX_SWAP_FEE = 50e16;
