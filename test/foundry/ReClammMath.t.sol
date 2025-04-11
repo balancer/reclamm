@@ -207,7 +207,7 @@ contract ReClammMathTest is BaseReClammTest {
         virtualBalances[0] = virtualBalance0;
         virtualBalances[1] = virtualBalance1;
 
-        bool isInRange = ReClammMath.isPoolInRange(balancesScaled18, virtualBalances, centerednessMargin);
+        bool isInRange = ReClammMath.isPoolWithinMargins(balancesScaled18, virtualBalances, centerednessMargin);
 
         assertEq(isInRange, ReClammMath.computeCenteredness(balancesScaled18, virtualBalances) >= centerednessMargin);
     }

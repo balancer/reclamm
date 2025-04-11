@@ -91,8 +91,11 @@ contract ReClammLiquidityTest is BaseReClammTest {
 
         // Make sure pool is out of range, so the virtual balances should be updated by the addLiquidity call.
         vm.assume(
-            ReClammMath.isPoolInRange(initialBalancesScaled18, virtualBalancesBefore, _DEFAULT_CENTEREDNESS_MARGIN) ==
-                false
+            ReClammMath.isPoolWithinMargins(
+                initialBalancesScaled18,
+                virtualBalancesBefore,
+                _DEFAULT_CENTEREDNESS_MARGIN
+            ) == false
         );
 
         uint256 totalSupply = vault.totalSupply(pool);
@@ -264,8 +267,11 @@ contract ReClammLiquidityTest is BaseReClammTest {
 
         // Make sure pool is out of range, so the virtual balances should be updated by the addLiquidity call.
         vm.assume(
-            ReClammMath.isPoolInRange(initialBalancesScaled18, virtualBalancesBefore, _DEFAULT_CENTEREDNESS_MARGIN) ==
-                false
+            ReClammMath.isPoolWithinMargins(
+                initialBalancesScaled18,
+                virtualBalancesBefore,
+                _DEFAULT_CENTEREDNESS_MARGIN
+            ) == false
         );
 
         uint256 totalSupply = vault.totalSupply(pool);

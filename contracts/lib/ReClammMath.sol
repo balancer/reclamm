@@ -41,7 +41,7 @@ library ReClammMath {
     /// @notice The swap result is negative due to a rounding issue.
     error NegativeAmountOut();
 
-    // At a PriceShiftDailyRate of 100%, we want to be able to change the price of an out-of-range pool by a factor
+    // At a PriceShiftDailyRate of 100%, we want to be able to change the price of an out-of-margins pool by a factor
     // of two, either doubling or halving it over the course of a day (86,400 seconds). The virtual balances must
     // change at the same rate. Therefore, if we want to double it in a day:
     //
@@ -64,7 +64,7 @@ library ReClammMath {
      * @param priceShiftDailyRateInSeconds IncreaseDayRate divided by 124649
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @param centerednessMargin A symmetrical measure of how closely an unbalanced pool can approach the limits of the
-     * price range before it is considered out of range
+     * price range before it is considered out of the "working range"
      * @param priceRatioState A struct containing start and end price ratios and a time interval
      * @param rounding Rounding direction to consider when computing the invariant
      * @return invariant The invariant of the pool
@@ -94,8 +94,8 @@ library ReClammMath {
      * @notice Compute the invariant of the pool using constant product.
      * @dev Note that the invariant is computed as (x+a)(y+b), without a square root. This is because the calculations
      * of virtual balance updates are easier with this invariant. Unlike most other pools, the ReClamm invariant will
-     * change over time, if the pool is out of range or the price ratio is updating, so these pools are not composable.
-     * Therefore, the BPT value is meaningless.
+     * change over time, if the pool is out of the working range or the price ratio is updating, so these pools are not
+     * composable. Therefore, the BPT value is meaningless.
      *
      * Consequently, liquidity can only be added or removed proportionally, as these operations do not depend on the
      * invariant. Therefore, it does not matter that the relationship between the invariant and liquidity is non-
@@ -207,7 +207,7 @@ library ReClammMath {
      *
      * @param minPrice The minimum price limit of the pool
      * @param maxPrice The maximum price limit of the pool
-     * @param targetPrice The desired initial price point within the range
+     * @param targetPrice The desired initial price point within the price range
      * @return realBalances Array of theoretical initial token balances [tokenA, tokenB]
      * @return virtualBalances Array of theoretical initial virtual balances [virtualA, virtualB]
      * @return fourthRootPriceRatio The fourth root of maxPrice/minPrice ratio
@@ -248,12 +248,12 @@ library ReClammMath {
 
     /**
      * @notice Calculate the current virtual balances of the pool.
-     * @dev If the pool is in range or the price ratio is not updating, the virtual balances do not change and
-     * lastVirtualBalances are returned. Otherwise, follow these three steps:
+     * @dev If the pool is in the working range or the price ratio is not updating, the virtual balances do not change
+     * and lastVirtualBalances are returned. Otherwise, follow these three steps:
      * 1. Calculate the current fourth root of price ratio.
      * 2. Shrink/Expand the price interval considering the current fourth root of price ratio (if the price ratio
      *    is updating).
-     * 3. Track the market price by moving the price interval (if the pool is out of range).
+     * 3. Track the market price by moving the price interval (if the pool is out of the working range).
      *
      * Note: Virtual balances will be rounded down so that the swap result favors the Vault.
      *
@@ -261,7 +261,7 @@ library ReClammMath {
      * @param lastVirtualBalances The last virtual balances, sorted in token registration order
      * @param priceShiftDailyRateInSeconds IncreaseDayRate divided by 124649
      * @param lastTimestamp The timestamp of the last user interaction with the pool
-     * @param centerednessMargin A limit of the pool centeredness that defines if pool is out of range
+     * @param centerednessMargin A limit of the pool centeredness that defines if pool is out of the working range
      * @param storedPriceRatioState A struct containing start and end price ratios and a time interval
      * @return currentVirtualBalances The current virtual balances of the pool
      * @return changed Whether the virtual balances have changed and must be updated in the pool
@@ -294,8 +294,8 @@ library ReClammMath {
             priceRatioState.priceRatioUpdateEndTime
         );
 
-        // Postponing the calculation of isPoolAboveCenter saves gas when the pool is in range and the price ratio
-        // is not updating.
+        // Postponing the calculation of isPoolAboveCenter saves gas when the pool is in the working range and the price
+        // ratio is not updating.
         PoolAboveCenter isPoolAboveCenter = PoolAboveCenter.UNKNOWN;
 
         // If the price ratio is updating, shrink/expand the price interval by recalculating the virtual balances.
@@ -317,8 +317,8 @@ library ReClammMath {
             changed = true;
         }
 
-        // If the pool is out of range, track the market price by moving the price interval.
-        if (isPoolInRange(balancesScaled18, currentVirtualBalances, centerednessMargin) == false) {
+        // If the pool is out of the working range, track the market price by moving the price interval.
+        if (isPoolWithinMargins(balancesScaled18, currentVirtualBalances, centerednessMargin) == false) {
             if (isPoolAboveCenter == PoolAboveCenter.UNKNOWN) {
                 isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances).toEnum();
             }
@@ -395,7 +395,8 @@ library ReClammMath {
     }
 
     /**
-     * @notice Calculate the virtual balances when the pool is out of range, effectively adjusting the price range.
+     * @notice Calculate the virtual balances when the pool is out of the working range, effectively adjusting the price
+     * range.
      * @dev This function will track the market price by moving the price interval. Note that it will increase the
      * pool centeredness and change the token prices.
      *
@@ -441,15 +442,15 @@ library ReClammMath {
     }
 
     /**
-     * @notice Check whether the pool is in range.
-     * @dev The pool is in range if the centeredness is greater than the centeredness margin.
+     * @notice Check whether the pool is in the working range (within the margins).
+     * @dev The pool is in range if the centeredness is greater than or equal to the centeredness margin.
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param virtualBalances The last virtual balances, sorted in token registration order
      * @param centerednessMargin A symmetrical measure of how closely an unbalanced pool can approach the limits of the
-     * price range before it is considered out of range
-     * @return isInRange Whether the pool is in range
+     * price range before it is considered out of the working range
+     * @return True if the pool is in the working range, false otherwise
      */
-    function isPoolInRange(
+    function isPoolWithinMargins(
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances,
         uint256 centerednessMargin

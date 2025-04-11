@@ -492,7 +492,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         uint256 newCenterednessMargin = 50e16;
         vm.prank(admin);
-        vm.expectRevert(IReClammPool.PoolIsOutOfRange.selector);
+        vm.expectRevert(IReClammPool.PoolIsOutsideMargins.selector);
         ReClammPool(pool).setCenterednessMargin(newCenterednessMargin);
     }
 
@@ -507,7 +507,7 @@ contract ReClammPoolTest is BaseReClammTest {
         _setPoolBalances(newBalanceA, newBalanceB);
         ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
 
-        assertTrue(ReClammPoolMock(pool).isPoolInRange(), "Pool is out of range");
+        assertTrue(ReClammPoolMock(pool).isPoolWithinMargins(), "Pool is out of range");
         assertApproxEqRel(
             ReClammPoolMock(pool).computeCurrentPoolCenteredness(),
             _DEFAULT_CENTEREDNESS_MARGIN,
@@ -517,7 +517,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         // Margin will make the pool be out of range (since the current centeredness is near the default margin).
         vm.prank(admin);
-        vm.expectRevert(IReClammPool.PoolIsOutOfRange.selector);
+        vm.expectRevert(IReClammPool.PoolIsOutsideMargins.selector);
         ReClammPool(pool).setCenterednessMargin(_NEW_CENTEREDNESS_MARGIN);
     }
 

@@ -37,8 +37,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 internal constant _MIN_SWAP_FEE_PERCENTAGE = 0;
     uint256 internal constant _MAX_SWAP_FEE_PERCENTAGE = 10e16; // 10%
 
-    // The centeredness margin defines the minimum pool centeredness to consider the pool in range. It may be a value
-    // from 0 to 100%.
+    // The centeredness margin defines the minimum pool centeredness to consider the pool in the operating range.
+    // It may be a value from 0 to 100%.
     uint256 internal constant _MIN_CENTEREDNESS_MARGIN = 0;
     uint256 internal constant _MAX_CENTEREDNESS_MARGIN = FixedPoint.ONE;
 
@@ -72,7 +72,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     // Timestamp of the last user interaction.
     uint32 internal _lastTimestamp;
 
-    // Internal representation of the speed at which the pool moves the virtual balances when out of range.
+    // Internal representation of the speed at which the pool moves the virtual balances when out of margins.
     uint128 internal _priceShiftDailyRateInSeconds;
 
     // Used to define the "operating range" of the pool (i.e., where the virtual balances are constant).
@@ -104,15 +104,15 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         }
     }
 
-    modifier onlyWhenPoolIsInRange() {
-        _ensureVaultIsInRange();
+    modifier onlyWhenPoolIsWithinMargins() {
+        _ensurePoolIsWithinMargins();
         _;
-        _ensureVaultIsInRange();
+        _ensurePoolIsWithinMargins();
     }
 
-    function _ensureVaultIsInRange() internal view {
-        if (_isPoolInRange() == false) {
-            revert PoolIsOutOfRange();
+    function _ensurePoolIsWithinMargins() internal view {
+        if (_isPoolWithinMargins() == false) {
+            revert PoolIsOutsideMargins();
         }
     }
 
@@ -424,8 +424,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function isPoolInRange() external view returns (bool) {
-        return _isPoolInRange();
+    function isPoolWithinMargins() external view returns (bool) {
+        return _isPoolWithinMargins();
     }
 
     /// @inheritdoc IReClammPool
@@ -519,7 +519,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         external
         onlyWhenInitialized
         onlyWhenVaultIsLocked
-        onlyWhenPoolIsInRange
+        onlyWhenPoolIsWithinMargins
         onlySwapFeeManagerOrGovernance(address(this))
     {
         _setCenterednessMarginAndUpdateVirtualBalances(newCenterednessMargin);
@@ -611,7 +611,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /**
      * @dev This function relies on the pool balance, which can be manipulated if the vault is unlocked. Also, the pool
-     * must be in range before and after the operation, or the pool owner could arb the pool.
+     * must be within the margins before and after the operation, or the pool owner could arb the pool.
      */
     function _setCenterednessMarginAndUpdateVirtualBalances(uint256 centerednessMargin) internal {
         // Update the virtual balances using the current daily rate.
@@ -628,14 +628,14 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /**
      * @notice Sets the centeredness margin when the pool is created.
-     * @param centerednessMargin The new centerednessMargin value, which must be within range
+     * @param centerednessMargin The new centerednessMargin value, which must be within the margins
      */
     function _setCenterednessMargin(uint256 centerednessMargin) internal {
         if (centerednessMargin < _MIN_CENTEREDNESS_MARGIN || centerednessMargin > _MAX_CENTEREDNESS_MARGIN) {
             revert InvalidCenterednessMargin();
         }
 
-        // Straight cast is safe since the range is validated above (and tests ensure the margins fit in uint64).
+        // Straight cast is safe since the margin is validated above (and tests ensure the margins fit in uint64).
         _centerednessMargin = uint64(centerednessMargin);
 
         emit CenterednessMarginUpdated(centerednessMargin);
@@ -708,10 +708,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @dev This function relies on the pool balance, which can be manipulated if the vault is unlocked.
-    function _isPoolInRange() internal view returns (bool) {
+    function _isPoolWithinMargins() internal view returns (bool) {
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
 
-        return ReClammMath.isPoolInRange(balancesScaled18, _lastVirtualBalances, _centerednessMargin);
+        return ReClammMath.isPoolWithinMargins(balancesScaled18, _lastVirtualBalances, _centerednessMargin);
     }
 
     /// @dev Checks that the current balance ratio is within the initialization balance ratio tolerance.

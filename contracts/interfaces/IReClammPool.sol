@@ -171,8 +171,8 @@ interface IReClammPool is IBasePool {
     /// @notice The vault is not locked, so the pool balances are manipulable.
     error VaultIsNotLocked();
 
-    /// @notice The pool is out of range before or after the operation.
-    error PoolIsOutOfRange();
+    /// @notice The pool is out of the working range before or after the operation.
+    error PoolIsOutsideMargins();
 
     /// @notice The start time for the price ratio update is invalid (either in the past or after the given end time).
     error InvalidStartTime();
@@ -227,10 +227,10 @@ interface IReClammPool is IBasePool {
 
     /**
      * @notice Computes the current virtual balances and a flag indicating whether they have changed.
-     * @dev The current virtual balances are calculated based on the last virtual balances. If the pool is in range
-     * and the price ratio is not updating, the virtual balances will not change. If the pool is out of range or the
-     * price ratio is updating, this function will calculate the new virtual balances based on the timestamp of the
-     * last user interaction. Note that virtual balances are always scaled18 values.
+     * @dev The current virtual balances are calculated based on the last virtual balances. If the pool is in the
+     * operating range and the price ratio is not updating, the virtual balances will not change. If the pool is out of
+     * the operating range or the price ratio is updating, this function will calculate the new virtual balances based
+     * on the timestamp of the last user interaction. Note that virtual balances are always scaled18 values.
      *
      * Current virtual balances might change as a result of an operation, manipulating the value to some degree.
      * Ensure that the vault is locked before calling this function if this side effect is undesired.
@@ -288,7 +288,8 @@ interface IReClammPool is IBasePool {
     function computeCurrentFourthRootPriceRatio() external view returns (uint256);
 
     /**
-     * @notice Compute whether the pool is in range (i.e., the centeredness is greater than the centeredness margin).
+     * @notice Compute whether the pool is in the operating range (i.e., the centeredness is greater than or equal to
+     * the centeredness margin).
      * @dev This function can only be called when the vault is locked (i.e., not from inside an operation). It relies
      * on the pool balances, which can be manipulated if the Vault is unlocked.
      *
@@ -298,7 +299,7 @@ interface IReClammPool is IBasePool {
      *
      * @return isInRange True if pool centeredness is within the centeredness margin
      */
-    function isPoolInRange() external view returns (bool);
+    function isPoolWithinMargins() external view returns (bool);
 
     /**
      * @notice Compute the current pool centeredness (a measure of how pool balance).
@@ -330,7 +331,7 @@ interface IReClammPool is IBasePool {
     ********************************************************/
 
     /**
-     * @notice Resets the price ratio update by setting a new end fourth root price ratio and time range.
+     * @notice Resets the price ratio update by setting a new end fourth root price ratio and time interval.
      * @dev The price ratio is calculated by interpolating between the start and end times. The start price ratio will
      * be set to the current fourth root price ratio of the pool. This is a permissioned function.
      *

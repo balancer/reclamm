@@ -104,12 +104,12 @@ contract ReClammMathMock {
             );
     }
 
-    function isPoolInRange(
+    function isPoolWithinMargins(
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances,
         uint256 centerednessMargin
     ) external pure returns (bool) {
-        return ReClammMath.isPoolInRange(balancesScaled18, virtualBalances, centerednessMargin);
+        return ReClammMath.isPoolWithinMargins(balancesScaled18, virtualBalances, centerednessMargin);
     }
 
     function computeCenteredness(
