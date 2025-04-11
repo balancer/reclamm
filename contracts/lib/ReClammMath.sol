@@ -61,7 +61,7 @@ library ReClammMath {
      * @notice Get the current virtual balances and compute the invariant of the pool using constant product.
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param lastVirtualBalances The last virtual balances, sorted in token registration order
-     * @param priceShiftDailyRangeInSeconds IncreaseDayRate divided by 124649
+     * @param priceShiftDailyRateInSeconds IncreaseDayRate divided by 124649
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @param centerednessMargin A symmetrical measure of how closely an unbalanced pool can approach the limits of the
      * price range before it is considered out of range
@@ -72,7 +72,7 @@ library ReClammMath {
     function computeInvariant(
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
-        uint256 priceShiftDailyRangeInSeconds,
+        uint256 priceShiftDailyRateInSeconds,
         uint32 lastTimestamp,
         uint64 centerednessMargin,
         PriceRatioState storage priceRatioState,
@@ -81,7 +81,7 @@ library ReClammMath {
         (uint256[] memory currentVirtualBalances, ) = computeCurrentVirtualBalances(
             balancesScaled18,
             lastVirtualBalances,
-            priceShiftDailyRangeInSeconds,
+            priceShiftDailyRateInSeconds,
             lastTimestamp,
             centerednessMargin,
             priceRatioState
@@ -259,7 +259,7 @@ library ReClammMath {
      *
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param lastVirtualBalances The last virtual balances, sorted in token registration order
-     * @param priceShiftDailyRangeInSeconds IncreaseDayRate divided by 124649
+     * @param priceShiftDailyRateInSeconds IncreaseDayRate divided by 124649
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @param centerednessMargin A limit of the pool centeredness that defines if pool is out of range
      * @param storedPriceRatioState A struct containing start and end price ratios and a time interval
@@ -269,7 +269,7 @@ library ReClammMath {
     function computeCurrentVirtualBalances(
         uint256[] memory balancesScaled18,
         uint256[] memory lastVirtualBalances,
-        uint256 priceShiftDailyRangeInSeconds,
+        uint256 priceShiftDailyRateInSeconds,
         uint32 lastTimestamp,
         uint64 centerednessMargin,
         PriceRatioState storage storedPriceRatioState
@@ -296,7 +296,7 @@ library ReClammMath {
 
         // Postponing the calculation of isPoolAboveCenter saves gas when the pool is in range and the price ratio
         // is not updating.
-        PoolAboveCenter poolAboveCenter = PoolAboveCenter.UNKNOWN;
+        PoolAboveCenter isPoolAboveCenter = PoolAboveCenter.UNKNOWN;
 
         // If the price ratio is updating, shrink/expand the price interval by recalculating the virtual balances.
         // Skip the update if the start and end price ratio are the same, because the virtual balances are already
@@ -305,13 +305,13 @@ library ReClammMath {
             currentTimestamp > priceRatioState.priceRatioUpdateStartTime &&
             lastTimestamp < priceRatioState.priceRatioUpdateEndTime
         ) {
-            poolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances).toPoolAboveCenterEnum();
+            isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances).toEnum();
 
             currentVirtualBalances = calculateVirtualBalancesUpdatingPriceRatio(
                 currentFourthRootPriceRatio,
                 balancesScaled18,
                 lastVirtualBalances,
-                poolAboveCenter == PoolAboveCenter.TRUE
+                isPoolAboveCenter == PoolAboveCenter.TRUE
             );
 
             changed = true;
@@ -319,16 +319,16 @@ library ReClammMath {
 
         // If the pool is out of range, track the market price by moving the price interval.
         if (isPoolInRange(balancesScaled18, currentVirtualBalances, centerednessMargin) == false) {
-            if (poolAboveCenter == PoolAboveCenter.UNKNOWN) {
-                poolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances).toPoolAboveCenterEnum();
+            if (isPoolAboveCenter == PoolAboveCenter.UNKNOWN) {
+                isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances).toEnum();
             }
 
             currentVirtualBalances = calculateVirtualBalancesUpdatingPriceRange(
                 currentFourthRootPriceRatio,
                 balancesScaled18,
                 currentVirtualBalances,
-                poolAboveCenter == PoolAboveCenter.TRUE,
-                priceShiftDailyRangeInSeconds,
+                isPoolAboveCenter == PoolAboveCenter.TRUE,
+                priceShiftDailyRateInSeconds,
                 currentTimestamp,
                 lastTimestamp
             );
@@ -403,7 +403,7 @@ library ReClammMath {
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param virtualBalances The last virtual balances, sorted in token registration order
      * @param isPoolAboveCenter Whether the pool is above or below the center
-     * @param priceShiftDailyRangeInSeconds IncreaseDayRate divided by 124649
+     * @param priceShiftDailyRateInSeconds IncreaseDayRate divided by 124649
      * @param currentTimestamp The current timestamp
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @return virtualBalances The new virtual balances of the pool
@@ -413,7 +413,7 @@ library ReClammMath {
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances,
         bool isPoolAboveCenter,
-        uint256 priceShiftDailyRangeInSeconds,
+        uint256 priceShiftDailyRateInSeconds,
         uint32 currentTimestamp,
         uint32 lastTimestamp
     ) internal pure returns (uint256[] memory) {
@@ -423,10 +423,10 @@ library ReClammMath {
         // The overvalued token is the one with a lower token balance (therefore, rarer and more valuable).
         (uint256 indexTokenUndervalued, uint256 indexTokenOvervalued) = isPoolAboveCenter ? (0, 1) : (1, 0);
 
-        // Vb = Vb * (1 - priceShiftDailyRangeInSeconds)^(Tcurr - Tlast)
+        // Vb = Vb * (1 - priceShiftDailyRateInSeconds)^(Tcurr - Tlast)
         virtualBalances[indexTokenOvervalued] = virtualBalances[indexTokenOvervalued].mulDown(
             LogExpMath.pow(
-                FixedPoint.ONE - priceShiftDailyRangeInSeconds,
+                FixedPoint.ONE - priceShiftDailyRateInSeconds,
                 (currentTimestamp - lastTimestamp) * FixedPoint.ONE
             )
         );
@@ -543,14 +543,14 @@ library ReClammMath {
     }
 
     /// @notice Convert a boolean value to a PoolAboveCenter enum (only TRUE or FALSE).
-    function toPoolAboveCenterEnum(bool value) internal pure returns (PoolAboveCenter) {
+    function toEnum(bool value) internal pure returns (PoolAboveCenter) {
         return PoolAboveCenter(value.toUint());
     }
 
     /**
      * @notice Convert a raw daily rate into the value used internally.
      * @param priceShiftDailyRate The price shift daily rate
-     * @return priceShiftDailyRangeInSeconds Represents how fast the pool can move the virtual balances per day
+     * @return priceShiftDailyRateInSeconds Represents how fast the pool can move the virtual balances per day
      */
     function computePriceShiftDailyRate(uint256 priceShiftDailyRate) internal pure returns (uint128) {
         // Divide daily rate by a number of seconds per day (plus some adjustment)
