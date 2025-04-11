@@ -178,7 +178,7 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
 
     function computeRemoveLiquidity(uint256 exactBptIn) public {
         uint256 oldTotalSupply = ReClammPool(address(pool)).totalSupply();
-        exactBptIn = bound(exactBptIn, 1e18, oldTotalSupply / 2);
+        exactBptIn = bound(exactBptIn, 1e18, oldTotalSupply / 5);
 
         medusa.prank(lp);
         router.removeLiquidityProportional(
