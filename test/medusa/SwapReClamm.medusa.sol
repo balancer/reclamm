@@ -15,20 +15,20 @@ import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/Fixe
 import "@balancer-labs/v3-vault/test/foundry/utils/BaseMedusaTest.sol";
 
 import { ReClammPoolFactory } from "../../contracts/ReClammPoolFactory.sol";
+import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
-
 contract SwapReClammMedusaTest is BaseMedusaTest {
     using FixedPoint for uint256;
     using CastingHelpers for *;
     using ArrayHelpers for *;
 
     uint256 internal constant MIN_SWAP_AMOUNT = 1e6;
-    uint256 constant MAX_IN_RATIO = 10e16;
+    uint256 constant MAX_OUT_RATIO = FixedPoint.ONE; // 100%
     uint256 constant MIN_RECLAMM_TOKEN_BALANCE = 1e12;
 
-    uint256 internal invariantProportion = 1e18;
+    uint256 internal invariantProportion = FixedPoint.ONE; // 100%
 
-    int256 internal initInvariant;
+    uint256 internal initInvariant;
 
     constructor() BaseMedusaTest() {
         initInvariant = computeInvariant();
@@ -72,6 +72,7 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
 
     function getTokensAndInitialBalances()
         internal
+        view
         override
         returns (IERC20[] memory tokens, uint256[] memory initialBalances)
     {
@@ -87,26 +88,44 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
         initialBalances[1] = DEFAULT_INITIAL_POOL_BALANCE;
     }
 
-    function optimize_currentInvariant() public view returns (int256) {
-        return -int256(computeInvariant());
+    function optimize_currentInvariant() public returns (int256) {
+        uint256 currentInvariant = Math.sqrt(computeInvariant() * FixedPoint.ONE);
+        uint256 initialInvariant = Math.sqrt(initInvariant * FixedPoint.ONE).mulUp(invariantProportion);
+
+        // Checking invariant property here, and not in a proper "property_" function, because Medusa reverts silently.
+        if (currentInvariant < initialInvariant) {
+            revert();
+        }
+
+        emit Debug("initInvariant   ", initialInvariant);
+        emit Debug("currentInvariant", currentInvariant);
+
+        return -int256(currentInvariant);
     }
 
-    function property_currentInvariant() public returns (bool) {
-        int256 currentInvariant = computeInvariant();
-
-        emit Debug("initInvariant   ", Math.sqrt(uint256(initInvariant) * FixedPoint.ONE).mulUp(invariantProportion));
-        emit Debug("currentInvariant", Math.sqrt(uint256(currentInvariant) * FixedPoint.ONE));
-
-        return
-            Math.sqrt(uint256(currentInvariant) * FixedPoint.ONE) >=
-            Math.sqrt(uint256(initInvariant) * FixedPoint.ONE).mulUp(invariantProportion);
-    }
-
-    function computeSwapExactIn(uint8 tokenInIndex, uint256 exactAmountIn) public {
+    // Computing exact in with amount out, because the medusa test stops if a contract reverts (even inside a
+    // try/catch block).
+    function computeSwapExactIn(uint8 tokenInIndex, uint256 exactAmountOut) public {
         uint256 tokenIndexIn = tokenInIndex < uint8(128) ? 0 : 1;
         uint256 tokenIndexOut = tokenInIndex < uint8(128) ? 1 : 0;
 
-        exactAmountIn = boundSwapAmount(exactAmountIn, tokenIndexIn);
+        exactAmountOut = boundSwapAmountOut(exactAmountOut, tokenIndexOut);
+
+        // Make sure medusa does not stop if the pool reverts due to lack of liquidity.
+        (, , uint256[] memory balances, ) = vault.getPoolTokenInfo(address(pool));
+        if (balances[tokenIndexOut] - exactAmountOut < MIN_RECLAMM_TOKEN_BALANCE) {
+            return;
+        }
+
+        (uint256[] memory virtualBalances, ) = ReClammPool(address(pool)).computeCurrentVirtualBalances();
+
+        uint256 exactAmountIn = ReClammMath.calculateInGivenOut(
+            balances,
+            virtualBalances,
+            tokenIndexIn,
+            tokenIndexOut,
+            exactAmountOut
+        );
 
         (IERC20[] memory tokens, , , ) = vault.getPoolTokenInfo(address(pool));
 
@@ -135,7 +154,13 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
         uint256 tokenIndexIn = tokenInIndex < uint8(128) ? 0 : 1;
         uint256 tokenIndexOut = tokenInIndex < uint8(128) ? 1 : 0;
 
-        exactAmountOut = boundSwapAmount(exactAmountOut, tokenIndexOut);
+        exactAmountOut = boundSwapAmountOut(exactAmountOut, tokenIndexOut);
+
+        // Make sure medusa does not stop if the pool reverts due to lack of liquidity.
+        (, , uint256[] memory balances, ) = vault.getPoolTokenInfo(address(pool));
+        if (balances[tokenIndexOut] - exactAmountOut < MIN_RECLAMM_TOKEN_BALANCE) {
+            return;
+        }
 
         (IERC20[] memory tokens, , , ) = vault.getPoolTokenInfo(address(pool));
 
@@ -162,7 +187,7 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
 
     function computeAddLiquidity(uint256 exactBptOut) public {
         uint256 oldTotalSupply = ReClammPool(address(pool)).totalSupply();
-        exactBptOut = bound(exactBptOut, 1e18, oldTotalSupply);
+        exactBptOut = bound(exactBptOut, 1e18, oldTotalSupply / 2);
 
         medusa.prank(lp);
         router.addLiquidityProportional(
@@ -204,16 +229,16 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
         invariantProportion = invariantProportion.mulDown(proportion);
     }
 
-    function computeInvariant() internal view returns (int256) {
+    function computeInvariant() internal view returns (uint256) {
         (, , , uint256[] memory lastBalancesLiveScaled18) = vault.getPoolTokenInfo(address(pool));
-        return int256(pool.computeInvariant(lastBalancesLiveScaled18, Rounding.ROUND_UP));
+        return pool.computeInvariant(lastBalancesLiveScaled18, Rounding.ROUND_UP);
     }
 
-    function boundSwapAmount(
-        uint256 tokenAmountIn,
-        uint256 tokenIndex
-    ) internal view returns (uint256 boundedAmountIn) {
+    function boundSwapAmountOut(
+        uint256 tokenAmountOut,
+        uint256 tokenOutIndex
+    ) internal view returns (uint256 boundedAmountOut) {
         (, , uint256[] memory balancesRaw, ) = vault.getPoolTokenInfo(address(pool));
-        boundedAmountIn = bound(tokenAmountIn, MIN_SWAP_AMOUNT, balancesRaw[tokenIndex].mulDown(MAX_IN_RATIO));
+        boundedAmountOut = bound(tokenAmountOut, MIN_SWAP_AMOUNT, balancesRaw[tokenOutIndex].mulDown(MAX_OUT_RATIO));
     }
 }
