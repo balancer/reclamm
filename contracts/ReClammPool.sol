@@ -399,7 +399,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             // We don't have Ra_max, but: invariant=(Ra_max + Va)(Vb)
             // Then, (Va + Ra_max) = invariant/Vb, and:
             // Pmin(a) = Vb^2 / invariant
-            minPrice = virtualBalances[b].mulDivUp(virtualBalances[b], currentInvariant);
+            minPrice = (virtualBalances[b] * virtualBalances[b]) / currentInvariant;
 
             // Pmax(a) = (Rb_max + Vb)/Va
             // We don't have Rb_max, but: invariant=(Rb_max + Vb)(Va)
