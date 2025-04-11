@@ -7,14 +7,17 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { IAuthentication } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/helpers/IAuthentication.sol";
+import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultErrors.sol";
+import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import {
     AddLiquidityKind,
     PoolSwapParams,
     RemoveLiquidityKind
 } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
-import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultErrors.sol";
-import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
-import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+
+import { CastingHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/CastingHelpers.sol";
+import { InputHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/InputHelpers.sol";
+import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 
 import { PriceRatioState, ReClammMath } from "../../contracts/lib/ReClammMath.sol";
 import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
@@ -23,12 +26,14 @@ import { ReClammPool } from "../../contracts/ReClammPool.sol";
 import {
     IReClammPool,
     ReClammPoolDynamicData,
-    ReClammPoolImmutableData
+    ReClammPoolImmutableData,
+    ReClammPoolParams
 } from "../../contracts/interfaces/IReClammPool.sol";
 
 contract ReClammPoolTest is BaseReClammTest {
-    using SafeCast for *;
+    using CastingHelpers for IERC20[];
     using FixedPoint for uint256;
+    using ArrayHelpers for *;
     using SafeCast for *;
 
     uint256 private constant _NEW_CENTEREDNESS_MARGIN = 30e16;
@@ -70,7 +75,7 @@ contract ReClammPoolTest is BaseReClammTest {
         );
     }
 
-    function testcomputeCurrentFourthRootPriceRatio() public view {
+    function testComputeCurrentFourthRootPriceRatio() public view {
         uint256 fourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
         assertEq(fourthRootPriceRatio, _initialFourthRootPriceRatio, "Invalid default fourthRootPriceRatio");
     }
@@ -120,7 +125,7 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(
             actualPriceShiftDailyRateInSeconds,
             expectedPriceShiftDailyRateInSeconds,
-            "Invalid priceShiftDailyRangeInSeconds"
+            "Invalid priceShiftDailyRateInSeconds"
         );
     }
 
@@ -244,7 +249,7 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(data.priceRatioUpdateEndTime, state.priceRatioUpdateEndTime, "Invalid end time");
 
         assertEq(data.centerednessMargin, _NEW_CENTEREDNESS_MARGIN, "Invalid centeredness margin");
-        assertEq(data.priceShiftDailyRangeInSeconds, newPriceShiftDailyRate / 124649, "Invalid time constant");
+        assertEq(data.priceShiftDailyRateInSeconds, newPriceShiftDailyRate / 124649, "Invalid price shift daily rate");
         assertEq(data.lastVirtualBalances.length, 2, "Invalid number of last virtual balances");
         assertEq(data.lastVirtualBalances[daiIdx], currentVirtualBalances[daiIdx], "Invalid DAI last virtual balance");
         assertEq(
@@ -272,6 +277,11 @@ contract ReClammPoolTest is BaseReClammTest {
 
         assertEq(data.minCenterednessMargin, 0, "Invalid min centeredness margin");
         assertEq(data.maxCenterednessMargin, FixedPoint.ONE, "Invalid max centeredness margin");
+
+        // Ensure that centeredness margin parameters fit in uint64
+        assertEq(data.minCenterednessMargin, uint64(data.minCenterednessMargin), "Min centeredness margin not uint64");
+        assertEq(data.maxCenterednessMargin, uint64(data.maxCenterednessMargin), "Max centeredness margin not uint64");
+
         assertEq(data.minTokenBalanceScaled18, _MIN_TOKEN_BALANCE, "Invalid min token balance");
         assertEq(data.minPoolCenteredness, _MIN_POOL_CENTEREDNESS, "Invalid min pool centeredness");
         assertEq(data.maxPriceShiftDailyRate, 500e16, "Invalid max price shift daily rate");
@@ -364,6 +374,15 @@ contract ReClammPoolTest is BaseReClammTest {
         ReClammPool(pool).getRate();
     }
 
+    function testSetPriceShiftDailyRateVaultUnlocked() public {
+        vault.forceUnlock();
+
+        uint256 newPriceShiftDailyRate = 200e16;
+        vm.prank(admin);
+        vm.expectRevert(IReClammPool.VaultIsNotLocked.selector);
+        ReClammPool(pool).setPriceShiftDailyRate(newPriceShiftDailyRate);
+    }
+
     function testSetPriceShiftDailyRatePoolNotInitialized() public {
         vault.manualSetInitializedPool(pool, false);
 
@@ -431,6 +450,14 @@ contract ReClammPoolTest is BaseReClammTest {
 
         assertEq(lastVirtualBalances[daiIdx], virtualBalancesBefore[daiIdx], "DAI virtual balances do not match");
         assertEq(lastVirtualBalances[usdcIdx], virtualBalancesBefore[usdcIdx], "USDC virtual balances do not match");
+    }
+
+    function testSetCenterednessMarginVaultUnlocked() public {
+        vault.forceUnlock();
+
+        vm.prank(admin);
+        vm.expectRevert(IReClammPool.VaultIsNotLocked.selector);
+        ReClammPool(pool).setCenterednessMargin(_NEW_CENTEREDNESS_MARGIN);
     }
 
     function testSetCenterednessMarginPoolNotInitialized() public {
@@ -534,5 +561,85 @@ contract ReClammPoolTest is BaseReClammTest {
         uint256[] memory lastVirtualBalances = ReClammPoolMock(pool).getLastVirtualBalances();
         assertEq(lastVirtualBalances[daiIdx], virtualBalancesBefore[daiIdx], "DAI virtual balance does not match");
         assertEq(lastVirtualBalances[usdcIdx], virtualBalancesBefore[usdcIdx], "USDC virtual balance does not match");
+    }
+
+    function testComputePriceRangeBeforeInitialized() public {
+        IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens);
+
+        (address pool, ) = _createPool(
+            [address(sortedTokens[0]), address(sortedTokens[1])].toMemoryArray(),
+            "BeforeInitTest"
+        );
+
+        assertFalse(vault.isPoolInitialized(pool), "Pool is initialized");
+
+        (uint256 minPrice, uint256 maxPrice) = ReClammPool(pool).computeCurrentPriceRange();
+        assertEq(minPrice, _DEFAULT_MIN_PRICE);
+        assertEq(maxPrice, _DEFAULT_MAX_PRICE);
+    }
+
+    function testComputePriceRangeAfterInitialized() public view {
+        assertTrue(vault.isPoolInitialized(pool), "Pool is initialized");
+        assertFalse(vault.isUnlocked(), "Vault is unlocked");
+
+        // Should still be the initial values as nothing has changed.
+        (uint256 minPrice, uint256 maxPrice) = ReClammPool(pool).computeCurrentPriceRange();
+        assertApproxEqAbs(minPrice, _DEFAULT_MIN_PRICE, 2e6);
+        assertApproxEqAbs(maxPrice, _DEFAULT_MAX_PRICE, 2e6);
+    }
+
+    function testCreateWithInvalidMinPrice() public {
+        ReClammPoolParams memory params = ReClammPoolParams({
+            name: "ReClamm Pool",
+            symbol: "FAIL_POOL",
+            version: "1",
+            priceShiftDailyRate: 1e18,
+            centerednessMargin: 0.2e18,
+            initialMinPrice: 0,
+            initialMaxPrice: 2000e18,
+            initialTargetPrice: 1500e18
+        });
+
+        vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
+        new ReClammPool(params, vault);
+    }
+
+    function testCreateWithInvalidTargetPrice() public {
+        ReClammPoolParams memory params = ReClammPoolParams({
+            name: "ReClamm Pool",
+            symbol: "FAIL_POOL",
+            version: "1",
+            priceShiftDailyRate: 1e18,
+            centerednessMargin: 0.2e18,
+            initialMinPrice: 1000e18,
+            initialMaxPrice: 2000e18,
+            initialTargetPrice: 0
+        });
+
+        vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
+        new ReClammPool(params, vault);
+    }
+
+    function testToPoolCenterAboveEnum() public pure {
+        assertEq(
+            uint256(ReClammMath.toEnum(false)),
+            uint256(ReClammMath.PoolAboveCenter.FALSE),
+            "Invalid enum value (false)"
+        );
+        assertEq(
+            uint256(ReClammMath.toEnum(true)),
+            uint256(ReClammMath.PoolAboveCenter.TRUE),
+            "Invalid enum value (true)"
+        );
+        assertNotEq(
+            uint256(ReClammMath.toEnum(false)),
+            uint256(ReClammMath.PoolAboveCenter.TRUE),
+            "Invalid enum value (false/true)"
+        );
+        assertNotEq(
+            uint256(ReClammMath.toEnum(true)),
+            uint256(ReClammMath.PoolAboveCenter.FALSE),
+            "Invalid enum value (true/false)"
+        );
     }
 }

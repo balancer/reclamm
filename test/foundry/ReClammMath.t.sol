@@ -88,7 +88,7 @@ contract ReClammMathTest is BaseReClammTest {
 
         uint256 amountGivenScaled18 = 1e18 + 1;
 
-        vm.expectRevert(ReClammMath.AmountOutBiggerThanBalance.selector);
+        vm.expectRevert(ReClammMath.AmountOutGreaterThanBalance.selector);
         mathContract.calculateInGivenOut(
             [balanceA, balanceB].toMemoryArray(),
             [virtualBalanceA, virtualBalanceB].toMemoryArray(),
@@ -155,7 +155,7 @@ contract ReClammMathTest is BaseReClammTest {
         // This trade will return more tokens B than the real balance of the pool.
         uint256 amountGivenScaled18 = balanceA;
 
-        vm.expectRevert(ReClammMath.AmountOutBiggerThanBalance.selector);
+        vm.expectRevert(ReClammMath.AmountOutGreaterThanBalance.selector);
         mathContract.calculateOutGivenIn(
             [balanceA, balanceB].toMemoryArray(),
             [virtualBalanceA, virtualBalanceB].toMemoryArray(),

@@ -34,7 +34,7 @@ const _INITIALIZATION_MAX_BALANCE_A = fp(1000000);
 export function computeCurrentVirtualBalances(
   balancesScaled18: bigint[],
   lastVirtualBalances: bigint[],
-  priceShiftDailyRangeInSeconds: bigint,
+  priceShiftDailyRateInSeconds: bigint,
   lastTimestamp: bigint,
   currentTimestamp: bigint,
   centerednessMargin: bigint,
@@ -76,7 +76,7 @@ export function computeCurrentVirtualBalances(
   if (isPoolInRange(balancesScaled18, lastVirtualBalances, centerednessMargin) == false) {
     const priceRatio = fpMulDown(currentFourthRootPriceRatio, currentFourthRootPriceRatio);
 
-    const base = fromFp(FP_ONE - priceShiftDailyRangeInSeconds);
+    const base = fromFp(FP_ONE - priceShiftDailyRateInSeconds);
     const exponent = fromFp(fp(currentTimestamp - lastTimestamp));
     const powResult = base.pow(exponent);
 
@@ -144,7 +144,7 @@ export function calculateVirtualBalancesUpdatingPriceRatio(
 export function computeInvariant(
   balancesScaled18: bigint[],
   lastVirtualBalances: bigint[],
-  priceShiftDailyRangeInSeconds: bigint,
+  priceShiftDailyRateInSeconds: bigint,
   lastTimestamp: number,
   currentTimestamp: number,
   centerednessMargin: bigint,
@@ -154,7 +154,7 @@ export function computeInvariant(
   const [currentVirtualBalances, _] = computeCurrentVirtualBalances(
     balancesScaled18,
     lastVirtualBalances,
-    priceShiftDailyRangeInSeconds,
+    priceShiftDailyRateInSeconds,
     lastTimestamp,
     currentTimestamp,
     centerednessMargin,
