@@ -104,7 +104,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
         string memory label
     ) internal override returns (address newPool, bytes memory poolArgs) {
         string memory name = "ReClamm Pool";
-        string memory symbol = "RECLAMMPOOL";
+        string memory symbol = "RECLAMM_POOL";
 
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens.asIERC20());
 

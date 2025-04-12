@@ -70,7 +70,7 @@ describe('ReClammMath', function () {
       expect(res).to.equal(true);
     });
 
-    it('balancesScaled18[1] != 0 && balanceA/BalanceB > vBalanaceA/vBalanceB', async () => {
+    it('balancesScaled18[1] != 0 && balanceA/BalanceB > vBalanceA/vBalanceB', async () => {
       const balances = [bn(300e18), bn(0)];
       const virtualBalances = [bn(100e18), bn(200e18)];
       const res = await mathLib.isAboveCenter(balances, virtualBalances);
@@ -78,7 +78,7 @@ describe('ReClammMath', function () {
       expect(res).to.equal(true);
     });
 
-    it('balancesScaled18[1] != 0 && balanceA/BalanceB < vBalanaceA/vBalanceB', async () => {
+    it('balancesScaled18[1] != 0 && balanceA/BalanceB < vBalanceA/vBalanceB', async () => {
       const balances = [bn(100e18), bn(100e18)];
       const virtualBalances = [bn(110e18), bn(100e18)];
       const res = await mathLib.isAboveCenter(balances, virtualBalances);
@@ -485,7 +485,7 @@ describe('ReClammMath', function () {
         rounding
       );
 
-      // Make sure the timestamp used for offchain calculations matches the one used by the lib.
+      // Make sure the timestamp used for off-chain calculations matches the one used by the lib.
       const currentTimestamp = await getTimestampFromLastBlock();
 
       const jsRes = computeInvariant(
@@ -524,7 +524,7 @@ describe('ReClammMath', function () {
         rounding
       );
 
-      // Make sure the timestamp used for offchain calculations matches the one used by the lib.
+      // Make sure the timestamp used for off-chain calculations matches the one used by the lib.
       const currentTimestamp = await getTimestampFromLastBlock();
 
       const jsRes = computeInvariant(

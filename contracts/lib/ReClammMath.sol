@@ -46,9 +46,9 @@ library ReClammMath {
     // of two: either doubling or halving it over the course of a day (86,400 seconds). The virtual balances must
     // change at the same rate. Therefore, if we want to double it in a day:
     //
-    // 1. `Vnext = 2*Vcurrent`
-    // 2. In the equation `Vnext = Vcurrent * (1 - tau)^(n+1)`, isolate tau.
-    // 3. Replace `Vnext` with `2*Vcurrent` and `n` with `86400` to get `tau = 1 - pow(2, 1/(86400+1))`.
+    // 1. `V_next = 2*V_current`
+    // 2. In the equation `V_next = V_current * (1 - tau)^(n+1)`, isolate tau.
+    // 3. Replace `V_next` with `2*V_current` and `n` with `86400` to get `tau = 1 - pow(2, 1/(86400+1))`.
     // 4. Since `tau = priceShiftDailyRate/x`, then `x = priceShiftDailyRate/tau`. Since priceShiftDailyRate = 100%,
     //    then `x = 100%/(1 - pow(2, 1/(86400+1)))`, which is 124649.
     uint256 private constant _SECONDS_PER_DAY_WITH_ADJUSTMENT = 124649;
@@ -425,7 +425,7 @@ library ReClammMath {
         // The overvalued token is the one with a lower token balance (therefore, rarer and more valuable).
         (uint256 indexTokenUndervalued, uint256 indexTokenOvervalued) = isPoolAboveCenter ? (0, 1) : (1, 0);
 
-        // Vb = Vb * (1 - priceShiftDailyRateInSeconds)^(Tcurr - Tlast)
+        // Vb = Vb * (1 - priceShiftDailyRateInSeconds)^(T_curr - T_last)
         virtualBalances[indexTokenOvervalued] = virtualBalances[indexTokenOvervalued].mulDown(
             LogExpMath.pow(
                 FixedPoint.ONE - priceShiftDailyRateInSeconds,

@@ -147,7 +147,7 @@ interface IReClammPool is IBasePool {
 
     /**
      * @notice The timestamp of the last user interaction.
-     * @dev This is emmitted on every swap or liquidity operation.
+     * @dev This is emitted on every swap or liquidity operation.
      * @param lastTimestamp The timestamp of the operation
      */
     event LastTimestampUpdated(uint32 lastTimestamp);
