@@ -546,9 +546,7 @@ contract ReClammMathTest is BaseReClammTest {
         uint256[] memory virtualBalances
     ) private pure returns (uint256 newSqrtPriceRatio) {
         uint256 invariant = ReClammMath.computeInvariant(balancesScaled18, virtualBalances, Rounding.ROUND_DOWN);
-        newSqrtPriceRatio = ReClammMath.sqrtScaled18(
-            invariant.divDown(virtualBalances[a]).divDown(virtualBalances[b])
-        );
+        newSqrtPriceRatio = ReClammMath.sqrtScaled18(invariant.divDown(virtualBalances[a]).divDown(virtualBalances[b]));
     }
 
     function _computeOutGivenInAllowError(
