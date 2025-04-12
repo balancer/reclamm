@@ -374,6 +374,11 @@ contract ReClammPoolTest is BaseReClammTest {
         ReClammPool(pool).getRate();
     }
 
+    function testComputeBalance() public {
+        vm.expectRevert(IReClammPool.NotImplemented.selector);
+        ReClammPool(pool).computeBalance(new uint256[](0), 0, 0);
+    }
+
     function testSetPriceShiftDailyRateVaultUnlocked() public {
         vault.forceUnlock();
 

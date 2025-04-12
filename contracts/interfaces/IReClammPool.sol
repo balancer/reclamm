@@ -199,6 +199,7 @@ interface IReClammPool is IBasePool {
 
     /// @dev Function called before initializing the pool.
     error PoolNotInitialized();
+
     /**
      * @notice The initial balances of the ReClamm Pool must respect the initialization ratio bounds.
      * @dev On pool creation, a theoretical balance ratio is computed from the min, max, and target prices. During
