@@ -7,6 +7,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { IAuthentication } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/helpers/IAuthentication.sol";
+import { IVaultEvents } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultEvents.sol";
 import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultErrors.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import {
@@ -337,7 +338,7 @@ contract ReClammPoolTest is BaseReClammTest {
         uint32 priceRatioUpdateEndTime = uint32(block.timestamp) + duration;
 
         uint96 startFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
-        vm.prank(admin);
+
         vm.expectEmit();
         emit IReClammPool.PriceRatioStateUpdated(
             startFourthRootPriceRatio,
@@ -345,6 +346,20 @@ contract ReClammPoolTest is BaseReClammTest {
             block.timestamp,
             priceRatioUpdateEndTime
         );
+
+        vm.expectEmit();
+        emit IVaultEvents.VaultAuxiliary(
+            pool,
+            "PriceRatioStateUpdated",
+            abi.encode(
+                startFourthRootPriceRatio,
+                endFourthRootPriceRatio,
+                priceRatioUpdateStartTime,
+                priceRatioUpdateEndTime
+            )
+        );
+
+        vm.prank(admin);
         uint256 actualPriceRatioUpdateStartTime = ReClammPool(pool).setPriceRatioState(
             endFourthRootPriceRatio,
             priceRatioUpdateStartTime,
@@ -394,13 +409,23 @@ contract ReClammPoolTest is BaseReClammTest {
 
     function testSetPriceShiftDailyRate() public {
         uint256 newPriceShiftDailyRate = 200e16;
-        vm.prank(admin);
+
+        uint256 rateInSeconds = ReClammMath.computePriceShiftDailyRate(newPriceShiftDailyRate);
+
         vm.expectEmit();
-        emit IReClammPool.PriceShiftDailyRateUpdated(
-            newPriceShiftDailyRate,
-            ReClammMath.computePriceShiftDailyRate(newPriceShiftDailyRate)
-        );
         emit IReClammPool.LastTimestampUpdated(block.timestamp.toUint32());
+
+        vm.expectEmit();
+        emit IReClammPool.PriceShiftDailyRateUpdated(newPriceShiftDailyRate, rateInSeconds);
+
+        vm.expectEmit();
+        emit IVaultEvents.VaultAuxiliary(
+            pool,
+            "PriceShiftDailyRateUpdated",
+            abi.encode(newPriceShiftDailyRate, rateInSeconds)
+        );
+
+        vm.prank(admin);
         ReClammPool(pool).setPriceShiftDailyRate(newPriceShiftDailyRate);
     }
 
@@ -469,10 +494,16 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function testSetCenterednessMargin() public {
-        vm.prank(admin);
+        vm.expectEmit();
+        emit IReClammPool.LastTimestampUpdated(uint32(block.timestamp));
+
         vm.expectEmit();
         emit IReClammPool.CenterednessMarginUpdated(_NEW_CENTEREDNESS_MARGIN);
-        emit IReClammPool.LastTimestampUpdated(block.timestamp.toUint32());
+
+        vm.expectEmit();
+        emit IVaultEvents.VaultAuxiliary(pool, "CenterednessMarginUpdated", abi.encode(_NEW_CENTEREDNESS_MARGIN));
+
+        vm.prank(admin);
         ReClammPool(pool).setCenterednessMargin(_NEW_CENTEREDNESS_MARGIN);
     }
 
