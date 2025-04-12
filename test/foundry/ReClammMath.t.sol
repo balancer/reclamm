@@ -70,10 +70,10 @@ contract ReClammMathTest is BaseReClammTest {
         );
 
         uint256[] memory finalBalances = new uint256[](2);
-        finalBalances[0] = balanceA + virtualBalanceA;
-        finalBalances[1] = balanceB + virtualBalanceB;
+        finalBalances[a] = balanceA + virtualBalanceA;
+        finalBalances[b] = balanceB + virtualBalanceB;
 
-        uint256 invariant = finalBalances[0].mulUp(finalBalances[1]);
+        uint256 invariant = finalBalances[a].mulUp(finalBalances[b]);
 
         uint256 expected = invariant.divUp(finalBalances[tokenOut] - amountGivenScaled18) - finalBalances[tokenIn];
 
@@ -134,10 +134,10 @@ contract ReClammMathTest is BaseReClammTest {
         );
 
         uint256[] memory finalBalances = new uint256[](2);
-        finalBalances[0] = balanceA + virtualBalanceA;
-        finalBalances[1] = balanceB + virtualBalanceB;
+        finalBalances[a] = balanceA + virtualBalanceA;
+        finalBalances[b] = balanceB + virtualBalanceB;
 
-        uint256 invariant = finalBalances[0].mulUp(finalBalances[1]);
+        uint256 invariant = finalBalances[a].mulUp(finalBalances[b]);
 
         uint256 tokenOutPoolAmount = invariant.divUp(finalBalances[tokenIn] + amountGivenScaled18);
         uint256 expected = finalBalances[tokenOut] - tokenOutPoolAmount;
@@ -187,25 +187,25 @@ contract ReClammMathTest is BaseReClammTest {
     }
 
     function testIsPoolWithinTargetRange__Fuzz(
-        uint256 balance0,
-        uint256 balance1,
-        uint256 virtualBalance0,
-        uint256 virtualBalance1,
+        uint256 balanceA,
+        uint256 balanceB,
+        uint256 virtualBalanceA,
+        uint256 virtualBalanceB,
         uint256 centerednessMargin
     ) public pure {
-        balance0 = bound(balance0, 0, _MAX_TOKEN_BALANCE);
-        balance1 = bound(balance1, 0, _MAX_TOKEN_BALANCE);
-        virtualBalance0 = bound(virtualBalance0, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
-        virtualBalance1 = bound(virtualBalance1, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
+        balanceA = bound(balanceA, 0, _MAX_TOKEN_BALANCE);
+        balanceB = bound(balanceB, 0, _MAX_TOKEN_BALANCE);
+        virtualBalanceA = bound(virtualBalanceA, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
+        virtualBalanceB = bound(virtualBalanceB, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
         centerednessMargin = bound(centerednessMargin, 0, 50e16);
 
         uint256[] memory balancesScaled18 = new uint256[](2);
-        balancesScaled18[0] = balance0;
-        balancesScaled18[1] = balance1;
+        balancesScaled18[a] = balanceA;
+        balancesScaled18[b] = balanceB;
 
         uint256[] memory virtualBalances = new uint256[](2);
-        virtualBalances[0] = virtualBalance0;
-        virtualBalances[1] = virtualBalance1;
+        virtualBalances[a] = virtualBalanceA;
+        virtualBalances[b] = virtualBalanceB;
 
         bool isInRange = ReClammMath.isPoolWithinTargetRange(balancesScaled18, virtualBalances, centerednessMargin);
 
@@ -213,39 +213,39 @@ contract ReClammMathTest is BaseReClammTest {
     }
 
     function testComputeCenteredness__Fuzz(
-        uint256 balance0,
-        uint256 balance1,
-        uint256 virtualBalance0,
-        uint256 virtualBalance1
+        uint256 balanceA,
+        uint256 balanceB,
+        uint256 virtualBalanceA,
+        uint256 virtualBalanceB
     ) public pure {
-        balance0 = bound(balance0, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
-        balance1 = bound(balance1, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
-        virtualBalance0 = bound(virtualBalance0, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
-        virtualBalance1 = bound(virtualBalance1, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
+        balanceA = bound(balanceA, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
+        balanceB = bound(balanceB, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
+        virtualBalanceA = bound(virtualBalanceA, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
+        virtualBalanceB = bound(virtualBalanceB, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
 
         uint256[] memory balancesScaled18 = new uint256[](2);
-        balancesScaled18[0] = balance0;
-        balancesScaled18[1] = balance1;
+        balancesScaled18[a] = balanceA;
+        balancesScaled18[b] = balanceB;
 
         uint256[] memory virtualBalances = new uint256[](2);
-        virtualBalances[0] = virtualBalance0;
-        virtualBalances[1] = virtualBalance1;
+        virtualBalances[a] = virtualBalanceA;
+        virtualBalances[b] = virtualBalanceB;
 
         uint256 centeredness = ReClammMath.computeCenteredness(balancesScaled18, virtualBalances);
 
-        if (balance0 == 0 || balance1 == 0) {
+        if (balanceA == 0 || balanceB == 0) {
             assertEq(centeredness, 0);
         } else if (ReClammMath.isAboveCenter(balancesScaled18, virtualBalances)) {
             assertApproxEqAbs(
                 centeredness,
-                ((balance1 * virtualBalance0) / balance0).divUp(virtualBalance1),
+                ((balanceB * virtualBalanceA) / balanceA).divUp(virtualBalanceB),
                 _MAX_CENTEREDNESS_ERROR_ABS,
                 "Centeredness does not match"
             );
         } else {
             assertApproxEqAbs(
                 centeredness,
-                ((balance0 * virtualBalance1) / balance1).divUp(virtualBalance0),
+                ((balanceA * virtualBalanceB) / balanceB).divUp(virtualBalanceA),
                 _MAX_CENTEREDNESS_ERROR_ABS,
                 "Centeredness does not match"
             );
@@ -253,34 +253,34 @@ contract ReClammMathTest is BaseReClammTest {
     }
 
     function testIsAboveCenter__Fuzz(
-        uint256 balance0,
-        uint256 balance1,
-        uint256 virtualBalance0,
-        uint256 virtualBalance1
+        uint256 balanceA,
+        uint256 balanceB,
+        uint256 virtualBalanceA,
+        uint256 virtualBalanceB
     ) public pure {
-        balance0 = bound(balance0, 0, _MAX_TOKEN_BALANCE);
-        balance1 = bound(balance1, 0, _MAX_TOKEN_BALANCE);
-        virtualBalance0 = bound(virtualBalance0, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
-        virtualBalance1 = bound(virtualBalance1, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
+        balanceA = bound(balanceA, 0, _MAX_TOKEN_BALANCE);
+        balanceB = bound(balanceB, 0, _MAX_TOKEN_BALANCE);
+        virtualBalanceA = bound(virtualBalanceA, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
+        virtualBalanceB = bound(virtualBalanceB, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
 
         uint256[] memory balancesScaled18 = new uint256[](2);
-        balancesScaled18[0] = balance0;
-        balancesScaled18[1] = balance1;
+        balancesScaled18[a] = balanceA;
+        balancesScaled18[b] = balanceB;
 
         uint256[] memory virtualBalances = new uint256[](2);
-        virtualBalances[0] = virtualBalance0;
-        virtualBalances[1] = virtualBalance1;
+        virtualBalances[a] = virtualBalanceA;
+        virtualBalances[b] = virtualBalanceB;
 
         bool isAboveCenter = ReClammMath.isAboveCenter(balancesScaled18, virtualBalances);
 
-        if (balance1 == 0) {
+        if (balanceB == 0) {
             assertEq(isAboveCenter, true);
         } else {
-            assertEq(isAboveCenter, balance0.divDown(balance1) > virtualBalance0.divDown(virtualBalance1));
+            assertEq(isAboveCenter, balanceA.divDown(balanceB) > virtualBalanceA.divDown(virtualBalanceB));
         }
     }
 
-    function testcomputeFourthRootPriceRatio__Fuzz(
+    function testComputeFourthRootPriceRatio__Fuzz(
         uint32 currentTime,
         uint96 startFourthRootPriceRatio,
         uint96 endFourthRootPriceRatio,
@@ -327,33 +327,33 @@ contract ReClammMathTest is BaseReClammTest {
     }
 
     function testCalculateVirtualBalancesUpdatingPriceRatio__Fuzz(
-        uint256 balance0,
-        uint256 balance1,
-        uint256 virtualBalance0,
-        uint256 virtualBalance1,
+        uint256 balanceA,
+        uint256 balanceB,
+        uint256 virtualBalanceA,
+        uint256 virtualBalanceB,
         uint256 expectedFourthRootPriceRatio
     ) public pure {
-        balance0 = bound(balance0, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
-        balance1 = bound(balance1, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
-        virtualBalance0 = bound(virtualBalance0, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
-        virtualBalance1 = bound(virtualBalance1, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
+        balanceA = bound(balanceA, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
+        balanceB = bound(balanceB, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
+        virtualBalanceA = bound(virtualBalanceA, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
+        virtualBalanceB = bound(virtualBalanceB, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
         expectedFourthRootPriceRatio = SafeCast.toUint96(bound(expectedFourthRootPriceRatio, 1.1e18, 10e18));
 
         uint256[] memory balancesScaled18 = new uint256[](2);
-        balancesScaled18[0] = balance0;
-        balancesScaled18[1] = balance1;
+        balancesScaled18[a] = balanceA;
+        balancesScaled18[b] = balanceB;
 
         uint256[] memory lastVirtualBalances = new uint256[](2);
-        lastVirtualBalances[0] = virtualBalance0;
-        lastVirtualBalances[1] = virtualBalance1;
+        lastVirtualBalances[a] = virtualBalanceA;
+        lastVirtualBalances[b] = virtualBalanceB;
 
         vm.assume(_calculateCurrentPriceRatio(balancesScaled18, lastVirtualBalances) >= 1.1e18);
         vm.assume(_calculateCurrentPriceRatio(balancesScaled18, lastVirtualBalances) <= 10e18);
 
         bool isPoolAboveCenter = ReClammMath.isAboveCenter(balancesScaled18, lastVirtualBalances);
 
-        vm.assume(balancesScaled18[0].mulDown(lastVirtualBalances[1]) > 0);
-        vm.assume(balancesScaled18[1].mulDown(lastVirtualBalances[0]) > 0);
+        vm.assume(balancesScaled18[a].mulDown(lastVirtualBalances[b]) > 0);
+        vm.assume(balancesScaled18[b].mulDown(lastVirtualBalances[a]) > 0);
         uint256 oldCenteredness = ReClammMath.computeCenteredness(balancesScaled18, lastVirtualBalances);
 
         vm.assume(oldCenteredness > _MIN_POOL_CENTEREDNESS);
@@ -366,8 +366,8 @@ contract ReClammMathTest is BaseReClammTest {
         );
 
         // Check if centeredness is the same
-        vm.assume(balancesScaled18[0].mulDown(newVirtualBalances[1]) > 0);
-        vm.assume(balancesScaled18[1].mulDown(newVirtualBalances[0]) > 0);
+        vm.assume(balancesScaled18[a].mulDown(newVirtualBalances[b]) > 0);
+        vm.assume(balancesScaled18[b].mulDown(newVirtualBalances[a]) > 0);
         uint256 newCenteredness = ReClammMath.computeCenteredness(balancesScaled18, newVirtualBalances);
         assertApproxEqAbs(
             newCenteredness,
@@ -392,7 +392,7 @@ contract ReClammMathTest is BaseReClammTest {
         assertApproxEqAbs(expectedPriceRatio, actualPriceRatio, _MAX_PRICE_ERROR_ABS, "Price Ratio should be correct");
     }
 
-    function testcomputeFourthRootPriceRatioWhenCurrentTimeIsEndTime() public pure {
+    function testComputeFourthRootPriceRatioWhenCurrentTimeIsEndTime() public pure {
         uint96 startFourthRootPriceRatio = 100;
         uint96 endFourthRootPriceRatio = 200;
         uint32 priceRatioUpdateStartTime = 0;
@@ -414,7 +414,7 @@ contract ReClammMathTest is BaseReClammTest {
         );
     }
 
-    function testcomputeFourthRootPriceRatioWhenCurrentTimeIsEndTimeAndStartTime() public pure {
+    function testComputeFourthRootPriceRatioWhenCurrentTimeIsEndTimeAndStartTime() public pure {
         uint96 startFourthRootPriceRatio = 100;
         uint96 endFourthRootPriceRatio = 200;
         uint32 priceRatioUpdateStartTime = 100;
@@ -436,7 +436,7 @@ contract ReClammMathTest is BaseReClammTest {
         );
     }
 
-    function testcomputeFourthRootPriceRatioWhenCurrentTimeIsAfterEndTime() public pure {
+    function testComputeFourthRootPriceRatioWhenCurrentTimeIsAfterEndTime() public pure {
         uint96 startFourthRootPriceRatio = 100;
         uint96 endFourthRootPriceRatio = 200;
         uint32 priceRatioUpdateStartTime = 0;
@@ -458,7 +458,7 @@ contract ReClammMathTest is BaseReClammTest {
         );
     }
 
-    function testcomputeFourthRootPriceRatioWhenCurrentTimeIsStartTime() public pure {
+    function testComputeFourthRootPriceRatioWhenCurrentTimeIsStartTime() public pure {
         uint96 startFourthRootPriceRatio = 100;
         uint96 endFourthRootPriceRatio = 200;
         uint32 priceRatioUpdateStartTime = 50;
@@ -480,7 +480,7 @@ contract ReClammMathTest is BaseReClammTest {
         );
     }
 
-    function testcomputeFourthRootPriceRatioWhenCurrentTimeIsBeforeStartTime() public pure {
+    function testComputeFourthRootPriceRatioWhenCurrentTimeIsBeforeStartTime() public pure {
         uint96 startFourthRootPriceRatio = 100;
         uint96 endFourthRootPriceRatio = 200;
         uint32 priceRatioUpdateStartTime = 50;
@@ -502,7 +502,7 @@ contract ReClammMathTest is BaseReClammTest {
         );
     }
 
-    function testcomputeFourthRootPriceRatioWhenStartFourthRootPriceRatioIsEqualToEndFourthRootPriceRatio()
+    function testComputeFourthRootPriceRatioWhenStartFourthRootPriceRatioIsEqualToEndFourthRootPriceRatio()
         public
         pure
     {
@@ -527,13 +527,27 @@ contract ReClammMathTest is BaseReClammTest {
         );
     }
 
+    function testComputeCenterednessShortCircuit() public pure {
+        uint256[] memory balancesScaled18 = new uint256[](2);
+        uint256[] memory virtualBalances = new uint256[](2);
+
+        balancesScaled18[b] = 1;
+        uint256 centeredness = ReClammMath.computeCenteredness(balancesScaled18, virtualBalances);
+        assertEq(centeredness, 0, "(0,1) non-zero centeredness with A=0");
+
+        balancesScaled18[a] = 1;
+        balancesScaled18[b] = 0;
+        centeredness = ReClammMath.computeCenteredness(balancesScaled18, virtualBalances);
+        assertEq(centeredness, 0, "(1,0) non-zero centeredness with B=0");
+    }
+
     function _calculateCurrentPriceRatio(
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances
-    ) private pure returns (uint256 newSqwrtPriceRatio) {
+    ) private pure returns (uint256 newSqrtPriceRatio) {
         uint256 invariant = ReClammMath.computeInvariant(balancesScaled18, virtualBalances, Rounding.ROUND_DOWN);
-        newSqwrtPriceRatio = ReClammMath.sqrtScaled18(
-            invariant.divDown(virtualBalances[0]).divDown(virtualBalances[1])
+        newSqrtPriceRatio = ReClammMath.sqrtScaled18(
+            invariant.divDown(virtualBalances[a]).divDown(virtualBalances[b])
         );
     }
 
@@ -546,10 +560,10 @@ contract ReClammMathTest is BaseReClammTest {
     ) private pure returns (uint256) {
         uint256[] memory totalBalances = new uint256[](balancesScaled18.length);
 
-        totalBalances[0] = balancesScaled18[0] + virtualBalances[0];
-        totalBalances[1] = balancesScaled18[1] + virtualBalances[1];
+        totalBalances[a] = balancesScaled18[a] + virtualBalances[a];
+        totalBalances[b] = balancesScaled18[b] + virtualBalances[b];
 
-        uint256 invariant = totalBalances[0].mulUp(totalBalances[1]);
+        uint256 invariant = totalBalances[a].mulUp(totalBalances[b]);
         // Total (virtual + real) token out amount that should stay in the pool after the swap.
         uint256 tokenOutPoolAmount = invariant.divUp(totalBalances[tokenInIndex] + amountGivenScaled18);
 
