@@ -322,7 +322,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         (uint256[] memory currentVirtualBalances, ) = _computeCurrentVirtualBalances(balancesScaled18);
         // When adding/removing liquidity, round down the virtual balances. This favors the vault in swap operations.
-        // The virtual balances are not used to calculate a proportional add/remove result.
+        // The virtual balances are not used in proportional add/remove calculations.
         currentVirtualBalances[a] = currentVirtualBalances[a].mulDown(FixedPoint.ONE + proportion);
         currentVirtualBalances[b] = currentVirtualBalances[b].mulDown(FixedPoint.ONE + proportion);
         _setLastVirtualBalances(currentVirtualBalances);
@@ -350,7 +350,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         (uint256[] memory currentVirtualBalances, ) = _computeCurrentVirtualBalances(balancesScaled18);
         // When adding/removing liquidity, round down the virtual balances. This favors the vault in swap operations.
-        // The virtual balances are not used to calculate a proportional add/remove result.
+        // The virtual balances are not used in proportional add/remove calculations.
         currentVirtualBalances[a] = currentVirtualBalances[a].mulDown(FixedPoint.ONE - proportion);
         currentVirtualBalances[b] = currentVirtualBalances[b].mulDown(FixedPoint.ONE - proportion);
         _setLastVirtualBalances(currentVirtualBalances);
