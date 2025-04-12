@@ -750,7 +750,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         }
     }
 
-    /// @dev Checks that the current target and spot prices are within the initialization price range.
+    /**
+     * @dev Checks that the current spot price is within the initialization tolerance of the price target, and that
+     * the total price range after initialization (i.e., with real balances) corresponds closely enough to the desired
+     * initial price range set on deployment.
+     */
     function _checkInitializationPrices(
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances
