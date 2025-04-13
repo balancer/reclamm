@@ -15,22 +15,14 @@ import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultType
 import { E2eSwapTest } from "@balancer-labs/v3-vault/test/foundry/E2eSwap.t.sol";
 
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
-import { ReClammPoolContractsDeployer } from "./utils/ReClammPoolContractsDeployer.sol";
 import { E2eSwapFuzzPoolParamsHelper } from "./utils/E2eSwapFuzzPoolParamsHelper.sol";
 
-contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest, ReClammPoolContractsDeployer {
+contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest {
     using ArrayHelpers for *;
     using FixedPoint for uint256;
 
-    uint256 internal constant MAX_BALANCE = 1_000_000_000_000 * FixedPoint.ONE;
-    uint256 internal constant MIN_PRICE = FixedPoint.ONE;
-    uint256 internal constant MAX_PRICE = 1_000_000_000_000 * FixedPoint.ONE;
-    uint256 internal constant MAX_DAYS_FOR_PRICE_CHANGE = 10 days;
-
     function setUp() public override {
         E2eSwapTest.setUp();
-
-        authorizer.grantRole(ReClammPool(address(pool)).getActionId(ReClammPool.setPriceRatioState.selector), alice);
     }
 
     function setUpVariables() internal override {
@@ -42,7 +34,6 @@ contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest, ReClamm
         return address(deployReClammPoolFactoryWithDefaultParams(vault));
     }
 
-    /// @notice Overrides BaseVaultTest _createPool(). This pool is used by E2eSwapTest tests.
     function _createPool(
         address[] memory tokens,
         string memory label
@@ -51,7 +42,18 @@ contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest, ReClamm
     }
 
     function fuzzPoolParams(uint256[POOL_SPECIFIC_PARAMS_SIZE] memory params) internal override {
-        _fuzzPoolParams(params, ReClammPool(pool), router, alice);
+        address[] memory tokens = new address[](2);
+        tokens[0] = address(tokenA);
+        tokens[1] = address(tokenB);
+
+        (pool, poolArguments, poolInitAmountTokenA, poolInitAmountTokenB) = _fuzzPoolParams(
+            params,
+            router,
+            vault,
+            tokens,
+            "reClammPool",
+            lp
+        );
     }
 
     function _initPool(
