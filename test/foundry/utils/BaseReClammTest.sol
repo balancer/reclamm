@@ -20,6 +20,7 @@ import { BaseVaultTest } from "@balancer-labs/v3-vault/test/foundry/utils/BaseVa
 
 import { ReClammPoolContractsDeployer } from "./ReClammPoolContractsDeployer.sol";
 import { ReClammPool } from "../../../contracts/ReClammPool.sol";
+import { a, b } from "../../../contracts/lib/ReClammMath.sol";
 import { ReClammPoolFactory } from "../../../contracts/ReClammPoolFactory.sol";
 import { ReClammPoolParams } from "../../../contracts/interfaces/IReClammPool.sol";
 import { ReClammPoolMock } from "../../../contracts/test/ReClammPoolMock.sol";
@@ -30,9 +31,6 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     using CastingHelpers for address[];
     using ArrayHelpers for *;
     using SafeCast for *;
-
-    uint256 internal constant a = 0;
-    uint256 internal constant b = 1;
 
     uint256 internal constant _INITIAL_PROTOCOL_FEE_PERCENTAGE = 1e16;
     uint256 internal constant _DEFAULT_SWAP_FEE = 0; // 0%
@@ -78,7 +76,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
         super.setUp();
 
         (, , _initialBalances, ) = vault.getPoolTokenInfo(pool);
-        (_initialVirtualBalances, ) = ReClammPool(pool).computeCurrentVirtualBalances();
+        (_initialVirtualBalances, ) = _computeCurrentVirtualBalances(pool);
         _initialFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
     }
 
@@ -189,5 +187,18 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
         } else {
             vm.assume(currentFourthRootPriceRatio - newFourthRootPriceRatio >= _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA);
         }
+    }
+
+    function _getLastVirtualBalances(address pool) internal view returns (uint256[] memory virtualBalances) {
+        virtualBalances = new uint256[](2);
+        (virtualBalances[a], virtualBalances[b]) = ReClammPool(pool).getLastVirtualBalances();
+    }
+
+    function _computeCurrentVirtualBalances(
+        address pool
+    ) internal view returns (uint256[] memory currentVirtualBalances, bool changed) {
+        currentVirtualBalances = new uint256[](2);
+        (currentVirtualBalances[a], currentVirtualBalances[b], changed) = ReClammPool(pool)
+            .computeCurrentVirtualBalances();
     }
 }

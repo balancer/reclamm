@@ -142,8 +142,9 @@ library ReClammMath {
         uint256 tokenOutIndex,
         uint256 amountInScaled18
     ) internal pure returns (uint256 amountOutScaled18) {
-        uint256 virtualBalanceTokenIn = tokenInIndex == a ? virtualBalanceA : virtualBalanceB;
-        uint256 virtualBalanceTokenOut = tokenOutIndex == a ? virtualBalanceA : virtualBalanceB;
+        (uint256 virtualBalanceTokenIn, uint256 virtualBalanceTokenOut) = tokenInIndex == a
+            ? (virtualBalanceA, virtualBalanceB)
+            : (virtualBalanceB, virtualBalanceA);
 
         // Round up, so the swapper absorbs rounding imprecisions (rounds in favor of the Vault).
         uint256 invariant = computeInvariant(balancesScaled18, virtualBalanceA, virtualBalanceB, Rounding.ROUND_UP);
@@ -356,15 +357,19 @@ library ReClammMath {
                 isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalanceA, lastVirtualBalanceB).toEnum();
             }
 
+            uint256 _priceShiftDailyRateInSeconds = priceShiftDailyRateInSeconds;
+            uint256[] memory _balancesScaled18 = balancesScaled18;
+            uint32 _lastTimestamp = lastTimestamp;
+
             (currentVirtualBalanceA, currentVirtualBalanceB) = computeVirtualBalancesUpdatingPriceRange(
                 currentFourthRootPriceRatio,
-                balancesScaled18,
+                _balancesScaled18,
                 currentVirtualBalanceA,
                 currentVirtualBalanceB,
                 isPoolAboveCenter == PoolAboveCenter.TRUE,
-                priceShiftDailyRateInSeconds,
+                _priceShiftDailyRateInSeconds,
                 currentTimestamp,
-                lastTimestamp
+                _lastTimestamp
             );
 
             changed = true;
@@ -425,16 +430,12 @@ library ReClammMath {
                 Math.sqrt(poolCenteredness * (poolCenteredness + 4 * sqrtPriceRatio - 2e18) + 1e36))) /
             (2 * (sqrtPriceRatio - FixedPoint.ONE));
 
-        uint256 virtualBalancesOvervalued = ((balanceTokenOvervalued * virtualBalanceUndervalued) /
+        uint256 virtualBalanceOvervalued = ((balanceTokenOvervalued * virtualBalanceUndervalued) /
             balanceTokenUndervalued).divDown(poolCenteredness);
 
-        if (indexTokenUndervalued == a) {
-            virtualBalanceA = virtualBalanceUndervalued;
-            virtualBalanceB = virtualBalancesOvervalued;
-        } else {
-            virtualBalanceA = virtualBalancesOvervalued;
-            virtualBalanceB = virtualBalanceUndervalued;
-        }
+        (virtualBalanceA, virtualBalanceB) = isPoolAboveCenter
+            ? (virtualBalanceUndervalued, virtualBalanceOvervalued)
+            : (virtualBalanceOvervalued, virtualBalanceUndervalued);
     }
 
     /**

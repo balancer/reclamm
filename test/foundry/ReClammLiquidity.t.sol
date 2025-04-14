@@ -10,12 +10,14 @@ import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultType
 
 import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
 import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
-import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
+import { ReClammMathMock } from "../../contracts/test/ReClammMathMock.sol";
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
 
 contract ReClammLiquidityTest is BaseReClammTest {
     using FixedPoint for uint256;
+
+    ReClammMathMock internal mathMock = new ReClammMathMock();
 
     uint256 constant _MAX_PRICE_ERROR_ABS = 5e4;
     uint256 constant _MAX_CENTEREDNESS_ERROR_ABS = 1e6;
@@ -39,13 +41,13 @@ contract ReClammLiquidityTest is BaseReClammTest {
         maxAmountsIn[daiIdx] = dai.balanceOf(alice);
         maxAmountsIn[usdcIdx] = usdc.balanceOf(alice);
 
-        (uint256[] memory virtualBalancesBefore, ) = ReClammPool(pool).computeCurrentVirtualBalances();
+        (uint256[] memory virtualBalancesBefore, ) = _computeCurrentVirtualBalances(pool);
         (, , uint256[] memory balancesBefore, ) = vault.getPoolTokenInfo(pool);
 
         vm.prank(alice);
         router.addLiquidityProportional(pool, maxAmountsIn, exactBptAmountOut, false, "");
 
-        (uint256[] memory virtualBalancesAfter, ) = ReClammPool(pool).computeCurrentVirtualBalances();
+        (uint256[] memory virtualBalancesAfter, ) = _computeCurrentVirtualBalances(pool);
         (, , uint256[] memory balancesAfter, ) = vault.getPoolTokenInfo(pool);
 
         // Check if virtual balances were correctly updated.
@@ -87,11 +89,11 @@ contract ReClammLiquidityTest is BaseReClammTest {
 
         vm.warp(block.timestamp + 6 hours);
 
-        (uint256[] memory virtualBalancesBefore, ) = ReClammPool(pool).computeCurrentVirtualBalances();
+        (uint256[] memory virtualBalancesBefore, ) = _computeCurrentVirtualBalances(pool);
 
         // Make sure pool is out of range, so the virtual balances should be updated by the addLiquidity call.
         vm.assume(
-            ReClammMath.isPoolWithinTargetRange(
+            mathMock.isPoolWithinTargetRange(
                 initialBalancesScaled18,
                 virtualBalancesBefore,
                 _DEFAULT_CENTEREDNESS_MARGIN
@@ -108,7 +110,7 @@ contract ReClammLiquidityTest is BaseReClammTest {
         vm.prank(alice);
         router.addLiquidityProportional(pool, maxAmountsIn, exactBptAmountOut, false, "");
 
-        (uint256[] memory virtualBalancesAfter, ) = ReClammPool(pool).computeCurrentVirtualBalances();
+        (uint256[] memory virtualBalancesAfter, ) = _computeCurrentVirtualBalances(pool);
         (, , uint256[] memory balancesAfter, ) = vault.getPoolTokenInfo(pool);
 
         // Check if virtual balances were correctly updated.
@@ -126,7 +128,7 @@ contract ReClammLiquidityTest is BaseReClammTest {
 
         assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp was not updated");
 
-        uint256[] memory lastVirtualBalances = ReClammPoolMock(pool).getLastVirtualBalances();
+        uint256[] memory lastVirtualBalances = _getLastVirtualBalances(pool);
         assertEq(lastVirtualBalances[daiIdx], virtualBalancesAfter[daiIdx], "DAI virtual balances do not match");
         assertEq(lastVirtualBalances[usdcIdx], virtualBalancesAfter[usdcIdx], "USDC virtual balances do not match");
 
@@ -215,13 +217,13 @@ contract ReClammLiquidityTest is BaseReClammTest {
         minAmountsOut[daiIdx] = 0;
         minAmountsOut[usdcIdx] = 0;
 
-        (uint256[] memory virtualBalancesBefore, ) = ReClammPool(pool).computeCurrentVirtualBalances();
+        (uint256[] memory virtualBalancesBefore, ) = _computeCurrentVirtualBalances(pool);
         (, , uint256[] memory balancesBefore, ) = vault.getPoolTokenInfo(pool);
 
         vm.prank(lp);
         router.removeLiquidityProportional(pool, exactBptAmountIn, minAmountsOut, false, "");
 
-        (uint256[] memory virtualBalancesAfter, ) = ReClammPool(pool).computeCurrentVirtualBalances();
+        (uint256[] memory virtualBalancesAfter, ) = _computeCurrentVirtualBalances(pool);
         (, , uint256[] memory balancesAfter, ) = vault.getPoolTokenInfo(pool);
 
         // Check if virtual balances were correctly updated.
@@ -263,11 +265,11 @@ contract ReClammLiquidityTest is BaseReClammTest {
 
         vm.warp(block.timestamp + 6 hours);
 
-        (uint256[] memory virtualBalancesBefore, ) = ReClammPool(pool).computeCurrentVirtualBalances();
+        (uint256[] memory virtualBalancesBefore, ) = _computeCurrentVirtualBalances(pool);
 
         // Make sure pool is out of range, so the virtual balances should be updated by the addLiquidity call.
         vm.assume(
-            ReClammMath.isPoolWithinTargetRange(
+            mathMock.isPoolWithinTargetRange(
                 initialBalancesScaled18,
                 virtualBalancesBefore,
                 _DEFAULT_CENTEREDNESS_MARGIN
@@ -284,7 +286,7 @@ contract ReClammLiquidityTest is BaseReClammTest {
         vm.prank(lp);
         router.removeLiquidityProportional(pool, exactBptAmountIn, minAmountsOut, false, "");
 
-        (uint256[] memory virtualBalancesAfter, ) = ReClammPool(pool).computeCurrentVirtualBalances();
+        (uint256[] memory virtualBalancesAfter, ) = _computeCurrentVirtualBalances(pool);
         (, , uint256[] memory balancesAfter, ) = vault.getPoolTokenInfo(pool);
 
         // Check if virtual balances were correctly updated.
@@ -302,7 +304,7 @@ contract ReClammLiquidityTest is BaseReClammTest {
 
         assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp was not updated");
 
-        uint256[] memory lastVirtualBalances = ReClammPoolMock(pool).getLastVirtualBalances();
+        uint256[] memory lastVirtualBalances = _getLastVirtualBalances(pool);
         assertEq(lastVirtualBalances[daiIdx], virtualBalancesAfter[daiIdx], "DAI virtual balances do not match");
         assertEq(lastVirtualBalances[usdcIdx], virtualBalancesAfter[usdcIdx], "USDC virtual balances do not match");
 
@@ -503,8 +505,8 @@ contract ReClammLiquidityTest is BaseReClammTest {
         assertApproxEqAbs(daiPriceAfter, daiPriceBefore, _MAX_PRICE_ERROR_ABS, "Price changed");
 
         // Check if centeredness is constant.
-        uint256 centerednessBefore = ReClammMath.computeCenteredness(balancesBefore, virtualBalancesBefore);
-        uint256 centerednessAfter = ReClammMath.computeCenteredness(balancesAfter, virtualBalancesAfter);
+        uint256 centerednessBefore = mathMock.computeCenteredness(balancesBefore, virtualBalancesBefore);
+        uint256 centerednessAfter = mathMock.computeCenteredness(balancesAfter, virtualBalancesAfter);
         assertApproxEqAbs(centerednessAfter, centerednessBefore, _MAX_CENTEREDNESS_ERROR_ABS, "Centeredness changed");
     }
 
@@ -514,16 +516,16 @@ contract ReClammLiquidityTest is BaseReClammTest {
         uint256[] memory virtualBalancesBefore,
         uint256[] memory virtualBalancesAfter,
         uint256 expectedProportion
-    ) internal pure {
+    ) internal view {
         // The invariant of ReClamm is squared, so we need to take the sqrt of the invariant to check the
         // proportionality.
-        uint256 invariantSquaredBefore = ReClammMath.computeInvariant(
+        uint256 invariantSquaredBefore = mathMock.computeInvariant(
             balancesBefore,
             virtualBalancesBefore,
             Rounding.ROUND_DOWN
         );
 
-        uint256 invariantSquaredAfter = ReClammMath.computeInvariant(
+        uint256 invariantSquaredAfter = mathMock.computeInvariant(
             balancesAfter,
             virtualBalancesAfter,
             Rounding.ROUND_DOWN

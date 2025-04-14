@@ -86,15 +86,9 @@ contract ReClammMathMock {
         pure
         returns (uint256[] memory realBalances, uint256[] memory virtualBalances, uint256 fourthRootPriceRatio)
     {
-        uint256 virtualBalanceA;
-        uint256 virtualBalanceB;
-
-        (realBalances, virtualBalanceA, virtualBalanceB, fourthRootPriceRatio) = ReClammMath
-            .computeTheoreticalPriceRatioAndBalances(minPrice, maxPrice, targetPrice);
-
         virtualBalances = new uint256[](2);
-        virtualBalances[a] = virtualBalanceA;
-        virtualBalances[b] = virtualBalanceB;
+        (realBalances, virtualBalances[a], virtualBalances[b], fourthRootPriceRatio) = ReClammMath
+            .computeTheoreticalPriceRatioAndBalances(minPrice, maxPrice, targetPrice);
     }
 
     function computeCurrentVirtualBalances(
@@ -104,7 +98,8 @@ contract ReClammMathMock {
         uint32 lastTimestamp,
         uint64 centerednessMargin
     ) external view returns (uint256[] memory newVirtualBalances, bool changed) {
-        (virtualBalances[a], virtualBalances[b], changed) = ReClammMath.computeCurrentVirtualBalances(
+        newVirtualBalances = new uint256[](2);
+        (newVirtualBalances[a], newVirtualBalances[b], changed) = ReClammMath.computeCurrentVirtualBalances(
             balancesScaled18,
             virtualBalances[a],
             virtualBalances[b],
@@ -113,8 +108,6 @@ contract ReClammMathMock {
             centerednessMargin,
             _priceRatioState
         );
-
-        return (virtualBalances, changed);
     }
 
     function isPoolWithinTargetRange(
@@ -144,7 +137,7 @@ contract ReClammMathMock {
         uint96 endFourthRootPriceRatio,
         uint32 startTime,
         uint32 endTime
-    ) external pure returns (uint256) {
+    ) external pure returns (uint96) {
         return
             ReClammMath.computeFourthRootPriceRatio(
                 currentTime,

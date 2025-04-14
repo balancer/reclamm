@@ -392,8 +392,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
             uint256 currentInvariant = ReClammMath.computeInvariant(
                 balancesScaled18,
-                _lastVirtualBalanceA,
-                _lastVirtualBalanceB,
+                virtualBalanceA,
+                virtualBalanceB,
                 Rounding.ROUND_DOWN
             );
 
@@ -819,8 +819,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     function _getLastVirtualBalances() internal view returns (uint256[] memory) {
         uint256[] memory lastVirtualBalances = new uint256[](2);
-        lastVirtualBalances[0] = _lastVirtualBalanceA;
-        lastVirtualBalances[1] = _lastVirtualBalanceB;
+        lastVirtualBalances[a] = _lastVirtualBalanceA;
+        lastVirtualBalances[b] = _lastVirtualBalanceB;
 
         return lastVirtualBalances;
     }

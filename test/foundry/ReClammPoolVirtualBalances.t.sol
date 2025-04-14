@@ -14,6 +14,7 @@ import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultType
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
 import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
+import { ReClammMathMock } from "../../contracts/test/ReClammMathMock.sol";
 import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
 
 contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
@@ -22,6 +23,8 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     using SafeCast for *;
 
     uint256 private constant _INITIAL_PARAMS_ERROR = 1e6;
+
+    ReClammMathMock mathMock = new ReClammMathMock();
 
     function setUp() public virtual override {
         setPriceShiftDailyRate(0);
@@ -33,7 +36,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
             uint256[] memory theoreticalBalances,
             uint256[] memory theoreticalVirtualBalances,
             uint256 theoreticalPriceRatio
-        ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
+        ) = mathMock.computeTheoreticalPriceRatioAndBalances(
                 _DEFAULT_MIN_PRICE,
                 _DEFAULT_MAX_PRICE,
                 _DEFAULT_TARGET_PRICE
@@ -85,7 +88,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         _createNewPool();
 
         (, , uint256[] memory balances, ) = vault.getPoolTokenInfo(pool);
-        (uint256[] memory virtualBalances, ) = ReClammPool(pool).computeCurrentVirtualBalances();
+        (uint256[] memory virtualBalances, ) = _computeCurrentVirtualBalances(pool);
 
         uint256 currentPrice = (balances[usdcIdx] + virtualBalances[usdcIdx]).divDown(
             balances[daiIdx] + virtualBalances[daiIdx]
@@ -126,7 +129,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
 
         uint32 duration = 6 hours;
 
-        (uint256[] memory poolVirtualBalancesBefore, ) = ReClammPool(pool).computeCurrentVirtualBalances();
+        (uint256[] memory poolVirtualBalancesBefore, ) = _computeCurrentVirtualBalances(pool);
 
         uint32 currentTimestamp = uint32(block.timestamp);
 
@@ -134,7 +137,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         ReClammPool(pool).setPriceRatioState(endFourthRootPriceRatio, currentTimestamp, currentTimestamp + duration);
         skip(duration);
 
-        (uint256[] memory poolVirtualBalancesAfter, ) = ReClammPool(pool).computeCurrentVirtualBalances();
+        (uint256[] memory poolVirtualBalancesAfter, ) = _computeCurrentVirtualBalances(pool);
 
         if (endFourthRootPriceRatio > initialFourthRootPriceRatio) {
             assertLt(
@@ -172,7 +175,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         uint256 invariantAfter = _getCurrentInvariant();
         assertLe(invariantBefore, invariantAfter, "Invariant should not decrease");
 
-        (uint256[] memory currentVirtualBalances, ) = ReClammPool(pool).computeCurrentVirtualBalances();
+        (uint256[] memory currentVirtualBalances, ) = _computeCurrentVirtualBalances(pool);
         assertEq(currentVirtualBalances[daiIdx], _initialVirtualBalances[daiIdx], "DAI Virtual balances do not match");
         assertEq(
             currentVirtualBalances[usdcIdx],
@@ -192,7 +195,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         uint256 invariantAfter = _getCurrentInvariant();
         assertLe(invariantBefore, invariantAfter, "Invariant should not decrease");
 
-        (uint256[] memory currentVirtualBalances, ) = ReClammPool(pool).computeCurrentVirtualBalances();
+        (uint256[] memory currentVirtualBalances, ) = _computeCurrentVirtualBalances(pool);
         assertEq(currentVirtualBalances[daiIdx], _initialVirtualBalances[daiIdx], "DAI Virtual balances do not match");
         assertEq(
             currentVirtualBalances[usdcIdx],
@@ -219,7 +222,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
 
         uint256 invariantAfter = _getCurrentInvariant();
         (, , uint256[] memory balancesAfter, ) = vault.getPoolTokenInfo(pool);
-        (uint256[] memory virtualBalancesAfter, ) = ReClammPool(pool).computeCurrentVirtualBalances();
+        (uint256[] memory virtualBalancesAfter, ) = _computeCurrentVirtualBalances(pool);
 
         assertGt(invariantAfter, invariantBefore, "Invariant should increase");
 
@@ -269,7 +272,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
 
         uint256 invariantAfter = _getCurrentInvariant();
         (, , uint256[] memory balancesAfter, ) = vault.getPoolTokenInfo(pool);
-        (uint256[] memory virtualBalancesAfter, ) = ReClammPool(pool).computeCurrentVirtualBalances();
+        (uint256[] memory virtualBalancesAfter, ) = _computeCurrentVirtualBalances(pool);
 
         assertLt(invariantAfter, invariantBefore, "Invariant should decrease");
 
@@ -312,10 +315,10 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     }
 
     function _assumePoolInRange(uint256 newMinPrice, uint256 newMaxPrice, uint256 newTargetPrice) internal pure {
-        (uint256[] memory balances, uint256[] memory virtualBalances, ) = ReClammMath
+        (uint256[] memory balances, uint256 virtualBalanceA, uint256 virtualBalanceB, ) = ReClammMath
             .computeTheoreticalPriceRatioAndBalances(newMinPrice, newMaxPrice, newTargetPrice);
 
-        uint256 centeredness = ReClammMath.computeCenteredness(balances, virtualBalances);
+        uint256 centeredness = ReClammMath.computeCenteredness(balances, virtualBalanceA, virtualBalanceB);
         vm.assume(centeredness > _DEFAULT_CENTEREDNESS_MARGIN);
     }
 }
