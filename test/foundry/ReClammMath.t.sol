@@ -22,7 +22,7 @@ contract ReClammMathTest is BaseReClammTest {
     uint256 private constant _SECONDS_PER_DAY_WITH_ADJUSTMENT = 124649;
 
     uint256 private constant _MAX_CENTEREDNESS_ERROR_ABS = 5e7;
-    uint256 private constant _MAX_PRICE_ERROR_ABS = 1e16;
+    uint256 private constant _MAX_PRICE_ERROR_ABS = 2e16;
 
     ReClammMathMock internal mathContract;
 

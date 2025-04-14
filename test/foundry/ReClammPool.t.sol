@@ -410,6 +410,9 @@ contract ReClammPoolTest is BaseReClammTest {
         vm.expectEmit();
         emit IReClammPool.LastTimestampUpdated(block.timestamp.toUint32());
 
+        vm.expectEmit(address(vault));
+        emit IVaultEvents.VaultAuxiliary(pool, "LastTimestampUpdated", abi.encode(block.timestamp.toUint32()));
+
         vm.expectEmit();
         emit IReClammPool.PriceShiftDailyRateUpdated(newPriceShiftDailyRate, rateInSeconds);
 
@@ -454,13 +457,28 @@ contract ReClammPoolTest is BaseReClammTest {
         );
 
         uint256 newPriceShiftDailyRate = 200e16;
-        vm.prank(admin);
-        vm.expectEmit();
+        uint128 dailyRateInSeconds = ReClammMath.computePriceShiftDailyRate(newPriceShiftDailyRate);
+
+        vm.expectEmit(address(pool));
+        emit IReClammPool.LastTimestampUpdated(block.timestamp.toUint32());
+
+        vm.expectEmit(address(vault));
+        emit IVaultEvents.VaultAuxiliary(pool, "LastTimestampUpdated", abi.encode(block.timestamp.toUint32()));
+
+        vm.expectEmit(address(pool));
         emit IReClammPool.PriceShiftDailyRateUpdated(
             newPriceShiftDailyRate,
             ReClammMath.computePriceShiftDailyRate(newPriceShiftDailyRate)
         );
-        emit IReClammPool.LastTimestampUpdated(block.timestamp.toUint32());
+
+        vm.expectEmit(address(vault));
+        emit IVaultEvents.VaultAuxiliary(
+            pool,
+            "PriceShiftDailyRateUpdated",
+            abi.encode(newPriceShiftDailyRate, dailyRateInSeconds)
+        );
+
+        vm.prank(admin);
         ReClammPool(pool).setPriceShiftDailyRate(newPriceShiftDailyRate);
 
         assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp was not updated");
@@ -491,6 +509,9 @@ contract ReClammPoolTest is BaseReClammTest {
     function testSetCenterednessMargin() public {
         vm.expectEmit();
         emit IReClammPool.LastTimestampUpdated(uint32(block.timestamp));
+
+        vm.expectEmit(address(vault));
+        emit IVaultEvents.VaultAuxiliary(pool, "LastTimestampUpdated", abi.encode(block.timestamp.toUint32()));
 
         vm.expectEmit();
         emit IReClammPool.CenterednessMarginUpdated(_NEW_CENTEREDNESS_MARGIN);
@@ -575,10 +596,19 @@ contract ReClammPoolTest is BaseReClammTest {
             "USDC virtual balance remains unchanged"
         );
 
-        vm.prank(admin);
-        vm.expectEmit();
-        emit IReClammPool.CenterednessMarginUpdated(_NEW_CENTEREDNESS_MARGIN);
+        vm.expectEmit(address(pool));
         emit IReClammPool.LastTimestampUpdated(block.timestamp.toUint32());
+
+        vm.expectEmit(address(vault));
+        emit IVaultEvents.VaultAuxiliary(pool, "LastTimestampUpdated", abi.encode(block.timestamp.toUint32()));
+
+        vm.expectEmit(address(pool));
+        emit IReClammPool.CenterednessMarginUpdated(_NEW_CENTEREDNESS_MARGIN);
+
+        vm.expectEmit(address(vault));
+        emit IVaultEvents.VaultAuxiliary(pool, "CenterednessMarginUpdated", abi.encode(_NEW_CENTEREDNESS_MARGIN));
+
+        vm.prank(admin);
         ReClammPool(pool).setCenterednessMargin(_NEW_CENTEREDNESS_MARGIN);
 
         assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp was not updated");
@@ -715,6 +745,9 @@ contract ReClammPoolTest is BaseReClammTest {
 
         vm.expectEmit(newPool);
         emit IReClammPool.LastTimestampUpdated(block.timestamp.toUint32());
+
+        vm.expectEmit(address(vault));
+        emit IVaultEvents.VaultAuxiliary(newPool, "LastTimestampUpdated", abi.encode(block.timestamp.toUint32()));
 
         vm.prank(alice);
         router.initialize(newPool, tokens, _initialBalances, 0, false, bytes(""));
