@@ -428,7 +428,7 @@ library ReClammMath {
         uint256 virtualBalancesOvervalued = ((balanceTokenOvervalued * virtualBalanceUndervalued) /
             balanceTokenUndervalued).divDown(poolCenteredness);
 
-        if (balanceTokenUndervalued == a) {
+        if (indexTokenUndervalued == a) {
             virtualBalanceA = virtualBalanceUndervalued;
             virtualBalanceB = virtualBalancesOvervalued;
         } else {
@@ -467,9 +467,10 @@ library ReClammMath {
         uint256 priceRatio = currentFourthRootPriceRatio.mulUp(currentFourthRootPriceRatio);
 
         // The overvalued token is the one with a lower token balance (therefore, rarer and more valuable).
-        (uint256 indexTokenUndervalued, uint256 indexTokenOvervalued) = isPoolAboveCenter ? (0, 1) : (1, 0);
-
-        (uint256 virtualBalanceOvervalued, uint256 virtualBalanceUndervalued) = isPoolAboveCenter
+        (uint256 balancesScaledUndervalued, uint256 balancesScaledOvervalued) = isPoolAboveCenter
+            ? (balancesScaled18[a], balancesScaled18[b])
+            : (balancesScaled18[b], balancesScaled18[a]);
+        (uint256 virtualBalanceUndervalued, uint256 virtualBalanceOvervalued) = isPoolAboveCenter
             ? (virtualBalanceA, virtualBalanceB)
             : (virtualBalanceB, virtualBalanceA);
 
@@ -482,9 +483,8 @@ library ReClammMath {
         );
         // Va = (Ra * (Vb + Rb)) / (((priceRatio - 1) * Vb) - Rb)
         virtualBalanceUndervalued =
-            (balancesScaled18[indexTokenUndervalued] *
-                (virtualBalanceOvervalued + balancesScaled18[indexTokenOvervalued])) /
-            ((priceRatio - FixedPoint.ONE).mulDown(virtualBalanceOvervalued) - balancesScaled18[indexTokenOvervalued]);
+            (balancesScaledUndervalued * (virtualBalanceOvervalued + balancesScaledOvervalued)) /
+            ((priceRatio - FixedPoint.ONE).mulDown(virtualBalanceOvervalued) - balancesScaledOvervalued);
 
         (newVirtualBalanceA, newVirtualBalanceB) = isPoolAboveCenter
             ? (virtualBalanceUndervalued, virtualBalanceOvervalued)
