@@ -5,10 +5,8 @@ pragma solidity ^0.8.24;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
-import { IBasePool } from "@balancer-labs/v3-interfaces/contracts/vault/IBasePool.sol";
 import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
-import { CastingHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/CastingHelpers.sol";
 import { InputHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/InputHelpers.sol";
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
@@ -17,9 +15,14 @@ import "@balancer-labs/v3-vault/test/foundry/utils/BaseMedusaTest.sol";
 import { ReClammPoolFactory } from "../../contracts/ReClammPoolFactory.sol";
 import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
+
+/**
+ * @notice Medusa test for the ReClamm pool.
+ * @dev We compute an initial invariant, and then it calls `optimize_invariant` with random sequences of operations,
+ * mainly ensuring that the invariant can never decrease.
+ */
 contract SwapReClammMedusaTest is BaseMedusaTest {
     using FixedPoint for uint256;
-    using CastingHelpers for *;
     using ArrayHelpers for *;
 
     uint256 internal constant MIN_SWAP_AMOUNT = 1e6;
@@ -28,7 +31,7 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
 
     uint256 internal invariantProportion = FixedPoint.ONE; // 100%
 
-    uint256 internal initInvariant;
+    uint256 internal immutable initInvariant;
 
     constructor() BaseMedusaTest() {
         initInvariant = computeInvariant();
