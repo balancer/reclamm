@@ -74,11 +74,7 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
 
         testParams.startTime = bound(params[4], currentTime, maxTime);
         testParams.endTime = bound(params[5], testParams.startTime, maxTime);
-        uint256 mockCurrentTime = bound(
-            params[6],
-            testParams.startTime - TIME_BUFFER,
-            testParams.endTime + TIME_BUFFER
-        );
+        uint256 mockCurrentTime = bound(params[6], testParams.startTime, testParams.endTime + TIME_BUFFER);
         vm.warp(mockCurrentTime);
 
         uint256 priceRatio = testParams.maxPrice.divDown(testParams.minPrice);
