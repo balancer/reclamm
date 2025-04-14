@@ -80,7 +80,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint64 internal _centerednessMargin;
 
     // The virtual balances at the time of the last user interaction.
-    uint256[] internal _lastVirtualBalances;
+    uint128 internal _lastVirtualBalanceA;
+    uint128 internal _lastVirtualBalanceB;
 
     // Protect functions that would otherwise be vulnerable to manipulation through transient liquidity.
     modifier onlyWhenVaultIsLocked() {
@@ -143,7 +144,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         return
             ReClammMath.computeInvariant(
                 balancesScaled18,
-                _lastVirtualBalances,
+                _getLastVirtualBalances(),
                 _priceShiftDailyRateInSeconds,
                 _lastTimestamp,
                 _centerednessMargin,
@@ -424,7 +425,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IReClammPool
     function getLastVirtualBalances() external view returns (uint256[] memory) {
-        return _lastVirtualBalances;
+        return _getLastVirtualBalances();
     }
 
     /// @inheritdoc IReClammPool
@@ -455,7 +456,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     /// @inheritdoc IReClammPool
     function computeCurrentPoolCenteredness() external view returns (uint256) {
         (, , , uint256[] memory currentBalancesScaled18) = _vault.getPoolTokenInfo(address(this));
-        return ReClammMath.computeCenteredness(currentBalancesScaled18, _lastVirtualBalances);
+        return ReClammMath.computeCenteredness(currentBalancesScaled18, _getLastVirtualBalances());
     }
 
     /// @inheritdoc IReClammPool
@@ -466,7 +467,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.totalSupply = totalSupply();
 
         data.lastTimestamp = _lastTimestamp;
-        data.lastVirtualBalances = _lastVirtualBalances;
+        data.lastVirtualBalances = _getLastVirtualBalances();
         data.priceShiftDailyRateInSeconds = _priceShiftDailyRateInSeconds;
         data.centerednessMargin = _centerednessMargin;
 
@@ -560,7 +561,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     ) internal view returns (uint256[] memory currentVirtualBalances, bool changed) {
         (currentVirtualBalances, changed) = ReClammMath.computeCurrentVirtualBalances(
             balancesScaled18,
-            _lastVirtualBalances,
+            _getLastVirtualBalances(),
             _priceShiftDailyRateInSeconds,
             _lastTimestamp,
             _centerednessMargin,
@@ -569,7 +570,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     function _setLastVirtualBalances(uint256[] memory virtualBalances) internal {
-        _lastVirtualBalances = virtualBalances;
+        _lastVirtualBalanceA = virtualBalances[a].toUint128();
+        _lastVirtualBalanceB = virtualBalances[b].toUint128();
 
         emit VirtualBalancesUpdated(virtualBalances);
     }
@@ -755,7 +757,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     function _isPoolWithinTargetRange() internal view returns (bool) {
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
 
-        return ReClammMath.isPoolWithinTargetRange(balancesScaled18, _lastVirtualBalances, _centerednessMargin);
+        return ReClammMath.isPoolWithinTargetRange(balancesScaled18, _getLastVirtualBalances(), _centerednessMargin);
     }
 
     /// @dev Checks that the current balance ratio is within the initialization balance ratio tolerance.
@@ -807,6 +809,14 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         if (currentPrice < priceLowerBound || currentPrice > priceUpperBound) {
             revert WrongInitializationPrices();
         }
+    }
+
+    function _getLastVirtualBalances() internal view returns (uint256[] memory) {
+        uint256[] memory lastVirtualBalances = new uint256[](2);
+        lastVirtualBalances[0] = _lastVirtualBalanceA;
+        lastVirtualBalances[1] = _lastVirtualBalanceB;
+
+        return lastVirtualBalances;
     }
 
     function _ensurePoolWithinTargetRange() internal view {
