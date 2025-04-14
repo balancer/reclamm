@@ -657,4 +657,15 @@ contract ReClammPoolTest is BaseReClammTest {
         vm.expectRevert(IReClammPool.PriceShiftDailyRateTooHigh.selector);
         ReClammPool(pool).setPriceShiftDailyRate(newPriceShiftDailyRate);
     }
+
+    function testSetLastVirtualBalances__Fuzz(uint256 virtualBalanceA, uint256 virtualBalanceB) public {
+        virtualBalanceA = bound(virtualBalanceA, 1, type(uint128).max);
+        virtualBalanceB = bound(virtualBalanceB, 1, type(uint128).max);
+
+        ReClammPoolMock(pool).setLastVirtualBalances([virtualBalanceA, virtualBalanceB].toMemoryArray());
+        uint256[] memory lastVirtualBalances = ReClammPoolMock(pool).getLastVirtualBalances();
+
+        assertEq(lastVirtualBalances[a], virtualBalanceA, "Invalid last virtual balance A");
+        assertEq(lastVirtualBalances[b], virtualBalanceB, "Invalid last virtual balance B");
+    }
 }
