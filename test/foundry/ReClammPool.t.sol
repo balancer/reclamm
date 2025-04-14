@@ -389,6 +389,11 @@ contract ReClammPoolTest is BaseReClammTest {
         ReClammPool(pool).getRate();
     }
 
+    function testComputeBalance() public {
+        vm.expectRevert(IReClammPool.NotImplemented.selector);
+        ReClammPool(pool).computeBalance(new uint256[](0), 0, 0);
+    }
+
     function testSetPriceShiftDailyRateVaultUnlocked() public {
         vault.forceUnlock();
 
@@ -529,7 +534,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         uint256 newCenterednessMargin = 50e16;
         vm.prank(admin);
-        vm.expectRevert(IReClammPool.PoolIsOutOfRange.selector);
+        vm.expectRevert(IReClammPool.PoolOutsideTargetRange.selector);
         ReClammPool(pool).setCenterednessMargin(newCenterednessMargin);
     }
 
@@ -539,12 +544,12 @@ contract ReClammPoolTest is BaseReClammTest {
         uint256 newBalanceB = 100e18;
 
         // Pool Centeredness = Ra * Vb / (Rb * Va). Make centeredness = margin, and you have the equation below.
-        uint256 newBalanceA = (_DEFAULT_CENTEREDNESS_MARGIN * newBalanceB).mulDown(virtualBalances[0]) /
-            virtualBalances[1];
+        uint256 newBalanceA = (_DEFAULT_CENTEREDNESS_MARGIN * newBalanceB).mulDown(virtualBalances[a]) /
+            virtualBalances[b];
         _setPoolBalances(newBalanceA, newBalanceB);
         ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
 
-        assertTrue(ReClammPoolMock(pool).isPoolInRange(), "Pool is out of range");
+        assertTrue(ReClammPoolMock(pool).isPoolWithinTargetRange(), "Pool is out of range");
         assertApproxEqRel(
             ReClammPoolMock(pool).computeCurrentPoolCenteredness(),
             _DEFAULT_CENTEREDNESS_MARGIN,
@@ -554,7 +559,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         // Margin will make the pool be out of range (since the current centeredness is near the default margin).
         vm.prank(admin);
-        vm.expectRevert(IReClammPool.PoolIsOutOfRange.selector);
+        vm.expectRevert(IReClammPool.PoolOutsideTargetRange.selector);
         ReClammPool(pool).setCenterednessMargin(_NEW_CENTEREDNESS_MARGIN);
     }
 
@@ -598,7 +603,7 @@ contract ReClammPoolTest is BaseReClammTest {
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens);
 
         (address pool, ) = _createPool(
-            [address(sortedTokens[0]), address(sortedTokens[1])].toMemoryArray(),
+            [address(sortedTokens[a]), address(sortedTokens[b])].toMemoryArray(),
             "BeforeInitTest"
         );
 
@@ -672,5 +677,15 @@ contract ReClammPoolTest is BaseReClammTest {
             uint256(ReClammMath.PoolAboveCenter.FALSE),
             "Invalid enum value (true/false)"
         );
+    }
+
+    function testSetPriceShiftDailyRateTooHigh() public {
+        ReClammPoolImmutableData memory data = ReClammPool(pool).getReClammPoolImmutableData();
+
+        uint256 newPriceShiftDailyRate = data.maxPriceShiftDailyRate + 1;
+
+        vm.prank(admin);
+        vm.expectRevert(IReClammPool.PriceShiftDailyRateTooHigh.selector);
+        ReClammPool(pool).setPriceShiftDailyRate(newPriceShiftDailyRate);
     }
 }
