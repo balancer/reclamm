@@ -273,8 +273,8 @@ interface IReClammPool is IBasePool {
 
     /**
      * @notice Getter for the last virtual balances.
-     * @return lastVirtualBalanceA  TODO
-     * @return lastVirtualBalanceB  TODO
+     * @return lastVirtualBalanceA  The last virtual balance of token A
+     * @return lastVirtualBalanceB  The last virtual balance of token B
      */
     function getLastVirtualBalances() external view returns (uint256 lastVirtualBalanceA, uint256 lastVirtualBalanceB);
 
