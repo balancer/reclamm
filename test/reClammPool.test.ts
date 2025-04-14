@@ -82,8 +82,8 @@ describe('ReClammPool', function () {
     permit2 = await deployPermit2();
     router = await deploy('v3-vault/Router', { args: [vault, WETH, permit2, ROUTER_VERSION] });
 
-    tokenA = await deploy('v3-solidity-utils/ERC20TestToken', { args: ['Token A', 'TKNA', 18] });
-    tokenB = await deploy('v3-solidity-utils/ERC20TestToken', { args: ['Token B', 'TKNB', 6] });
+    tokenA = await deploy('v3-solidity-utils/ERC20TestToken', { args: ['Token A', 'TKN_A', 18] });
+    tokenB = await deploy('v3-solidity-utils/ERC20TestToken', { args: ['Token B', 'TKN_B', 6] });
 
     tokenAAddress = await tokenA.getAddress();
     tokenBAddress = await tokenB.getAddress();
