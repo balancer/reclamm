@@ -31,6 +31,9 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     using ArrayHelpers for *;
     using SafeCast for *;
 
+    uint256 internal constant a = 0;
+    uint256 internal constant b = 1;
+
     uint256 internal constant _INITIAL_PROTOCOL_FEE_PERCENTAGE = 1e16;
     uint256 internal constant _DEFAULT_SWAP_FEE = 0; // 0%
     string internal constant _POOL_VERSION = "ReClamm Pool v1";
@@ -101,7 +104,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
         string memory label
     ) internal override returns (address newPool, bytes memory poolArgs) {
         string memory name = "ReClamm Pool";
-        string memory symbol = "RECLAMMPOOL";
+        string memory symbol = "RECLAMM_POOL";
 
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens.asIERC20());
 

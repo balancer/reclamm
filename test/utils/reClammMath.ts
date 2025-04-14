@@ -73,7 +73,7 @@ export function computeCurrentVirtualBalances(
     changed = true;
   }
 
-  if (isPoolInRange(balancesScaled18, lastVirtualBalances, centerednessMargin) == false) {
+  if (isPoolWithinTargetRange(balancesScaled18, lastVirtualBalances, centerednessMargin) == false) {
     const priceRatio = fpMulDown(currentFourthRootPriceRatio, currentFourthRootPriceRatio);
 
     const base = fromFp(FP_ONE - priceShiftDailyRateInSeconds);
@@ -237,7 +237,7 @@ export function computeTheoreticalPriceRatioAndBalances(
   return { realBalances, virtualBalances, fourthRootPriceRatio };
 }
 
-export function isPoolInRange(
+export function isPoolWithinTargetRange(
   balancesScaled18: bigint[],
   virtualBalances: bigint[],
   centerednessMargin: bigint

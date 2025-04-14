@@ -40,7 +40,7 @@ contract ReClammMathMock {
         return ReClammMath.computeInvariant(balancesScaled18, virtualBalances, rounding);
     }
 
-    function calculateOutGivenIn(
+    function computeOutGivenIn(
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances,
         uint256 tokenInIndex,
@@ -48,7 +48,7 @@ contract ReClammMathMock {
         uint256 amountGivenScaled18
     ) external pure returns (uint256) {
         return
-            ReClammMath.calculateOutGivenIn(
+            ReClammMath.computeOutGivenIn(
                 balancesScaled18,
                 virtualBalances,
                 tokenInIndex,
@@ -57,7 +57,7 @@ contract ReClammMathMock {
             );
     }
 
-    function calculateInGivenOut(
+    function computeInGivenOut(
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances,
         uint256 tokenInIndex,
@@ -65,7 +65,7 @@ contract ReClammMathMock {
         uint256 amountGivenScaled18
     ) external pure returns (uint256) {
         return
-            ReClammMath.calculateInGivenOut(
+            ReClammMath.computeInGivenOut(
                 balancesScaled18,
                 virtualBalances,
                 tokenInIndex,
@@ -104,12 +104,12 @@ contract ReClammMathMock {
             );
     }
 
-    function isPoolInRange(
+    function isPoolWithinTargetRange(
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances,
         uint256 centerednessMargin
     ) external pure returns (bool) {
-        return ReClammMath.isPoolInRange(balancesScaled18, virtualBalances, centerednessMargin);
+        return ReClammMath.isPoolWithinTargetRange(balancesScaled18, virtualBalances, centerednessMargin);
     }
 
     function computeCenteredness(
