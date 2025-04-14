@@ -14,7 +14,8 @@ contract ReClammMathMock {
 
     function computeInvariant(
         uint256[] memory balancesScaled18,
-        uint256[] memory lastVirtualBalances,
+        uint256 lastVirtualBalanceA,
+        uint256 lastVirtualBalanceB,
         uint256 c,
         uint32 lastTimestamp,
         uint64 centerednessMargin,
@@ -23,7 +24,8 @@ contract ReClammMathMock {
         return
             ReClammMath.computeInvariant(
                 balancesScaled18,
-                lastVirtualBalances,
+                lastVirtualBalanceA,
+                lastVirtualBalanceB,
                 c,
                 lastTimestamp,
                 centerednessMargin,
@@ -34,15 +36,17 @@ contract ReClammMathMock {
 
     function computeInvariant(
         uint256[] memory balancesScaled18,
-        uint256[] memory virtualBalances,
+        uint256 virtualBalanceA,
+        uint256 virtualBalanceB,
         Rounding rounding
     ) external pure returns (uint256) {
-        return ReClammMath.computeInvariant(balancesScaled18, virtualBalances, rounding);
+        return ReClammMath.computeInvariant(balancesScaled18, virtualBalanceA, virtualBalanceB, rounding);
     }
 
     function computeOutGivenIn(
         uint256[] memory balancesScaled18,
-        uint256[] memory virtualBalances,
+        uint256 virtualBalanceA,
+        uint256 virtualBalanceB,
         uint256 tokenInIndex,
         uint256 tokenOutIndex,
         uint256 amountGivenScaled18
@@ -50,7 +54,8 @@ contract ReClammMathMock {
         return
             ReClammMath.computeOutGivenIn(
                 balancesScaled18,
-                virtualBalances,
+                virtualBalanceA,
+                virtualBalanceB,
                 tokenInIndex,
                 tokenOutIndex,
                 amountGivenScaled18
@@ -59,7 +64,8 @@ contract ReClammMathMock {
 
     function computeInGivenOut(
         uint256[] memory balancesScaled18,
-        uint256[] memory virtualBalances,
+        uint256 virtualBalanceA,
+        uint256 virtualBalanceB,
         uint256 tokenInIndex,
         uint256 tokenOutIndex,
         uint256 amountGivenScaled18
@@ -67,7 +73,8 @@ contract ReClammMathMock {
         return
             ReClammMath.computeInGivenOut(
                 balancesScaled18,
-                virtualBalances,
+                virtualBalanceA,
+                virtualBalanceB,
                 tokenInIndex,
                 tokenOutIndex,
                 amountGivenScaled18
@@ -81,22 +88,29 @@ contract ReClammMathMock {
     )
         external
         pure
-        returns (uint256[] memory realBalances, uint256[] memory virtualBalances, uint256 fourthRootPriceRatio)
+        returns (
+            uint256[] memory realBalances,
+            uint256 virtualBalanceA,
+            uint256 virtualBalanceB,
+            uint256 fourthRootPriceRatio
+        )
     {
         return ReClammMath.computeTheoreticalPriceRatioAndBalances(minPrice, maxPrice, targetPrice);
     }
 
     function computeCurrentVirtualBalances(
         uint256[] memory balancesScaled18,
-        uint256[] memory lastVirtualBalances,
+        uint256 lastVirtualBalanceA,
+        uint256 lastVirtualBalanceB,
         uint256 priceShiftDailyRateInSeconds,
         uint32 lastTimestamp,
         uint64 centerednessMargin
-    ) external view returns (uint256[] memory virtualBalances, bool changed) {
+    ) external view returns (uint256 virtualBalanceA, uint256 virtualBalanceB, bool changed) {
         return
             ReClammMath.computeCurrentVirtualBalances(
                 balancesScaled18,
-                lastVirtualBalances,
+                lastVirtualBalanceA,
+                lastVirtualBalanceB,
                 priceShiftDailyRateInSeconds,
                 lastTimestamp,
                 centerednessMargin,
@@ -106,17 +120,20 @@ contract ReClammMathMock {
 
     function isPoolWithinTargetRange(
         uint256[] memory balancesScaled18,
-        uint256[] memory virtualBalances,
+        uint256 virtualBalanceA,
+        uint256 virtualBalanceB,
         uint256 centerednessMargin
     ) external pure returns (bool) {
-        return ReClammMath.isPoolWithinTargetRange(balancesScaled18, virtualBalances, centerednessMargin);
+        return
+            ReClammMath.isPoolWithinTargetRange(balancesScaled18, virtualBalanceA, virtualBalanceB, centerednessMargin);
     }
 
     function computeCenteredness(
         uint256[] memory balancesScaled18,
-        uint256[] memory virtualBalances
+        uint256 virtualBalanceA,
+        uint256 virtualBalanceB
     ) external pure returns (uint256) {
-        return ReClammMath.computeCenteredness(balancesScaled18, virtualBalances);
+        return ReClammMath.computeCenteredness(balancesScaled18, virtualBalanceA, virtualBalanceB);
     }
 
     function computeFourthRootPriceRatio(
@@ -138,9 +155,10 @@ contract ReClammMathMock {
 
     function isAboveCenter(
         uint256[] memory balancesScaled18,
-        uint256[] memory virtualBalances
+        uint256 virtualBalanceA,
+        uint256 virtualBalanceB
     ) external pure returns (bool) {
-        return ReClammMath.isAboveCenter(balancesScaled18, virtualBalances);
+        return ReClammMath.isAboveCenter(balancesScaled18, virtualBalanceA, virtualBalanceB);
     }
 
     function computePriceShiftDailyRate(uint256 priceShiftDailyRate) external pure returns (uint256) {
