@@ -3,6 +3,7 @@
 
 pragma solidity ^0.8.24;
 
+import "forge-std/console.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { SignedMath } from "@openzeppelin/contracts/utils/math/SignedMath.sol";
 
@@ -272,6 +273,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256[] memory balancesScaled18,
         bytes memory
     ) public override onlyVault returns (bool) {
+        console.log("onBeforeInitialize");
         (
             uint256[] memory theoreticalRealBalances,
             uint256[] memory theoreticalVirtualBalances,
@@ -282,15 +284,23 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                 _INITIAL_TARGET_PRICE
             );
 
+        console.log("theoreticalRealBalances", theoreticalRealBalances[0], theoreticalRealBalances[1]);
+
         _checkInitializationBalanceRatio(balancesScaled18, theoreticalRealBalances);
 
         uint256 scale = balancesScaled18[a].divDown(theoreticalRealBalances[a]);
+
+        console.log("scale", scale);
 
         uint256[] memory virtualBalances = new uint256[](2);
         virtualBalances[a] = theoreticalVirtualBalances[a].mulDown(scale);
         virtualBalances[b] = theoreticalVirtualBalances[b].mulDown(scale);
 
         _checkInitializationPrices(balancesScaled18, virtualBalances);
+
+        console.log("virtualBalances", virtualBalances[0], virtualBalances[1]);
+
+        console.log("centresdness: ", ReClammMath.computeCenteredness(balancesScaled18, virtualBalances));
 
         if (ReClammMath.computeCenteredness(balancesScaled18, virtualBalances) < _centerednessMargin) {
             revert PoolCenterednessTooLow();

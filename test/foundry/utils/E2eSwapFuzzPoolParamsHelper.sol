@@ -16,21 +16,22 @@ import { IRateProvider } from "@balancer-labs/v3-interfaces/contracts/solidity-u
 
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
+import { BasicAuthorizerMock } from "@balancer-labs/v3-vault/contracts/test/BasicAuthorizerMock.sol";
 import { CastingHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/CastingHelpers.sol";
 import { GradualValueChange } from "@balancer-labs/v3-pool-weighted/contracts/lib/GradualValueChange.sol";
 
-import { ReClammPool } from "../../../contracts/ReClammPool.sol";
 import { BaseReClammTest } from "./BaseReClammTest.sol";
 import { ReClammPoolContractsDeployer } from "./ReClammPoolContractsDeployer.sol";
+import { ReClammPool } from "../../../contracts/ReClammPool.sol";
+import { ReClammMath } from "../../../contracts/lib/ReClammMath.sol";
 
 contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
     using ArrayHelpers for *;
     using CastingHelpers for *;
     using FixedPoint for uint256;
 
-    uint256 internal constant MAX_BALANCE = 1_000_000_000_000_000 * FixedPoint.ONE;
-    uint256 internal constant MIN_PRICE_RATIO = FixedPoint.ONE + 1;
-    uint256 internal constant MAX_PRICE_RATIO = 1_000_000_000 * FixedPoint.ONE;
+    uint256 internal constant MAX_BALANCE = 1_000_000_000 * FixedPoint.ONE;
+    uint256 internal constant MAX_PRICE = 100 * FixedPoint.ONE;
     uint256 internal constant MAX_TIME_FOR_PRICE_CHANGE = 10 days;
     uint256 internal constant MIN_TIME_FOR_PRICE_CHANGE = 6 hours;
     uint256 internal constant TIME_BUFFER = 1 hours;
@@ -46,12 +47,15 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
         address[] tokens;
         string label;
         address sender;
+        uint256 centerednessMargin;
+        uint256[] initialBalances;
     }
 
     function _fuzzPoolParams(
         uint256[7] memory params,
         IRouter router,
         IVaultMock vault,
+        BasicAuthorizerMock authorizer,
         address[] memory tokens,
         string memory label,
         address sender
@@ -68,43 +72,63 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
         testParams.label = label;
         testParams.sender = sender;
 
-        testParams.minPrice = bound(params[1], FixedPoint.ONE, MAX_BALANCE - 1);
-        testParams.maxPrice = bound(params[2], testParams.minPrice + 1, MAX_BALANCE);
+        testParams.minPrice = bound(params[1], FixedPoint.ONE, MAX_PRICE - 1);
+        testParams.maxPrice = bound(params[2], testParams.minPrice + 1, MAX_PRICE);
         testParams.targetPrice = bound(params[3], testParams.minPrice, testParams.maxPrice);
 
         testParams.startTime = bound(params[4], currentTime, maxTime);
         testParams.endTime = bound(params[5], testParams.startTime, maxTime);
-        uint256 mockCurrentTime = bound(params[6], testParams.startTime, testParams.endTime + TIME_BUFFER);
-        vm.warp(mockCurrentTime);
 
-        uint256 priceRatio = testParams.maxPrice.divDown(testParams.minPrice);
-        uint96 endFourthRootPriceRatio = SafeCast.toUint96(
-            Math.sqrt(Math.sqrt(priceRatio * FixedPoint.ONE) * FixedPoint.ONE)
-        );
+        {
+            uint256 mockCurrentTime = bound(params[6], testParams.startTime, testParams.endTime + TIME_BUFFER);
+            vm.warp(mockCurrentTime);
+
+            (uint256[] memory theoreticalRealBalances, uint256[] memory theoreticalVirtualBalances, ) = ReClammMath
+                .computeTheoreticalPriceRatioAndBalances(
+                    testParams.minPrice,
+                    testParams.maxPrice,
+                    testParams.targetPrice
+                );
+
+            testParams.initialBalances = new uint256[](2);
+            testParams.initialBalances[0] = balanceA;
+            uint256 balanceRatio = theoreticalRealBalances[1].divDown(theoreticalRealBalances[0]);
+            balanceB = balanceA.mulDown(balanceRatio);
+            testParams.initialBalances[1] = balanceB;
+
+            uint256 scale = testParams.initialBalances[0].divDown(theoreticalRealBalances[0]);
+            uint256[] memory virtualBalances = new uint256[](2);
+            virtualBalances[0] = theoreticalVirtualBalances[0].mulDown(scale);
+            virtualBalances[1] = theoreticalVirtualBalances[1].mulDown(scale);
+            testParams.centerednessMargin = ReClammMath.computeCenteredness(
+                testParams.initialBalances,
+                virtualBalances
+            );
+        }
 
         vm.startPrank(testParams.sender);
-        IRateProvider[] memory rateProviders = new IRateProvider[](0);
         (pool, poolArgs) = createReClammPool(
-            tokens,
-            rateProviders,
+            testParams.tokens,
+            new IRateProvider[](0),
             testParams.label,
             testParams.vault,
             testParams.sender,
             testParams.minPrice,
             testParams.maxPrice,
-            testParams.targetPrice
+            testParams.targetPrice,
+            testParams.centerednessMargin
         );
+        console.log("Pool created");
 
-        uint256 balanceRatio = ReClammPool(pool).computeInitialBalanceRatio();
-
-        uint256[] memory initialBalances = new uint256[](2);
-        initialBalances[0] = balanceA;
-        balanceB = balanceA.mulDown(balanceRatio);
-        initialBalances[1] = balanceB;
-
-        testParams.router.initialize(pool, testParams.tokens.asIERC20(), initialBalances, 0, false, bytes(""));
-
-        ReClammPool(pool).setPriceRatioState(endFourthRootPriceRatio, testParams.startTime, testParams.endTime);
+        testParams.router.initialize(
+            pool,
+            testParams.tokens.asIERC20(),
+            testParams.initialBalances,
+            0,
+            false,
+            bytes("")
+        );
+        console.log("Pool initialized");
         vm.stopPrank();
     }
 }

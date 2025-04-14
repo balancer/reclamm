@@ -78,7 +78,8 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
                 poolCreator,
                 defaultParams.defaultMinPrice,
                 defaultParams.defaultMaxPrice,
-                defaultParams.defaultTargetPrice
+                defaultParams.defaultTargetPrice,
+                defaultParams.defaultCenterednessMargin
             );
     }
 
@@ -98,7 +99,8 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
                 poolCreator,
                 defaultParams.defaultMinPrice,
                 defaultParams.defaultMaxPrice,
-                defaultParams.defaultTargetPrice
+                defaultParams.defaultTargetPrice,
+                defaultParams.defaultCenterednessMargin
             );
     }
 
@@ -110,20 +112,27 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
         address poolCreator,
         uint256 minPrice,
         uint256 maxPrice,
-        uint256 targetPrice
+        uint256 targetPrice,
+        uint256 centerednessMargin
     ) internal returns (address newPool, bytes memory poolArgs) {
-        defaultParams.defaultMinPrice = minPrice;
-        defaultParams.defaultMaxPrice = maxPrice;
-        defaultParams.defaultTargetPrice = targetPrice;
+        {
+            defaultParams.defaultMinPrice = minPrice;
+            defaultParams.defaultMaxPrice = maxPrice;
+            defaultParams.defaultTargetPrice = targetPrice;
+            defaultParams.defaultCenterednessMargin = centerednessMargin;
+        }
 
-        string memory poolVersion = "ReClamm Pool v1";
-        string memory factoryVersion = "ReClamm Pool Factory v1";
+        ReClammPoolFactory poolFactory;
+        {
+            string memory poolVersion = "ReClamm Pool v1";
+            string memory factoryVersion = "ReClamm Pool Factory v1";
 
-        ReClammPoolFactory poolFactory = deployReClammPoolFactory(vault, 1 days, factoryVersion, poolVersion);
+            poolFactory = deployReClammPoolFactory(vault, 1 days, factoryVersion, poolVersion);
+        }
+
         PoolRoleAccounts memory roleAccounts;
 
         IERC20[] memory _tokens = tokens.asIERC20();
-
         IRateProvider[] memory _rateProviders = rateProviders;
         IVaultMock _vault = vault;
         string memory _lable = label;
