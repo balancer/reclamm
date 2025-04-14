@@ -36,6 +36,7 @@ struct ReClammPoolParams {
  * @param minTokenBalanceScaled18 The minimum token balance for the pool, scaled to 18 decimals.
  * @param maxPriceShiftDailyRate The maximum daily rate for the pool's price shift, as a percentage in 18-decimal FP.
  * @param minPriceRatioUpdateDuration The minimum duration for the price ratio update, expressed in seconds.
+ * @param minPriceRatioUpdateDuration The minimum absolute difference between current and new fourth root price ratio.
  */
 struct ReClammPoolImmutableData {
     IERC20[] tokens;
@@ -49,6 +50,7 @@ struct ReClammPoolImmutableData {
     uint256 minPoolCenteredness;
     uint256 maxPriceShiftDailyRate;
     uint256 minPriceRatioUpdateDuration;
+    uint256 minFourthRootPriceRatioDelta;
 }
 
 /**
@@ -65,7 +67,7 @@ struct ReClammPoolImmutableData {
  * ReClamm:
  * @param lastTimestamp The timestamp of the last user interaction
  * @param lastVirtualBalances The last virtual balances of the pool
- * @param priceShiftDailyRangeInSeconds The time constant of the pool
+ * @param priceShiftDailyRateInSeconds Represents how fast the pool can move the virtual balances per day
  * @param centerednessMargin The centeredness margin of the pool
  * @param currentFourthRootPriceRatio The current fourth root price ratio, an interpolation of the price ratio state
  * @param startFourthRootPriceRatio The fourth root price ratio at the start of an update
@@ -86,7 +88,7 @@ struct ReClammPoolDynamicData {
     // ReClamm
     uint256 lastTimestamp;
     uint256[] lastVirtualBalances;
-    uint256 priceShiftDailyRangeInSeconds;
+    uint256 priceShiftDailyRateInSeconds;
     uint256 centerednessMargin;
     uint256 currentFourthRootPriceRatio;
     uint256 startFourthRootPriceRatio;
@@ -100,44 +102,103 @@ struct ReClammPoolDynamicData {
 }
 
 interface IReClammPool is IBasePool {
+    /********************************************************
+                           Events
+    ********************************************************/
+
+    /**
+     * @notice The Price Ratio State was updated.
+     * @dev This event will be emitted on initialization, and when governance initiates a price ratio update.
+     * @param startFourthRootPriceRatio The fourth root price ratio at the start of an update
+     * @param endFourthRootPriceRatio The fourth root price ratio at the end of an update
+     * @param priceRatioUpdateStartTime The timestamp when the update begins
+     * @param priceRatioUpdateEndTime The timestamp when the update ends
+     */
+    event PriceRatioStateUpdated(
+        uint256 startFourthRootPriceRatio,
+        uint256 endFourthRootPriceRatio,
+        uint256 priceRatioUpdateStartTime,
+        uint256 priceRatioUpdateEndTime
+    );
+
+    /**
+     * @notice The virtual balances were updated after a user interaction (swap or liquidity operation).
+     * @dev Unless the price range is changing, the virtual balances remain in proportion to the real balances.
+     * These balances will also be updated when governance changes the centeredness margin or price shift daily rate.
+     *
+     * @param virtualBalances Offset to the real balance reserves
+     */
+    event VirtualBalancesUpdated(uint256[] virtualBalances);
+
+    /**
+     * @notice The price shift daily rate was updated.
+     * @dev This will be emitted on deployment, and when changed by governance or the swap manager.
+     * @param priceShiftDailyRate The new price shift daily rate
+     * @param priceShiftDailyRateInSeconds A representation of the price shift daily rate in seconds
+     */
+    event PriceShiftDailyRateUpdated(uint256 priceShiftDailyRate, uint256 priceShiftDailyRateInSeconds);
+
+    /**
+     * @notice The centeredness margin was updated.
+     * @dev This will be emitted on deployment, and when changed by governance or the swap manager.
+     * @param centerednessMargin The new centeredness margin
+     */
+    event CenterednessMarginUpdated(uint256 centerednessMargin);
+
+    /**
+     * @notice The timestamp of the last user interaction.
+     * @dev This is emitted on every swap or liquidity operation.
+     * @param lastTimestamp The timestamp of the operation
+     */
+    event LastTimestampUpdated(uint32 lastTimestamp);
+
     /********************************************************   
                            Errors
     ********************************************************/
 
-    /// @dev The function is not implemented.
+    /// @notice The function is not implemented.
     error NotImplemented();
 
-    /// @dev The token balance is too low after a user operation.
+    /// @notice The token balance is too low after a user operation.
     error TokenBalanceTooLow();
 
-    /// @dev The pool centeredness is too low after a swap.
+    /// @notice The pool centeredness is too low after a swap.
     error PoolCenterednessTooLow();
 
-    /// @dev The centeredness margin is out of range.
+    /// @notice The centeredness margin is outside the valid numerical range.
     error InvalidCenterednessMargin();
 
-    /// @dev The vault is not locked, so the pool balances are manipulable.
+    /// @notice The vault is not locked, so the pool balances are manipulable.
     error VaultIsNotLocked();
 
-    /// @dev The pool is out of range before or after the operation.
-    error PoolIsOutOfRange();
+    /// @notice The pool is outside the target price range before or after the operation.
+    error PoolOutsideTargetRange();
 
-    /// @dev The start time for the price ratio update is invalid (either in the past or after the given end time).
+    /// @notice The start time for the price ratio update is invalid (either in the past or after the given end time).
     error InvalidStartTime();
 
-    /// @dev The daily price shift rate is too high.
+    /// @notice
+    error InvalidInitialPrice();
+
+    /// @notice The daily price shift rate is too high.
     error PriceShiftDailyRateTooHigh();
 
-    /// @dev The difference between end time and start time is too short for the price ratio update.
+    /// @notice The difference between end time and start time is too short for the price ratio update.
     error PriceRatioUpdateDurationTooShort();
+
+    /// @dev The price ratio being set is too close to the current one.
+    error FourthRootPriceRatioDeltaBelowMin(uint256 fourthRootPriceRatioDelta);
 
     /**
      * @notice `getRate` from `IRateProvider` was called on a ReClamm Pool.
-     * @dev ReClamm Pools should never be nested. This is because the invariant of the pool is used only to calculate
-     * swaps. However, when tracking the market price or shrinking/expanding the liquidity concentration, the invariant
-     * can decrease/increase, which makes the BPT rate meaningless.
+     * @dev ReClamm Pools should never be nested. This is because the invariant of the pool is only used to calculate
+     * swaps. When tracking the market price or shrinking or expanding the liquidity concentration, the invariant can
+     * can decrease or increase independent of the balances, which makes the BPT rate meaningless.
      */
     error ReClammPoolBptRateUnsupported();
+
+    /// @dev Function called before initializing the pool.
+    error PoolNotInitialized();
 
     /**
      * @notice The initial balances of the ReClamm Pool must respect the initialization ratio bounds.
@@ -148,67 +209,63 @@ interface IReClammPool is IBasePool {
      */
     error BalanceRatioExceedsTolerance();
 
-    /**
-     * @notice The current price interval or spot price is outside the initialization price range.
-     */
+    /// @notice The current price interval or spot price is outside the initialization price range.
     error WrongInitializationPrices();
-
-    /********************************************************
-                           Events
-    ********************************************************/
-
-    /// @notice The Price Ratio State was updated.
-    event PriceRatioStateUpdated(
-        uint256 startFourthRootPriceRatio,
-        uint256 endFourthRootPriceRatio,
-        uint256 priceRatioUpdateStartTime,
-        uint256 priceRatioUpdateEndTime
-    );
-
-    /// @dev The Virtual Balances were updated after a user interaction.
-    event VirtualBalancesUpdated(uint256[] virtualBalances);
-
-    /**
-     * @dev The Price Shift Daily Rate was updated.
-     * @param priceShiftDailyRate The new price shift daily rate
-     * @param priceShiftDailyRangeInSeconds A representation of the price shift daily rate in seconds
-     */
-    event PriceShiftDailyRateUpdated(uint256 priceShiftDailyRate, uint256 priceShiftDailyRangeInSeconds);
-
-    /// @dev The Centeredness Margin was updated.
-    event CenterednessMarginUpdated(uint256 centerednessMargin);
-
-    /// @dev The timestamp of the last user interaction.
-    event LastTimestampUpdated(uint32 lastTimestamp);
 
     /********************************************************
                        Pool State Getters
     ********************************************************/
 
     /**
-     * @notice Returns the ratio between token balances (index 1 / index 0).
+     * @notice Computes the ratio between the token balances (B/A).
      * @dev To keep the pool within the target price range after initialization, the initial pool balances need to be
-     * close to the value returned by this function. For example, if this returned 200, the initial balance of token[1]
-     * should be 200 times the initial balance of token[0].
+     * close to the value returned by this function. For example, if this returned 200, the initial balance of tokenB
+     * should be 200 times the initial balance of tokenA.
      *
      * @return balanceRatio The balance ratio that must be respected during initialization
      */
     function computeInitialBalanceRatio() external view returns (uint256 balanceRatio);
 
     /**
-     * @notice Returns the current virtual balances and a flag indicating whether they have changed.
-     * @dev The current virtual balances are calculated based on the last virtual balances. If the pool is in range
-     * and the price ratio is not updating, the virtual balances will not change. If the pool is out of range or the
-     * price ratio is updating, this function will calculate the new virtual balances based on the timestamp of the
-     * last user interaction. Note that virtual balances are always scaled18 values.
+     * @notice Computes the current total price range.
+     * @dev Prices represent the value of token A denominated in token B (i.e., how many B tokens equal the value of
+     * one A token).
+     *
+     * The "target" range is then defined as a subset of this total price range, with the margin trimmed symmetrically
+     * from each side. The pool endeavors to adjust this range as necessary to keep the current market price within it.
+     *
+     * The computation involves the current live balances (though it should not be sensitive to them), so manipulating
+     * the result of this function is theoretically possible while the Vault is unlocked. Ensure that the Vault is
+     * locked before calling this function if this side effect is undesired (does not apply to off-chain calls).
+     *
+     * @return minPrice The lower limit of the current total price range
+     * @return maxPrice The upper limit of the current total price range
+     */
+    function computeCurrentPriceRange() external view returns (uint256 minPrice, uint256 maxPrice);
+
+    /**
+     * @notice Computes the current virtual balances and a flag indicating whether they have changed.
+     * @dev The current virtual balances are calculated based on the last virtual balances. If the pool is within the
+     * target range and the price ratio is not updating, the virtual balances will not change. If the pool is outside
+     * the target range, or the price ratio is updating, this function will calculate the new virtual balances based on
+     * the timestamp of the last user interaction. Note that virtual balances are always scaled18 values.
+     *
+     * Current virtual balances might change as a result of an operation, manipulating the value to some degree.
+     * Ensure that the vault is locked before calling this function if this side effect is undesired.
      *
      * @return currentVirtualBalances The current virtual balances
      * @return changed Whether the current virtual balances are different from `lastVirtualBalances`
      */
-    function getCurrentVirtualBalances() external view returns (uint256[] memory currentVirtualBalances, bool changed);
+    function computeCurrentVirtualBalances()
+        external
+        view
+        returns (uint256[] memory currentVirtualBalances, bool changed);
 
-    /// @notice Returns the timestamp of the last user interaction.
-    function getLastTimestamp() external view returns (uint32);
+    /**
+     * @notice Getter for the timestamp of the last user interaction.
+     * @return lastTimestamp The timestamp of the operation
+     */
+    function getLastTimestamp() external view returns (uint32 lastTimestamp);
 
     /**
      * @notice Getter for the last virtual balances.
@@ -218,19 +275,20 @@ interface IReClammPool is IBasePool {
 
     /**
      * @notice Returns the centeredness margin.
-     * @dev The centeredness margin is a symmetrical measure of how closely an unbalanced pool can approach the limits
-     * of the price range before the pool is considered out of range.
+     * @dev The centeredness margin defines how closely an unbalanced pool can approach the limits of the total price
+     * range and still be considered within the target range. The margin is symmetrical. If it's 20%, the target
+     * range is defined as >= 20% above the lower bound and <= 20% below the upper bound.
      *
      * @return centerednessMargin The current centeredness margin
      */
     function getCenterednessMargin() external view returns (uint256 centerednessMargin);
 
     /**
-     * @notice Returns the time constant.
-     * @dev The time constant is an internal representation of the raw price shift daily rate, expressed in seconds.
-     * @return priceShiftDailyRangeInSeconds The time constant
+     * @notice Returns the internal representation of a raw price shift daily rate.
+     * @dev The shift rate is expressed in seconds.
+     * @return priceShiftDailyRateInSeconds The internal rate
      */
-    function getPriceShiftDailyRateInSeconds() external view returns (uint256 priceShiftDailyRangeInSeconds);
+    function getPriceShiftDailyRateInSeconds() external view returns (uint256 priceShiftDailyRateInSeconds);
 
     /**
      * @notice Returns the current price ratio state.
@@ -240,17 +298,39 @@ interface IReClammPool is IBasePool {
     function getPriceRatioState() external view returns (PriceRatioState memory priceRatioState);
 
     /**
-     * @notice Returns the current fourth root of price ratio.
+     * @notice Computes the current fourth root of price ratio.
      * @dev The current fourth root of price ratio is an interpolation of the price ratio between the start and end
      * values in the price ratio state, using the percentage elapsed between the start and end times.
      *
      * @return currentFourthRootPriceRatio The current fourth root of price ratio
      */
-    function getCurrentFourthRootPriceRatio() external view returns (uint96);
+    function computeCurrentFourthRootPriceRatio() external view returns (uint256);
 
-    /********************************************************
-                       Pool State Setters
-    ********************************************************/
+    /**
+     * @notice Compute whether the pool is within the target price range.
+     * @dev The pool is considered to be in the target range when the centeredness is greater than the centeredness
+     * margin (i.e., the price is within the subset of the total price range defined by the centeredness margin.)
+     *
+     * The centeredness margin is affected by the current live balances, so manipulating the result of this function
+     * is possible while the Vault is unlocked. Ensure that the Vault is locked before calling this function if this
+     * side effect is undesired (does not apply to off-chain calls).
+     *
+     * @return isWithinTargetRange True if pool centeredness is greater than the centeredness margin
+     */
+    function isPoolWithinTargetRange() external view returns (bool);
+
+    /**
+     * @notice Compute the current pool centeredness (a measure of how pool imbalance).
+     * @dev A value of 0 means the pool is at the edge of the price range (i.e., one of the real balances is zero).
+     * A value of FixedPoint.ONE means the balances (and market price) are exactly in the middle of the range.
+     *
+     * The centeredness margin is affected by the current live balances, so manipulating the result of this function
+     * is possible while the Vault is unlocked. Ensure that the Vault is locked before calling this function if this
+     * side effect is undesired (does not apply to off-chain calls).
+     *
+     * @return poolCenteredness The current centeredness margin (as a 18-decimal FP value)
+     */
+    function computeCurrentPoolCenteredness() external view returns (uint256);
 
     /**
      * @notice Get dynamic pool data relevant to swap/add/remove calculations.
@@ -264,10 +344,14 @@ interface IReClammPool is IBasePool {
      */
     function getReClammPoolImmutableData() external view returns (ReClammPoolImmutableData memory data);
 
+    /********************************************************
+                       Pool State Setters
+    ********************************************************/
+
     /**
-     * @notice Resets the price ratio update by setting a new end fourth root price ratio and time range.
+     * @notice Resets the price ratio update by setting a new end fourth root price ratio and time interval.
      * @dev The price ratio is calculated by interpolating between the start and end times. The start price ratio will
-     * be set to the current fourth root price ratio of the pool.
+     * be set to the current fourth root price ratio of the pool. This is a permissioned function.
      *
      * @param endFourthRootPriceRatio The new ending value of the fourth root price ratio
      * @param priceRatioUpdateStartTime The timestamp when the price ratio update will start
@@ -283,7 +367,7 @@ interface IReClammPool is IBasePool {
     /**
      * @notice Updates the price shift daily rate.
      * @dev This function is considered a user interaction, and therefore recalculates the virtual balances and sets
-     * the last timestamp.
+     * the last timestamp. This is a permissioned function.
      *
      * @param newPriceShiftDailyRate The new price shift daily rate
      */
@@ -292,6 +376,8 @@ interface IReClammPool is IBasePool {
     /**
      * @notice Set the centeredness margin.
      * @dev This function is considered a user action, so it will update the last timestamp and virtual balances.
+     * This is a permissioned function.
+     *
      * @param newCenterednessMargin The new centeredness margin
      */
     function setCenterednessMargin(uint256 newCenterednessMargin) external;

@@ -29,6 +29,10 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     using FixedPoint for uint256;
     using CastingHelpers for address[];
     using ArrayHelpers for *;
+    using SafeCast for *;
+
+    uint256 internal constant a = 0;
+    uint256 internal constant b = 1;
 
     uint256 internal constant _INITIAL_PROTOCOL_FEE_PERCENTAGE = 1e16;
     uint256 internal constant _DEFAULT_SWAP_FEE = 0; // 0%
@@ -39,6 +43,8 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     uint256 internal constant _DEFAULT_TARGET_PRICE = 2500e18;
     uint256 internal constant _DEFAULT_PRICE_SHIFT_DAILY_RATE = 100e16; // 100%
     uint64 internal constant _DEFAULT_CENTEREDNESS_MARGIN = 20e16; // 20%
+
+    uint256 internal constant _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA = 1e3;
 
     uint256 internal constant _MIN_PRICE = 1e14; // 0.0001
     uint256 internal constant _MAX_PRICE = 1e24; // 1_000_000
@@ -66,12 +72,14 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     uint256 internal daiIdx;
     uint256 internal usdcIdx;
 
+    uint256 internal _creationTimestamp;
+
     function setUp() public virtual override {
         super.setUp();
 
         (, , _initialBalances, ) = vault.getPoolTokenInfo(pool);
-        (_initialVirtualBalances, ) = ReClammPool(pool).getCurrentVirtualBalances();
-        _initialFourthRootPriceRatio = ReClammPool(pool).getCurrentFourthRootPriceRatio();
+        (_initialVirtualBalances, ) = ReClammPool(pool).computeCurrentVirtualBalances();
+        _initialFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
     }
 
     function setInitializationPrices(uint256 newMinPrice, uint256 newMaxPrice, uint256 newTargetPrice) internal {
@@ -96,7 +104,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
         string memory label
     ) internal override returns (address newPool, bytes memory poolArgs) {
         string memory name = "ReClamm Pool";
-        string memory symbol = "RECLAMMPOOL";
+        string memory symbol = "RECLAMM_POOL";
 
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens.asIERC20());
 
@@ -118,6 +126,8 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
             bytes32(saltNumber++)
         );
         vm.label(newPool, label);
+
+        _creationTimestamp = block.timestamp;
 
         // poolArgs is used to check pool deployment address with create2.
         poolArgs = abi.encode(
@@ -168,5 +178,16 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
         newPoolBalances[usdcIdx] = usdcBalance;
 
         vault.manualSetPoolBalances(pool, newPoolBalances, newPoolBalances);
+    }
+
+    function _assumeFourthRootPriceRatioDeltaAboveMin(
+        uint256 currentFourthRootPriceRatio,
+        uint256 newFourthRootPriceRatio
+    ) internal pure {
+        if (newFourthRootPriceRatio > currentFourthRootPriceRatio) {
+            vm.assume(newFourthRootPriceRatio - currentFourthRootPriceRatio >= _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA);
+        } else {
+            vm.assume(currentFourthRootPriceRatio - newFourthRootPriceRatio >= _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA);
+        }
     }
 }

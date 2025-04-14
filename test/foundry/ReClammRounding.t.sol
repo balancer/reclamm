@@ -21,8 +21,6 @@ contract ReClammRoundingTest is BaseReClammTest {
 
     uint256 internal constant _MIN_SWAP_AMOUNT = 1e12;
 
-    uint256 internal constant _MAX_TIME_CONSTANT = FixedPoint.ONE - 1;
-
     uint256 internal constant _MIN_SWAP_FEE = 0;
     // Max swap fee of 50%. In practice this is way too high for a static fee.
     uint256 internal constant _MAX_SWAP_FEE = 50e16;
@@ -56,7 +54,7 @@ contract ReClammRoundingTest is BaseReClammTest {
         );
     }
 
-    function testCalculateOutGivenIn__Fuzz(
+    function testComputeOutGivenIn__Fuzz(
         uint256 minPrice,
         uint256 maxPrice,
         uint256 targetPrice,
@@ -80,7 +78,7 @@ contract ReClammRoundingTest is BaseReClammTest {
         vm.assume(balances[tokenInIndex] > _MIN_TOKEN_BALANCE);
 
         // Calculate maxAmountIn to make sure the transaction won't revert.
-        uint256 maxAmountIn = mathMock.calculateInGivenOut(
+        uint256 maxAmountIn = mathMock.computeInGivenOut(
             balances,
             virtualBalances,
             tokenInIndex,
@@ -98,7 +96,7 @@ contract ReClammRoundingTest is BaseReClammTest {
                 priceRatioUpdateEndTime: 0
             })
         );
-        uint256 amountOut = mathMock.calculateOutGivenIn(
+        uint256 amountOut = mathMock.computeOutGivenIn(
             balances,
             virtualBalances,
             tokenInIndex,
@@ -112,14 +110,14 @@ contract ReClammRoundingTest is BaseReClammTest {
         uint256 roundedUpAmountIn = amountGivenScaled18 + 1;
         uint256 roundedDownAmountIn = amountGivenScaled18 - 1;
 
-        uint256 amountOutRoundedUp = mathMock.calculateOutGivenIn(
+        uint256 amountOutRoundedUp = mathMock.computeOutGivenIn(
             balances,
             virtualBalances,
             tokenInIndex,
             tokenOutIndex,
             roundedUpAmountIn
         );
-        uint256 amountOutRoundedDown = mathMock.calculateOutGivenIn(
+        uint256 amountOutRoundedDown = mathMock.computeOutGivenIn(
             balances,
             virtualBalances,
             tokenInIndex,
@@ -127,11 +125,11 @@ contract ReClammRoundingTest is BaseReClammTest {
             roundedDownAmountIn
         );
 
-        assertGe(amountOutRoundedUp, amountOut, "amountOutRoundedUp < amountOut (calculateOutGivenIn)");
-        assertLe(amountOutRoundedDown, amountOut, "amountOutRoundedDown > amountOut (calculateOutGivenIn)");
+        assertGe(amountOutRoundedUp, amountOut, "amountOutRoundedUp < amountOut (computeOutGivenIn)");
+        assertLe(amountOutRoundedDown, amountOut, "amountOutRoundedDown > amountOut (computeOutGivenIn)");
     }
 
-    function testCalculateInGivenOut__Fuzz(
+    function testComputeInGivenOut__Fuzz(
         uint256 minPrice,
         uint256 maxPrice,
         uint256 targetPrice,
@@ -169,7 +167,7 @@ contract ReClammRoundingTest is BaseReClammTest {
                 priceRatioUpdateEndTime: 0
             })
         );
-        uint256 amountIn = mathMock.calculateInGivenOut(
+        uint256 amountIn = mathMock.computeInGivenOut(
             balances,
             virtualBalances,
             tokenInIndex,
@@ -180,14 +178,14 @@ contract ReClammRoundingTest is BaseReClammTest {
         uint256 roundedUpAmountOut = amountGivenScaled18 + 1;
         uint256 roundedDownAmountOut = amountGivenScaled18 - 1;
 
-        uint256 amountInRoundedUp = mathMock.calculateInGivenOut(
+        uint256 amountInRoundedUp = mathMock.computeInGivenOut(
             balances,
             virtualBalances,
             tokenInIndex,
             tokenOutIndex,
             roundedUpAmountOut
         );
-        uint256 amountInRoundedDown = mathMock.calculateInGivenOut(
+        uint256 amountInRoundedDown = mathMock.computeInGivenOut(
             balances,
             virtualBalances,
             tokenInIndex,
@@ -195,7 +193,7 @@ contract ReClammRoundingTest is BaseReClammTest {
             roundedDownAmountOut
         );
 
-        assertGe(amountInRoundedUp, amountIn, "amountInRoundedUp < amountIn (calculateInGivenOut)");
-        assertLe(amountInRoundedDown, amountIn, "amountInRoundedDown > amountIn (calculateInGivenOut)");
+        assertGe(amountInRoundedUp, amountIn, "amountInRoundedUp < amountIn (computeInGivenOut)");
+        assertLe(amountInRoundedDown, amountIn, "amountInRoundedDown > amountIn (computeInGivenOut)");
     }
 }

@@ -31,10 +31,10 @@ export type PriceRatioState = {
 
 const _INITIALIZATION_MAX_BALANCE_A = fp(1000000);
 
-export function getCurrentVirtualBalances(
+export function computeCurrentVirtualBalances(
   balancesScaled18: bigint[],
   lastVirtualBalances: bigint[],
-  priceShiftDailyRangeInSeconds: bigint,
+  priceShiftDailyRateInSeconds: bigint,
   lastTimestamp: bigint,
   currentTimestamp: bigint,
   centerednessMargin: bigint,
@@ -48,7 +48,7 @@ export function getCurrentVirtualBalances(
 
   let changed = false;
 
-  const currentFourthRootPriceRatio = calculateFourthRootPriceRatio(
+  const currentFourthRootPriceRatio = computeFourthRootPriceRatio(
     currentTimestamp,
     priceRatioState.startFourthRootPriceRatio,
     priceRatioState.endFourthRootPriceRatio,
@@ -73,10 +73,10 @@ export function getCurrentVirtualBalances(
     changed = true;
   }
 
-  if (isPoolInRange(balancesScaled18, lastVirtualBalances, centerednessMargin) == false) {
+  if (isPoolWithinTargetRange(balancesScaled18, lastVirtualBalances, centerednessMargin) == false) {
     const priceRatio = fpMulDown(currentFourthRootPriceRatio, currentFourthRootPriceRatio);
 
-    const base = fromFp(FP_ONE - priceShiftDailyRangeInSeconds);
+    const base = fromFp(FP_ONE - priceShiftDailyRateInSeconds);
     const exponent = fromFp(fp(currentTimestamp - lastTimestamp));
     const powResult = base.pow(exponent);
 
@@ -108,7 +108,7 @@ export function calculateVirtualBalancesUpdatingPriceRatio(
 ): bigint[] {
   let virtualBalances = [...lastVirtualBalances];
 
-  const centeredness = calculateCenteredness(balancesScaled18, lastVirtualBalances);
+  const centeredness = computeCenteredness(balancesScaled18, lastVirtualBalances);
 
   if (isPoolAboveCenter) {
     const a = fpMulDown(currentFourthRootPriceRatio, currentFourthRootPriceRatio) - fp(1);
@@ -144,17 +144,17 @@ export function calculateVirtualBalancesUpdatingPriceRatio(
 export function computeInvariant(
   balancesScaled18: bigint[],
   lastVirtualBalances: bigint[],
-  priceShiftDailyRangeInSeconds: bigint,
+  priceShiftDailyRateInSeconds: bigint,
   lastTimestamp: number,
   currentTimestamp: number,
   centerednessMargin: bigint,
   priceRatioState: PriceRatioState,
   rounding: Rounding
 ): bigint {
-  const [currentVirtualBalances, _] = getCurrentVirtualBalances(
+  const [currentVirtualBalances, _] = computeCurrentVirtualBalances(
     balancesScaled18,
     lastVirtualBalances,
-    priceShiftDailyRangeInSeconds,
+    priceShiftDailyRateInSeconds,
     lastTimestamp,
     currentTimestamp,
     centerednessMargin,
@@ -237,16 +237,16 @@ export function computeTheoreticalPriceRatioAndBalances(
   return { realBalances, virtualBalances, fourthRootPriceRatio };
 }
 
-export function isPoolInRange(
+export function isPoolWithinTargetRange(
   balancesScaled18: bigint[],
   virtualBalances: bigint[],
   centerednessMargin: bigint
 ): boolean {
-  const centeredness = calculateCenteredness(balancesScaled18, virtualBalances);
+  const centeredness = computeCenteredness(balancesScaled18, virtualBalances);
   return centeredness >= centerednessMargin;
 }
 
-export function calculateCenteredness(balancesScaled18: bigint[], virtualBalances: bigint[]): bigint {
+export function computeCenteredness(balancesScaled18: bigint[], virtualBalances: bigint[]): bigint {
   if (balancesScaled18[0] == 0n || balancesScaled18[1] == 0n) {
     return 0n;
   }
@@ -262,7 +262,7 @@ export function calculateCenteredness(balancesScaled18: bigint[], virtualBalance
   );
 }
 
-export function calculateFourthRootPriceRatio(
+export function computeFourthRootPriceRatio(
   currentTime: number,
   startFourthRootPriceRatio: BigNumberish,
   endFourthRootPriceRatio: BigNumberish,
