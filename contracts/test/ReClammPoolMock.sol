@@ -17,4 +17,8 @@ contract ReClammPoolMock is ReClammPool {
     function setLastTimestamp(uint256 newLastTimestamp) external {
         _lastTimestamp = SafeCast.toUint32(newLastTimestamp);
     }
+
+    function setLastVirtualBalances(uint256[] memory newLastVirtualBalances) external {
+        _setLastVirtualBalances(newLastVirtualBalances[0], newLastVirtualBalances[1]);
+    }
 }
