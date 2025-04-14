@@ -44,6 +44,8 @@ struct ReClammPoolImmutableData {
     uint256 initialMinPrice;
     uint256 initialMaxPrice;
     uint256 initialTargetPrice;
+    uint256 initialPriceShiftDailyRate;
+    uint256 initialCenterednessMargin;
     uint256 minCenterednessMargin;
     uint256 maxCenterednessMargin;
     uint256 minTokenBalanceScaled18;
