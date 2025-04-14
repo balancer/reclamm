@@ -354,7 +354,7 @@ contract ReClammPoolTest is BaseReClammTest {
             abi.encode(
                 startFourthRootPriceRatio,
                 endFourthRootPriceRatio,
-                priceRatioUpdateStartTime,
+                block.timestamp,
                 priceRatioUpdateEndTime
             )
         );
