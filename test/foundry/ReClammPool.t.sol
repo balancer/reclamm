@@ -351,12 +351,7 @@ contract ReClammPoolTest is BaseReClammTest {
         emit IVaultEvents.VaultAuxiliary(
             pool,
             "PriceRatioStateUpdated",
-            abi.encode(
-                startFourthRootPriceRatio,
-                endFourthRootPriceRatio,
-                block.timestamp,
-                priceRatioUpdateEndTime
-            )
+            abi.encode(startFourthRootPriceRatio, endFourthRootPriceRatio, block.timestamp, priceRatioUpdateEndTime)
         );
 
         vm.prank(admin);
@@ -672,5 +667,56 @@ contract ReClammPoolTest is BaseReClammTest {
             uint256(ReClammMath.PoolAboveCenter.FALSE),
             "Invalid enum value (true/false)"
         );
+    }
+
+    function testOnBeforeInitializeEvents() public {
+        (address newPool, ) = _createPool([address(usdc), address(dai)].toMemoryArray(), "New Test Pool");
+        (IERC20[] memory tokens, , , ) = vault.getPoolTokenInfo(newPool);
+
+        ReClammPoolImmutableData memory data = ReClammPool(newPool).getReClammPoolImmutableData();
+
+        (, , uint256 fourthRootPriceRatio) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
+            data.initialMinPrice,
+            data.initialMaxPrice,
+            data.initialTargetPrice
+        );
+
+        uint128 dailyRateInSeconds = ReClammMath.computePriceShiftDailyRate(data.initialPriceShiftDailyRate);
+
+        vm.expectEmit(newPool);
+        emit IReClammPool.PriceRatioStateUpdated(0, fourthRootPriceRatio, block.timestamp, block.timestamp);
+
+        vm.expectEmit(address(vault));
+        emit IVaultEvents.VaultAuxiliary(
+            newPool,
+            "PriceRatioStateUpdated",
+            abi.encode(0, fourthRootPriceRatio, block.timestamp, block.timestamp)
+        );
+
+        vm.expectEmit(newPool);
+        emit IReClammPool.PriceShiftDailyRateUpdated(data.initialPriceShiftDailyRate, dailyRateInSeconds);
+
+        vm.expectEmit(address(vault));
+        emit IVaultEvents.VaultAuxiliary(
+            newPool,
+            "PriceShiftDailyRateUpdated",
+            abi.encode(data.initialPriceShiftDailyRate, dailyRateInSeconds)
+        );
+
+        vm.expectEmit(newPool);
+        emit IReClammPool.CenterednessMarginUpdated(data.initialCenterednessMargin);
+
+        vm.expectEmit(address(vault));
+        emit IVaultEvents.VaultAuxiliary(
+            newPool,
+            "CenterednessMarginUpdated",
+            abi.encode(data.initialCenterednessMargin)
+        );
+
+        vm.expectEmit(newPool);
+        emit IReClammPool.LastTimestampUpdated(block.timestamp.toUint32());
+
+        vm.prank(alice);
+        router.initialize(newPool, tokens, _initialBalances, 0, false, bytes(""));
     }
 }
