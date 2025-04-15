@@ -565,7 +565,9 @@ contract ReClammPoolTest is BaseReClammTest {
         // Pool Centeredness = Ra * Vb / (Rb * Va). Make centeredness = margin, and you have the equation below.
         uint256 newBalanceA = (_DEFAULT_CENTEREDNESS_MARGIN * newBalanceB).mulDown(virtualBalances[a]) /
             virtualBalances[b];
-        _setPoolBalances(newBalanceA, newBalanceB);
+
+        (uint256 newDaiBalance, uint256 newUsdcBalance) = _balanceABtoDaiUsdcBalances(newBalanceA, newBalanceB);
+        _setPoolBalances(newDaiBalance, newUsdcBalance);
         ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
 
         assertTrue(ReClammPoolMock(pool).isPoolWithinTargetRange(), "Pool is out of range");

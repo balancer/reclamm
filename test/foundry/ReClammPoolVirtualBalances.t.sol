@@ -6,6 +6,7 @@ import "forge-std/Test.sol";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
@@ -21,8 +22,11 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     using FixedPoint for uint256;
     using ArrayHelpers for *;
     using SafeCast for *;
+    using Math for *;
 
     uint256 private constant _INITIAL_PARAMS_ERROR = 1e6;
+    uint256 private constant a = 0;
+    uint256 private constant b = 1;
 
     ReClammMathMock mathMock = new ReClammMathMock();
 
@@ -90,35 +94,31 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         (, , uint256[] memory balances, ) = vault.getPoolTokenInfo(pool);
         (uint256[] memory virtualBalances, ) = _computeCurrentVirtualBalances(pool);
 
-        uint256 currentPrice = (balances[usdcIdx] + virtualBalances[usdcIdx]).divDown(
-            balances[daiIdx] + virtualBalances[daiIdx]
-        );
+        uint256 currentPrice = (balances[b] + virtualBalances[b]).divDown(balances[a] + virtualBalances[a]);
 
         assertApproxEqRel(currentPrice, newTargetPrice, _INITIAL_PARAMS_ERROR, "Current price does not match");
 
-        uint256 balanceDaiEdge = (virtualBalances[usdcIdx] - virtualBalances[daiIdx].mulDown(newMinPrice)).divDown(
-            newMinPrice
-        );
-        uint256 invariantDaiEdge = ReClammPool(pool).computeInvariant(
-            [balanceDaiEdge, 0].toMemoryArray(),
+        uint256 balanceTokenAEdge = (virtualBalances[b] - virtualBalances[a].mulDown(newMinPrice)).divDown(newMinPrice);
+        uint256 invariantTokenAEdge = ReClammPool(pool).computeInvariant(
+            [balanceTokenAEdge, 0].toMemoryArray(),
             Rounding.ROUND_DOWN
         );
 
-        uint256 balanceUsdcEdge = virtualBalances[daiIdx].mulDown(newMaxPrice) - virtualBalances[usdcIdx];
-        uint256 invariantUsdcEdge = ReClammPool(pool).computeInvariant(
-            [0, balanceUsdcEdge].toMemoryArray(),
+        uint256 balanceTokenBEdge = virtualBalances[a].mulDown(newMaxPrice) - virtualBalances[b];
+        uint256 invariantTokenBEdge = ReClammPool(pool).computeInvariant(
+            [0, balanceTokenBEdge].toMemoryArray(),
             Rounding.ROUND_DOWN
         );
 
         uint256 newInvariant = _getCurrentInvariant();
 
         assertApproxEqRel(
-            invariantDaiEdge,
-            invariantUsdcEdge,
+            invariantTokenAEdge,
+            invariantTokenBEdge,
             _INITIAL_PARAMS_ERROR,
             "Invariant at the edges should be equal"
         );
-        assertApproxEqRel(invariantDaiEdge, newInvariant, _INITIAL_PARAMS_ERROR, "Invariant should be equal");
+        assertApproxEqRel(invariantTokenAEdge, newInvariant, _INITIAL_PARAMS_ERROR, "Invariant should be equal");
     }
 
     function testChangingDifferentPriceRatio__Fuzz(uint96 endFourthRootPriceRatio) public {
@@ -165,7 +165,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     }
 
     function testSwapExactIn__Fuzz(uint256 exactAmountIn) public {
-        exactAmountIn = bound(exactAmountIn, 1e6, _initialBalances[daiIdx]);
+        exactAmountIn = bound(exactAmountIn, 1e6, Math.min(_initialBalances[daiIdx], _initialBalances[usdcIdx]));
 
         uint256 invariantBefore = _getCurrentInvariant();
 

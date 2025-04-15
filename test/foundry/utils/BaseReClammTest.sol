@@ -178,6 +178,21 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
         vault.manualSetPoolBalances(pool, newPoolBalances, newPoolBalances);
     }
 
+    function _balanceABtoDaiUsdcBalances(
+        uint256 balanceA,
+        uint256 balanceB
+    ) internal view returns (uint256 daiBalance, uint256 usdcBalance) {
+        (daiBalance, usdcBalance) = (daiIdx < usdcIdx) ? (balanceA, balanceB) : (balanceB, balanceA);
+    }
+
+    function _balanceDaiUsdcToBalances(
+        uint256 daiBalance,
+        uint256 usdcBalance
+    ) internal view returns (uint256[] memory balances) {
+        balances = new uint256[](2);
+        (balances[daiIdx], balances[usdcIdx]) = (daiBalance, usdcBalance);
+    }
+
     function _assumeFourthRootPriceRatioDeltaAboveMin(
         uint256 currentFourthRootPriceRatio,
         uint256 newFourthRootPriceRatio

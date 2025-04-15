@@ -357,6 +357,7 @@ library ReClammMath {
                 isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalanceA, lastVirtualBalanceB).toEnum();
             }
 
+            // stack-too-deep
             uint256 _priceShiftDailyRateInSeconds = priceShiftDailyRateInSeconds;
             uint256[] memory _balancesScaled18 = balancesScaled18;
             uint32 _lastTimestamp = lastTimestamp;
