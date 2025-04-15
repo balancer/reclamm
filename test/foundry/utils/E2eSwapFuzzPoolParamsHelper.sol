@@ -23,15 +23,17 @@ import { GradualValueChange } from "@balancer-labs/v3-pool-weighted/contracts/li
 import { BaseReClammTest } from "./BaseReClammTest.sol";
 import { ReClammPoolContractsDeployer } from "./ReClammPoolContractsDeployer.sol";
 import { ReClammPool } from "../../../contracts/ReClammPool.sol";
-import { ReClammMath } from "../../../contracts/lib/ReClammMath.sol";
+import { ReClammMath, a, b } from "../../../contracts/lib/ReClammMath.sol";
 
 contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
     using ArrayHelpers for *;
     using CastingHelpers for *;
     using FixedPoint for uint256;
 
-    uint256 internal constant MAX_BALANCE = 1_000_000_000 * FixedPoint.ONE;
-    uint256 internal constant MAX_PRICE = 100 * FixedPoint.ONE;
+    uint256 internal constant MIN_BALANCE = 1_000 * FixedPoint.ONE;
+    uint256 internal constant MAX_BALANCE = 100_000_000 * FixedPoint.ONE;
+    uint256 internal constant MAX_PRICE = 100_000 * FixedPoint.ONE;
+    uint256 internal constant MAX_PRICE_RATIO = 100;
     uint256 internal constant MAX_TIME_FOR_PRICE_CHANGE = 10 days;
     uint256 internal constant MIN_TIME_FOR_PRICE_CHANGE = 6 hours;
     uint256 internal constant TIME_BUFFER = 1 hours;
@@ -52,7 +54,7 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
     }
 
     function _fuzzPoolParams(
-        uint256[7] memory params,
+        uint256[5] memory params,
         IRouter router,
         IVaultMock vault,
         BasicAuthorizerMock authorizer,
@@ -63,7 +65,7 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
         uint256 currentTime = block.timestamp;
         uint256 maxTime = currentTime + MAX_TIME_FOR_PRICE_CHANGE;
 
-        balanceA = bound(params[0], FixedPoint.ONE, MAX_BALANCE);
+        balanceA = bound(params[0], MIN_BALANCE, MAX_BALANCE);
 
         TestParams memory testParams;
         testParams.vault = vault;
@@ -72,37 +74,47 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
         testParams.label = label;
         testParams.sender = sender;
 
-        testParams.minPrice = bound(params[1], FixedPoint.ONE, MAX_PRICE - 1);
-        testParams.maxPrice = bound(params[2], testParams.minPrice + 1, MAX_PRICE);
+        testParams.maxPrice = bound(params[1], FixedPoint.ONE, MAX_PRICE);
+        testParams.minPrice = bound(params[2], testParams.maxPrice / MAX_PRICE_RATIO, testParams.maxPrice - 1);
         testParams.targetPrice = bound(params[3], testParams.minPrice, testParams.maxPrice);
 
-        testParams.startTime = bound(params[4], currentTime, maxTime);
-        testParams.endTime = bound(params[5], testParams.startTime, maxTime);
-
         {
-            uint256 mockCurrentTime = bound(params[6], testParams.startTime, testParams.endTime + TIME_BUFFER);
-            vm.warp(mockCurrentTime);
+            console.log("testParams.minPrice: ", testParams.minPrice);
+            console.log("testParams.maxPrice: ", testParams.maxPrice);
+            console.log("testParams.targetPrice: ", testParams.targetPrice);
 
-            (uint256[] memory theoreticalRealBalances, uint256[] memory theoreticalVirtualBalances, ) = ReClammMath
-                .computeTheoreticalPriceRatioAndBalances(
+            (
+                uint256[] memory theoreticalRealBalances,
+                uint256 theoreticalVirtualBalanceA,
+                uint256 theoreticalVirtualBalanceB,
+
+            ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
                     testParams.minPrice,
                     testParams.maxPrice,
                     testParams.targetPrice
                 );
 
-            testParams.initialBalances = new uint256[](2);
-            testParams.initialBalances[0] = balanceA;
-            uint256 balanceRatio = theoreticalRealBalances[1].divDown(theoreticalRealBalances[0]);
-            balanceB = balanceA.mulDown(balanceRatio);
-            testParams.initialBalances[1] = balanceB;
+            console.log("Theoretical Real Balances A: ", theoreticalRealBalances[a]);
+            console.log("Theoretical Real Balances B: ", theoreticalRealBalances[b]);
+            console.log("Theoretical Virtual Balances A: ", theoreticalVirtualBalanceA);
+            console.log("Theoretical Virtual Balances B: ", theoreticalVirtualBalanceB);
 
-            uint256 scale = testParams.initialBalances[0].divDown(theoreticalRealBalances[0]);
-            uint256[] memory virtualBalances = new uint256[](2);
-            virtualBalances[0] = theoreticalVirtualBalances[0].mulDown(scale);
-            virtualBalances[1] = theoreticalVirtualBalances[1].mulDown(scale);
+            testParams.initialBalances = new uint256[](2);
+            uint256 balanceRatio = theoreticalRealBalances[b].divDown(theoreticalRealBalances[a]);
+            testParams.initialBalances[a] = balanceA;
+            balanceB = balanceA.mulDown(balanceRatio);
+            testParams.initialBalances[b] = balanceB;
+
+            console.log("Balance A: ", balanceA);
+            console.log("Balance B: ", balanceB);
+
+            uint256 scale = balanceA.divDown(theoreticalRealBalances[a]);
+            uint256 virtualBalanceA = theoreticalVirtualBalanceA.mulDown(scale);
+            uint256 virtualBalanceB = theoreticalVirtualBalanceB.mulDown(scale);
             testParams.centerednessMargin = ReClammMath.computeCenteredness(
                 testParams.initialBalances,
-                virtualBalances
+                virtualBalanceA,
+                virtualBalanceB
             );
         }
 

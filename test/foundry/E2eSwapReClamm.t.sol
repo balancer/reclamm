@@ -22,7 +22,7 @@ contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest {
     using FixedPoint for uint256;
 
     function setUp() public override {
-        setDefaultAccountBalance(type(uint96).max);
+        setDefaultAccountBalance(type(uint128).max);
         E2eSwapTest.setUp();
     }
 
