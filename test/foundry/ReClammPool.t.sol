@@ -783,4 +783,104 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(lastVirtualBalances[a], virtualBalanceA, "Invalid last virtual balance A");
         assertEq(lastVirtualBalances[b], virtualBalanceB, "Invalid last virtual balance B");
     }
+
+    function testInitializeRangeErrors() public {
+        (address newPool, ) = _createPool([address(usdc), address(dai)].toMemoryArray(), "New Test Pool");
+        (IERC20[] memory tokens, , , ) = vault.getPoolTokenInfo(newPool);
+
+        uint256[] memory highRatioAmounts = _initialBalances;
+        highRatioAmounts[a] = 1e18;
+
+        uint256 snapshotId = vm.snapshot();
+
+        vm.expectRevert(IReClammPool.BalanceRatioExceedsTolerance.selector);
+        vm.prank(alice);
+        router.initialize(newPool, tokens, highRatioAmounts, 0, false, bytes(""));
+
+        vm.revertTo(snapshotId);
+
+        uint256[] memory lowRatioAmounts = _initialBalances;
+        lowRatioAmounts[b] = 1e18;
+
+        vm.expectRevert(IReClammPool.BalanceRatioExceedsTolerance.selector);
+        vm.prank(alice);
+        router.initialize(newPool, tokens, lowRatioAmounts, 0, false, bytes(""));
+    }
+
+    function testInitializationPriceErrors() public {
+        (address newPool, ) = _createPool([address(usdc), address(dai)].toMemoryArray(), "New Test Pool");
+
+        ReClammPoolImmutableData memory data = ReClammPool(newPool).getReClammPoolImmutableData();
+
+        (
+            uint256[] memory theoreticalRealBalances,
+            uint256 theoreticalVirtualBalanceA,
+            uint256 theoreticalVirtualBalanceB,
+
+        ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
+                data.initialMinPrice,
+                data.initialMaxPrice,
+                data.initialTargetPrice
+            );
+
+        uint256[] memory realBalances = theoreticalRealBalances;
+        realBalances[a] = 0;
+
+        // Trigger on upper bound.
+        vm.expectRevert(IReClammPool.WrongInitializationPrices.selector);
+        ReClammPoolMock(newPool).checkInitializationPrices(
+            realBalances,
+            theoreticalVirtualBalanceA,
+            theoreticalVirtualBalanceB
+        );
+
+        realBalances[a] = theoreticalRealBalances[a];
+        realBalances[b] = 0;
+
+        // Trigger on lower bound.
+        vm.expectRevert(IReClammPool.WrongInitializationPrices.selector);
+        ReClammPoolMock(newPool).checkInitializationPrices(
+            realBalances,
+            theoreticalVirtualBalanceA,
+            theoreticalVirtualBalanceB
+        );
+    }
+
+    function testInitializationCenteredness() public {
+        (address newPool, ) = _createPool([address(usdc), address(dai)].toMemoryArray(), "New Test Pool");
+        (IERC20[] memory tokens, , , ) = vault.getPoolTokenInfo(newPool);
+
+        ReClammPoolMock(newPool).manualSetCenterednessMargin(FixedPoint.ONE);
+
+        vm.expectRevert(IReClammPool.PoolCenterednessTooLow.selector);
+        vm.prank(alice);
+        router.initialize(newPool, tokens, _initialBalances, 0, false, bytes(""));
+    }
+
+    function testInvalidStartTime() public {
+        ReClammPoolDynamicData memory data = IReClammPool(pool).getReClammPoolDynamicData();
+
+        uint256 priceRatioUpdateStartTime = block.timestamp;
+        uint256 priceRatioUpdateEndTime = block.timestamp - 100; // invalid
+
+        // Fail `priceRatioUpdateStartTime > priceRatioUpdateEndTime`.
+        vm.expectRevert(IReClammPool.InvalidStartTime.selector);
+        ReClammPoolMock(pool).manualSetPriceRatioState(
+            data.endFourthRootPriceRatio,
+            priceRatioUpdateStartTime,
+            priceRatioUpdateEndTime
+        );
+
+        priceRatioUpdateEndTime = block.timestamp + 100; // valid
+
+        // Fail `priceRatioUpdateStartTime < block.timestamp`.
+        vm.warp(priceRatioUpdateStartTime + 1);
+
+        vm.expectRevert(IReClammPool.InvalidStartTime.selector);
+        ReClammPoolMock(pool).manualSetPriceRatioState(
+            data.endFourthRootPriceRatio,
+            priceRatioUpdateStartTime,
+            priceRatioUpdateEndTime
+        );
+    }
 }
