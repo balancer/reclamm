@@ -3,43 +3,59 @@
 pragma solidity ^0.8.24;
 
 import "forge-std/Test.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { ERC20TestToken } from "@balancer-labs/v3-solidity-utils/contracts/test/ERC20TestToken.sol";
+import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
+import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 import { E2eSwapTest } from "@balancer-labs/v3-vault/test/foundry/E2eSwap.t.sol";
 
-import { ReClammPoolContractsDeployer } from "./utils/ReClammPoolContractsDeployer.sol";
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
+import { E2eSwapFuzzPoolParamsHelper } from "./utils/E2eSwapFuzzPoolParamsHelper.sol";
 
-contract E2eSwapReClammTest is E2eSwapTest, ReClammPoolContractsDeployer {
+contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest {
+    using ArrayHelpers for *;
     using FixedPoint for uint256;
 
     function setUp() public override {
+        setDefaultAccountBalance(type(uint128).max);
         E2eSwapTest.setUp();
     }
 
     function setUpVariables() internal override {
         sender = lp;
         poolCreator = lp;
-
-        // 0.0001% min swap fee.
-        minPoolSwapFeePercentage = 1e12;
-        // 10% max swap fee.
-        maxPoolSwapFeePercentage = 10e16;
     }
 
     function createPoolFactory() internal override returns (address) {
         return address(deployReClammPoolFactoryWithDefaultParams(vault));
     }
 
-    /// @notice Overrides BaseVaultTest _createPool(). This pool is used by E2eSwapTest tests.
     function _createPool(
         address[] memory tokens,
         string memory label
     ) internal override returns (address newPool, bytes memory poolArgs) {
         return createReClammPool(tokens, label, vault, lp);
+    }
+
+    function fuzzPoolParams(uint256[POOL_SPECIFIC_PARAMS_SIZE] memory params) internal override {
+        address[] memory tokens = new address[](2);
+        tokens[0] = address(tokenA);
+        tokens[1] = address(tokenB);
+
+        (pool, poolArguments, poolInitAmountTokenA, poolInitAmountTokenB) = _fuzzPoolParams(
+            params,
+            router,
+            vault,
+            authorizer,
+            tokens,
+            "reClammPool",
+            lp
+        );
     }
 
     function _initPool(

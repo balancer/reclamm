@@ -68,18 +68,81 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
         IVaultMock vault,
         address poolCreator
     ) internal returns (address newPool, bytes memory poolArgs) {
-        string memory poolVersion = "ReClamm Pool v1";
-        string memory factoryVersion = "ReClamm Pool Factory v1";
+        IRateProvider[] memory rateProviders = new IRateProvider[](0);
+        return
+            createReClammPool(
+                tokens,
+                rateProviders,
+                label,
+                vault,
+                poolCreator,
+                defaultParams.defaultMinPrice,
+                defaultParams.defaultMaxPrice,
+                defaultParams.defaultTargetPrice,
+                defaultParams.defaultCenterednessMargin
+            );
+    }
 
-        ReClammPoolFactory poolFactory = deployReClammPoolFactory(vault, 1 days, factoryVersion, poolVersion);
+    function createReClammPool(
+        address[] memory tokens,
+        IRateProvider[] memory rateProviders,
+        string memory label,
+        IVaultMock vault,
+        address poolCreator
+    ) internal returns (address newPool, bytes memory poolArgs) {
+        return
+            createReClammPool(
+                tokens,
+                rateProviders,
+                label,
+                vault,
+                poolCreator,
+                defaultParams.defaultMinPrice,
+                defaultParams.defaultMaxPrice,
+                defaultParams.defaultTargetPrice,
+                defaultParams.defaultCenterednessMargin
+            );
+    }
+
+    function createReClammPool(
+        address[] memory tokens,
+        IRateProvider[] memory rateProviders,
+        string memory label,
+        IVaultMock vault,
+        address poolCreator,
+        uint256 minPrice,
+        uint256 maxPrice,
+        uint256 targetPrice,
+        uint256 centerednessMargin
+    ) internal returns (address newPool, bytes memory poolArgs) {
+        {
+            defaultParams.defaultMinPrice = minPrice;
+            defaultParams.defaultMaxPrice = maxPrice;
+            defaultParams.defaultTargetPrice = targetPrice;
+            defaultParams.defaultCenterednessMargin = centerednessMargin;
+        }
+
+        ReClammPoolFactory poolFactory;
+        {
+            string memory poolVersion = "ReClamm Pool v1";
+            string memory factoryVersion = "ReClamm Pool Factory v1";
+
+            poolFactory = deployReClammPoolFactory(vault, 1 days, factoryVersion, poolVersion);
+        }
+
         PoolRoleAccounts memory roleAccounts;
 
         IERC20[] memory _tokens = tokens.asIERC20();
+        IRateProvider[] memory _rateProviders = rateProviders;
+        IVaultMock _vault = vault;
+        string memory _lable = label;
 
         newPool = ReClammPoolFactory(poolFactory).create(
             defaultParams.name,
             defaultParams.symbol,
-            vault.buildTokenConfig(_tokens),
+            _rateProviders.length == 0
+                ? _vault.buildTokenConfig(_tokens)
+                : _vault.buildTokenConfig(_tokens, _rateProviders),
             roleAccounts,
             0,
             defaultParams.defaultMinPrice,
@@ -89,7 +152,9 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
             SafeCast.toUint64(defaultParams.defaultCenterednessMargin),
             bytes32(_saltIndex++)
         );
-        vm.label(newPool, label);
+        vm.label(newPool, _lable);
+
+        address _poolCreator = poolCreator;
 
         // poolArgs is used to check pool deployment address with create2.
         poolArgs = abi.encode(
@@ -103,11 +168,11 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
                 priceShiftDailyRate: defaultParams.defaultPriceShiftDailyRate,
                 centerednessMargin: SafeCast.toUint64(defaultParams.defaultCenterednessMargin)
             }),
-            vault
+            _vault
         );
 
         // Cannot set the pool creator directly on a standard Balancer stable pool factory.
-        vault.manualSetPoolCreator(newPool, poolCreator);
+        _vault.manualSetPoolCreator(newPool, _poolCreator);
     }
 
     function deployReClammPoolFactoryWithDefaultParams(IVault vault) internal returns (ReClammPoolFactory) {
