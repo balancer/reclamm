@@ -61,7 +61,8 @@ library ReClammMath {
     /**
      * @notice Get the current virtual balances and compute the invariant of the pool using constant product.
      * @param balancesScaled18 Current pool balances, sorted in token registration order
-     * @param lastVirtualBalances The last virtual balances, sorted in token registration order
+     * @param lastVirtualBalanceA The last virtual balance of token A
+     * @param lastVirtualBalanceB The last virtual balance of token B
      * @param priceShiftDailyRateInSeconds IncreaseDayRate divided by 124649
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @param centerednessMargin A symmetrical measure of how closely an unbalanced pool can approach the limits of the
@@ -72,23 +73,25 @@ library ReClammMath {
      */
     function computeInvariant(
         uint256[] memory balancesScaled18,
-        uint256[] memory lastVirtualBalances,
+        uint256 lastVirtualBalanceA,
+        uint256 lastVirtualBalanceB,
         uint256 priceShiftDailyRateInSeconds,
         uint32 lastTimestamp,
         uint64 centerednessMargin,
         PriceRatioState storage priceRatioState,
         Rounding rounding
     ) internal view returns (uint256 invariant) {
-        (uint256[] memory currentVirtualBalances, ) = computeCurrentVirtualBalances(
+        (uint256 virtualBalanceA, uint256 virtualBalanceB, ) = computeCurrentVirtualBalances(
             balancesScaled18,
-            lastVirtualBalances,
+            lastVirtualBalanceA,
+            lastVirtualBalanceB,
             priceShiftDailyRateInSeconds,
             lastTimestamp,
             centerednessMargin,
             priceRatioState
         );
 
-        return computeInvariant(balancesScaled18, currentVirtualBalances, rounding);
+        return computeInvariant(balancesScaled18, virtualBalanceA, virtualBalanceB, rounding);
     }
 
     /**
@@ -103,26 +106,29 @@ library ReClammMath {
      * linear; the invariant is only used to calculate swaps.
      *
      * @param balancesScaled18 Current pool balances, sorted in token registration order
-     * @param virtualBalances The last virtual balances, sorted in token registration order
+     * @param virtualBalanceA The last virtual balance of token A
+     * @param virtualBalanceB The last virtual balance of token B
      * @param rounding Rounding direction to consider when computing the invariant
      * @return invariant The invariant of the pool
      */
     function computeInvariant(
         uint256[] memory balancesScaled18,
-        uint256[] memory virtualBalances,
+        uint256 virtualBalanceA,
+        uint256 virtualBalanceB,
         Rounding rounding
     ) internal pure returns (uint256) {
         function(uint256, uint256) pure returns (uint256) _mulUpOrDown = rounding == Rounding.ROUND_DOWN
             ? FixedPoint.mulDown
             : FixedPoint.mulUp;
 
-        return _mulUpOrDown((balancesScaled18[a] + virtualBalances[a]), (balancesScaled18[b] + virtualBalances[b]));
+        return _mulUpOrDown((balancesScaled18[a] + virtualBalanceA), (balancesScaled18[b] + virtualBalanceB));
     }
 
     /**
      * @notice Compute the `amountOut` of tokenOut in a swap, given the current balances and virtual balances.
      * @param balancesScaled18 Current pool balances, sorted in token registration order
-     * @param virtualBalances The last virtual balances, sorted in token registration order
+     * @param virtualBalanceAе The last virtual balance of token A
+     * @param virtualBalanceB The last virtual balance of token B
      * @param tokenInIndex Index of the token being swapped in
      * @param tokenOutIndex Index of the token being swapped out
      * @param amountInScaled18 The exact amount of `tokenIn` (i.e., the amount given in an ExactIn swap)
@@ -130,20 +136,25 @@ library ReClammMath {
      */
     function computeOutGivenIn(
         uint256[] memory balancesScaled18,
-        uint256[] memory virtualBalances,
+        uint256 virtualBalanceA,
+        uint256 virtualBalanceB,
         uint256 tokenInIndex,
         uint256 tokenOutIndex,
         uint256 amountInScaled18
     ) internal pure returns (uint256 amountOutScaled18) {
+        (uint256 virtualBalanceTokenIn, uint256 virtualBalanceTokenOut) = tokenInIndex == a
+            ? (virtualBalanceA, virtualBalanceB)
+            : (virtualBalanceB, virtualBalanceA);
+
         // Round up, so the swapper absorbs rounding imprecisions (rounds in favor of the Vault).
-        uint256 invariant = computeInvariant(balancesScaled18, virtualBalances, Rounding.ROUND_UP);
+        uint256 invariant = computeInvariant(balancesScaled18, virtualBalanceA, virtualBalanceB, Rounding.ROUND_UP);
         // Total (virtual + real) token out amount that should stay in the pool after the swap. Rounding division up,
         // which will round the token out amount down, favoring the Vault.
         uint256 newTotalTokenOutPoolBalance = invariant.divUp(
-            balancesScaled18[tokenInIndex] + virtualBalances[tokenInIndex] + amountInScaled18
+            balancesScaled18[tokenInIndex] + virtualBalanceTokenIn + amountInScaled18
         );
 
-        uint256 currentTotalTokenOutPoolBalance = balancesScaled18[tokenOutIndex] + virtualBalances[tokenOutIndex];
+        uint256 currentTotalTokenOutPoolBalance = balancesScaled18[tokenOutIndex] + virtualBalanceTokenOut;
 
         if (newTotalTokenOutPoolBalance > currentTotalTokenOutPoolBalance) {
             // If the amount of `tokenOut` remaining in the pool post-swap is greater than the total balance of
@@ -161,7 +172,8 @@ library ReClammMath {
     /**
      * @notice Compute the `amountIn` of tokenIn in a swap, given the current balances and virtual balances.
      * @param balancesScaled18 Current pool balances, sorted in token registration order
-     * @param virtualBalances The last virtual balances, sorted in token registration order
+     * @param virtualBalanceA The last virtual balances of token A
+     * @param virtualBalanceB The last virtual balances of token B
      * @param tokenInIndex Index of the token being swapped in
      * @param tokenOutIndex Index of the token being swapped out
      * @param amountOutScaled18 The exact amount of `tokenOut` (i.e., the amount given in an ExactOut swap)
@@ -169,7 +181,8 @@ library ReClammMath {
      */
     function computeInGivenOut(
         uint256[] memory balancesScaled18,
-        uint256[] memory virtualBalances,
+        uint256 virtualBalanceA,
+        uint256 virtualBalanceB,
         uint256 tokenInIndex,
         uint256 tokenOutIndex,
         uint256 amountOutScaled18
@@ -180,13 +193,17 @@ library ReClammMath {
         }
 
         // Round up, so the swapper absorbs any imprecision due to rounding (i.e., it rounds in favor of the Vault).
-        uint256 invariant = computeInvariant(balancesScaled18, virtualBalances, Rounding.ROUND_UP);
+        uint256 invariant = computeInvariant(balancesScaled18, virtualBalanceA, virtualBalanceB, Rounding.ROUND_UP);
+
+        (uint256 virtualBalanceTokenIn, uint256 virtualBalanceTokenOut) = tokenInIndex == a
+            ? (virtualBalanceA, virtualBalanceB)
+            : (virtualBalanceB, virtualBalanceA);
 
         // Rounding division up, which will round the `tokenIn` amount up, favoring the Vault.
         amountInScaled18 =
-            invariant.divUp(balancesScaled18[tokenOutIndex] + virtualBalances[tokenOutIndex] - amountOutScaled18) -
+            invariant.divUp(balancesScaled18[tokenOutIndex] + virtualBalanceTokenOut - amountOutScaled18) -
             balancesScaled18[tokenInIndex] -
-            virtualBalances[tokenInIndex];
+            virtualBalanceTokenIn;
     }
 
     /**
@@ -210,7 +227,8 @@ library ReClammMath {
      * @param maxPrice The maximum price limit of the pool
      * @param targetPrice The desired initial price point within the total price range (i.e., the midpoint)
      * @return realBalances Array of theoretical initial token balances [tokenA, tokenB]
-     * @return virtualBalances Array of theoretical initial virtual balances [virtualA, virtualB]
+     * @return virtualBalanceA The theoretical initial virtual balance of token A [virtualA]
+     * @return virtualBalanceB The theoretical initial virtual balance of token B [virtualB]
      * @return fourthRootPriceRatio The fourth root of maxPrice/minPrice ratio
      */
     function computeTheoreticalPriceRatioAndBalances(
@@ -220,7 +238,12 @@ library ReClammMath {
     )
         internal
         pure
-        returns (uint256[] memory realBalances, uint256[] memory virtualBalances, uint256 fourthRootPriceRatio)
+        returns (
+            uint256[] memory realBalances,
+            uint256 virtualBalanceA,
+            uint256 virtualBalanceB,
+            uint256 fourthRootPriceRatio
+        )
     {
         // In the formulas below, Ra_max is a random number that defines the maximum real balance of token A, and
         // consequently a random initial liquidity. We will scale all balances according to the actual amount of
@@ -228,21 +251,18 @@ library ReClammMath {
         uint256 sqrtPriceRatio = sqrtScaled18(maxPrice.divDown(minPrice));
         fourthRootPriceRatio = sqrtScaled18(sqrtPriceRatio);
 
-        virtualBalances = new uint256[](2);
         // Va = Ra_max / (sqrtPriceRatio - 1)
-        virtualBalances[a] = _INITIALIZATION_MAX_BALANCE_A.divDown(sqrtPriceRatio - FixedPoint.ONE);
+        virtualBalanceA = _INITIALIZATION_MAX_BALANCE_A.divDown(sqrtPriceRatio - FixedPoint.ONE);
         // Vb = minPrice * (Va + Ra_max)
-        virtualBalances[b] = minPrice.mulDown(virtualBalances[a] + _INITIALIZATION_MAX_BALANCE_A);
+        virtualBalanceB = minPrice.mulDown(virtualBalanceA + _INITIALIZATION_MAX_BALANCE_A);
 
         realBalances = new uint256[](2);
         // Rb = sqrt(targetPrice * Vb * (Ra_max + Va)) - Vb
         realBalances[b] =
-            sqrtScaled18(
-                targetPrice.mulUp(virtualBalances[b]).mulUp(_INITIALIZATION_MAX_BALANCE_A + virtualBalances[a])
-            ) -
-            virtualBalances[b];
+            sqrtScaled18(targetPrice.mulUp(virtualBalanceB).mulUp(_INITIALIZATION_MAX_BALANCE_A + virtualBalanceA)) -
+            virtualBalanceB;
         // Ra = (Rb + Vb - (Va * targetPrice)) / targetPrice
-        realBalances[a] = (realBalances[b] + virtualBalances[b] - virtualBalances[a].mulDown(targetPrice)).divDown(
+        realBalances[a] = (realBalances[b] + virtualBalanceB - virtualBalanceA.mulDown(targetPrice)).divDown(
             targetPrice
         );
     }
@@ -260,31 +280,35 @@ library ReClammMath {
      * Note: Virtual balances will be rounded down so that the swap result favors the Vault.
      *
      * @param balancesScaled18 Current pool balances, sorted in token registration order
-     * @param lastVirtualBalances The last virtual balances, sorted in token registration order
+     * @param lastVirtualBalanceA The last virtual balance of token A
+     * @param lastVirtualBalanceB The last virtual balance of token B
      * @param priceShiftDailyRateInSeconds IncreaseDayRate divided by 124649
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @param centerednessMargin A limit of the pool centeredness that defines if pool is outside the target range
      * @param storedPriceRatioState A struct containing start and end price ratios and a time interval
-     * @return currentVirtualBalances The current virtual balances of the pool
+     * @return currentVirtualBalanceA The current virtual balance of token A
+     * @return currentVirtualBalanceB The current virtual balance of token B
      * @return changed Whether the virtual balances have changed and must be updated in the pool
      */
     function computeCurrentVirtualBalances(
         uint256[] memory balancesScaled18,
-        uint256[] memory lastVirtualBalances,
+        uint256 lastVirtualBalanceA,
+        uint256 lastVirtualBalanceB,
         uint256 priceShiftDailyRateInSeconds,
         uint32 lastTimestamp,
         uint64 centerednessMargin,
         PriceRatioState storage storedPriceRatioState
-    ) internal view returns (uint256[] memory currentVirtualBalances, bool changed) {
+    ) internal view returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) {
         uint32 currentTimestamp = block.timestamp.toUint32();
 
         // If the last timestamp is the same as the current timestamp, virtual balances were already reviewed in the
         // current block.
         if (lastTimestamp == currentTimestamp) {
-            return (lastVirtualBalances, false);
+            return (lastVirtualBalanceA, lastVirtualBalanceB, false);
         }
 
-        currentVirtualBalances = lastVirtualBalances;
+        currentVirtualBalanceA = lastVirtualBalanceA;
+        currentVirtualBalanceB = lastVirtualBalanceB;
 
         PriceRatioState memory priceRatioState = storedPriceRatioState;
 
@@ -307,12 +331,13 @@ library ReClammMath {
             currentTimestamp > priceRatioState.priceRatioUpdateStartTime &&
             lastTimestamp < priceRatioState.priceRatioUpdateEndTime
         ) {
-            isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances).toEnum();
+            isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalanceA, lastVirtualBalanceB).toEnum();
 
-            currentVirtualBalances = computeVirtualBalancesUpdatingPriceRatio(
+            (currentVirtualBalanceA, currentVirtualBalanceB) = computeVirtualBalancesUpdatingPriceRatio(
                 currentFourthRootPriceRatio,
                 balancesScaled18,
-                lastVirtualBalances,
+                lastVirtualBalanceA,
+                lastVirtualBalanceB,
                 isPoolAboveCenter == PoolAboveCenter.TRUE
             );
 
@@ -320,19 +345,32 @@ library ReClammMath {
         }
 
         // If the pool is outside the target range, track the market price by moving the price interval.
-        if (isPoolWithinTargetRange(balancesScaled18, currentVirtualBalances, centerednessMargin) == false) {
+        if (
+            isPoolWithinTargetRange(
+                balancesScaled18,
+                currentVirtualBalanceA,
+                currentVirtualBalanceB,
+                centerednessMargin
+            ) == false
+        ) {
             if (isPoolAboveCenter == PoolAboveCenter.UNKNOWN) {
-                isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances).toEnum();
+                isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalanceA, lastVirtualBalanceB).toEnum();
             }
 
-            currentVirtualBalances = computeVirtualBalancesUpdatingPriceRange(
+            // stack-too-deep
+            uint256 _priceShiftDailyRateInSeconds = priceShiftDailyRateInSeconds;
+            uint256[] memory _balancesScaled18 = balancesScaled18;
+            uint32 _lastTimestamp = lastTimestamp;
+
+            (currentVirtualBalanceA, currentVirtualBalanceB) = computeVirtualBalancesUpdatingPriceRange(
                 currentFourthRootPriceRatio,
-                balancesScaled18,
-                currentVirtualBalances,
+                _balancesScaled18,
+                currentVirtualBalanceA,
+                currentVirtualBalanceB,
                 isPoolAboveCenter == PoolAboveCenter.TRUE,
-                priceShiftDailyRateInSeconds,
+                _priceShiftDailyRateInSeconds,
                 currentTimestamp,
-                lastTimestamp
+                _lastTimestamp
             );
 
             changed = true;
@@ -354,25 +392,26 @@ library ReClammMath {
      *
      * @param currentFourthRootPriceRatio The current fourth root of the price ratio of the pool
      * @param balancesScaled18 Current pool balances, sorted in token registration order
-     * @param lastVirtualBalances The last virtual balances, sorted in token registration order
+     * @param lastVirtualBalanceA The last virtual balance of token A
+     * @param lastVirtualBalanceB The last virtual balance of token B
      * @param isPoolAboveCenter Whether the pool is above or below the center
-     * @return virtualBalances The new virtual balances of the pool
+     * @return virtualBalanceA The virtual balance of token A
+     * @return virtualBalanceB The virtual balance of token B
      */
     function computeVirtualBalancesUpdatingPriceRatio(
         uint256 currentFourthRootPriceRatio,
         uint256[] memory balancesScaled18,
-        uint256[] memory lastVirtualBalances,
+        uint256 lastVirtualBalanceA,
+        uint256 lastVirtualBalanceB,
         bool isPoolAboveCenter
-    ) internal pure returns (uint256[] memory virtualBalances) {
+    ) internal pure returns (uint256 virtualBalanceA, uint256 virtualBalanceB) {
         // The overvalued token is the one with a lower token balance (therefore, rarer and more valuable).
         (uint256 indexTokenUndervalued, uint256 indexTokenOvervalued) = isPoolAboveCenter ? (0, 1) : (1, 0);
         uint256 balanceTokenUndervalued = balancesScaled18[indexTokenUndervalued];
         uint256 balanceTokenOvervalued = balancesScaled18[indexTokenOvervalued];
 
-        virtualBalances = new uint256[](2);
-
         // Compute the current pool centeredness, which will remain constant.
-        uint256 poolCenteredness = computeCenteredness(balancesScaled18, lastVirtualBalances);
+        uint256 poolCenteredness = computeCenteredness(balancesScaled18, lastVirtualBalanceA, lastVirtualBalanceB);
 
         // The original formula was a quadratic equation, with terms:
         // a = Q0 - 1
@@ -391,9 +430,13 @@ library ReClammMath {
                 poolCenteredness +
                 Math.sqrt(poolCenteredness * (poolCenteredness + 4 * sqrtPriceRatio - 2e18) + 1e36))) /
             (2 * (sqrtPriceRatio - FixedPoint.ONE));
-        virtualBalances[indexTokenOvervalued] = ((balanceTokenOvervalued * virtualBalanceUndervalued) /
+
+        uint256 virtualBalanceOvervalued = ((balanceTokenOvervalued * virtualBalanceUndervalued) /
             balanceTokenUndervalued).divDown(poolCenteredness);
-        virtualBalances[indexTokenUndervalued] = virtualBalanceUndervalued;
+
+        (virtualBalanceA, virtualBalanceB) = isPoolAboveCenter
+            ? (virtualBalanceUndervalued, virtualBalanceOvervalued)
+            : (virtualBalanceOvervalued, virtualBalanceUndervalued);
     }
 
     /**
@@ -403,60 +446,70 @@ library ReClammMath {
      *
      * @param currentFourthRootPriceRatio The current fourth root of price ratio of the pool
      * @param balancesScaled18 Current pool balances, sorted in token registration order
-     * @param virtualBalances The last virtual balances, sorted in token registration order
+     * @param virtualBalanceA The last virtual balance of token A
+     * @param virtualBalanceB The last virtual balance of token B
      * @param isPoolAboveCenter Whether the pool is above or below the center of the price range
      * @param priceShiftDailyRateInSeconds IncreaseDayRate divided by 124649
      * @param currentTimestamp The current timestamp
      * @param lastTimestamp The timestamp of the last user interaction with the pool
-     * @return virtualBalances The new virtual balances of the pool
+     * @return newVirtualBalanceA The new virtual balance of token A
+     * @return newVirtualBalanceB The new virtual balance of token B
      */
     function computeVirtualBalancesUpdatingPriceRange(
         uint256 currentFourthRootPriceRatio,
         uint256[] memory balancesScaled18,
-        uint256[] memory virtualBalances,
+        uint256 virtualBalanceA,
+        uint256 virtualBalanceB,
         bool isPoolAboveCenter,
         uint256 priceShiftDailyRateInSeconds,
         uint32 currentTimestamp,
         uint32 lastTimestamp
-    ) internal pure returns (uint256[] memory) {
+    ) internal pure returns (uint256 newVirtualBalanceA, uint256 newVirtualBalanceB) {
         // Round up price ratio, to round virtual balances down.
         uint256 priceRatio = currentFourthRootPriceRatio.mulUp(currentFourthRootPriceRatio);
 
         // The overvalued token is the one with a lower token balance (therefore, rarer and more valuable).
-        (uint256 indexTokenUndervalued, uint256 indexTokenOvervalued) = isPoolAboveCenter ? (0, 1) : (1, 0);
+        (uint256 balancesScaledUndervalued, uint256 balancesScaledOvervalued) = isPoolAboveCenter
+            ? (balancesScaled18[a], balancesScaled18[b])
+            : (balancesScaled18[b], balancesScaled18[a]);
+        (uint256 virtualBalanceUndervalued, uint256 virtualBalanceOvervalued) = isPoolAboveCenter
+            ? (virtualBalanceA, virtualBalanceB)
+            : (virtualBalanceB, virtualBalanceA);
 
         // Vb = Vb * (1 - priceShiftDailyRateInSeconds)^(T_curr - T_last)
-        virtualBalances[indexTokenOvervalued] = virtualBalances[indexTokenOvervalued].mulDown(
+        virtualBalanceOvervalued = virtualBalanceOvervalued.mulDown(
             LogExpMath.pow(
                 FixedPoint.ONE - priceShiftDailyRateInSeconds,
                 (currentTimestamp - lastTimestamp) * FixedPoint.ONE
             )
         );
         // Va = (Ra * (Vb + Rb)) / (((priceRatio - 1) * Vb) - Rb)
-        virtualBalances[indexTokenUndervalued] =
-            (balancesScaled18[indexTokenUndervalued] *
-                (virtualBalances[indexTokenOvervalued] + balancesScaled18[indexTokenOvervalued])) /
-            ((priceRatio - FixedPoint.ONE).mulDown(virtualBalances[indexTokenOvervalued]) -
-                balancesScaled18[indexTokenOvervalued]);
+        virtualBalanceUndervalued =
+            (balancesScaledUndervalued * (virtualBalanceOvervalued + balancesScaledOvervalued)) /
+            ((priceRatio - FixedPoint.ONE).mulDown(virtualBalanceOvervalued) - balancesScaledOvervalued);
 
-        return virtualBalances;
+        (newVirtualBalanceA, newVirtualBalanceB) = isPoolAboveCenter
+            ? (virtualBalanceUndervalued, virtualBalanceOvervalued)
+            : (virtualBalanceOvervalued, virtualBalanceUndervalued);
     }
 
     /**
      * @notice Check whether the pool is in range.
      * @dev The pool is in range if the centeredness is greater than the centeredness margin.
      * @param balancesScaled18 Current pool balances, sorted in token registration order
-     * @param virtualBalances The last virtual balances, sorted in token registration order
+     * @param virtualBalanceA The last virtual balances of token A
+     * @param virtualBalanceB The last virtual balances of token B
      * @param centerednessMargin A symmetrical measure of how closely an unbalanced pool can approach the limits of the
      * price range before it is considered out of range
      * @return isWithinTargetRange Whether the pool is within the target price range
      */
     function isPoolWithinTargetRange(
         uint256[] memory balancesScaled18,
-        uint256[] memory virtualBalances,
+        uint256 virtualBalanceA,
+        uint256 virtualBalanceB,
         uint256 centerednessMargin
     ) internal pure returns (bool) {
-        uint256 centeredness = computeCenteredness(balancesScaled18, virtualBalances);
+        uint256 centeredness = computeCenteredness(balancesScaled18, virtualBalanceA, virtualBalanceB);
         return centeredness >= centerednessMargin;
     }
 
@@ -467,26 +520,34 @@ library ReClammMath {
      * token prices are at the edge of the price interval.
      *
      * @param balancesScaled18 Current pool balances, sorted in token registration order
-     * @param virtualBalances The last virtual balances, sorted in token registration order
+     * @param virtualBalanceA The last virtual balances of token A
+     * @param virtualBalanceB The last virtual balances of token B
      * @return poolCenteredness The centeredness of the pool
      */
     function computeCenteredness(
         uint256[] memory balancesScaled18,
-        uint256[] memory virtualBalances
+        uint256 virtualBalanceA,
+        uint256 virtualBalanceB
     ) internal pure returns (uint256) {
         if (balancesScaled18[a] == 0 || balancesScaled18[b] == 0) {
             return 0;
         }
 
-        bool isPoolAboveCenter = isAboveCenter(balancesScaled18, virtualBalances);
+        bool isPoolAboveCenter = isAboveCenter(balancesScaled18, virtualBalanceA, virtualBalanceB);
 
         // The overvalued token is the one with a lower token balance (therefore, rarer and more valuable).
-        (uint256 indexTokenUndervalued, uint256 indexTokenOvervalued) = isPoolAboveCenter ? (0, 1) : (1, 0);
+        (uint256 virtualBalanceUndervalued, uint256 virtualBalanceOvervalued) = isPoolAboveCenter
+            ? (virtualBalanceA, virtualBalanceB)
+            : (virtualBalanceB, virtualBalanceA);
+        (uint256 balancesScaledUndervalued, uint256 balancesScaledOvervalued) = isPoolAboveCenter
+            ? (balancesScaled18[a], balancesScaled18[b])
+            : (balancesScaled18[b], balancesScaled18[a]);
 
         // Round up the centeredness, so the virtual balances are rounded down when the pool prices are moving.
         return
-            ((balancesScaled18[indexTokenOvervalued] * virtualBalances[indexTokenUndervalued]) /
-                balancesScaled18[indexTokenUndervalued]).divUp(virtualBalances[indexTokenOvervalued]);
+            ((balancesScaledOvervalued * virtualBalanceUndervalued) / balancesScaledUndervalued).divUp(
+                virtualBalanceOvervalued
+            );
     }
 
     /**
@@ -530,17 +591,19 @@ library ReClammMath {
      * balances.
      *
      * @param balancesScaled18 Current pool balances, sorted in token registration order
-     * @param virtualBalances The last virtual balances, sorted in token registration order
+     * @param virtualBalanceA The last virtual balance of token A
+     * @param virtualBalanceB The last virtual balance of token B
      * @return isAboveCenter Whether the pool is above center
      */
     function isAboveCenter(
         uint256[] memory balancesScaled18,
-        uint256[] memory virtualBalances
+        uint256 virtualBalanceA,
+        uint256 virtualBalanceB
     ) internal pure returns (bool) {
         if (balancesScaled18[b] == 0) {
             return true;
         } else {
-            return balancesScaled18[a].divDown(balancesScaled18[b]) > virtualBalances[a].divDown(virtualBalances[b]);
+            return balancesScaled18[a].divDown(balancesScaled18[b]) > virtualBalanceA.divDown(virtualBalanceB);
         }
     }
 

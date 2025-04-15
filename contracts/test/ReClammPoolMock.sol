@@ -19,6 +19,6 @@ contract ReClammPoolMock is ReClammPool {
     }
 
     function setLastVirtualBalances(uint256[] memory newLastVirtualBalances) external {
-        _setLastVirtualBalances(newLastVirtualBalances);
+        _setLastVirtualBalances(newLastVirtualBalances[0], newLastVirtualBalances[1]);
     }
 }

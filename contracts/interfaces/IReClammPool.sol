@@ -128,9 +128,10 @@ interface IReClammPool is IBasePool {
      * @dev Unless the price range is changing, the virtual balances remain in proportion to the real balances.
      * These balances will also be updated when governance changes the centeredness margin or price shift daily rate.
      *
-     * @param virtualBalances Offset to the real balance reserves
+     * @param virtualBalanceA Offset to the real balance reserves
+     * @param virtualBalanceB Offset to the real balance reserves
      */
-    event VirtualBalancesUpdated(uint256[] virtualBalances);
+    event VirtualBalancesUpdated(uint256 virtualBalanceA, uint256 virtualBalanceB);
 
     /**
      * @notice The price shift daily rate was updated.
@@ -255,13 +256,14 @@ interface IReClammPool is IBasePool {
      * Current virtual balances might change as a result of an operation, manipulating the value to some degree.
      * Ensure that the vault is locked before calling this function if this side effect is undesired.
      *
-     * @return currentVirtualBalances The current virtual balances
+     * @return currentVirtualBalanceA The current virtual balance of token A
+     * @return currentVirtualBalanceB The current virtual balance of token B
      * @return changed Whether the current virtual balances are different from `lastVirtualBalances`
      */
     function computeCurrentVirtualBalances()
         external
         view
-        returns (uint256[] memory currentVirtualBalances, bool changed);
+        returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed);
 
     /**
      * @notice Getter for the timestamp of the last user interaction.
@@ -271,9 +273,10 @@ interface IReClammPool is IBasePool {
 
     /**
      * @notice Getter for the last virtual balances.
-     * @return lastVirtualBalances The virtual balances at the time of the last user interaction
+     * @return lastVirtualBalanceA  The last virtual balance of token A
+     * @return lastVirtualBalanceB  The last virtual balance of token B
      */
-    function getLastVirtualBalances() external view returns (uint256[] memory lastVirtualBalances);
+    function getLastVirtualBalances() external view returns (uint256 lastVirtualBalanceA, uint256 lastVirtualBalanceB);
 
     /**
      * @notice Returns the centeredness margin.

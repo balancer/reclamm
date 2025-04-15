@@ -376,7 +376,11 @@ describe('ReClammMath', function () {
       );
 
       expect(
-        await mathLib.isPoolWithinTargetRange(balancesScaled18, contractVirtualBalances.virtualBalances, CENTEREDNESS_MARGIN)
+        await mathLib.isPoolWithinTargetRange(
+          balancesScaled18,
+          contractVirtualBalances.virtualBalances,
+          CENTEREDNESS_MARGIN
+        )
       ).to.equal(true);
     });
 
@@ -397,7 +401,9 @@ describe('ReClammMath', function () {
         true
       );
 
-      expect(await mathLib.isPoolWithinTargetRange(balancesScaled18, res.virtualBalances, CENTEREDNESS_MARGIN)).to.equal(true);
+      expect(
+        await mathLib.isPoolWithinTargetRange(balancesScaled18, res.virtualBalances, CENTEREDNESS_MARGIN)
+      ).to.equal(true);
     });
 
     it('q is not updating & isPoolWithinTargetRange == false && isAboveCenter == true', async () => {
@@ -410,7 +416,9 @@ describe('ReClammMath', function () {
       const lastTimestamp = priceRatioState.priceRatioUpdateEndTime + 50;
 
       expect(await mathLib.isAboveCenter(balancesScaled18, lastVirtualBalances)).to.equal(true);
-      expect(await mathLib.isPoolWithinTargetRange(balancesScaled18, lastVirtualBalances, CENTEREDNESS_MARGIN)).to.equal(false);
+      expect(
+        await mathLib.isPoolWithinTargetRange(balancesScaled18, lastVirtualBalances, CENTEREDNESS_MARGIN)
+      ).to.equal(false);
 
       await computeCheckAndReturnContractVirtualBalances(
         balancesScaled18,
@@ -431,7 +439,9 @@ describe('ReClammMath', function () {
       const lastTimestamp = priceRatioState.priceRatioUpdateEndTime + 50;
 
       expect(await mathLib.isAboveCenter(balancesScaled18, lastVirtualBalances)).to.equal(false);
-      expect(await mathLib.isPoolWithinTargetRange(balancesScaled18, lastVirtualBalances, CENTEREDNESS_MARGIN)).to.equal(false);
+      expect(
+        await mathLib.isPoolWithinTargetRange(balancesScaled18, lastVirtualBalances, CENTEREDNESS_MARGIN)
+      ).to.equal(false);
 
       await computeCheckAndReturnContractVirtualBalances(
         balancesScaled18,
