@@ -202,7 +202,7 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
         );
 
         uint256 newTotalSupply = ReClammPool(address(pool)).totalSupply();
-        uint256 proportion = (newTotalSupply).divDown(oldTotalSupply);
+        uint256 proportion = newTotalSupply.divDown(oldTotalSupply);
         invariantProportion = invariantProportion.mulDown(proportion);
     }
 
