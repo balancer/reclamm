@@ -82,8 +82,8 @@ describe('ReClammPool', function () {
     permit2 = await deployPermit2();
     router = await deploy('v3-vault/Router', { args: [vault, WETH, permit2, ROUTER_VERSION] });
 
-    tokenA = await deploy('v3-solidity-utils/ERC20TestToken', { args: ['Token A', 'TKNA', 18] });
-    tokenB = await deploy('v3-solidity-utils/ERC20TestToken', { args: ['Token B', 'TKNB', 6] });
+    tokenA = await deploy('v3-solidity-utils/ERC20TestToken', { args: ['Token A', 'TKN_A', 18] });
+    tokenB = await deploy('v3-solidity-utils/ERC20TestToken', { args: ['Token B', 'TKN_B', 6] });
 
     tokenAAddress = await tokenA.getAddress();
     tokenBAddress = await tokenB.getAddress();
@@ -201,7 +201,7 @@ describe('ReClammPool', function () {
       .swapSingleTokenExactOut(pool, tokenA, tokenB, exactAmountOut, maxAmountIn, deadline, wethIsEth, '0x');
 
     const [, , , poolBalancesAfterSwap] = await vault.getPoolTokenInfo(pool);
-    const [virtualBalancesAfterSwap] = await pool.computeCurrentVirtualBalances();
+    const virtualBalancesAfterSwap = await pool.computeCurrentVirtualBalances();
 
     const lastTimestamp = await currentTimestamp();
     await advanceTime(HOUR);
@@ -212,7 +212,7 @@ describe('ReClammPool', function () {
     // calculate the expected virtual balances in the next swap
     const [expectedFinalVirtualBalances] = computeCurrentVirtualBalances(
       poolBalancesAfterSwap,
-      virtualBalancesAfterSwap,
+      [virtualBalancesAfterSwap.currentVirtualBalanceA, virtualBalancesAfterSwap.currentVirtualBalanceB],
       computePriceShiftDailyRate(PRICE_SHIFT_DAILY_RATE),
       lastTimestamp,
       expectedTimestamp,
@@ -225,8 +225,8 @@ describe('ReClammPool', function () {
       }
     );
 
-    expect(expectedFinalVirtualBalances[tokenAIdx]).to.be.greaterThan(virtualBalancesAfterSwap[tokenAIdx]);
-    expect(expectedFinalVirtualBalances[tokenBIdx]).to.be.lessThan(virtualBalancesAfterSwap[tokenBIdx]);
+    expect(expectedFinalVirtualBalances[tokenAIdx]).to.be.greaterThan(virtualBalancesAfterSwap.currentVirtualBalanceA);
+    expect(expectedFinalVirtualBalances[tokenBIdx]).to.be.lessThan(virtualBalancesAfterSwap.currentVirtualBalanceB);
 
     // Swap in the other direction.
     await router
@@ -234,11 +234,18 @@ describe('ReClammPool', function () {
       .swapSingleTokenExactOut(pool, tokenB, tokenA, INITIAL_BALANCE_A, MAX_UINT256, deadline, wethIsEth, '0x');
 
     // Check whether the virtual balances are close to their expected values.
-    const [actualFinalVirtualBalances] = await pool.computeCurrentVirtualBalances();
+    const actualFinalVirtualBalances = await pool.computeCurrentVirtualBalances();
 
-    expect(actualFinalVirtualBalances.length).to.be.equal(2);
-    expectEqualWithError(actualFinalVirtualBalances[0], expectedFinalVirtualBalances[0], virtualBalancesError);
-    expectEqualWithError(actualFinalVirtualBalances[1], expectedFinalVirtualBalances[1], virtualBalancesError);
+    expectEqualWithError(
+      actualFinalVirtualBalances.currentVirtualBalanceA,
+      expectedFinalVirtualBalances[tokenAIdx],
+      virtualBalancesError
+    );
+    expectEqualWithError(
+      actualFinalVirtualBalances.currentVirtualBalanceB,
+      expectedFinalVirtualBalances[tokenBIdx],
+      virtualBalancesError
+    );
   });
 
   it('should move virtual balances correctly (out of range < center)', async () => {
@@ -253,7 +260,7 @@ describe('ReClammPool', function () {
       .swapSingleTokenExactOut(pool, tokenB, tokenA, exactAmountOut, maxAmountIn, deadline, wethIsEth, '0x');
 
     const [, , , poolBalancesAfterSwap] = await vault.getPoolTokenInfo(pool);
-    const [virtualBalancesAfterSwap] = await pool.computeCurrentVirtualBalances();
+    const virtualBalancesAfterSwap = await pool.computeCurrentVirtualBalances();
 
     const lastTimestamp = await currentTimestamp();
     await advanceTime(HOUR);
@@ -264,7 +271,7 @@ describe('ReClammPool', function () {
     // Calculate the expected virtual balances in the next swap.
     const [expectedFinalVirtualBalances] = computeCurrentVirtualBalances(
       poolBalancesAfterSwap,
-      virtualBalancesAfterSwap,
+      [virtualBalancesAfterSwap.currentVirtualBalanceA, virtualBalancesAfterSwap.currentVirtualBalanceB],
       computePriceShiftDailyRate(PRICE_SHIFT_DAILY_RATE),
       lastTimestamp,
       expectedTimestamp,
@@ -277,8 +284,8 @@ describe('ReClammPool', function () {
       }
     );
 
-    expect(expectedFinalVirtualBalances[tokenAIdx]).to.be.lessThan(virtualBalancesAfterSwap[tokenAIdx]);
-    expect(expectedFinalVirtualBalances[tokenBIdx]).to.be.greaterThan(virtualBalancesAfterSwap[tokenBIdx]);
+    expect(expectedFinalVirtualBalances[tokenAIdx]).to.be.lessThan(virtualBalancesAfterSwap.currentVirtualBalanceA);
+    expect(expectedFinalVirtualBalances[tokenBIdx]).to.be.greaterThan(virtualBalancesAfterSwap.currentVirtualBalanceB);
 
     // Swap in the other direction.
     await router
@@ -295,10 +302,17 @@ describe('ReClammPool', function () {
       );
 
     // Check whether the virtual balances are close to their expected values.
-    const [actualFinalVirtualBalances] = await pool.computeCurrentVirtualBalances();
+    const actualFinalVirtualBalances = await pool.computeCurrentVirtualBalances();
 
-    expect(actualFinalVirtualBalances.length).to.be.equal(2);
-    expectEqualWithError(actualFinalVirtualBalances[0], expectedFinalVirtualBalances[0], virtualBalancesError);
-    expectEqualWithError(actualFinalVirtualBalances[1], expectedFinalVirtualBalances[1], virtualBalancesError);
+    expectEqualWithError(
+      actualFinalVirtualBalances.currentVirtualBalanceA,
+      expectedFinalVirtualBalances[tokenAIdx],
+      virtualBalancesError
+    );
+    expectEqualWithError(
+      actualFinalVirtualBalances.currentVirtualBalanceB,
+      expectedFinalVirtualBalances[tokenBIdx],
+      virtualBalancesError
+    );
   });
 });

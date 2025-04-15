@@ -46,7 +46,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
         // setup covers it.
         defaultParams = DefaultDeployParams({
             name: "ReClamm Pool",
-            symbol: "RECLAMMPOOL",
+            symbol: "RECLAMM_POOL",
             defaultMinPrice: 0.5e18,
             defaultMaxPrice: 2e18,
             defaultTargetPrice: 1e18,

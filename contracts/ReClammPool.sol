@@ -3,7 +3,6 @@
 
 pragma solidity ^0.8.24;
 
-import "forge-std/console.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { SignedMath } from "@openzeppelin/contracts/utils/math/SignedMath.sol";
 
@@ -38,8 +37,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 internal constant _MIN_SWAP_FEE_PERCENTAGE = 0;
     uint256 internal constant _MAX_SWAP_FEE_PERCENTAGE = 10e16; // 10%
 
-    // The centeredness margin defines the minimum pool centeredness to consider the pool in range. It may be a value
-    // from 0 to 100%.
+    // The centeredness margin defines the minimum pool centeredness to consider the pool within the target range.
     uint256 internal constant _MIN_CENTEREDNESS_MARGIN = 0;
     uint256 internal constant _MAX_CENTEREDNESS_MARGIN = FixedPoint.ONE;
 
@@ -67,20 +65,23 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 private immutable _INITIAL_MIN_PRICE;
     uint256 private immutable _INITIAL_MAX_PRICE;
     uint256 private immutable _INITIAL_TARGET_PRICE;
+    uint256 private immutable _INITIAL_PRICE_SHIFT_DAILY_RATE;
+    uint256 private immutable _INITIAL_CENTEREDNESS_MARGIN;
 
     PriceRatioState internal _priceRatioState;
 
     // Timestamp of the last user interaction.
     uint32 internal _lastTimestamp;
 
-    // Internal representation of the speed at which the pool moves the virtual balances when out of range.
+    // Internal representation of the speed at which the pool moves the virtual balances when outside the target range.
     uint128 internal _priceShiftDailyRateInSeconds;
 
-    // Used to define the "operating range" of the pool (i.e., where the virtual balances are constant).
+    // Used to define the target price range of the pool (i.e., where the pool centeredness > centeredness margin).
     uint64 internal _centerednessMargin;
 
     // The virtual balances at the time of the last user interaction.
-    uint256[] internal _lastVirtualBalances;
+    uint128 internal _lastVirtualBalanceA;
+    uint128 internal _lastVirtualBalanceB;
 
     // Protect functions that would otherwise be vulnerable to manipulation through transient liquidity.
     modifier onlyWhenVaultIsLocked() {
@@ -105,16 +106,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         }
     }
 
-    modifier onlyWhenPoolIsInRange() {
-        _ensureVaultIsInRange();
+    modifier onlyWithinTargetRange() {
+        _ensurePoolWithinTargetRange();
         _;
-        _ensureVaultIsInRange();
-    }
-
-    function _ensureVaultIsInRange() internal view {
-        if (_isPoolInRange() == false) {
-            revert PoolIsOutOfRange();
-        }
+        _ensurePoolWithinTargetRange();
     }
 
     constructor(
@@ -136,9 +131,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _INITIAL_MAX_PRICE = params.initialMaxPrice;
         _INITIAL_TARGET_PRICE = params.initialTargetPrice;
 
-        // Set dynamic parameters.
-        _setPriceShiftDailyRate(params.priceShiftDailyRate);
-        _setCenterednessMargin(params.centerednessMargin);
+        _INITIAL_PRICE_SHIFT_DAILY_RATE = params.priceShiftDailyRate;
+        _INITIAL_CENTEREDNESS_MARGIN = params.centerednessMargin;
     }
 
     /********************************************************
@@ -150,7 +144,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         return
             ReClammMath.computeInvariant(
                 balancesScaled18,
-                _lastVirtualBalances,
+                _lastVirtualBalanceA,
+                _lastVirtualBalanceB,
                 _priceShiftDailyRateInSeconds,
                 _lastTimestamp,
                 _centerednessMargin,
@@ -167,21 +162,22 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IBasePool
     function onSwap(PoolSwapParams memory request) public virtual onlyVault returns (uint256 amountCalculatedScaled18) {
-        (uint256[] memory currentVirtualBalances, bool changed) = _computeCurrentVirtualBalances(
+        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) = _computeCurrentVirtualBalances(
             request.balancesScaled18
         );
 
         if (changed) {
-            _setLastVirtualBalances(currentVirtualBalances);
+            _setLastVirtualBalances(currentVirtualBalanceA, currentVirtualBalanceB);
         }
 
         _updateTimestamp();
 
         // Calculate swap result.
         if (request.kind == SwapKind.EXACT_IN) {
-            amountCalculatedScaled18 = ReClammMath.calculateOutGivenIn(
+            amountCalculatedScaled18 = ReClammMath.computeOutGivenIn(
                 request.balancesScaled18,
-                currentVirtualBalances,
+                currentVirtualBalanceA,
+                currentVirtualBalanceB,
                 request.indexIn,
                 request.indexOut,
                 request.amountGivenScaled18
@@ -189,16 +185,18 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
             _ensureValidPoolStateAfterSwap(
                 request.balancesScaled18,
-                currentVirtualBalances,
+                currentVirtualBalanceA,
+                currentVirtualBalanceB,
                 request.amountGivenScaled18,
                 amountCalculatedScaled18,
                 request.indexIn,
                 request.indexOut
             );
         } else {
-            amountCalculatedScaled18 = ReClammMath.calculateInGivenOut(
+            amountCalculatedScaled18 = ReClammMath.computeInGivenOut(
                 request.balancesScaled18,
-                currentVirtualBalances,
+                currentVirtualBalanceA,
+                currentVirtualBalanceB,
                 request.indexIn,
                 request.indexOut,
                 request.amountGivenScaled18
@@ -206,7 +204,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
             _ensureValidPoolStateAfterSwap(
                 request.balancesScaled18,
-                currentVirtualBalances,
+                currentVirtualBalanceA,
+                currentVirtualBalanceB,
                 amountCalculatedScaled18,
                 request.amountGivenScaled18,
                 request.indexIn,
@@ -273,10 +272,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256[] memory balancesScaled18,
         bytes memory
     ) public override onlyVault returns (bool) {
-        console.log("onBeforeInitialize");
         (
             uint256[] memory theoreticalRealBalances,
-            uint256[] memory theoreticalVirtualBalances,
+            uint256 theoreticalVirtualBalanceA,
+            uint256 theoreticalVirtualBalanceB,
             uint256 fourthRootPriceRatio
         ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
                 _INITIAL_MIN_PRICE,
@@ -284,30 +283,24 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                 _INITIAL_TARGET_PRICE
             );
 
-        console.log("theoreticalRealBalances", theoreticalRealBalances[0], theoreticalRealBalances[1]);
-
         _checkInitializationBalanceRatio(balancesScaled18, theoreticalRealBalances);
 
         uint256 scale = balancesScaled18[a].divDown(theoreticalRealBalances[a]);
 
-        console.log("scale", scale);
+        uint256 virtualBalanceA = theoreticalVirtualBalanceA.mulDown(scale);
+        uint256 virtualBalanceB = theoreticalVirtualBalanceB.mulDown(scale);
 
-        uint256[] memory virtualBalances = new uint256[](2);
-        virtualBalances[a] = theoreticalVirtualBalances[a].mulDown(scale);
-        virtualBalances[b] = theoreticalVirtualBalances[b].mulDown(scale);
+        _checkInitializationPrices(balancesScaled18, virtualBalanceA, virtualBalanceB);
 
-        _checkInitializationPrices(balancesScaled18, virtualBalances);
-
-        console.log("virtualBalances", virtualBalances[0], virtualBalances[1]);
-
-        console.log("centresdness: ", ReClammMath.computeCenteredness(balancesScaled18, virtualBalances));
-
-        if (ReClammMath.computeCenteredness(balancesScaled18, virtualBalances) < _centerednessMargin) {
+        if (ReClammMath.computeCenteredness(balancesScaled18, virtualBalanceA, virtualBalanceB) < _centerednessMargin) {
             revert PoolCenterednessTooLow();
         }
 
-        _setLastVirtualBalances(virtualBalances);
+        _setLastVirtualBalances(virtualBalanceA, virtualBalanceB);
         _setPriceRatioState(fourthRootPriceRatio, block.timestamp, block.timestamp);
+        // Set dynamic parameters.
+        _setPriceShiftDailyRate(_INITIAL_PRICE_SHIFT_DAILY_RATE);
+        _setCenterednessMargin(_INITIAL_CENTEREDNESS_MARGIN);
         _updateTimestamp();
 
         return true;
@@ -327,16 +320,17 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         // after adding liquidity. This is needed to keep the pool centeredness and price ratio constant.
 
         uint256 poolTotalSupply = _vault.totalSupply(pool);
-        // Rounding proportion up, which will round the virtual balances up.
-        uint256 proportion = minBptAmountOut.divUp(poolTotalSupply);
+        // Rounding proportion down, which will round the virtual balances down.
+        uint256 proportion = minBptAmountOut.divDown(poolTotalSupply);
 
-        (uint256[] memory currentVirtualBalances, ) = _computeCurrentVirtualBalances(balancesScaled18);
-        // When adding/removing liquidity, round up the virtual balances. This will result in a higher invariant,
-        // which favors the vault in swap operations. The virtual balances are not used to calculate a proportional
-        // add/remove result.
-        currentVirtualBalances[a] = currentVirtualBalances[a].mulUp(FixedPoint.ONE + proportion);
-        currentVirtualBalances[b] = currentVirtualBalances[b].mulUp(FixedPoint.ONE + proportion);
-        _setLastVirtualBalances(currentVirtualBalances);
+        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = _computeCurrentVirtualBalances(
+            balancesScaled18
+        );
+        // When adding/removing liquidity, round down the virtual balances. This favors the vault in swap operations.
+        // The virtual balances are not used in proportional add/remove calculations.
+        currentVirtualBalanceA = currentVirtualBalanceA.mulDown(FixedPoint.ONE + proportion);
+        currentVirtualBalanceB = currentVirtualBalanceB.mulDown(FixedPoint.ONE + proportion);
+        _setLastVirtualBalances(currentVirtualBalanceA, currentVirtualBalanceB);
         _updateTimestamp();
 
         return true;
@@ -356,16 +350,17 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         // after removing liquidity. This is needed to keep the pool centeredness and price ratio constant.
 
         uint256 poolTotalSupply = _vault.totalSupply(pool);
-        // Rounding proportion down, which will round the virtual balances up.
-        uint256 proportion = maxBptAmountIn.divDown(poolTotalSupply);
+        // Rounding proportion up, which will round the virtual balances down.
+        uint256 proportion = maxBptAmountIn.divUp(poolTotalSupply);
 
-        (uint256[] memory currentVirtualBalances, ) = _computeCurrentVirtualBalances(balancesScaled18);
-        // When adding/removing liquidity, round up the virtual balances. This will result in a higher invariant,
-        // which favors the vault in swap operations. The virtual balances are not used in the proportional
-        // add/remove calculations.
-        currentVirtualBalances[a] = currentVirtualBalances[a].mulUp(FixedPoint.ONE - proportion);
-        currentVirtualBalances[b] = currentVirtualBalances[b].mulUp(FixedPoint.ONE - proportion);
-        _setLastVirtualBalances(currentVirtualBalances);
+        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = _computeCurrentVirtualBalances(
+            balancesScaled18
+        );
+        // When adding/removing liquidity, round down the virtual balances. This favors the vault in swap operations.
+        // The virtual balances are not used in proportional add/remove calculations.
+        currentVirtualBalanceA = currentVirtualBalanceA.mulDown(FixedPoint.ONE - proportion);
+        currentVirtualBalanceB = currentVirtualBalanceB.mulDown(FixedPoint.ONE - proportion);
+        _setLastVirtualBalances(currentVirtualBalanceA, currentVirtualBalanceB);
         _updateTimestamp();
 
         if (
@@ -385,7 +380,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IReClammPool
     function computeInitialBalanceRatio() external view returns (uint256 balanceRatio) {
-        (uint256[] memory realBalances, , ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
+        (uint256[] memory realBalances, , , ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
             _INITIAL_MIN_PRICE,
             _INITIAL_MAX_PRICE,
             _INITIAL_TARGET_PRICE
@@ -394,13 +389,43 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
+    function computeCurrentPriceRange() external view returns (uint256 minPrice, uint256 maxPrice) {
+        if (_vault.isPoolInitialized(address(this))) {
+            (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
+            (uint256 virtualBalanceA, uint256 virtualBalanceB, ) = _computeCurrentVirtualBalances(balancesScaled18);
+
+            uint256 currentInvariant = ReClammMath.computeInvariant(
+                balancesScaled18,
+                virtualBalanceA,
+                virtualBalanceB,
+                Rounding.ROUND_DOWN
+            );
+
+            // Similarly, P_min(a) = Vb / (Va + Ra_max)
+            // We don't have Ra_max, but: invariant=(Ra_max + Va)(Vb)
+            // Then, (Va + Ra_max) = invariant/Vb, and:
+            // P_min(a) = Vb^2 / invariant
+            minPrice = (virtualBalanceB * virtualBalanceB) / currentInvariant;
+
+            // P_max(a) = (Rb_max + Vb)/Va
+            // We don't have Rb_max, but: invariant=(Rb_max + Vb)(Va)
+            // Then, (Rb_max + Vb) = invariant/Va, and:
+            // P_max(a) = invariant / Va^2
+            maxPrice = currentInvariant.divDown(virtualBalanceA.mulDown(virtualBalanceA));
+        } else {
+            minPrice = _INITIAL_MIN_PRICE;
+            maxPrice = _INITIAL_MAX_PRICE;
+        }
+    }
+
+    /// @inheritdoc IReClammPool
     function computeCurrentVirtualBalances()
         external
         view
-        returns (uint256[] memory currentVirtualBalances, bool changed)
+        returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed)
     {
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
-        (currentVirtualBalances, changed) = _computeCurrentVirtualBalances(balancesScaled18);
+        (currentVirtualBalanceA, currentVirtualBalanceB, changed) = _computeCurrentVirtualBalances(balancesScaled18);
     }
 
     /// @inheritdoc IReClammPool
@@ -409,8 +434,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function getLastVirtualBalances() external view returns (uint256[] memory) {
-        return _lastVirtualBalances;
+    function getLastVirtualBalances() external view returns (uint256 virtualBalanceA, uint256 virtualBalanceB) {
+        return (_lastVirtualBalanceA, _lastVirtualBalanceB);
     }
 
     /// @inheritdoc IReClammPool
@@ -434,14 +459,14 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function isPoolInRange() external view returns (bool) {
-        return _isPoolInRange();
+    function isPoolWithinTargetRange() external view returns (bool) {
+        return _isPoolWithinTargetRange();
     }
 
     /// @inheritdoc IReClammPool
     function computeCurrentPoolCenteredness() external view returns (uint256) {
         (, , , uint256[] memory currentBalancesScaled18) = _vault.getPoolTokenInfo(address(this));
-        return ReClammMath.computeCenteredness(currentBalancesScaled18, _lastVirtualBalances);
+        return ReClammMath.computeCenteredness(currentBalancesScaled18, _lastVirtualBalanceA, _lastVirtualBalanceB);
     }
 
     /// @inheritdoc IReClammPool
@@ -452,7 +477,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.totalSupply = totalSupply();
 
         data.lastTimestamp = _lastTimestamp;
-        data.lastVirtualBalances = _lastVirtualBalances;
+        data.lastVirtualBalances = _getLastVirtualBalances();
         data.priceShiftDailyRateInSeconds = _priceShiftDailyRateInSeconds;
         data.centerednessMargin = _centerednessMargin;
 
@@ -477,6 +502,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.initialMinPrice = _INITIAL_MIN_PRICE;
         data.initialMaxPrice = _INITIAL_MAX_PRICE;
         data.initialTargetPrice = _INITIAL_TARGET_PRICE;
+        data.initialPriceShiftDailyRate = _INITIAL_PRICE_SHIFT_DAILY_RATE;
+        data.initialCenterednessMargin = _INITIAL_CENTEREDNESS_MARGIN;
         data.minCenterednessMargin = _MIN_CENTEREDNESS_MARGIN;
         data.maxCenterednessMargin = _MAX_CENTEREDNESS_MARGIN;
         data.minTokenBalanceScaled18 = _MIN_TOKEN_BALANCE_SCALED18;
@@ -529,7 +556,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         external
         onlyWhenInitialized
         onlyWhenVaultIsLocked
-        onlyWhenPoolIsInRange
+        onlyWithinTargetRange
         onlySwapFeeManagerOrGovernance(address(this))
     {
         _setCenterednessMarginAndUpdateVirtualBalances(newCenterednessMargin);
@@ -541,10 +568,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     function _computeCurrentVirtualBalances(
         uint256[] memory balancesScaled18
-    ) internal view returns (uint256[] memory currentVirtualBalances, bool changed) {
-        (currentVirtualBalances, changed) = ReClammMath.computeCurrentVirtualBalances(
+    ) internal view returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) {
+        (currentVirtualBalanceA, currentVirtualBalanceB, changed) = ReClammMath.computeCurrentVirtualBalances(
             balancesScaled18,
-            _lastVirtualBalances,
+            _lastVirtualBalanceA,
+            _lastVirtualBalanceB,
             _priceShiftDailyRateInSeconds,
             _lastTimestamp,
             _centerednessMargin,
@@ -552,10 +580,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         );
     }
 
-    function _setLastVirtualBalances(uint256[] memory virtualBalances) internal {
-        _lastVirtualBalances = virtualBalances;
+    function _setLastVirtualBalances(uint256 virtualBalanceA, uint256 virtualBalanceB) internal {
+        _lastVirtualBalanceA = virtualBalanceA.toUint128();
+        _lastVirtualBalanceB = virtualBalanceB.toUint128();
 
-        emit VirtualBalancesUpdated(virtualBalances);
+        emit VirtualBalancesUpdated(virtualBalanceA, virtualBalanceB);
     }
 
     function _setPriceRatioState(
@@ -592,6 +621,16 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             priceRatioUpdateStartTime,
             priceRatioUpdateEndTime
         );
+
+        _vault.emitAuxiliaryEvent(
+            "PriceRatioStateUpdated",
+            abi.encode(
+                startFourthRootPriceRatio,
+                endFourthRootPriceRatio,
+                priceRatioUpdateStartTime,
+                priceRatioUpdateEndTime
+            )
+        );
     }
 
     /// Using the pool balances to update the virtual balances is dangerous with an unlocked vault, since the balances
@@ -599,9 +638,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     function _setPriceShiftDailyRateAndUpdateVirtualBalances(uint256 priceShiftDailyRate) internal {
         // Update virtual balances with current daily rate.
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
-        (uint256[] memory currentVirtualBalances, bool changed) = _computeCurrentVirtualBalances(balancesScaled18);
+        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) = _computeCurrentVirtualBalances(
+            balancesScaled18
+        );
         if (changed) {
-            _setLastVirtualBalances(currentVirtualBalances);
+            _setLastVirtualBalances(currentVirtualBalanceA, currentVirtualBalanceB);
         }
         _updateTimestamp();
 
@@ -614,21 +655,26 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             revert PriceShiftDailyRateTooHigh();
         }
 
-        _priceShiftDailyRateInSeconds = ReClammMath.computePriceShiftDailyRate(priceShiftDailyRate);
+        uint128 dailyRateInSeconds = ReClammMath.computePriceShiftDailyRate(priceShiftDailyRate);
+        _priceShiftDailyRateInSeconds = dailyRateInSeconds;
 
-        emit PriceShiftDailyRateUpdated(priceShiftDailyRate, _priceShiftDailyRateInSeconds);
+        emit PriceShiftDailyRateUpdated(priceShiftDailyRate, dailyRateInSeconds);
+
+        _vault.emitAuxiliaryEvent("PriceShiftDailyRateUpdated", abi.encode(priceShiftDailyRate, dailyRateInSeconds));
     }
 
     /**
      * @dev This function relies on the pool balance, which can be manipulated if the vault is unlocked. Also, the pool
-     * must be in range before and after the operation, or the pool owner could arb the pool.
+     * must be within the target range before and after the operation, or the pool owner could arb the pool.
      */
     function _setCenterednessMarginAndUpdateVirtualBalances(uint256 centerednessMargin) internal {
         // Update the virtual balances using the current daily rate.
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
-        (uint256[] memory currentVirtualBalances, bool changed) = _computeCurrentVirtualBalances(balancesScaled18);
+        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) = _computeCurrentVirtualBalances(
+            balancesScaled18
+        );
         if (changed) {
-            _setLastVirtualBalances(currentVirtualBalances);
+            _setLastVirtualBalances(currentVirtualBalanceA, currentVirtualBalanceB);
         }
 
         _updateTimestamp();
@@ -638,24 +684,29 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /**
      * @notice Sets the centeredness margin when the pool is created.
-     * @param centerednessMargin The new centerednessMargin value, which must be within range
+     * @param centerednessMargin The new centerednessMargin value, which must be within the target range
      */
     function _setCenterednessMargin(uint256 centerednessMargin) internal {
         if (centerednessMargin < _MIN_CENTEREDNESS_MARGIN || centerednessMargin > _MAX_CENTEREDNESS_MARGIN) {
             revert InvalidCenterednessMargin();
         }
 
-        // Straight cast is safe since the range is validated above (and tests ensure the margins fit in uint64).
+        // Straight cast is safe since the margin is validated above (and tests ensure the margins fit in uint64).
         _centerednessMargin = uint64(centerednessMargin);
 
         emit CenterednessMarginUpdated(centerednessMargin);
+
+        _vault.emitAuxiliaryEvent("CenterednessMarginUpdated", abi.encode(centerednessMargin));
     }
 
     // Updates the last timestamp to the current timestamp.
     function _updateTimestamp() internal {
-        _lastTimestamp = block.timestamp.toUint32();
+        uint32 lastTimestamp32 = block.timestamp.toUint32();
+        _lastTimestamp = lastTimestamp32;
 
-        emit LastTimestampUpdated(_lastTimestamp);
+        emit LastTimestampUpdated(lastTimestamp32);
+
+        _vault.emitAuxiliaryEvent("LastTimestampUpdated", abi.encode(lastTimestamp32));
     }
 
     /**
@@ -666,7 +717,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
      * rounding errors in the swap calculations.
      *
      * @param currentBalancesScaled18 The current balances of the pool, sorted in token registration order
-     * @param currentVirtualBalances The current virtual balances of the pool, sorted in token registration order
+     * @param currentVirtualBalanceA The current virtual balance of token A
+     * @param currentVirtualBalanceB The current virtual balance of token B
      * @param amountInScaled18 Amount of tokenIn (entering the Vault)
      * @param amountOutScaled18 Amount of tokenOut (leaving the Vault)
      * @param indexIn The zero-based index of tokenIn
@@ -674,14 +726,15 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
      */
     function _ensureValidPoolStateAfterSwap(
         uint256[] memory currentBalancesScaled18,
-        uint256[] memory currentVirtualBalances,
+        uint256 currentVirtualBalanceA,
+        uint256 currentVirtualBalanceB,
         uint256 amountInScaled18,
         uint256 amountOutScaled18,
         uint256 indexIn,
         uint256 indexOut
     ) internal pure {
         currentBalancesScaled18[indexIn] += amountInScaled18;
-        // The swap functions `calculateOutGivenIn` and `calculateInGivenOut` ensure that the amountOutScaled18 is
+        // The swap functions `computeOutGivenIn` and `computeInGivenOut` ensure that the amountOutScaled18 is
         // never greater than the balance of the token being swapped out. Therefore, the math below will never
         // underflow. Nevertheless, since these considerations involve code outside this function, it is safest
         // to still use checked math here.
@@ -692,7 +745,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             revert TokenBalanceTooLow();
         }
 
-        if (ReClammMath.computeCenteredness(currentBalancesScaled18, currentVirtualBalances) < _MIN_POOL_CENTEREDNESS) {
+        if (
+            ReClammMath.computeCenteredness(currentBalancesScaled18, currentVirtualBalanceA, currentVirtualBalanceB) <
+            _MIN_POOL_CENTEREDNESS
+        ) {
             // If the pool centeredness is below the minimum, the price ratio update is unreliable.
             revert PoolCenterednessTooLow();
         }
@@ -718,10 +774,16 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @dev This function relies on the pool balance, which can be manipulated if the vault is unlocked.
-    function _isPoolInRange() internal view returns (bool) {
+    function _isPoolWithinTargetRange() internal view returns (bool) {
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
 
-        return ReClammMath.isPoolInRange(balancesScaled18, _lastVirtualBalances, _centerednessMargin);
+        return
+            ReClammMath.isPoolWithinTargetRange(
+                balancesScaled18,
+                _lastVirtualBalanceA,
+                _lastVirtualBalanceB,
+                _centerednessMargin
+            );
     }
 
     /// @dev Checks that the current balance ratio is within the initialization balance ratio tolerance.
@@ -740,25 +802,33 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         }
     }
 
-    /// @dev Checks that the current price interval and spot price is within the initialization price range.
+    /**
+     * @dev Checks that the current spot price is within the initialization tolerance of the price target, and that
+     * the total price range after initialization (i.e., with real balances) corresponds closely enough to the desired
+     * initial price range set on deployment.
+     */
     function _checkInitializationPrices(
         uint256[] memory balancesScaled18,
-        uint256[] memory virtualBalances
+        uint256 virtualBalanceA,
+        uint256 virtualBalanceB
     ) internal view {
         // Compare current spot price with initialization target price.
-        uint256 spotPrice = (balancesScaled18[b] + virtualBalances[b]).divDown(
-            balancesScaled18[a] + virtualBalances[a]
-        );
+        uint256 spotPrice = (balancesScaled18[b] + virtualBalanceB).divDown(balancesScaled18[a] + virtualBalanceA);
         _comparePrice(spotPrice, _INITIAL_TARGET_PRICE);
 
-        uint256 currentInvariant = ReClammMath.computeInvariant(balancesScaled18, virtualBalances, Rounding.ROUND_DOWN);
+        uint256 currentInvariant = ReClammMath.computeInvariant(
+            balancesScaled18,
+            virtualBalanceA,
+            virtualBalanceB,
+            Rounding.ROUND_DOWN
+        );
 
         // Compare current min price with initialization min price.
-        uint256 currentMinPrice = (virtualBalances[b] * virtualBalances[b]) / currentInvariant;
+        uint256 currentMinPrice = (virtualBalanceB * virtualBalanceB) / currentInvariant;
         _comparePrice(currentMinPrice, _INITIAL_MIN_PRICE);
 
         // Compare current max price with initialization max price.
-        uint256 currentMaxPrice = currentInvariant.divDown(virtualBalances[a]).divDown(virtualBalances[a]);
+        uint256 currentMaxPrice = currentInvariant.divDown(virtualBalanceA).divDown(virtualBalanceA);
         _comparePrice(currentMaxPrice, _INITIAL_MAX_PRICE);
     }
 
@@ -768,6 +838,20 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         if (currentPrice < priceLowerBound || currentPrice > priceUpperBound) {
             revert WrongInitializationPrices();
+        }
+    }
+
+    function _getLastVirtualBalances() internal view returns (uint256[] memory) {
+        uint256[] memory lastVirtualBalances = new uint256[](2);
+        lastVirtualBalances[a] = _lastVirtualBalanceA;
+        lastVirtualBalances[b] = _lastVirtualBalanceB;
+
+        return lastVirtualBalances;
+    }
+
+    function _ensurePoolWithinTargetRange() internal view {
+        if (_isPoolWithinTargetRange() == false) {
+            revert PoolOutsideTargetRange();
         }
     }
 }
