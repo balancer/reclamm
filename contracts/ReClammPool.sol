@@ -823,7 +823,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     ) internal view {
         // Compare current spot price with initialization target price.
         uint256 spotPrice = (balancesScaled18[b] + virtualBalanceB).divDown(balancesScaled18[a] + virtualBalanceA);
+        console.log("spotPrice", spotPrice);
         _comparePrice(spotPrice, _INITIAL_TARGET_PRICE);
+
+        console.log("_comparePrice passed");
 
         uint256 currentInvariant = ReClammMath.computeInvariant(
             balancesScaled18,
