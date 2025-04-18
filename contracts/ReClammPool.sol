@@ -767,14 +767,13 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     function _computeCurrentFourthRootPriceRatio(
         PriceRatioState memory priceRatioState
     ) internal view returns (uint256 currentFourthRootPriceRatio) {
-        currentFourthRootPriceRatio =
-            ReClammMath.computeFourthRootPriceRatio(
-                block.timestamp.toUint32(),
-                priceRatioState.startFourthRootPriceRatio,
-                priceRatioState.endFourthRootPriceRatio,
-                priceRatioState.priceRatioUpdateStartTime,
-                priceRatioState.priceRatioUpdateEndTime
-            );
+        currentFourthRootPriceRatio = ReClammMath.computeFourthRootPriceRatio(
+            block.timestamp.toUint32(),
+            priceRatioState.startFourthRootPriceRatio,
+            priceRatioState.endFourthRootPriceRatio,
+            priceRatioState.priceRatioUpdateStartTime,
+            priceRatioState.priceRatioUpdateEndTime
+        );
     }
 
     /// @dev This function relies on the pool balance, which can be manipulated if the vault is unlocked.
