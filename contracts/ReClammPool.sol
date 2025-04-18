@@ -40,7 +40,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     // The centeredness margin defines the minimum pool centeredness to consider the pool within the target range.
     uint256 internal constant _MIN_CENTEREDNESS_MARGIN = 0;
-    uint256 internal constant _MAX_CENTEREDNESS_MARGIN = 50e16; // 50%
+    uint256 internal constant _MAX_CENTEREDNESS_MARGIN = FixedPoint.ONE;
 
     // A pool is "centered" when it holds equal (non-zero) value in both real token balances. In this state, the ratio
     // of the real balances equals the ratio of the virtual balances, and the value of the centeredness measure is
