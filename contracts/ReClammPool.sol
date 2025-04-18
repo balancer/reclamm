@@ -8,6 +8,7 @@ import { SignedMath } from "@openzeppelin/contracts/utils/math/SignedMath.sol";
 
 import { ISwapFeePercentageBounds } from "@balancer-labs/v3-interfaces/contracts/vault/ISwapFeePercentageBounds.sol";
 import "@balancer-labs/v3-interfaces/contracts/vault/IUnbalancedLiquidityInvariantRatioBounds.sol";
+import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultErrors.sol";
 import { IBasePool } from "@balancer-labs/v3-interfaces/contracts/vault/IBasePool.sol";
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
 import { IHooks } from "@balancer-labs/v3-interfaces/contracts/vault/IHooks.sol";
@@ -379,13 +380,32 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     ********************************************************/
 
     /// @inheritdoc IReClammPool
-    function computeInitialBalanceRatio() external view returns (uint256 balanceRatio) {
-        (uint256[] memory realBalances, , , ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
-            _INITIAL_MIN_PRICE,
-            _INITIAL_MAX_PRICE,
-            _INITIAL_TARGET_PRICE
-        );
-        balanceRatio = realBalances[b].divDown(realBalances[a]);
+    function computeInitialBalanceRatio() external view returns (uint256) {
+        return _computeInitialBalanceRatio();
+    }
+
+    /// @inheritdoc IReClammPool
+    function computeInitialBalances(
+        IERC20 referenceToken,
+        uint256 referenceAmountIn
+    ) external view returns (uint256[] memory initialBalances) {
+        IERC20[] memory tokens = _vault.getPoolTokens(address(this));
+
+        (uint256 referenceTokenIdx, uint256 otherTokenIdx) = tokens[a] == referenceToken ? (a, b) : (b, a);
+        if (referenceTokenIdx == b && referenceToken != tokens[b]) {
+            revert IVaultErrors.InvalidToken();
+        }
+
+        uint256 balanceRatio = _computeInitialBalanceRatio();
+
+        // Since the ratio is defined as b/a, multiply if we're given a, and divide if we're given b.
+        // If the theoretical virtual balances were a=50 and b=100, then the ratio would be 100/50 = 2.
+        // If we're given 100 a tokens, b = a * 2 = 200. If we're given 200 b tokens, a = b / 2 = 100.
+        initialBalances = new uint256[](2);
+        initialBalances[referenceTokenIdx] = referenceAmountIn;
+        initialBalances[otherTokenIdx] = referenceTokenIdx == a
+            ? referenceAmountIn.mulDown(balanceRatio)
+            : referenceAmountIn.divDown(balanceRatio);
     }
 
     /// @inheritdoc IReClammPool
@@ -763,14 +783,15 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
      */
     function _computeCurrentFourthRootPriceRatio(
         PriceRatioState memory priceRatioState
-    ) internal view returns (uint256 currentFourthRootPriceRatio) {
-        currentFourthRootPriceRatio = ReClammMath.computeFourthRootPriceRatio(
-            block.timestamp.toUint32(),
-            priceRatioState.startFourthRootPriceRatio,
-            priceRatioState.endFourthRootPriceRatio,
-            priceRatioState.priceRatioUpdateStartTime,
-            priceRatioState.priceRatioUpdateEndTime
-        );
+    ) internal view returns (uint256) {
+        return
+            ReClammMath.computeFourthRootPriceRatio(
+                block.timestamp.toUint32(),
+                priceRatioState.startFourthRootPriceRatio,
+                priceRatioState.endFourthRootPriceRatio,
+                priceRatioState.priceRatioUpdateStartTime,
+                priceRatioState.priceRatioUpdateEndTime
+            );
     }
 
     /// @dev This function relies on the pool balance, which can be manipulated if the vault is unlocked.
@@ -853,5 +874,15 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         if (_isPoolWithinTargetRange() == false) {
             revert PoolOutsideTargetRange();
         }
+    }
+
+    function _computeInitialBalanceRatio() internal view returns (uint256) {
+        (uint256[] memory realBalances, , , ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
+            _INITIAL_MIN_PRICE,
+            _INITIAL_MAX_PRICE,
+            _INITIAL_TARGET_PRICE
+        );
+
+        return realBalances[b].divDown(realBalances[a]);
     }
 }
