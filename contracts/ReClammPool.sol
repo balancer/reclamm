@@ -800,15 +800,12 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     /// @dev This function relies on the pool balance, which can be manipulated if the vault is unlocked.
     function _isPoolWithinTargetRange() internal view returns (bool) {
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
-        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = _computeCurrentVirtualBalances(
-            balancesScaled18
-        );
 
         return
             ReClammMath.isPoolWithinTargetRange(
                 balancesScaled18,
-                currentVirtualBalanceA,
-                currentVirtualBalanceB,
+                _lastVirtualBalanceA,
+                _lastVirtualBalanceB,
                 _centerednessMargin
             );
     }
