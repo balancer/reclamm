@@ -45,7 +45,7 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
      * @param initialMinPrice The initial minimum price of the pool
      * @param initialMaxPrice The initial maximum price of the pool
      * @param initialTargetPrice The initial target price of the pool
-     * @param priceShiftDailyRate The allowed change in a virtual balance per day
+     * @param initialDoublingRateScalingFactor The allowed change in a virtual balance per day
      * @param centerednessMargin How far the price can be from the center before the price range starts to move
      * @param salt The salt value that will be passed to deployment
      */
@@ -58,7 +58,7 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
         uint256 initialMinPrice,
         uint256 initialMaxPrice,
         uint256 initialTargetPrice,
-        uint256 priceShiftDailyRate,
+        uint256 initialDoublingRateScalingFactor,
         uint64 centerednessMargin,
         bytes32 salt
     ) external returns (address pool) {
@@ -84,7 +84,7 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
                     initialMinPrice: initialMinPrice,
                     initialMaxPrice: initialMaxPrice,
                     initialTargetPrice: initialTargetPrice,
-                    priceShiftDailyRate: priceShiftDailyRate,
+                    initialDoublingRateScalingFactor: initialDoublingRateScalingFactor,
                     centerednessMargin: centerednessMargin
                 }),
                 getVault()
