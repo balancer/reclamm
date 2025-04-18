@@ -53,7 +53,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 internal constant _MIN_TOKEN_BALANCE_SCALED18 = 1e12;
     uint256 internal constant _MIN_POOL_CENTEREDNESS = 1e3;
 
-    uint256 internal constant _MAX_PRICE_SHIFT_DAILY_RATE = 500e16; // 500%
+    uint256 internal constant _MAX_DOUBLING_RATE_SCALING_FACTOR = 500e16; // 500%
 
     uint256 internal constant _MIN_PRICE_RATIO_UPDATE_DURATION = 6 hours;
 
@@ -66,7 +66,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 private immutable _INITIAL_MIN_PRICE;
     uint256 private immutable _INITIAL_MAX_PRICE;
     uint256 private immutable _INITIAL_TARGET_PRICE;
-    uint256 private immutable _INITIAL_PRICE_SHIFT_DAILY_RATE;
+    uint256 private immutable _INITIAL_DOUBLING_RATE_SCALING_FACTOR;
     uint256 private immutable _INITIAL_CENTEREDNESS_MARGIN;
 
     PriceRatioState internal _priceRatioState;
@@ -75,7 +75,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint32 internal _lastTimestamp;
 
     // Internal representation of the speed at which the pool moves the virtual balances when outside the target range.
-    uint128 internal _priceShiftDailyRateInSeconds;
+    uint128 internal _virtualBalanceGrowthRate;
 
     // Used to define the target price range of the pool (i.e., where the pool centeredness > centeredness margin).
     uint64 internal _centerednessMargin;
@@ -132,7 +132,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _INITIAL_MAX_PRICE = params.initialMaxPrice;
         _INITIAL_TARGET_PRICE = params.initialTargetPrice;
 
-        _INITIAL_PRICE_SHIFT_DAILY_RATE = params.priceShiftDailyRate;
+        _INITIAL_DOUBLING_RATE_SCALING_FACTOR = params.initialDoublingRateScalingFactor;
         _INITIAL_CENTEREDNESS_MARGIN = params.centerednessMargin;
     }
 
@@ -147,7 +147,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                 balancesScaled18,
                 _lastVirtualBalanceA,
                 _lastVirtualBalanceB,
-                _priceShiftDailyRateInSeconds,
+                _virtualBalanceGrowthRate,
                 _lastTimestamp,
                 _centerednessMargin,
                 _priceRatioState,
@@ -300,7 +300,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _setLastVirtualBalances(virtualBalanceA, virtualBalanceB);
         _setPriceRatioState(fourthRootPriceRatio, block.timestamp, block.timestamp);
         // Set dynamic parameters.
-        _setPriceShiftDailyRate(_INITIAL_PRICE_SHIFT_DAILY_RATE);
+        _setVirtualBalanceGrowthRate(_INITIAL_DOUBLING_RATE_SCALING_FACTOR);
         _setCenterednessMargin(_INITIAL_CENTEREDNESS_MARGIN);
         _updateTimestamp();
 
@@ -464,8 +464,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function getPriceShiftDailyRateInSeconds() external view returns (uint256) {
-        return _priceShiftDailyRateInSeconds;
+    function getVirtualBalanceGrowthRate() external view returns (uint256) {
+        return _virtualBalanceGrowthRate;
     }
 
     /// @inheritdoc IReClammPool
@@ -498,7 +498,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         data.lastTimestamp = _lastTimestamp;
         data.lastVirtualBalances = _getLastVirtualBalances();
-        data.priceShiftDailyRateInSeconds = _priceShiftDailyRateInSeconds;
+        data.virtualBalanceGrowthRate = _virtualBalanceGrowthRate;
         data.centerednessMargin = _centerednessMargin;
 
         data.currentFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio(_priceRatioState);
@@ -522,13 +522,13 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.initialMinPrice = _INITIAL_MIN_PRICE;
         data.initialMaxPrice = _INITIAL_MAX_PRICE;
         data.initialTargetPrice = _INITIAL_TARGET_PRICE;
-        data.initialPriceShiftDailyRate = _INITIAL_PRICE_SHIFT_DAILY_RATE;
+        data.initialDoublingRateScalingFactor = _INITIAL_DOUBLING_RATE_SCALING_FACTOR;
         data.initialCenterednessMargin = _INITIAL_CENTEREDNESS_MARGIN;
         data.minCenterednessMargin = _MIN_CENTEREDNESS_MARGIN;
         data.maxCenterednessMargin = _MAX_CENTEREDNESS_MARGIN;
         data.minTokenBalanceScaled18 = _MIN_TOKEN_BALANCE_SCALED18;
         data.minPoolCenteredness = _MIN_POOL_CENTEREDNESS;
-        data.maxPriceShiftDailyRate = _MAX_PRICE_SHIFT_DAILY_RATE;
+        data.maxDoublingRateScalingFactor = _MAX_DOUBLING_RATE_SCALING_FACTOR;
         data.minPriceRatioUpdateDuration = _MIN_PRICE_RATIO_UPDATE_DURATION;
         data.minFourthRootPriceRatioDelta = _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA;
     }
@@ -562,11 +562,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function setPriceShiftDailyRate(
-        uint256 newPriceShiftDailyRate
+    function setVirtualBalanceGrowthRate(
+        uint256 doublingRateScalingFactor
     ) external onlyWhenInitialized onlyWhenVaultIsLocked onlySwapFeeManagerOrGovernance(address(this)) {
         // Update virtual balances before updating the daily rate.
-        _setPriceShiftDailyRateAndUpdateVirtualBalances(newPriceShiftDailyRate);
+        _setVirtualBalanceGrowthRateAndUpdateVirtualBalances(doublingRateScalingFactor);
     }
 
     /// @inheritdoc IReClammPool
@@ -593,7 +593,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             balancesScaled18,
             _lastVirtualBalanceA,
             _lastVirtualBalanceB,
-            _priceShiftDailyRateInSeconds,
+            _virtualBalanceGrowthRate,
             _lastTimestamp,
             _centerednessMargin,
             _priceRatioState
@@ -657,7 +657,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// Using the pool balances to update the virtual balances is dangerous with an unlocked vault, since the balances
     /// are manipulable.
-    function _setPriceShiftDailyRateAndUpdateVirtualBalances(uint256 priceShiftDailyRate) internal {
+    function _setVirtualBalanceGrowthRateAndUpdateVirtualBalances(uint256 doublingRateScalingFactor) internal {
         // Update virtual balances with current daily rate.
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
         (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) = _computeCurrentVirtualBalances(
@@ -668,21 +668,24 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         }
         _updateTimestamp();
 
-        // Update the price shift rate.
-        _setPriceShiftDailyRate(priceShiftDailyRate);
+        // Update the virtual balance growth rate.
+        _setVirtualBalanceGrowthRate(doublingRateScalingFactor);
     }
 
-    function _setPriceShiftDailyRate(uint256 priceShiftDailyRate) internal {
-        if (priceShiftDailyRate > _MAX_PRICE_SHIFT_DAILY_RATE) {
-            revert PriceShiftDailyRateTooHigh();
+    function _setVirtualBalanceGrowthRate(uint256 doublingRateScalingFactor) internal {
+        if (doublingRateScalingFactor > _MAX_DOUBLING_RATE_SCALING_FACTOR) {
+            revert DoublingRateScalingFactorTooHigh();
         }
 
-        uint128 dailyRateInSeconds = ReClammMath.computePriceShiftDailyRate(priceShiftDailyRate);
-        _priceShiftDailyRateInSeconds = dailyRateInSeconds;
+        uint128 virtualBalanceGrowthRate = ReClammMath.computeVirtualBalanceGrowthRate(doublingRateScalingFactor);
+        _virtualBalanceGrowthRate = virtualBalanceGrowthRate;
 
-        emit PriceShiftDailyRateUpdated(priceShiftDailyRate, dailyRateInSeconds);
+        emit VirtualBalanceGrowthRateUpdated(doublingRateScalingFactor, virtualBalanceGrowthRate);
 
-        _vault.emitAuxiliaryEvent("PriceShiftDailyRateUpdated", abi.encode(priceShiftDailyRate, dailyRateInSeconds));
+        _vault.emitAuxiliaryEvent(
+            "VirtualBalanceGrowthRateUpdated",
+            abi.encode(doublingRateScalingFactor, virtualBalanceGrowthRate)
+        );
     }
 
     /**

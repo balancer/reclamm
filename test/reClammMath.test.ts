@@ -13,7 +13,7 @@ import {
   computeCurrentVirtualBalances,
   isAboveCenter,
   isPoolWithinTargetRange,
-  computePriceShiftDailyRate,
+  computeVirtualBalanceGrowthRate,
   pureComputeInvariant,
   Rounding,
   PriceRatioState,
@@ -52,12 +52,12 @@ describe('ReClammMath', function () {
     mathLib = await deploy('ReClammMathMock');
   });
 
-  context('computePriceShiftDailyRate', () => {
+  context('computeVirtualBalanceGrowthRate', () => {
     it('should return the correct value', async () => {
-      const priceShiftDailyRate = bn(1000e18);
-      const contractResult = await mathLib.computePriceShiftDailyRate(priceShiftDailyRate);
+      const doublingRateScalingFactor = bn(1000e18);
+      const contractResult = await mathLib.computeVirtualBalanceGrowthRate(doublingRateScalingFactor);
 
-      expect(contractResult).to.equal(computePriceShiftDailyRate(priceShiftDailyRate));
+      expect(contractResult).to.equal(computeVirtualBalanceGrowthRate(doublingRateScalingFactor));
     });
   });
 

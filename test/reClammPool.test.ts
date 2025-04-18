@@ -26,7 +26,7 @@ import { deployPermit2 } from '@balancer-labs/v3-vault/test/Permit2Deployer';
 import { IPermit2 } from '@balancer-labs/v3-vault/typechain-types/permit2/src/interfaces/IPermit2';
 import { PoolConfigStructOutput } from '@balancer-labs/v3-interfaces/typechain-types/contracts/vault/IVault';
 import { TokenConfigStruct } from '../typechain-types/@balancer-labs/v3-interfaces/contracts/vault/IVault';
-import { computeCurrentVirtualBalances, computePriceShiftDailyRate } from './utils/reClammMath';
+import { computeCurrentVirtualBalances, computeVirtualBalanceGrowthRate } from './utils/reClammMath';
 import { expectEqualWithError } from './utils/relativeError';
 
 describe('ReClammPool', function () {
@@ -46,7 +46,7 @@ describe('ReClammPool', function () {
   const MAX_PRICE = fp(8);
   const TARGET_PRICE = fp(3);
 
-  const PRICE_SHIFT_DAILY_RATE = fp(1); // 100%. Price interval can double or reduce by half each day
+  const DOUBLING_RATE_SCALING_FACTOR = fp(1); // 100%. Price interval can double or reduce by half each day
   // 20%. If pool centeredness is less than margin, price interval will track the market price.
   const CENTEREDNESS_MARGIN = fp(0.2);
 
@@ -108,7 +108,7 @@ describe('ReClammPool', function () {
       MIN_PRICE,
       MAX_PRICE,
       TARGET_PRICE,
-      PRICE_SHIFT_DAILY_RATE,
+      DOUBLING_RATE_SCALING_FACTOR,
       CENTEREDNESS_MARGIN,
       ZERO_BYTES32
     );
@@ -213,7 +213,7 @@ describe('ReClammPool', function () {
     const [expectedFinalVirtualBalances] = computeCurrentVirtualBalances(
       poolBalancesAfterSwap,
       [virtualBalancesAfterSwap.currentVirtualBalanceA, virtualBalancesAfterSwap.currentVirtualBalanceB],
-      computePriceShiftDailyRate(PRICE_SHIFT_DAILY_RATE),
+      computeVirtualBalanceGrowthRate(DOUBLING_RATE_SCALING_FACTOR),
       lastTimestamp,
       expectedTimestamp,
       CENTEREDNESS_MARGIN,
@@ -272,7 +272,7 @@ describe('ReClammPool', function () {
     const [expectedFinalVirtualBalances] = computeCurrentVirtualBalances(
       poolBalancesAfterSwap,
       [virtualBalancesAfterSwap.currentVirtualBalanceA, virtualBalancesAfterSwap.currentVirtualBalanceB],
-      computePriceShiftDailyRate(PRICE_SHIFT_DAILY_RATE),
+      computeVirtualBalanceGrowthRate(DOUBLING_RATE_SCALING_FACTOR),
       lastTimestamp,
       expectedTimestamp,
       CENTEREDNESS_MARGIN,

@@ -39,7 +39,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     uint256 internal constant _DEFAULT_MIN_PRICE = 1000e18;
     uint256 internal constant _DEFAULT_MAX_PRICE = 4000e18;
     uint256 internal constant _DEFAULT_TARGET_PRICE = 2500e18;
-    uint256 internal constant _DEFAULT_PRICE_SHIFT_DAILY_RATE = 100e16; // 100%
+    uint256 internal constant _DEFAULT_DOUBLING_RATE_SCALING_FACTOR = 100e16; // 100%
     uint64 internal constant _DEFAULT_CENTEREDNESS_MARGIN = 20e16; // 20%
 
     uint256 internal constant _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA = 1e3;
@@ -54,7 +54,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     // 1 billion tokens.
     uint256 internal constant _MAX_TOKEN_BALANCE = 1e9 * 1e18;
 
-    uint256 private _priceShiftDailyRate = _DEFAULT_PRICE_SHIFT_DAILY_RATE;
+    uint256 private _doublingRateScalingFactor = _DEFAULT_DOUBLING_RATE_SCALING_FACTOR;
 
     uint256[] internal _initialBalances;
     uint256[] internal _initialVirtualBalances;
@@ -86,8 +86,8 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
         _initialTargetPrice = newTargetPrice;
     }
 
-    function setPriceShiftDailyRate(uint256 priceShiftDailyRate) internal {
-        _priceShiftDailyRate = priceShiftDailyRate;
+    function setDoublingRateScalingFactor(uint256 newDoublingRateScalingFactor) internal {
+        _doublingRateScalingFactor = newDoublingRateScalingFactor;
     }
 
     function createPoolFactory() internal override returns (address) {
@@ -119,7 +119,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
             _initialMinPrice,
             _initialMaxPrice,
             _initialTargetPrice,
-            _DEFAULT_PRICE_SHIFT_DAILY_RATE,
+            _DEFAULT_DOUBLING_RATE_SCALING_FACTOR,
             _DEFAULT_CENTEREDNESS_MARGIN,
             bytes32(saltNumber++)
         );
@@ -136,7 +136,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
                 initialMinPrice: _initialMinPrice,
                 initialMaxPrice: _initialMaxPrice,
                 initialTargetPrice: _initialTargetPrice,
-                priceShiftDailyRate: _DEFAULT_PRICE_SHIFT_DAILY_RATE,
+                initialDoublingRateScalingFactor: _DEFAULT_DOUBLING_RATE_SCALING_FACTOR,
                 centerednessMargin: _DEFAULT_CENTEREDNESS_MARGIN
             }),
             vault

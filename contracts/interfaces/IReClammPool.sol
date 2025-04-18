@@ -13,7 +13,7 @@ struct ReClammPoolParams {
     string name;
     string symbol;
     string version;
-    uint256 priceShiftDailyRate;
+    uint256 initialDoublingRateScalingFactor;
     uint64 centerednessMargin;
     uint256 initialMinPrice;
     uint256 initialMaxPrice;
@@ -31,10 +31,13 @@ struct ReClammPoolParams {
  * @param initialMinPrice The initial minimum price of the pool
  * @param initialMaxPrice The initial maximum price of the pool
  * @param initialTargetPrice The initial target price of the pool
+ * @param initialDoublingRateScalingFactor
+ * @param initialCenterednessMargin
  * @param minCenterednessMargin The minimum centeredness margin for the pool, as a percentage in 18-decimal FP.
  * @param maxCenterednessMargin The maximum centeredness margin for the pool, as a percentage in 18-decimal FP.
  * @param minTokenBalanceScaled18 The minimum token balance for the pool, scaled to 18 decimals.
- * @param maxPriceShiftDailyRate The maximum daily rate for the pool's price shift, as a percentage in 18-decimal FP.
+ * @param minPoolCenteredness
+ * @param maxDoublingRateScalingFactor The maximum doubling rate factor for the pool, as an 18-decimal FP percentage.
  * @param minPriceRatioUpdateDuration The minimum duration for the price ratio update, expressed in seconds.
  * @param minPriceRatioUpdateDuration The minimum absolute difference between current and new fourth root price ratio.
  */
@@ -44,13 +47,13 @@ struct ReClammPoolImmutableData {
     uint256 initialMinPrice;
     uint256 initialMaxPrice;
     uint256 initialTargetPrice;
-    uint256 initialPriceShiftDailyRate;
+    uint256 initialDoublingRateScalingFactor;
     uint256 initialCenterednessMargin;
     uint256 minCenterednessMargin;
     uint256 maxCenterednessMargin;
     uint256 minTokenBalanceScaled18;
     uint256 minPoolCenteredness;
-    uint256 maxPriceShiftDailyRate;
+    uint256 maxDoublingRateScalingFactor;
     uint256 minPriceRatioUpdateDuration;
     uint256 minFourthRootPriceRatioDelta;
 }
@@ -69,7 +72,7 @@ struct ReClammPoolImmutableData {
  * ReClamm:
  * @param lastTimestamp The timestamp of the last user interaction
  * @param lastVirtualBalances The last virtual balances of the pool
- * @param priceShiftDailyRateInSeconds Represents how fast the pool can move the virtual balances per day
+ * @param virtualBalanceGrowthRate Represents how fast the pool can move the virtual balances per day
  * @param centerednessMargin The centeredness margin of the pool
  * @param currentFourthRootPriceRatio The current fourth root price ratio, an interpolation of the price ratio state
  * @param startFourthRootPriceRatio The fourth root price ratio at the start of an update
@@ -90,7 +93,7 @@ struct ReClammPoolDynamicData {
     // ReClamm
     uint256 lastTimestamp;
     uint256[] lastVirtualBalances;
-    uint256 priceShiftDailyRateInSeconds;
+    uint256 virtualBalanceGrowthRate;
     uint256 centerednessMargin;
     uint256 currentFourthRootPriceRatio;
     uint256 startFourthRootPriceRatio;
@@ -126,7 +129,8 @@ interface IReClammPool is IBasePool {
     /**
      * @notice The virtual balances were updated after a user interaction (swap or liquidity operation).
      * @dev Unless the price range is changing, the virtual balances remain in proportion to the real balances.
-     * These balances will also be updated when governance changes the centeredness margin or price shift daily rate.
+     * These balances will also be updated when governance changes the centeredness margin or virtual balance
+     * growth rate.
      *
      * @param virtualBalanceA Offset to the real balance reserves
      * @param virtualBalanceB Offset to the real balance reserves
@@ -134,12 +138,12 @@ interface IReClammPool is IBasePool {
     event VirtualBalancesUpdated(uint256 virtualBalanceA, uint256 virtualBalanceB);
 
     /**
-     * @notice The price shift daily rate was updated.
+     * @notice The virtual balance growth rate was updated by supplying a new doubling rate scaling factor.
      * @dev This will be emitted on deployment, and when changed by governance or the swap manager.
-     * @param priceShiftDailyRate The new price shift daily rate
-     * @param priceShiftDailyRateInSeconds A representation of the price shift daily rate in seconds
+     * @param doublingRateScalingFactor The new doubling rate scaling factor
+     * @param virtualBalanceGrowthRate The corresponding internal virtual balance growth rate
      */
-    event PriceShiftDailyRateUpdated(uint256 priceShiftDailyRate, uint256 priceShiftDailyRateInSeconds);
+    event VirtualBalanceGrowthRateUpdated(uint256 doublingRateScalingFactor, uint256 virtualBalanceGrowthRate);
 
     /**
      * @notice The centeredness margin was updated.
@@ -183,8 +187,8 @@ interface IReClammPool is IBasePool {
     /// @notice
     error InvalidInitialPrice();
 
-    /// @notice The daily price shift rate is too high.
-    error PriceShiftDailyRateTooHigh();
+    /// @notice The doubling rate scaling factor, used to compute the virtual balance growth rate, is too high.
+    error DoublingRateScalingFactorTooHigh();
 
     /// @notice The difference between end time and start time is too short for the price ratio update.
     error PriceRatioUpdateDurationTooShort();
@@ -302,11 +306,11 @@ interface IReClammPool is IBasePool {
     function getCenterednessMargin() external view returns (uint256 centerednessMargin);
 
     /**
-     * @notice Returns the internal representation of a raw price shift daily rate.
-     * @dev The shift rate is expressed in seconds.
-     * @return priceShiftDailyRateInSeconds The internal rate
+     * @notice Returns the internal representation of the doubling rate scaling factor.
+     * @dev
+     * @return virtualBalanceGrowthRate The internal rate
      */
-    function getPriceShiftDailyRateInSeconds() external view returns (uint256 priceShiftDailyRateInSeconds);
+    function getVirtualBalanceGrowthRate() external view returns (uint256 virtualBalanceGrowthRate);
 
     /**
      * @notice Returns the current price ratio state.
@@ -383,13 +387,13 @@ interface IReClammPool is IBasePool {
     ) external returns (uint256 actualPriceRatioUpdateStartTime);
 
     /**
-     * @notice Updates the price shift daily rate.
+     * @notice Updates the virtual balance growth rate, by supplying a new doubling rate scaling factor.
      * @dev This function is considered a user interaction, and therefore recalculates the virtual balances and sets
      * the last timestamp. This is a permissioned function.
      *
-     * @param newPriceShiftDailyRate The new price shift daily rate
+     * @param newDoublingRateScalingFactor The new doubling rate scaling factor
      */
-    function setPriceShiftDailyRate(uint256 newPriceShiftDailyRate) external;
+    function setVirtualBalanceGrowthRate(uint256 newDoublingRateScalingFactor) external;
 
     /**
      * @notice Set the centeredness margin.
