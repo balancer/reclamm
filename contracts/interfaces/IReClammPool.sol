@@ -31,12 +31,12 @@ struct ReClammPoolParams {
  * @param initialMinPrice The initial minimum price of the pool
  * @param initialMaxPrice The initial maximum price of the pool
  * @param initialTargetPrice The initial target price of the pool
- * @param initialDoublingRateScalingFactor
- * @param initialCenterednessMargin
- * @param minCenterednessMargin The minimum centeredness margin for the pool, as a percentage in 18-decimal FP.
- * @param maxCenterednessMargin The maximum centeredness margin for the pool, as a percentage in 18-decimal FP.
+ * @param initialDoublingRateScalingFactor The initial doubling rate scaling factor percentage (100 = doubles in 1 day)
+ * @param initialCenterednessMargin The initial centeredness margin (between the min and max)
+ * @param minCenterednessMargin The minimum centeredness margin for the pool, as a percentage in 18-decimal FP
+ * @param maxCenterednessMargin The maximum centeredness margin for the pool, as a percentage in 18-decimal FP
  * @param minTokenBalanceScaled18 The minimum token balance for the pool, scaled to 18 decimals.
- * @param minPoolCenteredness
+ * @param minPoolCenteredness The minimum amount of centeredness required for the math to be well-behaved
  * @param maxDoublingRateScalingFactor The maximum doubling rate factor for the pool, as an 18-decimal FP percentage.
  * @param minPriceRatioUpdateDuration The minimum duration for the price ratio update, expressed in seconds.
  * @param minPriceRatioUpdateDuration The minimum absolute difference between current and new fourth root price ratio.
