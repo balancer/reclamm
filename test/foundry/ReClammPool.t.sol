@@ -39,6 +39,7 @@ contract ReClammPoolTest is BaseReClammTest {
     using SafeCast for *;
 
     uint256 private constant _NEW_CENTEREDNESS_MARGIN = 30e16;
+    uint256 private constant _INITIAL_AMOUNT = 1000e18;
 
     ReClammMathMock mathMock = new ReClammMathMock();
 
@@ -799,5 +800,35 @@ contract ReClammPoolTest is BaseReClammTest {
 
         assertEq(lastVirtualBalances[a], virtualBalanceA, "Invalid last virtual balance A");
         assertEq(lastVirtualBalances[b], virtualBalanceB, "Invalid last virtual balance B");
+    }
+
+    function testInitialBalanceRatioAndBalances() public view {
+        ReClammPoolImmutableData memory data = ReClammPool(pool).getReClammPoolImmutableData();
+
+        (uint256[] memory realBalances, , , ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
+            data.initialMinPrice,
+            data.initialMaxPrice,
+            data.initialTargetPrice
+        );
+
+        uint256 bOverA = realBalances[b].divDown(realBalances[a]);
+        // If the ratio is 1, this isn't testing anything.
+        assertNotEq(bOverA, FixedPoint.ONE, "Ratio is 1");
+
+        assertEq(ReClammPool(pool).computeInitialBalanceRatio(), bOverA, "Wrong initial balance ratio");
+
+        IERC20[] memory tokens = vault.getPoolTokens(pool);
+
+        // Compute balances given A.
+        uint256[] memory initialBalances = ReClammPool(pool).computeInitialBalances(tokens[a], _INITIAL_AMOUNT);
+        assertEq(initialBalances[a], _INITIAL_AMOUNT, "Initial amount doesn't match given amount (A)");
+        uint256 expectedAmount = _INITIAL_AMOUNT.mulDown(bOverA);
+        assertEq(initialBalances[b], expectedAmount, "Wrong other token amount (B)");
+
+        // Compute balances given B.
+        initialBalances = ReClammPool(pool).computeInitialBalances(tokens[b], _INITIAL_AMOUNT);
+        assertEq(initialBalances[b], _INITIAL_AMOUNT, "Initial amount doesn't match given amount (B)");
+        expectedAmount = _INITIAL_AMOUNT.divDown(bOverA);
+        assertEq(initialBalances[a], expectedAmount, "Wrong other token amount (A)");
     }
 }
