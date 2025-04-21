@@ -281,7 +281,7 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(data.decimalScalingFactors[usdcIdx], 1, "Invalid USDC decimal scaling factor");
 
         assertEq(data.minCenterednessMargin, 0, "Invalid min centeredness margin");
-        assertEq(data.maxCenterednessMargin, FixedPoint.ONE, "Invalid max centeredness margin");
+        assertEq(data.maxCenterednessMargin, 50e16, "Invalid max centeredness margin");
 
         // Ensure that centeredness margin parameters fit in uint64
         assertEq(data.minCenterednessMargin, uint64(data.minCenterednessMargin), "Min centeredness margin not uint64");
