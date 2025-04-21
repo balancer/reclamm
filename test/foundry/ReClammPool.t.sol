@@ -630,6 +630,48 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(lastVirtualBalances[usdcIdx], virtualBalancesBefore[usdcIdx], "USDC virtual balance does not match");
     }
 
+    function testComputeInitialBalancesTokenA() public {
+        IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens);
+
+        (address pool, ) = _createPool(
+            [address(sortedTokens[a]), address(sortedTokens[b])].toMemoryArray(),
+            "BeforeInitTest"
+        );
+
+        assertFalse(vault.isPoolInitialized(pool), "Pool is initialized");
+        uint256 initialBalanceRatio = ReClammPool(pool).computeInitialBalanceRatio();
+
+        uint256[] memory initialBalances = ReClammPool(pool).computeInitialBalances(sortedTokens[a], _INITIAL_AMOUNT);
+        assertEq(initialBalances[a], _INITIAL_AMOUNT, "Invalid initial balance for token A");
+        assertEq(initialBalances[b], _INITIAL_AMOUNT.mulDown(initialBalanceRatio), "Invalid initial balance for token B");
+
+        // Does not revert
+        vm.startPrank(lp);
+        _initPool(pool, initialBalances, 0);
+        assertTrue(vault.isPoolInitialized(pool), "Pool is not initialized");
+    }
+
+    function testComputeInitialBalancesTokenB() public {
+        IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens);
+
+        (address pool, ) = _createPool(
+            [address(sortedTokens[a]), address(sortedTokens[b])].toMemoryArray(),
+            "BeforeInitTest"
+        );
+
+        assertFalse(vault.isPoolInitialized(pool), "Pool is initialized");
+        uint256 initialBalanceRatio = ReClammPool(pool).computeInitialBalanceRatio();
+
+        uint256[] memory initialBalances = ReClammPool(pool).computeInitialBalances(sortedTokens[b], _INITIAL_AMOUNT);
+        assertEq(initialBalances[b], _INITIAL_AMOUNT, "Invalid initial balance for token B");
+        assertEq(initialBalances[a], _INITIAL_AMOUNT.divDown(initialBalanceRatio), "Invalid initial balance for token A");
+
+        // Does not revert
+        vm.startPrank(lp);
+        _initPool(pool, initialBalances, 0);
+        assertTrue(vault.isPoolInitialized(pool), "Pool is not initialized");
+    }
+
     function testComputePriceRangeBeforeInitialized() public {
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens);
 
