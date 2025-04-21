@@ -643,7 +643,11 @@ contract ReClammPoolTest is BaseReClammTest {
 
         uint256[] memory initialBalances = ReClammPool(pool).computeInitialBalances(sortedTokens[a], _INITIAL_AMOUNT);
         assertEq(initialBalances[a], _INITIAL_AMOUNT, "Invalid initial balance for token A");
-        assertEq(initialBalances[b], _INITIAL_AMOUNT.mulDown(initialBalanceRatio), "Invalid initial balance for token B");
+        assertEq(
+            initialBalances[b],
+            _INITIAL_AMOUNT.mulDown(initialBalanceRatio),
+            "Invalid initial balance for token B"
+        );
 
         // Does not revert
         vm.startPrank(lp);
@@ -664,12 +668,21 @@ contract ReClammPoolTest is BaseReClammTest {
 
         uint256[] memory initialBalances = ReClammPool(pool).computeInitialBalances(sortedTokens[b], _INITIAL_AMOUNT);
         assertEq(initialBalances[b], _INITIAL_AMOUNT, "Invalid initial balance for token B");
-        assertEq(initialBalances[a], _INITIAL_AMOUNT.divDown(initialBalanceRatio), "Invalid initial balance for token A");
+        assertEq(
+            initialBalances[a],
+            _INITIAL_AMOUNT.divDown(initialBalanceRatio),
+            "Invalid initial balance for token A"
+        );
 
         // Does not revert
         vm.startPrank(lp);
         _initPool(pool, initialBalances, 0);
         assertTrue(vault.isPoolInitialized(pool), "Pool is not initialized");
+    }
+
+    function testComputeInitialBalancesInvalidToken() public {
+        vm.expectRevert(IVaultErrors.InvalidToken.selector);
+        ReClammPool(pool).computeInitialBalances(wsteth, _INITIAL_AMOUNT);
     }
 
     function testComputePriceRangeBeforeInitialized() public {
