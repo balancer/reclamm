@@ -605,6 +605,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _lastVirtualBalanceB = virtualBalanceB.toUint128();
 
         emit VirtualBalancesUpdated(virtualBalanceA, virtualBalanceB);
+
+        _vault.emitAuxiliaryEvent("VirtualBalancesUpdated", abi.encode(virtualBalanceA, virtualBalanceB));
     }
 
     function _setPriceRatioState(

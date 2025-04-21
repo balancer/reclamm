@@ -829,6 +829,23 @@ contract ReClammPoolTest is BaseReClammTest {
         ReClammPool(pool).setPriceShiftDailyRate(newPriceShiftDailyRate);
     }
 
+    function testSetLastVirtualBalances() public {
+        uint256 virtualBalanceA = 10000e18;
+        uint256 virtualBalanceB = 12000e18;
+
+        vm.expectEmit(pool);
+        emit IReClammPool.VirtualBalancesUpdated(virtualBalanceA, virtualBalanceB);
+
+        vm.expectEmit(address(vault));
+        emit IVaultEvents.VaultAuxiliary(pool, "VirtualBalancesUpdated", abi.encode(virtualBalanceA, virtualBalanceB));
+
+        ReClammPoolMock(pool).setLastVirtualBalances([virtualBalanceA, virtualBalanceB].toMemoryArray());
+        uint256[] memory lastVirtualBalances = _getLastVirtualBalances(pool);
+
+        assertEq(lastVirtualBalances[a], virtualBalanceA, "Invalid last virtual balance A");
+        assertEq(lastVirtualBalances[b], virtualBalanceB, "Invalid last virtual balance B");
+    }
+
     function testSetLastVirtualBalances__Fuzz(uint256 virtualBalanceA, uint256 virtualBalanceB) public {
         virtualBalanceA = bound(virtualBalanceA, 1, type(uint128).max);
         virtualBalanceB = bound(virtualBalanceB, 1, type(uint128).max);
