@@ -120,11 +120,12 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
             return;
         }
 
-        (uint256[] memory virtualBalances, ) = ReClammPool(address(pool)).computeCurrentVirtualBalances();
+        (uint256 virtualBalanceA, uint256 virtualBalanceB, ) = ReClammPool(address(pool)).computeCurrentVirtualBalances();
 
         uint256 exactAmountIn = ReClammMath.computeInGivenOut(
             balances,
-            virtualBalances,
+            virtualBalanceA,
+            virtualBalanceB,
             tokenIndexIn,
             tokenIndexOut,
             exactAmountOut
