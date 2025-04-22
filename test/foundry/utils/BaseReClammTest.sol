@@ -32,6 +32,8 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     using ArrayHelpers for *;
     using SafeCast for *;
 
+    uint256 internal constant _PRICE_SHIFT_DAILY_RATE_INTERNAL_ADJUSTMENT = 124649;
+
     uint256 internal constant _INITIAL_PROTOCOL_FEE_PERCENTAGE = 1e16;
     uint256 internal constant _DEFAULT_SWAP_FEE = 0; // 0%
     string internal constant _POOL_VERSION = "ReClamm Pool v1";

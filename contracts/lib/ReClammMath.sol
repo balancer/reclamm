@@ -51,7 +51,10 @@ library ReClammMath {
     // 3. Replace `V_next` with `2*V_current` and `n` with `86400` to get `tau = 1 - pow(2, 1/(86400+1))`.
     // 4. Since `tau = priceShiftDailyRate/x`, then `x = priceShiftDailyRate/tau`. Since priceShiftDailyRate = 100%,
     //    then `x = 100%/(1 - pow(2, 1/(86400+1)))`, which is 124649.
-    uint256 private constant _SECONDS_PER_DAY_WITH_ADJUSTMENT = 124649;
+    //
+    // This constant shall be used to scale the priceShiftDailyRate, which is a percentage, to the actual value of tau
+    // that will be used in the formula.
+    uint256 private constant _PRICE_SHIFT_DAILY_RATE_INTERNAL_ADJUSTMENT = 124649;
 
     // We need to use a random number to calculate the initial virtual and real balances. This number will be scaled
     // later, during initialization, according to the actual liquidity added. Choosing a large number will maintain
@@ -63,7 +66,7 @@ library ReClammMath {
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param lastVirtualBalanceA The last virtual balance of token A
      * @param lastVirtualBalanceB The last virtual balance of token B
-     * @param priceShiftDailyRateInSeconds IncreaseDayRate divided by 124649
+     * @param priceShiftDailyRateInternalTimeConstant Internal time constant for the price shift daily rate (tau)
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @param centerednessMargin A symmetrical measure of how closely an unbalanced pool can approach the limits of the
      * price range before it is considered outside the target range
@@ -75,7 +78,7 @@ library ReClammMath {
         uint256[] memory balancesScaled18,
         uint256 lastVirtualBalanceA,
         uint256 lastVirtualBalanceB,
-        uint256 priceShiftDailyRateInSeconds,
+        uint256 priceShiftDailyRateInternalTimeConstant,
         uint32 lastTimestamp,
         uint64 centerednessMargin,
         PriceRatioState storage priceRatioState,
@@ -85,7 +88,7 @@ library ReClammMath {
             balancesScaled18,
             lastVirtualBalanceA,
             lastVirtualBalanceB,
-            priceShiftDailyRateInSeconds,
+            priceShiftDailyRateInternalTimeConstant,
             lastTimestamp,
             centerednessMargin,
             priceRatioState
@@ -282,7 +285,7 @@ library ReClammMath {
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param lastVirtualBalanceA The last virtual balance of token A
      * @param lastVirtualBalanceB The last virtual balance of token B
-     * @param priceShiftDailyRateInSeconds IncreaseDayRate divided by 124649
+     * @param priceShiftDailyRateInternalTimeConstant Internal time constant for the price shift daily rate (tau)
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @param centerednessMargin A limit of the pool centeredness that defines if pool is outside the target range
      * @param storedPriceRatioState A struct containing start and end price ratios and a time interval
@@ -294,7 +297,7 @@ library ReClammMath {
         uint256[] memory balancesScaled18,
         uint256 lastVirtualBalanceA,
         uint256 lastVirtualBalanceB,
-        uint256 priceShiftDailyRateInSeconds,
+        uint256 priceShiftDailyRateInternalTimeConstant,
         uint32 lastTimestamp,
         uint64 centerednessMargin,
         PriceRatioState storage storedPriceRatioState
@@ -358,7 +361,7 @@ library ReClammMath {
             }
 
             // stack-too-deep
-            uint256 _priceShiftDailyRateInSeconds = priceShiftDailyRateInSeconds;
+            uint256 _priceShiftDailyRateInSeconds = priceShiftDailyRateInternalTimeConstant;
             uint256[] memory _balancesScaled18 = balancesScaled18;
             uint32 _lastTimestamp = lastTimestamp;
 
@@ -449,7 +452,7 @@ library ReClammMath {
      * @param virtualBalanceA The last virtual balance of token A
      * @param virtualBalanceB The last virtual balance of token B
      * @param isPoolAboveCenter Whether the pool is above or below the center of the price range
-     * @param priceShiftDailyRateInSeconds IncreaseDayRate divided by 124649
+     * @param priceShiftDailyRateInternalTimeConstant Internal time constant for the price shift daily rate (tau)
      * @param currentTimestamp The current timestamp
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @return newVirtualBalanceA The new virtual balance of token A
@@ -461,7 +464,7 @@ library ReClammMath {
         uint256 virtualBalanceA,
         uint256 virtualBalanceB,
         bool isPoolAboveCenter,
-        uint256 priceShiftDailyRateInSeconds,
+        uint256 priceShiftDailyRateInternalTimeConstant,
         uint32 currentTimestamp,
         uint32 lastTimestamp
     ) internal pure returns (uint256 newVirtualBalanceA, uint256 newVirtualBalanceB) {
@@ -476,10 +479,10 @@ library ReClammMath {
             ? (virtualBalanceA, virtualBalanceB)
             : (virtualBalanceB, virtualBalanceA);
 
-        // Vb = Vb * (1 - priceShiftDailyRateInSeconds)^(T_curr - T_last)
+        // Vb = Vb * (1 - priceShiftDailyRateInternalTimeConstant)^(T_curr - T_last)
         virtualBalanceOvervalued = virtualBalanceOvervalued.mulDown(
             LogExpMath.pow(
-                FixedPoint.ONE - priceShiftDailyRateInSeconds,
+                FixedPoint.ONE - priceShiftDailyRateInternalTimeConstant,
                 (currentTimestamp - lastTimestamp) * FixedPoint.ONE
             )
         );
@@ -614,12 +617,21 @@ library ReClammMath {
 
     /**
      * @notice Convert a raw daily rate into the value used internally.
-     * @param priceShiftDailyRate The price shift daily rate
-     * @return priceShiftDailyRateInSeconds Represents how fast the pool can move the virtual balances per day
+     * @param priceShiftDailyRate The price shift daily rate as a FP-18 percentage
+     * @return priceShiftDailyRateInternalTimeConstant Internal representation of the price shift daily rate
      */
-    function computePriceShiftDailyRate(uint256 priceShiftDailyRate) internal pure returns (uint128) {
+    function toInternalTimeConstant(uint256 priceShiftDailyRate) internal pure returns (uint256) {
         // Divide daily rate by a number of seconds per day (plus some adjustment)
-        return (priceShiftDailyRate / _SECONDS_PER_DAY_WITH_ADJUSTMENT).toUint128();
+        return priceShiftDailyRate / _PRICE_SHIFT_DAILY_RATE_INTERNAL_ADJUSTMENT;
+    }
+
+    /**
+     * Converts internal representation of the price shift daily rate to the price shift daily rate as FP-18 percentage.
+     * @param priceShiftDailyRateInternal Internal representation of the price shift daily rate
+     * @return priceShiftDailyRate The price shift daily rate as a FP-18 percentage
+     */
+    function toPriceShiftDailyRate(uint256 priceShiftDailyRateInternal) internal pure returns (uint256) {
+        return priceShiftDailyRateInternal * _PRICE_SHIFT_DAILY_RATE_INTERNAL_ADJUSTMENT;
     }
 
     /**

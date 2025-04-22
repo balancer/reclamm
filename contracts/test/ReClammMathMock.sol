@@ -154,8 +154,4 @@ contract ReClammMathMock {
     ) external pure returns (bool) {
         return ReClammMath.isAboveCenter(balancesScaled18, virtualBalances[a], virtualBalances[b]);
     }
-
-    function computePriceShiftDailyRate(uint256 priceShiftDailyRate) external pure returns (uint256) {
-        return ReClammMath.computePriceShiftDailyRate(priceShiftDailyRate);
-    }
 }

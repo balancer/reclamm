@@ -302,11 +302,21 @@ interface IReClammPool is IBasePool {
     function getCenterednessMargin() external view returns (uint256 centerednessMargin);
 
     /**
-     * @notice Returns the internal representation of a raw price shift daily rate.
-     * @dev The shift rate is expressed in seconds.
-     * @return priceShiftDailyRateInSeconds The internal rate
+     * @notice Returns the price shift daily rate as a FP-18 percentage.
+     * @dev At 100% (FixedPoint.ONE), the price range doubles (or halves) within a day.
+     * @return priceShiftDailyRate The price shift daily rate
      */
-    function getPriceShiftDailyRateInSeconds() external view returns (uint256 priceShiftDailyRateInSeconds);
+    function getPriceShiftDailyRate() external view returns (uint256 priceShiftDailyRate);
+
+    /**
+     * @notice Returns the internal time constant representation for the price shift daily rate (tau).
+     * @dev Equals priceShiftDailyRate / 124649.
+     * @return priceShiftDailyRateInternalTimeConstant The internal representation for the price shift daily rate
+     */
+    function getPriceShiftDailyRateInternalTimeConstant()
+        external
+        view
+        returns (uint256 priceShiftDailyRateInternalTimeConstant);
 
     /**
      * @notice Returns the current price ratio state.

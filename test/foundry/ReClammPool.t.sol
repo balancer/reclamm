@@ -120,16 +120,30 @@ contract ReClammPoolTest is BaseReClammTest {
         );
     }
 
-    function testGetPriceShiftDailyRateInSeconds() public {
+    function testGetPriceShiftDailyRateInternal() public {
         uint256 priceShiftDailyRate = 20e16;
-        uint256 expectedPriceShiftDailyRateInSeconds = mathMock.computePriceShiftDailyRate(priceShiftDailyRate);
+        uint256 expectedPriceShiftDailyRateInternal = ReClammMath.toInternalTimeConstant(priceShiftDailyRate);
         vm.prank(admin);
         ReClammPool(pool).setPriceShiftDailyRate(priceShiftDailyRate);
 
-        uint256 actualPriceShiftDailyRateInSeconds = ReClammPool(pool).getPriceShiftDailyRateInSeconds();
+        uint256 actualPriceShiftDailyRateInternal = ReClammPool(pool).getPriceShiftDailyRateInternalTimeConstant();
         assertEq(
-            actualPriceShiftDailyRateInSeconds,
-            expectedPriceShiftDailyRateInSeconds,
+            actualPriceShiftDailyRateInternal,
+            expectedPriceShiftDailyRateInternal,
+            "Invalid priceShiftDailyRateInSeconds"
+        );
+    }
+
+    function testGetPriceShiftDailyRateInternalExternal() public {
+        uint256 priceShiftDailyRate = 30e16;
+        vm.prank(admin);
+        ReClammPool(pool).setPriceShiftDailyRate(priceShiftDailyRate);
+
+        uint256 actualPriceShiftDailyRateInternal = ReClammPool(pool).getPriceShiftDailyRateInternalTimeConstant();
+        uint256 actualPriceShiftDailyRate = ReClammPool(pool).getPriceShiftDailyRate();
+        assertEq(
+            actualPriceShiftDailyRate / _PRICE_SHIFT_DAILY_RATE_INTERNAL_ADJUSTMENT,
+            actualPriceShiftDailyRateInternal,
             "Invalid priceShiftDailyRateInSeconds"
         );
     }
@@ -414,7 +428,8 @@ contract ReClammPoolTest is BaseReClammTest {
     function testSetPriceShiftDailyRate() public {
         uint256 newPriceShiftDailyRate = 200e16;
 
-        uint256 rateInSeconds = ReClammMath.computePriceShiftDailyRate(newPriceShiftDailyRate);
+        uint256 priceShiftDailyRateInternal = ReClammMath.toInternalTimeConstant(newPriceShiftDailyRate);
+        uint256 actualNewPriceShiftDailyRate = ReClammMath.toPriceShiftDailyRate(priceShiftDailyRateInternal);
 
         vm.expectEmit();
         emit IReClammPool.LastTimestampUpdated(block.timestamp.toUint32());
@@ -423,13 +438,13 @@ contract ReClammPoolTest is BaseReClammTest {
         emit IVaultEvents.VaultAuxiliary(pool, "LastTimestampUpdated", abi.encode(block.timestamp.toUint32()));
 
         vm.expectEmit();
-        emit IReClammPool.PriceShiftDailyRateUpdated(newPriceShiftDailyRate, rateInSeconds);
+        emit IReClammPool.PriceShiftDailyRateUpdated(actualNewPriceShiftDailyRate, priceShiftDailyRateInternal);
 
         vm.expectEmit();
         emit IVaultEvents.VaultAuxiliary(
             pool,
             "PriceShiftDailyRateUpdated",
-            abi.encode(newPriceShiftDailyRate, rateInSeconds)
+            abi.encode(actualNewPriceShiftDailyRate, priceShiftDailyRateInternal)
         );
 
         vm.prank(admin);
@@ -466,7 +481,8 @@ contract ReClammPoolTest is BaseReClammTest {
         );
 
         uint256 newPriceShiftDailyRate = 200e16;
-        uint128 dailyRateInSeconds = ReClammMath.computePriceShiftDailyRate(newPriceShiftDailyRate);
+        uint128 priceShiftDailyRateInternal = ReClammMath.toInternalTimeConstant(newPriceShiftDailyRate).toUint128();
+        uint256 actualNewPriceShiftDailyRate = ReClammMath.toPriceShiftDailyRate(priceShiftDailyRateInternal);
 
         vm.expectEmit(address(pool));
         emit IReClammPool.LastTimestampUpdated(block.timestamp.toUint32());
@@ -475,16 +491,13 @@ contract ReClammPoolTest is BaseReClammTest {
         emit IVaultEvents.VaultAuxiliary(pool, "LastTimestampUpdated", abi.encode(block.timestamp.toUint32()));
 
         vm.expectEmit(address(pool));
-        emit IReClammPool.PriceShiftDailyRateUpdated(
-            newPriceShiftDailyRate,
-            ReClammMath.computePriceShiftDailyRate(newPriceShiftDailyRate)
-        );
+        emit IReClammPool.PriceShiftDailyRateUpdated(actualNewPriceShiftDailyRate, priceShiftDailyRateInternal);
 
         vm.expectEmit(address(vault));
         emit IVaultEvents.VaultAuxiliary(
             pool,
             "PriceShiftDailyRateUpdated",
-            abi.encode(newPriceShiftDailyRate, dailyRateInSeconds)
+            abi.encode(actualNewPriceShiftDailyRate, priceShiftDailyRateInternal)
         );
 
         vm.prank(admin);
@@ -777,7 +790,10 @@ contract ReClammPoolTest is BaseReClammTest {
             data.initialTargetPrice
         );
 
-        uint128 dailyRateInSeconds = ReClammMath.computePriceShiftDailyRate(data.initialPriceShiftDailyRate);
+        uint128 priceShiftDailyRateInternal = ReClammMath
+            .toInternalTimeConstant(data.initialPriceShiftDailyRate)
+            .toUint128();
+        uint256 actualPriceShiftDailyRate = ReClammMath.toPriceShiftDailyRate(priceShiftDailyRateInternal);
 
         vm.expectEmit(newPool);
         emit IReClammPool.PriceRatioStateUpdated(0, fourthRootPriceRatio, block.timestamp, block.timestamp);
@@ -790,13 +806,13 @@ contract ReClammPoolTest is BaseReClammTest {
         );
 
         vm.expectEmit(newPool);
-        emit IReClammPool.PriceShiftDailyRateUpdated(data.initialPriceShiftDailyRate, dailyRateInSeconds);
+        emit IReClammPool.PriceShiftDailyRateUpdated(actualPriceShiftDailyRate, priceShiftDailyRateInternal);
 
         vm.expectEmit(address(vault));
         emit IVaultEvents.VaultAuxiliary(
             newPool,
             "PriceShiftDailyRateUpdated",
-            abi.encode(data.initialPriceShiftDailyRate, dailyRateInSeconds)
+            abi.encode(actualPriceShiftDailyRate, priceShiftDailyRateInternal)
         );
 
         vm.expectEmit(newPool);

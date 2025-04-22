@@ -33,6 +33,7 @@ import {
 contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthentication, Version, BaseHooks {
     using FixedPoint for uint256;
     using SafeCast for *;
+    using ReClammMath for *;
 
     // uint256 private constant _MIN_SWAP_FEE_PERCENTAGE = 0.001e16; // 0.001%
     uint256 internal constant _MIN_SWAP_FEE_PERCENTAGE = 0;
@@ -75,7 +76,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint32 internal _lastTimestamp;
 
     // Internal representation of the speed at which the pool moves the virtual balances when outside the target range.
-    uint128 internal _priceShiftDailyRateInSeconds;
+    uint128 internal _priceShiftDailyRateInternalTimeConstant;
 
     // Used to define the target price range of the pool (i.e., where the pool centeredness > centeredness margin).
     uint64 internal _centerednessMargin;
@@ -147,7 +148,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                 balancesScaled18,
                 _lastVirtualBalanceA,
                 _lastVirtualBalanceB,
-                _priceShiftDailyRateInSeconds,
+                _priceShiftDailyRateInternalTimeConstant,
                 _lastTimestamp,
                 _centerednessMargin,
                 _priceRatioState,
@@ -464,8 +465,13 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function getPriceShiftDailyRateInSeconds() external view returns (uint256) {
-        return _priceShiftDailyRateInSeconds;
+    function getPriceShiftDailyRate() external view returns (uint256) {
+        return _priceShiftDailyRateInternalTimeConstant.toPriceShiftDailyRate();
+    }
+
+    /// @inheritdoc IReClammPool
+    function getPriceShiftDailyRateInternalTimeConstant() external view returns (uint256) {
+        return _priceShiftDailyRateInternalTimeConstant;
     }
 
     /// @inheritdoc IReClammPool
@@ -498,7 +504,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         data.lastTimestamp = _lastTimestamp;
         data.lastVirtualBalances = _getLastVirtualBalances();
-        data.priceShiftDailyRateInSeconds = _priceShiftDailyRateInSeconds;
+        data.priceShiftDailyRateInSeconds = _priceShiftDailyRateInternalTimeConstant;
         data.centerednessMargin = _centerednessMargin;
 
         data.currentFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio(_priceRatioState);
@@ -593,7 +599,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             balancesScaled18,
             _lastVirtualBalanceA,
             _lastVirtualBalanceB,
-            _priceShiftDailyRateInSeconds,
+            _priceShiftDailyRateInternalTimeConstant,
             _lastTimestamp,
             _centerednessMargin,
             _priceRatioState
@@ -677,12 +683,16 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             revert PriceShiftDailyRateTooHigh();
         }
 
-        uint128 dailyRateInSeconds = ReClammMath.computePriceShiftDailyRate(priceShiftDailyRate);
-        _priceShiftDailyRateInSeconds = dailyRateInSeconds;
+        uint256 internalTimeConstant = priceShiftDailyRate.toInternalTimeConstant();
+        // There might be precision loss when adjusting to the internal representation, so we need to
+        // convert back to the external representation to emit the event.
+        priceShiftDailyRate = internalTimeConstant.toPriceShiftDailyRate();
 
-        emit PriceShiftDailyRateUpdated(priceShiftDailyRate, dailyRateInSeconds);
+        _priceShiftDailyRateInternalTimeConstant = internalTimeConstant.toUint128();
 
-        _vault.emitAuxiliaryEvent("PriceShiftDailyRateUpdated", abi.encode(priceShiftDailyRate, dailyRateInSeconds));
+        emit PriceShiftDailyRateUpdated(priceShiftDailyRate, internalTimeConstant);
+
+        _vault.emitAuxiliaryEvent("PriceShiftDailyRateUpdated", abi.encode(priceShiftDailyRate, internalTimeConstant));
     }
 
     /**

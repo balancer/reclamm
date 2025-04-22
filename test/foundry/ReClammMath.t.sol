@@ -18,9 +18,6 @@ contract ReClammMathTest is BaseReClammTest {
     using ArrayHelpers for *;
     using FixedPoint for uint256;
 
-    // Constant to increase the price by a factor 2 if price shift daily rate is 100%.
-    uint256 private constant _SECONDS_PER_DAY_WITH_ADJUSTMENT = 124649;
-
     uint256 private constant _MAX_CENTEREDNESS_ERROR_ABS = 5e7;
     uint256 private constant _MAX_PRICE_ERROR_ABS = 2e16;
 
@@ -33,11 +30,11 @@ contract ReClammMathTest is BaseReClammTest {
 
     function testParsePriceShiftDailyRate() public pure {
         uint256 value = 2123e9;
-        uint256 priceShiftDailyRateParsed = ReClammMath.computePriceShiftDailyRate(value);
+        uint256 priceShiftDailyRateParsed = ReClammMath.toInternalTimeConstant(value);
 
         assertEq(
             priceShiftDailyRateParsed,
-            value / _SECONDS_PER_DAY_WITH_ADJUSTMENT,
+            value / _PRICE_SHIFT_DAILY_RATE_INTERNAL_ADJUSTMENT,
             "PriceShiftDailyRate should be parsed correctly"
         );
     }
