@@ -99,7 +99,7 @@ contract ReClammPoolTest is BaseReClammTest {
     function testGetLastTimestamp() public {
         // Call any function that updates the last timestamp.
         vm.prank(admin);
-        ReClammPool(pool).setVirtualBalanceGrowthRate(20e16);
+        ReClammPool(pool).setDailyPriceShiftBase(20e16);
 
         uint256 lastTimestampBeforeWarp = ReClammPool(pool).getLastTimestamp();
         assertEq(lastTimestampBeforeWarp, block.timestamp, "Invalid lastTimestamp before warp");
@@ -110,25 +110,25 @@ contract ReClammPoolTest is BaseReClammTest {
 
         // Call any function that updates the last timestamp.
         vm.prank(admin);
-        ReClammPool(pool).setVirtualBalanceGrowthRate(30e16);
+        ReClammPool(pool).setDailyPriceShiftBase(30e16);
 
-        uint256 lastTimestampAfterSetVirtualBalanceGrowthRate = ReClammPool(pool).getLastTimestamp();
+        uint256 lastTimestampAfterSetDailyPriceShiftBase = ReClammPool(pool).getLastTimestamp();
         assertEq(
-            lastTimestampAfterSetVirtualBalanceGrowthRate,
+            lastTimestampAfterSetDailyPriceShiftBase,
             block.timestamp,
-            "Invalid lastTimestamp after setVirtualBalanceGrowthRate"
+            "Invalid lastTimestamp after setDailyPriceShiftBase"
         );
     }
 
-    function testGetVirtualBalanceGrowthRate() public {
+    function testGetDailyPriceShiftBase() public {
         uint256 doublingRateScalingFactor = 20e16;
 
-        uint256 expectedVirtualBalanceGrowthRate = mathMock.computeVirtualBalanceGrowthRate(doublingRateScalingFactor);
+        uint256 expectedDailyPriceShiftBase = mathMock.computeDailyPriceShiftBase(doublingRateScalingFactor);
         vm.prank(admin);
-        ReClammPool(pool).setVirtualBalanceGrowthRate(doublingRateScalingFactor);
+        ReClammPool(pool).setDailyPriceShiftBase(doublingRateScalingFactor);
 
-        uint256 actualVirtualBalanceGrowthRate = ReClammPool(pool).getVirtualBalanceGrowthRate();
-        assertEq(actualVirtualBalanceGrowthRate, expectedVirtualBalanceGrowthRate, "Invalid virtualBalanceGrowthRate");
+        uint256 actualDailyPriceShiftBase = ReClammPool(pool).getDailyPriceShiftBase();
+        assertEq(actualDailyPriceShiftBase, expectedDailyPriceShiftBase, "Invalid dailyPriceShiftBase");
     }
 
     function testGetPriceRatioState() public {
@@ -201,7 +201,7 @@ contract ReClammPoolTest is BaseReClammTest {
             state.priceRatioUpdateStartTime,
             state.priceRatioUpdateEndTime
         );
-        ReClammPool(pool).setVirtualBalanceGrowthRate(newDoublingRateScalingFactor);
+        ReClammPool(pool).setDailyPriceShiftBase(newDoublingRateScalingFactor);
         ReClammPool(pool).setCenterednessMargin(_NEW_CENTEREDNESS_MARGIN);
         vault.setStaticSwapFeePercentage(pool, newStaticSwapFeePercentage);
         vm.stopPrank();
@@ -251,11 +251,7 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(data.priceRatioUpdateEndTime, state.priceRatioUpdateEndTime, "Invalid end time");
 
         assertEq(data.centerednessMargin, _NEW_CENTEREDNESS_MARGIN, "Invalid centeredness margin");
-        assertEq(
-            data.virtualBalanceGrowthRate,
-            newDoublingRateScalingFactor / 124649,
-            "Invalid virtual balance growth rate"
-        );
+        assertEq(data.dailyPriceShiftBase, newDoublingRateScalingFactor / 124649, "Invalid daily price shift base");
         assertEq(data.lastVirtualBalances.length, 2, "Invalid number of last virtual balances");
         assertEq(data.lastVirtualBalances[daiIdx], currentVirtualBalances[daiIdx], "Invalid DAI last virtual balance");
         assertEq(
@@ -394,28 +390,28 @@ contract ReClammPoolTest is BaseReClammTest {
         ReClammPool(pool).computeBalance(new uint256[](0), 0, 0);
     }
 
-    function testSetVirtualBalanceGrowthRateVaultUnlocked() public {
+    function testSetDailyPriceShiftBaseVaultUnlocked() public {
         vault.forceUnlock();
 
         uint256 newDoublingRateScalingFactor = 200e16;
         vm.prank(admin);
         vm.expectRevert(IReClammPool.VaultIsNotLocked.selector);
-        ReClammPool(pool).setVirtualBalanceGrowthRate(newDoublingRateScalingFactor);
+        ReClammPool(pool).setDailyPriceShiftBase(newDoublingRateScalingFactor);
     }
 
-    function testSetVirtualBalanceGrowthRatePoolNotInitialized() public {
+    function testSetDailyPriceShiftBasePoolNotInitialized() public {
         vault.manualSetInitializedPool(pool, false);
 
         uint256 newDoublingRateScalingFactor = 200e16;
         vm.prank(admin);
         vm.expectRevert(IReClammPool.PoolNotInitialized.selector);
-        ReClammPool(pool).setVirtualBalanceGrowthRate(newDoublingRateScalingFactor);
+        ReClammPool(pool).setDailyPriceShiftBase(newDoublingRateScalingFactor);
     }
 
-    function testSetVirtualBalanceGrowthRate() public {
+    function testSetDailyPriceShiftBase() public {
         uint256 newDoublingRateScalingFactor = 200e16;
 
-        uint256 rateInSeconds = ReClammMath.computeVirtualBalanceGrowthRate(newDoublingRateScalingFactor);
+        uint256 rateInSeconds = ReClammMath.computeDailyPriceShiftBase(newDoublingRateScalingFactor);
 
         vm.expectEmit();
         emit IReClammPool.LastTimestampUpdated(block.timestamp.toUint32());
@@ -424,27 +420,27 @@ contract ReClammPoolTest is BaseReClammTest {
         emit IVaultEvents.VaultAuxiliary(pool, "LastTimestampUpdated", abi.encode(block.timestamp.toUint32()));
 
         vm.expectEmit();
-        emit IReClammPool.VirtualBalanceGrowthRateUpdated(newDoublingRateScalingFactor, rateInSeconds);
+        emit IReClammPool.DailyPriceShiftBaseUpdated(newDoublingRateScalingFactor, rateInSeconds);
 
         vm.expectEmit();
         emit IVaultEvents.VaultAuxiliary(
             pool,
-            "VirtualBalanceGrowthRateUpdated",
+            "DailyPriceShiftBaseUpdated",
             abi.encode(newDoublingRateScalingFactor, rateInSeconds)
         );
 
         vm.prank(admin);
-        ReClammPool(pool).setVirtualBalanceGrowthRate(newDoublingRateScalingFactor);
+        ReClammPool(pool).setDailyPriceShiftBase(newDoublingRateScalingFactor);
     }
 
-    function testSetVirtualBalanceGrowthRatePermissioned() public {
+    function testSetDailyPriceShiftBasePermissioned() public {
         uint256 newDoublingRateScalingFactor = 200e16;
         vm.prank(alice);
         vm.expectRevert(IAuthentication.SenderNotAllowed.selector);
-        ReClammPool(pool).setVirtualBalanceGrowthRate(newDoublingRateScalingFactor);
+        ReClammPool(pool).setDailyPriceShiftBase(newDoublingRateScalingFactor);
     }
 
-    function testSetVirtualBalanceGrowthRateUpdatingVirtualBalance() public {
+    function testSetDailyPriceShiftBaseUpdatingVirtualBalance() public {
         // Move the pool to the edge of the price interval, so the virtual balances will change over time.
         _setPoolBalances(_MIN_TOKEN_BALANCE, 100e18);
         ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
@@ -467,7 +463,7 @@ contract ReClammPoolTest is BaseReClammTest {
         );
 
         uint256 newDoublingRateScalingFactor = 200e16;
-        uint128 virtualBalanceGrowthRate = ReClammMath.computeVirtualBalanceGrowthRate(newDoublingRateScalingFactor);
+        uint128 dailyPriceShiftBase = ReClammMath.computeDailyPriceShiftBase(newDoublingRateScalingFactor);
 
         vm.expectEmit(address(pool));
         emit IReClammPool.LastTimestampUpdated(block.timestamp.toUint32());
@@ -476,20 +472,20 @@ contract ReClammPoolTest is BaseReClammTest {
         emit IVaultEvents.VaultAuxiliary(pool, "LastTimestampUpdated", abi.encode(block.timestamp.toUint32()));
 
         vm.expectEmit(address(pool));
-        emit IReClammPool.VirtualBalanceGrowthRateUpdated(
+        emit IReClammPool.DailyPriceShiftBaseUpdated(
             newDoublingRateScalingFactor,
-            ReClammMath.computeVirtualBalanceGrowthRate(newDoublingRateScalingFactor)
+            ReClammMath.computeDailyPriceShiftBase(newDoublingRateScalingFactor)
         );
 
         vm.expectEmit(address(vault));
         emit IVaultEvents.VaultAuxiliary(
             pool,
-            "VirtualBalanceGrowthRateUpdated",
-            abi.encode(newDoublingRateScalingFactor, virtualBalanceGrowthRate)
+            "DailyPriceShiftBaseUpdated",
+            abi.encode(newDoublingRateScalingFactor, dailyPriceShiftBase)
         );
 
         vm.prank(admin);
-        ReClammPool(pool).setVirtualBalanceGrowthRate(newDoublingRateScalingFactor);
+        ReClammPool(pool).setDailyPriceShiftBase(newDoublingRateScalingFactor);
 
         assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp was not updated");
 
@@ -778,9 +774,7 @@ contract ReClammPoolTest is BaseReClammTest {
             data.initialTargetPrice
         );
 
-        uint128 virtualBalanceGrowthRate = ReClammMath.computeVirtualBalanceGrowthRate(
-            data.initialDoublingRateScalingFactor
-        );
+        uint128 dailyPriceShiftBase = ReClammMath.computeDailyPriceShiftBase(data.initialDoublingRateScalingFactor);
 
         vm.expectEmit(newPool);
         emit IReClammPool.PriceRatioStateUpdated(0, fourthRootPriceRatio, block.timestamp, block.timestamp);
@@ -793,16 +787,13 @@ contract ReClammPoolTest is BaseReClammTest {
         );
 
         vm.expectEmit(newPool);
-        emit IReClammPool.VirtualBalanceGrowthRateUpdated(
-            data.initialDoublingRateScalingFactor,
-            virtualBalanceGrowthRate
-        );
+        emit IReClammPool.DailyPriceShiftBaseUpdated(data.initialDoublingRateScalingFactor, dailyPriceShiftBase);
 
         vm.expectEmit(address(vault));
         emit IVaultEvents.VaultAuxiliary(
             newPool,
-            "VirtualBalanceGrowthRateUpdated",
-            abi.encode(data.initialDoublingRateScalingFactor, virtualBalanceGrowthRate)
+            "DailyPriceShiftBaseUpdated",
+            abi.encode(data.initialDoublingRateScalingFactor, dailyPriceShiftBase)
         );
 
         vm.expectEmit(newPool);
@@ -825,14 +816,14 @@ contract ReClammPoolTest is BaseReClammTest {
         router.initialize(newPool, tokens, _initialBalances, 0, false, bytes(""));
     }
 
-    function testSetVirtualBalanceGrowthRateTooHigh() public {
+    function testSetDailyPriceShiftBaseTooHigh() public {
         ReClammPoolImmutableData memory data = ReClammPool(pool).getReClammPoolImmutableData();
 
         uint256 newDoublingRateScalingFactor = data.maxDoublingRateScalingFactor + 1;
 
         vm.prank(admin);
         vm.expectRevert(IReClammPool.DoublingRateScalingFactorTooHigh.selector);
-        ReClammPool(pool).setVirtualBalanceGrowthRate(newDoublingRateScalingFactor);
+        ReClammPool(pool).setDailyPriceShiftBase(newDoublingRateScalingFactor);
     }
 
     function testSetLastVirtualBalances() public {

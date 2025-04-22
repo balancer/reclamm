@@ -31,14 +31,14 @@ contract ReClammMathTest is BaseReClammTest {
         mathContract = new ReClammMathMock();
     }
 
-    function testParseVirtualBalanceGrowthRate() public pure {
+    function testParseDailyPriceShiftBase() public pure {
         uint256 value = 2123e9;
-        uint256 virtualBalanceGrowthRateParsed = ReClammMath.computeVirtualBalanceGrowthRate(value);
+        uint256 dailyPriceShiftBaseParsed = ReClammMath.computeDailyPriceShiftBase(value);
 
         assertEq(
-            virtualBalanceGrowthRateParsed,
+            dailyPriceShiftBaseParsed,
             value / _ADJUSTED_SECONDS_PER_DAY,
-            "virtualBalanceGrowthRate should be parsed correctly"
+            "dailyPriceShiftBase should be parsed correctly"
         );
     }
 

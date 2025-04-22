@@ -63,7 +63,7 @@ library ReClammMath {
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param lastVirtualBalanceA The last virtual balance of token A
      * @param lastVirtualBalanceB The last virtual balance of token B
-     * @param virtualBalanceGrowthRate IncreaseDayRate divided by 124649
+     * @param dailyPriceShiftBase The doubling rate scaling factor divided by _ADJUSTED_SECONDS_PER_DAY
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @param centerednessMargin A symmetrical measure of how closely an unbalanced pool can approach the limits of the
      * price range before it is considered outside the target range
@@ -75,7 +75,7 @@ library ReClammMath {
         uint256[] memory balancesScaled18,
         uint256 lastVirtualBalanceA,
         uint256 lastVirtualBalanceB,
-        uint256 virtualBalanceGrowthRate,
+        uint256 dailyPriceShiftBase,
         uint32 lastTimestamp,
         uint64 centerednessMargin,
         PriceRatioState storage priceRatioState,
@@ -85,7 +85,7 @@ library ReClammMath {
             balancesScaled18,
             lastVirtualBalanceA,
             lastVirtualBalanceB,
-            virtualBalanceGrowthRate,
+            dailyPriceShiftBase,
             lastTimestamp,
             centerednessMargin,
             priceRatioState
@@ -282,7 +282,7 @@ library ReClammMath {
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param lastVirtualBalanceA The last virtual balance of token A
      * @param lastVirtualBalanceB The last virtual balance of token B
-     * @param virtualBalanceGrowthRate IncreaseDayRate divided by 124649
+     * @param dailyPriceShiftBase The doubling rate scaling factor divided by _ADJUSTED_SECONDS_PER_DAY
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @param centerednessMargin A limit of the pool centeredness that defines if pool is outside the target range
      * @param storedPriceRatioState A struct containing start and end price ratios and a time interval
@@ -294,7 +294,7 @@ library ReClammMath {
         uint256[] memory balancesScaled18,
         uint256 lastVirtualBalanceA,
         uint256 lastVirtualBalanceB,
-        uint256 virtualBalanceGrowthRate,
+        uint256 dailyPriceShiftBase,
         uint32 lastTimestamp,
         uint64 centerednessMargin,
         PriceRatioState storage storedPriceRatioState
@@ -358,7 +358,7 @@ library ReClammMath {
             }
 
             // stack-too-deep
-            uint256 _virtualBalanceGrowthRate = virtualBalanceGrowthRate;
+            uint256 _dailyPriceShiftBase = dailyPriceShiftBase;
             uint256[] memory _balancesScaled18 = balancesScaled18;
             uint32 _lastTimestamp = lastTimestamp;
 
@@ -368,7 +368,7 @@ library ReClammMath {
                 currentVirtualBalanceA,
                 currentVirtualBalanceB,
                 isPoolAboveCenter == PoolAboveCenter.TRUE,
-                _virtualBalanceGrowthRate,
+                _dailyPriceShiftBase,
                 currentTimestamp,
                 _lastTimestamp
             );
@@ -449,7 +449,7 @@ library ReClammMath {
      * @param virtualBalanceA The last virtual balance of token A
      * @param virtualBalanceB The last virtual balance of token B
      * @param isPoolAboveCenter Whether the pool is above or below the center of the price range
-     * @param virtualBalanceGrowthRate IncreaseDayRate divided by 124649
+     * @param dailyPriceShiftBase The doubling rate scaling factor divided by _ADJUSTED_SECONDS_PER_DAY
      * @param currentTimestamp The current timestamp
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @return newVirtualBalanceA The new virtual balance of token A
@@ -461,7 +461,7 @@ library ReClammMath {
         uint256 virtualBalanceA,
         uint256 virtualBalanceB,
         bool isPoolAboveCenter,
-        uint256 virtualBalanceGrowthRate,
+        uint256 dailyPriceShiftBase,
         uint32 currentTimestamp,
         uint32 lastTimestamp
     ) internal pure returns (uint256 newVirtualBalanceA, uint256 newVirtualBalanceB) {
@@ -476,12 +476,9 @@ library ReClammMath {
             ? (virtualBalanceA, virtualBalanceB)
             : (virtualBalanceB, virtualBalanceA);
 
-        // Vb = Vb * (1 - virtualBalanceGrowthRate)^(T_curr - T_last)
+        // Vb = Vb * (1 - dailyPriceShiftBase)^(T_curr - T_last)
         virtualBalanceOvervalued = virtualBalanceOvervalued.mulDown(
-            LogExpMath.pow(
-                FixedPoint.ONE - virtualBalanceGrowthRate,
-                (currentTimestamp - lastTimestamp) * FixedPoint.ONE
-            )
+            LogExpMath.pow(FixedPoint.ONE - dailyPriceShiftBase, (currentTimestamp - lastTimestamp) * FixedPoint.ONE)
         );
         // Va = (Ra * (Vb + Rb)) / (((priceRatio - 1) * Vb) - Rb)
         virtualBalanceUndervalued =
@@ -613,11 +610,11 @@ library ReClammMath {
     }
 
     /**
-     * @notice Convert a doubling rate scaling factor into the virtual balance growth rate used internally.
+     * @notice Convert a doubling rate scaling factor into the daily price shift base used internally.
      * @param doublingRateScalingFactor The doubling rate scaling factor
-     * @return virtualBalanceGrowthRate Represents how fast the pool can move the virtual balances per day
+     * @return dailyPriceShiftBase Represents how fast the pool can move the virtual balances per day
      */
-    function computeVirtualBalanceGrowthRate(uint256 doublingRateScalingFactor) internal pure returns (uint128) {
+    function computeDailyPriceShiftBase(uint256 doublingRateScalingFactor) internal pure returns (uint128) {
         // Divide the doubling rate by a number of seconds per day (plus some adjustment).
         return (doublingRateScalingFactor / _ADJUSTED_SECONDS_PER_DAY).toUint128();
     }

@@ -75,7 +75,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint32 internal _lastTimestamp;
 
     // Internal representation of the speed at which the pool moves the virtual balances when outside the target range.
-    uint128 internal _virtualBalanceGrowthRate;
+    // It is the "base" term of the exponential expression for shifting the price; the exponent is the time in seconds.
+    uint128 internal _dailyPriceShiftBase;
 
     // Used to define the target price range of the pool (i.e., where the pool centeredness > centeredness margin).
     uint64 internal _centerednessMargin;
@@ -147,7 +148,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                 balancesScaled18,
                 _lastVirtualBalanceA,
                 _lastVirtualBalanceB,
-                _virtualBalanceGrowthRate,
+                _dailyPriceShiftBase,
                 _lastTimestamp,
                 _centerednessMargin,
                 _priceRatioState,
@@ -300,7 +301,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _setLastVirtualBalances(virtualBalanceA, virtualBalanceB);
         _setPriceRatioState(fourthRootPriceRatio, block.timestamp, block.timestamp);
         // Set dynamic parameters.
-        _setVirtualBalanceGrowthRate(_INITIAL_DOUBLING_RATE_SCALING_FACTOR);
+        _setDailyPriceShiftBase(_INITIAL_DOUBLING_RATE_SCALING_FACTOR);
         _setCenterednessMargin(_INITIAL_CENTEREDNESS_MARGIN);
         _updateTimestamp();
 
@@ -464,8 +465,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function getVirtualBalanceGrowthRate() external view returns (uint256) {
-        return _virtualBalanceGrowthRate;
+    function getDailyPriceShiftBase() external view returns (uint256) {
+        return _dailyPriceShiftBase;
     }
 
     /// @inheritdoc IReClammPool
@@ -498,7 +499,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         data.lastTimestamp = _lastTimestamp;
         data.lastVirtualBalances = _getLastVirtualBalances();
-        data.virtualBalanceGrowthRate = _virtualBalanceGrowthRate;
+        data.dailyPriceShiftBase = _dailyPriceShiftBase;
         data.centerednessMargin = _centerednessMargin;
 
         data.currentFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio(_priceRatioState);
@@ -562,11 +563,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function setVirtualBalanceGrowthRate(
+    function setDailyPriceShiftBase(
         uint256 doublingRateScalingFactor
     ) external onlyWhenInitialized onlyWhenVaultIsLocked onlySwapFeeManagerOrGovernance(address(this)) {
         // Update virtual balances before updating the daily rate.
-        _setVirtualBalanceGrowthRateAndUpdateVirtualBalances(doublingRateScalingFactor);
+        _setDailyPriceShiftBaseAndUpdateVirtualBalances(doublingRateScalingFactor);
     }
 
     /// @inheritdoc IReClammPool
@@ -593,7 +594,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             balancesScaled18,
             _lastVirtualBalanceA,
             _lastVirtualBalanceB,
-            _virtualBalanceGrowthRate,
+            _dailyPriceShiftBase,
             _lastTimestamp,
             _centerednessMargin,
             _priceRatioState
@@ -657,7 +658,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// Using the pool balances to update the virtual balances is dangerous with an unlocked vault, since the balances
     /// are manipulable.
-    function _setVirtualBalanceGrowthRateAndUpdateVirtualBalances(uint256 doublingRateScalingFactor) internal {
+    function _setDailyPriceShiftBaseAndUpdateVirtualBalances(uint256 doublingRateScalingFactor) internal {
         // Update virtual balances with current daily rate.
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
         (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) = _computeCurrentVirtualBalances(
@@ -668,23 +669,23 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         }
         _updateTimestamp();
 
-        // Update the virtual balance growth rate.
-        _setVirtualBalanceGrowthRate(doublingRateScalingFactor);
+        // Update the daily price shift base.
+        _setDailyPriceShiftBase(doublingRateScalingFactor);
     }
 
-    function _setVirtualBalanceGrowthRate(uint256 doublingRateScalingFactor) internal {
+    function _setDailyPriceShiftBase(uint256 doublingRateScalingFactor) internal {
         if (doublingRateScalingFactor > _MAX_DOUBLING_RATE_SCALING_FACTOR) {
             revert DoublingRateScalingFactorTooHigh();
         }
 
-        uint128 virtualBalanceGrowthRate = ReClammMath.computeVirtualBalanceGrowthRate(doublingRateScalingFactor);
-        _virtualBalanceGrowthRate = virtualBalanceGrowthRate;
+        uint128 dailyPriceShiftBase = ReClammMath.computeDailyPriceShiftBase(doublingRateScalingFactor);
+        _dailyPriceShiftBase = dailyPriceShiftBase;
 
-        emit VirtualBalanceGrowthRateUpdated(doublingRateScalingFactor, virtualBalanceGrowthRate);
+        emit DailyPriceShiftBaseUpdated(doublingRateScalingFactor, dailyPriceShiftBase);
 
         _vault.emitAuxiliaryEvent(
-            "VirtualBalanceGrowthRateUpdated",
-            abi.encode(doublingRateScalingFactor, virtualBalanceGrowthRate)
+            "DailyPriceShiftBaseUpdated",
+            abi.encode(doublingRateScalingFactor, dailyPriceShiftBase)
         );
     }
 

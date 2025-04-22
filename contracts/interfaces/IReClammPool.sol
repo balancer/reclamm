@@ -72,7 +72,7 @@ struct ReClammPoolImmutableData {
  * ReClamm:
  * @param lastTimestamp The timestamp of the last user interaction
  * @param lastVirtualBalances The last virtual balances of the pool
- * @param virtualBalanceGrowthRate Represents how fast the pool can move the virtual balances per day
+ * @param dailyPriceShiftBase Represents how fast the pool can move the virtual balances (and "shift" prices) per day
  * @param centerednessMargin The centeredness margin of the pool
  * @param currentFourthRootPriceRatio The current fourth root price ratio, an interpolation of the price ratio state
  * @param startFourthRootPriceRatio The fourth root price ratio at the start of an update
@@ -93,7 +93,7 @@ struct ReClammPoolDynamicData {
     // ReClamm
     uint256 lastTimestamp;
     uint256[] lastVirtualBalances;
-    uint256 virtualBalanceGrowthRate;
+    uint256 dailyPriceShiftBase;
     uint256 centerednessMargin;
     uint256 currentFourthRootPriceRatio;
     uint256 startFourthRootPriceRatio;
@@ -129,8 +129,8 @@ interface IReClammPool is IBasePool {
     /**
      * @notice The virtual balances were updated after a user interaction (swap or liquidity operation).
      * @dev Unless the price range is changing, the virtual balances remain in proportion to the real balances.
-     * These balances will also be updated when governance changes the centeredness margin or virtual balance
-     * growth rate.
+     * These balances will also be updated when governance changes the centeredness margin or daily price shift
+     * base.
      *
      * @param virtualBalanceA Offset to the real balance reserves
      * @param virtualBalanceB Offset to the real balance reserves
@@ -138,12 +138,12 @@ interface IReClammPool is IBasePool {
     event VirtualBalancesUpdated(uint256 virtualBalanceA, uint256 virtualBalanceB);
 
     /**
-     * @notice The virtual balance growth rate was updated by supplying a new doubling rate scaling factor.
+     * @notice The daily price shift base was updated by supplying a new doubling rate scaling factor.
      * @dev This will be emitted on deployment, and when changed by governance or the swap manager.
      * @param doublingRateScalingFactor The new doubling rate scaling factor
-     * @param virtualBalanceGrowthRate The corresponding internal virtual balance growth rate
+     * @param dailyPriceShiftBase The corresponding internal daily price shift base
      */
-    event VirtualBalanceGrowthRateUpdated(uint256 doublingRateScalingFactor, uint256 virtualBalanceGrowthRate);
+    event DailyPriceShiftBaseUpdated(uint256 doublingRateScalingFactor, uint256 dailyPriceShiftBase);
 
     /**
      * @notice The centeredness margin was updated.
@@ -187,7 +187,7 @@ interface IReClammPool is IBasePool {
     /// @notice
     error InvalidInitialPrice();
 
-    /// @notice The doubling rate scaling factor, used to compute the virtual balance growth rate, is too high.
+    /// @notice The doubling rate scaling factor, used to compute the daily price shift base, is too high.
     error DoublingRateScalingFactorTooHigh();
 
     /// @notice The difference between end time and start time is too short for the price ratio update.
@@ -308,9 +308,9 @@ interface IReClammPool is IBasePool {
     /**
      * @notice Returns the internal representation of the doubling rate scaling factor.
      * @dev
-     * @return virtualBalanceGrowthRate The internal rate
+     * @return dailyPriceShiftBase The internal rate
      */
-    function getVirtualBalanceGrowthRate() external view returns (uint256 virtualBalanceGrowthRate);
+    function getDailyPriceShiftBase() external view returns (uint256 dailyPriceShiftBase);
 
     /**
      * @notice Returns the current price ratio state.
@@ -387,13 +387,13 @@ interface IReClammPool is IBasePool {
     ) external returns (uint256 actualPriceRatioUpdateStartTime);
 
     /**
-     * @notice Updates the virtual balance growth rate, by supplying a new doubling rate scaling factor.
+     * @notice Updates the daily price shift base, by supplying a new doubling rate scaling factor.
      * @dev This function is considered a user interaction, and therefore recalculates the virtual balances and sets
      * the last timestamp. This is a permissioned function.
      *
      * @param newDoublingRateScalingFactor The new doubling rate scaling factor
      */
-    function setVirtualBalanceGrowthRate(uint256 newDoublingRateScalingFactor) external;
+    function setDailyPriceShiftBase(uint256 newDoublingRateScalingFactor) external;
 
     /**
      * @notice Set the centeredness margin.
