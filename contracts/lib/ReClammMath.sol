@@ -66,7 +66,7 @@ library ReClammMath {
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param lastVirtualBalanceA The last virtual balance of token A
      * @param lastVirtualBalanceB The last virtual balance of token B
-     * @param dailyPriceShiftBase Internal time constant for the daily price shift exponent (tau)
+     * @param dailyPriceShiftBase Internal time constant used to update virtual balances (1 - tau)
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @param centerednessMargin A symmetrical measure of how closely an unbalanced pool can approach the limits of the
      * price range before it is considered outside the target range
@@ -285,7 +285,7 @@ library ReClammMath {
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param lastVirtualBalanceA The last virtual balance of token A
      * @param lastVirtualBalanceB The last virtual balance of token B
-     * @param dailyPriceShiftBase Internal time constant for the daily price shift exponent (tau)
+     * @param dailyPriceShiftBase Internal time constant used to update virtual balances (1 - tau)
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @param centerednessMargin A limit of the pool centeredness that defines if pool is outside the target range
      * @param storedPriceRatioState A struct containing start and end price ratios and a time interval
@@ -452,7 +452,7 @@ library ReClammMath {
      * @param virtualBalanceA The last virtual balance of token A
      * @param virtualBalanceB The last virtual balance of token B
      * @param isPoolAboveCenter Whether the pool is above or below the center of the price range
-     * @param dailyPriceShiftBase Internal time constant for the daily price shift exponent (tau)
+     * @param dailyPriceShiftBase Internal time constant used to update virtual balances (1 - tau)
      * @param currentTimestamp The current timestamp
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @return newVirtualBalanceA The new virtual balance of token A
@@ -619,14 +619,13 @@ library ReClammMath {
      * @return dailyPriceShiftBase Internal representation of the daily price shift exponent
      */
     function toDailyPriceShiftBase(uint256 dailyPriceShiftExponent) internal pure returns (uint256) {
-        // Divide daily rate by a number of seconds per day (plus some adjustment)
         return FixedPoint.ONE - dailyPriceShiftExponent / _PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT;
     }
 
     /**
      * @notice Convert from the internal to the external representation of the daily price shift exponent.
      * @dev The result is an 18-decimal FP percentage.
-     * @param dailyPriceShiftBase Internal representation of the daily price shift exponent
+     * @param dailyPriceShiftBase Internal time constant used to update virtual balances (1 - tau)
      * @return dailyPriceShiftExponent The daily price shift exponent as an 18-decimal FP percentage
      */
     function toDailyPriceShiftExponent(uint256 dailyPriceShiftBase) internal pure returns (uint256) {

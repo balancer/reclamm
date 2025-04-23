@@ -33,11 +33,11 @@ struct ReClammPoolParams {
  * @param initialTargetPrice The initial target price of the pool
  * @param initialDailyPriceShiftExponent The initial daily price shift exponent
  * @param initialCenterednessMargin
- * @param minCenterednessMargin The minimum centeredness margin for the pool, as a percentage in 18-decimal FP
- * @param maxCenterednessMargin The maximum centeredness margin for the pool, as a percentage in 18-decimal FP
+ * @param minCenterednessMargin The minimum centeredness margin for the pool, as an 18-decimal FP percentage
+ * @param maxCenterednessMargin The maximum centeredness margin for the pool, as an 18-decimal FP percentage
  * @param minTokenBalanceScaled18 The minimum token balance for the pool, scaled to 18 decimals
- * @param minPoolCenteredness The minimum pool centeredness for the pool, as a percentage in 18-decimal FP
- * @param maxDailyPriceShiftExponent The maximum daily rate for the pool's price shift, as a percentage in 18-decimal FP
+ * @param minPoolCenteredness The minimum pool centeredness for the pool, as an 18-decimal FP percentage
+ * @param maxDailyPriceShiftExponent The maximum exponent for the pool's price shift, as an 18-decimal FP percentage
  * @param minPriceRatioUpdateDuration The minimum duration for the price ratio update, expressed in seconds
  * @param minPriceRatioUpdateDuration The minimum absolute difference between current and new fourth root price ratio
  */
@@ -72,8 +72,7 @@ struct ReClammPoolImmutableData {
  * ReClamm:
  * @param lastTimestamp The timestamp of the last user interaction
  * @param lastVirtualBalances The last virtual balances of the pool
- * @param dailyPriceShiftBase Internal representation of the speed at which the pool moves the virtual balances when
- *        outside the target range
+ * @param dailyPriceShiftBase Internal time constant used to update virtual balances (1 - tau)
  * @param centerednessMargin The centeredness margin of the pool
  * @param currentFourthRootPriceRatio The current fourth root price ratio, an interpolation of the price ratio state
  * @param startFourthRootPriceRatio The fourth root price ratio at the start of an update
@@ -130,8 +129,7 @@ interface IReClammPool is IBasePool {
     /**
      * @notice The virtual balances were updated after a user interaction (swap or liquidity operation).
      * @dev Unless the price range is changing, the virtual balances remain in proportion to the real balances.
-     * These balances will also be updated when governance changes the centeredness margin or the daily price shift
-     * exponent.
+     * These balances will also be updated when the centeredness margin or daily price shift exponent is changed.
      *
      * @param virtualBalanceA Offset to the real balance reserves
      * @param virtualBalanceB Offset to the real balance reserves
@@ -142,7 +140,7 @@ interface IReClammPool is IBasePool {
      * @notice The daily price shift exponent was updated.
      * @dev This will be emitted on deployment, and when changed by governance or the swap manager.
      * @param dailyPriceShiftExponent The new daily price shift exponent
-     * @param dailyPriceShiftBase The internal representation of the daily price shift exponent
+     * @param dailyPriceShiftBase Internal time constant used to update virtual balances (1 - tau)
      */
     event DailyPriceShiftExponentUpdated(uint256 dailyPriceShiftExponent, uint256 dailyPriceShiftBase);
 

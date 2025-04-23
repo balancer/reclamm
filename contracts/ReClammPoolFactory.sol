@@ -45,7 +45,7 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
      * @param initialMinPrice The initial minimum price of the pool
      * @param initialMaxPrice The initial maximum price of the pool
      * @param initialTargetPrice The initial target price of the pool
-     * @param dailyPriceShiftExponent The allowed change in a virtual balance per day
+     * @param dailyPriceShiftExponent Virtual balances will change by 2^(dailyPriceShiftExponent) per day
      * @param centerednessMargin How far the price can be from the center before the price range starts to move
      * @param salt The salt value that will be passed to deployment
      */

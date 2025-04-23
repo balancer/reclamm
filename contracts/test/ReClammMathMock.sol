@@ -94,7 +94,7 @@ contract ReClammMathMock {
     function computeCurrentVirtualBalances(
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances,
-        uint256 dailyPriceShiftExponentInSeconds,
+        uint256 dailyPriceShiftBase,
         uint32 lastTimestamp,
         uint64 centerednessMargin
     ) external view returns (uint256[] memory newVirtualBalances, bool changed) {
@@ -103,7 +103,7 @@ contract ReClammMathMock {
             balancesScaled18,
             virtualBalances[a],
             virtualBalances[b],
-            dailyPriceShiftExponentInSeconds,
+            dailyPriceShiftBase,
             lastTimestamp,
             centerednessMargin,
             _priceRatioState
