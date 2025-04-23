@@ -49,7 +49,7 @@ contract ReClammMathTest is BaseReClammTest {
         uint256 virtualBalanceB,
         uint256 tokenIn,
         uint256 amountGivenScaled18
-    ) public pure {
+    ) public view {
         tokenIn = bound(tokenIn, 0, 1);
         uint256 tokenOut = tokenIn == 0 ? 1 : 0;
 
@@ -106,7 +106,7 @@ contract ReClammMathTest is BaseReClammTest {
         uint256 virtualBalanceB,
         uint256 tokenIn,
         uint256 amountGivenScaled18
-    ) public pure {
+    ) public view {
         tokenIn = bound(tokenIn, 0, 1);
         uint256 tokenOut = tokenIn == 0 ? 1 : 0;
 

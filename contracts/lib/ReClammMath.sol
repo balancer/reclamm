@@ -3,6 +3,7 @@
 
 pragma solidity ^0.8.24;
 
+import "forge-std/console.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
@@ -141,7 +142,7 @@ library ReClammMath {
         uint256 tokenInIndex,
         uint256 tokenOutIndex,
         uint256 amountInScaled18
-    ) internal pure returns (uint256 amountOutScaled18) {
+    ) internal view returns (uint256 amountOutScaled18) {
         (uint256 virtualBalanceTokenIn, uint256 virtualBalanceTokenOut) = tokenInIndex == a
             ? (virtualBalanceA, virtualBalanceB)
             : (virtualBalanceB, virtualBalanceA);
@@ -162,7 +163,14 @@ library ReClammMath {
             revert NegativeAmountOut();
         }
 
+        console.log("balancesScaled18[tokenInIndex]: %s", balancesScaled18[tokenInIndex]);
+        console.log("balancesScaled18[tokenOutIndex]: %s", balancesScaled18[tokenOutIndex]);
+
         amountOutScaled18 = currentTotalTokenOutPoolBalance - newTotalTokenOutPoolBalance;
+        //
+
+        console.log("amountInScaled18: %s", amountInScaled18);
+        console.log("amountOutScaled18: %s", amountOutScaled18);
         if (amountOutScaled18 > balancesScaled18[tokenOutIndex]) {
             // Amount out cannot be greater than the real balance of the token.
             revert AmountOutGreaterThanBalance();
@@ -186,7 +194,9 @@ library ReClammMath {
         uint256 tokenInIndex,
         uint256 tokenOutIndex,
         uint256 amountOutScaled18
-    ) internal pure returns (uint256 amountInScaled18) {
+    ) internal view returns (uint256 amountInScaled18) {
+        console.log("amountOutScaled18: %s", amountOutScaled18);
+        console.log("balancesScaled18[tokenOutIndex]: %s", balancesScaled18[tokenOutIndex]);
         if (amountOutScaled18 > balancesScaled18[tokenOutIndex]) {
             // Amount out cannot be greater than the real balance of the token in the pool.
             revert AmountOutGreaterThanBalance();

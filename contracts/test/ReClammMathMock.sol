@@ -47,7 +47,7 @@ contract ReClammMathMock {
         uint256 tokenInIndex,
         uint256 tokenOutIndex,
         uint256 amountGivenScaled18
-    ) external pure returns (uint256) {
+    ) external view returns (uint256) {
         return
             ReClammMath.computeOutGivenIn(
                 balancesScaled18,
@@ -65,7 +65,7 @@ contract ReClammMathMock {
         uint256 tokenInIndex,
         uint256 tokenOutIndex,
         uint256 amountGivenScaled18
-    ) external pure returns (uint256) {
+    ) external view returns (uint256) {
         return
             ReClammMath.computeInGivenOut(
                 balancesScaled18,

@@ -122,12 +122,12 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
             defaultParams.defaultCenterednessMargin = centerednessMargin;
         }
 
-        ReClammPoolFactory poolFactory;
+        ReClammPoolFactoryMock poolFactory;
         {
             string memory poolVersion = "ReClamm Pool v1";
             string memory factoryVersion = "ReClamm Pool Factory v1";
 
-            poolFactory = deployReClammPoolFactory(vault, 1 days, factoryVersion, poolVersion);
+            poolFactory = deployReClammPoolFactoryMock(vault, 1 days, factoryVersion, poolVersion);
         }
 
         PoolRoleAccounts memory roleAccounts;
@@ -137,7 +137,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
         IVaultMock _vault = vault;
         string memory _lable = label;
 
-        newPool = ReClammPoolFactory(poolFactory).create(
+        newPool = poolFactory.create(
             defaultParams.name,
             defaultParams.symbol,
             _rateProviders.length == 0

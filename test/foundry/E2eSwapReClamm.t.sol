@@ -12,18 +12,25 @@ import { ERC20TestToken } from "@balancer-labs/v3-solidity-utils/contracts/test/
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
+import { PoolConfigLib } from "@balancer-labs/v3-vault/contracts/lib/PoolConfigLib.sol";
 import { E2eSwapTest } from "@balancer-labs/v3-vault/test/foundry/E2eSwap.t.sol";
+import "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
+import { ReClammMath, a, b } from "../../contracts/lib/ReClammMath.sol";
+import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
 import { E2eSwapFuzzPoolParamsHelper } from "./utils/E2eSwapFuzzPoolParamsHelper.sol";
 
 contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest {
     using ArrayHelpers for *;
     using FixedPoint for uint256;
 
+    bool isFuzzPoolParams;
+
     function setUp() public override {
         setDefaultAccountBalance(type(uint128).max);
         E2eSwapTest.setUp();
+        isFuzzPoolParams = false;
     }
 
     function setUpVariables() internal override {
@@ -47,15 +54,80 @@ contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest {
         tokens[0] = address(tokenA);
         tokens[1] = address(tokenB);
 
-        (pool, poolArguments, poolInitAmountTokenA, poolInitAmountTokenB) = _fuzzPoolParams(
-            params,
-            router,
-            vault,
-            authorizer,
-            tokens,
-            "reClammPool",
-            lp
-        );
+        (poolInitAmountTokenA, poolInitAmountTokenB) = _fuzzPoolParams(ReClammPoolMock(pool), params);
+
+        isFuzzPoolParams = true;
+        calculateMinAndMaxSwapAmounts();
+    }
+
+    function calculateMinAndMaxSwapAmounts() internal override {
+        if (isFuzzPoolParams == false) {
+            super.calculateMinAndMaxSwapAmounts();
+        } else {
+            uint256 rateTokenA = getRate(tokenA);
+            uint256 rateTokenB = getRate(tokenB);
+
+            console.log("rateTokenA: %s, rateTokenB: %s", rateTokenA, rateTokenB);
+            console.log("decimalsTokenA: %s, decimalsTokenB: %s", decimalsTokenA, decimalsTokenB);
+
+            uint256 tokenAMinTradeAmountInExactIn = PRODUCTION_MIN_TRADE_AMOUNT.divUp(rateTokenA).mulUp(
+                10 ** decimalsTokenA
+            );
+            uint256 tokenBMinTradeAmountOutExactOut = PRODUCTION_MIN_TRADE_AMOUNT.divUp(rateTokenB).mulUp(
+                10 ** decimalsTokenB
+            );
+
+            (, , , uint256[] memory balancesScaled18) = vault.getPoolTokenInfo(pool); //TODO poolInitAmount
+            (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = ReClammPoolMock(pool)
+                .computeCurrentVirtualBalances(balancesScaled18);
+
+            uint256 tokenAMinTradeAmountInExactOut = ReClammMath
+                .computeInGivenOut(
+                    balancesScaled18,
+                    currentVirtualBalanceA,
+                    currentVirtualBalanceB,
+                    a,
+                    b,
+                    PRODUCTION_MIN_TRADE_AMOUNT
+                )
+                .divDown(rateTokenA)
+                .mulDown(10 ** decimalsTokenA);
+            uint256 tokenBMinTradeAmountOutExactIn = ReClammMath
+                .computeOutGivenIn(
+                    balancesScaled18,
+                    currentVirtualBalanceA,
+                    currentVirtualBalanceB,
+                    a,
+                    b,
+                    PRODUCTION_MIN_TRADE_AMOUNT
+                )
+                .divDown(rateTokenB)
+                .mulDown(10 ** decimalsTokenB);
+
+            minSwapAmountTokenA = tokenAMinTradeAmountInExactOut > tokenAMinTradeAmountInExactIn
+                ? tokenAMinTradeAmountInExactOut
+                : tokenAMinTradeAmountInExactIn;
+            minSwapAmountTokenA *= 10; // TODO: Some rounding error?
+
+            minSwapAmountTokenB = tokenBMinTradeAmountOutExactIn > tokenBMinTradeAmountOutExactOut
+                ? tokenBMinTradeAmountOutExactIn
+                : tokenBMinTradeAmountOutExactOut;
+            minSwapAmountTokenB *= 10; // TODO: Some rounding error?
+
+            uint256[] memory balancesScaled18_ = balancesScaled18;
+            maxSwapAmountTokenA = (ReClammMath.computeInGivenOut(
+                balancesScaled18_,
+                currentVirtualBalanceA,
+                currentVirtualBalanceB,
+                a,
+                b,
+                balancesScaled18_[b]
+            ) / 5).mulDown(10 ** (decimalsTokenA)).divDown(rateTokenA); // Divide by 5 to avoid PoolCenterednessTooLow
+
+            maxSwapAmountTokenB = (balancesScaled18_[b] / 2).mulDown(10 ** (decimalsTokenB)).divDown(rateTokenB); // Divide by 2 to avoid TokenBalanceTooLow
+
+            console.log("maxSwapAmountTokenA: %s, maxSwapAmountTokenB: %s", maxSwapAmountTokenA, maxSwapAmountTokenB);
+        }
     }
 
     function _initPool(

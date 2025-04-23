@@ -23,6 +23,7 @@ import { GradualValueChange } from "@balancer-labs/v3-pool-weighted/contracts/li
 import { BaseReClammTest } from "./BaseReClammTest.sol";
 import { ReClammPoolContractsDeployer } from "./ReClammPoolContractsDeployer.sol";
 import { ReClammPool } from "../../../contracts/ReClammPool.sol";
+import { ReClammPoolMock } from "../../../contracts/test/ReClammPoolMock.sol";
 import { ReClammMath, a, b } from "../../../contracts/lib/ReClammMath.sol";
 
 contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
@@ -30,45 +31,26 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
     using CastingHelpers for *;
     using FixedPoint for uint256;
 
-    uint256 internal constant _MIN_TOKEN_BALANCE = 1e12;
+    uint256 internal constant _MIN_TOKEN_BALANCE = 1e18;
     uint256 internal constant _MAX_TOKEN_BALANCE = 1e9 * 1e18;
     uint256 internal constant _MIN_PRICE = 1e14; // 0.0001
     uint256 internal constant _MAX_PRICE = 1e24; // 1_000_000
     uint256 internal constant _MIN_PRICE_RATIO = 1.1e18;
 
     struct TestParams {
+        uint256[] initialBalances;
         uint256 minPrice;
         uint256 maxPrice;
         uint256 targetPrice;
-        uint256 startTime;
-        uint256 endTime;
-        IVaultMock vault;
-        IRouter router;
-        address[] tokens;
-        string label;
-        address sender;
-        uint256 centerednessMargin;
-        uint256[] initialBalances;
     }
 
     function _fuzzPoolParams(
-        uint256[5] memory params,
-        IRouter router,
-        IVaultMock vault,
-        BasicAuthorizerMock authorizer,
-        address[] memory tokens,
-        string memory label,
-        address sender
-    ) internal returns (address pool, bytes memory poolArgs, uint256 balanceA, uint256 balanceB) {
-        balanceA = bound(params[0], _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
-
+        ReClammPoolMock pool,
+        uint256[5] memory params
+    ) internal returns (uint256 balanceA, uint256 balanceB) {
         TestParams memory testParams;
-        testParams.vault = vault;
-        testParams.router = router;
-        testParams.tokens = tokens;
-        testParams.label = label;
-        testParams.sender = sender;
-
+        testParams.initialBalances = new uint256[](2);
+        testParams.initialBalances[a] = bound(params[0], _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
         testParams.minPrice = bound(params[0], _MIN_PRICE, _MAX_PRICE.divDown(_MIN_PRICE_RATIO));
         testParams.maxPrice = bound(params[1], testParams.minPrice.mulUp(_MIN_PRICE_RATIO), _MAX_PRICE);
         testParams.targetPrice = bound(
@@ -78,7 +60,6 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
         );
 
         {
-            uint256 _param3 = params[3];
             (
                 uint256[] memory theoreticalRealBalances,
                 uint256 theoreticalVirtualBalanceA,
@@ -90,42 +71,32 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
                     testParams.targetPrice
                 );
 
-            testParams.initialBalances = new uint256[](2);
             uint256 balanceRatio = theoreticalRealBalances[b].divDown(theoreticalRealBalances[a]);
-            balanceA = bound(_param3, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE.divDown(balanceRatio));
-            testParams.initialBalances[a] = balanceA;
-            balanceB = balanceA.mulDown(balanceRatio);
-            testParams.initialBalances[b] = balanceB;
+            uint256 maxBalance = _MAX_TOKEN_BALANCE.divDown(balanceRatio);
 
-            uint256 scale = balanceA.divDown(theoreticalRealBalances[a]);
-            uint256 virtualBalanceA = theoreticalVirtualBalanceA.mulDown(scale);
-            uint256 virtualBalanceB = theoreticalVirtualBalanceB.mulDown(scale);
-            testParams.centerednessMargin = 5e17; // 50%
+            if (maxBalance < _MIN_TOKEN_BALANCE) {
+                testParams.initialBalances[a] = _MIN_TOKEN_BALANCE;
+            } else {
+                testParams.initialBalances[a] = bound(
+                    params[3],
+                    _MIN_TOKEN_BALANCE,
+                    _MAX_TOKEN_BALANCE.divDown(balanceRatio)
+                );
+            }
+            testParams.initialBalances[b] = testParams.initialBalances[b] = testParams.initialBalances[a].mulDown(
+                balanceRatio
+            );
         }
 
-        vm.startPrank(testParams.sender);
-        (pool, poolArgs) = createReClammPool(
-            testParams.tokens,
-            new IRateProvider[](0),
-            testParams.label,
-            testParams.vault,
-            testParams.sender,
+        pool.reInitialize(
+            testParams.initialBalances,
             testParams.minPrice,
             testParams.maxPrice,
             testParams.targetPrice,
-            testParams.centerednessMargin
+            100e16, // 100%
+            5e17
         );
-        console.log("Pool created");
 
-        testParams.router.initialize(
-            pool,
-            testParams.tokens.asIERC20(),
-            testParams.initialBalances,
-            0,
-            false,
-            bytes("")
-        );
-        console.log("Pool initialized");
-        vm.stopPrank();
+        return (testParams.initialBalances[a], testParams.initialBalances[b]);
     }
 }

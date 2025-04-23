@@ -288,17 +288,12 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _checkInitializationBalanceRatio(balancesScaled18, theoreticalRealBalances);
 
         uint256 scale = balancesScaled18[a].divDown(theoreticalRealBalances[a]);
-        console.log("Scale: ", scale);
 
         uint256 virtualBalanceA = theoreticalVirtualBalanceA.mulDown(scale);
         uint256 virtualBalanceB = theoreticalVirtualBalanceB.mulDown(scale);
 
-        console.log("Virtual balance A: ", virtualBalanceA);
-        console.log("Virtual balance B: ", virtualBalanceB);
-
         _checkInitializationPrices(balancesScaled18, virtualBalanceA, virtualBalanceB);
 
-        console.log("_checkInitializationPrices passed");
         if (ReClammMath.computeCenteredness(balancesScaled18, virtualBalanceA, virtualBalanceB) < _centerednessMargin) {
             revert PoolCenterednessTooLow();
         }
