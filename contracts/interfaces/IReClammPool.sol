@@ -130,7 +130,8 @@ interface IReClammPool is IBasePool {
     /**
      * @notice The virtual balances were updated after a user interaction (swap or liquidity operation).
      * @dev Unless the price range is changing, the virtual balances remain in proportion to the real balances.
-     * These balances will also be updated when governance changes the centeredness margin or daily price shift exponent.
+     * These balances will also be updated when governance changes the centeredness margin or the daily price shift
+     * exponent.
      *
      * @param virtualBalanceA Offset to the real balance reserves
      * @param virtualBalanceB Offset to the real balance reserves
@@ -406,8 +407,12 @@ interface IReClammPool is IBasePool {
      * Range_old / 2^(newDailyPriceShiftExponent / 100)
      *
      * @param newDailyPriceShiftExponent The new daily price shift exponent
+     * @return actualNewDailyPriceShiftExponent The actual new daily price shift exponent, after accounting for
+     * precision loss incurred when dealing with the internal representation of the exponent
      */
-    function setDailyPriceShiftExponent(uint256 newDailyPriceShiftExponent) external;
+    function setDailyPriceShiftExponent(
+        uint256 newDailyPriceShiftExponent
+    ) external returns (uint256 actualNewDailyPriceShiftExponent);
 
     /**
      * @notice Set the centeredness margin.

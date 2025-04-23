@@ -570,9 +570,15 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     /// @inheritdoc IReClammPool
     function setDailyPriceShiftExponent(
         uint256 newDailyPriceShiftExponent
-    ) external onlyWhenInitialized onlyWhenVaultIsLocked onlySwapFeeManagerOrGovernance(address(this)) {
+    )
+        external
+        onlyWhenInitialized
+        onlyWhenVaultIsLocked
+        onlySwapFeeManagerOrGovernance(address(this))
+        returns (uint256)
+    {
         // Update virtual balances before updating the daily rate.
-        _setDailyPriceShiftExponentAndUpdateVirtualBalances(newDailyPriceShiftExponent);
+        return _setDailyPriceShiftExponentAndUpdateVirtualBalances(newDailyPriceShiftExponent);
     }
 
     /// @inheritdoc IReClammPool
@@ -663,7 +669,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// Using the pool balances to update the virtual balances is dangerous with an unlocked vault, since the balances
     /// are manipulable.
-    function _setDailyPriceShiftExponentAndUpdateVirtualBalances(uint256 dailyPriceShiftExponent) internal {
+    function _setDailyPriceShiftExponentAndUpdateVirtualBalances(
+        uint256 dailyPriceShiftExponent
+    ) internal returns (uint256) {
         // Update virtual balances with current daily rate.
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
         (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) = _computeCurrentVirtualBalances(
@@ -675,10 +683,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _updateTimestamp();
 
         // Update the price shift rate.
-        _setDailyPriceShiftExponent(dailyPriceShiftExponent);
+        return _setDailyPriceShiftExponent(dailyPriceShiftExponent);
     }
 
-    function _setDailyPriceShiftExponent(uint256 dailyPriceShiftExponent) internal {
+    function _setDailyPriceShiftExponent(uint256 dailyPriceShiftExponent) internal returns (uint256) {
         if (dailyPriceShiftExponent > _MAX_PRICE_SHIFT_DAILY_RATE) {
             revert DailyPriceShiftExponentTooHigh();
         }
@@ -696,6 +704,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             "DailyPriceShiftExponentUpdated",
             abi.encode(dailyPriceShiftExponent, internalTimeConstant)
         );
+
+        return dailyPriceShiftExponent;
     }
 
     /**

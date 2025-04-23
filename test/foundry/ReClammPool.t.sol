@@ -133,7 +133,9 @@ contract ReClammPoolTest is BaseReClammTest {
     function testGetDailyPriceShiftExponentToBase() public {
         uint256 dailyPriceRateExponent = 30e16;
         vm.prank(admin);
-        ReClammPool(pool).setDailyPriceShiftExponent(dailyPriceRateExponent);
+        uint256 actualDailyPriceShiftExponentReturned = ReClammPool(pool).setDailyPriceShiftExponent(
+            dailyPriceRateExponent
+        );
 
         uint256 actualDailyPriceShiftBase = ReClammPool(pool).getDailyPriceShiftBase();
         uint256 actualDailyPriceShiftExponent = ReClammPool(pool).getDailyPriceShiftExponent();
@@ -148,6 +150,12 @@ contract ReClammPoolTest is BaseReClammTest {
             dailyPriceRateExponent,
             1e16,
             "Invalid dailyPriceRateExponent"
+        );
+
+        assertEq(
+            actualDailyPriceShiftExponentReturned,
+            actualDailyPriceShiftExponent,
+            "Invalid dailyPriceRateExponent returned"
         );
     }
 
