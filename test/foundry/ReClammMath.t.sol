@@ -28,14 +28,14 @@ contract ReClammMathTest is BaseReClammTest {
         mathContract = new ReClammMathMock();
     }
 
-    function testParsePriceShiftDailyRate() public pure {
+    function testParseDailyPriceShiftExponent() public pure {
         uint256 value = 2123e9;
-        uint256 priceShiftDailyRateParsed = ReClammMath.toInternalTimeConstant(value);
+        uint256 dailyPriceShiftBase = ReClammMath.toDailyPriceShiftBase(value);
 
         assertEq(
-            priceShiftDailyRateParsed,
-            value / _PRICE_SHIFT_DAILY_RATE_INTERNAL_ADJUSTMENT,
-            "PriceShiftDailyRate should be parsed correctly"
+            dailyPriceShiftBase,
+            FixedPoint.ONE - value / _PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT,
+            "DailyPriceShiftExponent should be parsed correctly"
         );
     }
 

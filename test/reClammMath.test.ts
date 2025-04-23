@@ -13,7 +13,7 @@ import {
   computeCurrentVirtualBalances,
   isAboveCenter,
   isPoolWithinTargetRange,
-  computePriceShiftDailyRate,
+  toDailyPriceShiftBase,
   pureComputeInvariant,
   Rounding,
   PriceRatioState,
@@ -21,7 +21,7 @@ import {
 } from './utils/reClammMath';
 import { expectEqualWithError } from './utils/relativeError';
 
-const PRICE_SHIFT_RATE_SECONDS = fp(1) / 124000n;
+const DAILY_PRICE_SHIFT_BASE = fp(1) - fp(1) / 124000n;
 const CENTEREDNESS_MARGIN = fp(0.2);
 const BALANCES_IN_RANGE = [fp(1), fp(1)];
 const BALANCES_OUT_OF_RANGE = [fp(1), bn(1e15)];
@@ -52,12 +52,12 @@ describe('ReClammMath', function () {
     mathLib = await deploy('ReClammMathMock');
   });
 
-  context('computePriceShiftDailyRate', () => {
+  context('toDailyPriceShiftBase', () => {
     it('should return the correct value', async () => {
-      const priceShiftDailyRate = bn(1000e18);
-      const contractResult = await mathLib.computePriceShiftDailyRate(priceShiftDailyRate);
+      const dailyPriceShiftExponent = bn(1000e18);
+      const contractResult = await mathLib.toDailyPriceShiftBase(dailyPriceShiftExponent);
 
-      expect(contractResult).to.equal(computePriceShiftDailyRate(priceShiftDailyRate));
+      expect(contractResult).to.equal(toDailyPriceShiftBase(dailyPriceShiftExponent));
     });
   });
 
@@ -332,7 +332,7 @@ describe('ReClammMath', function () {
       const [contractCurrentVirtualBalances, contractChanged] = await mathLib.computeCurrentVirtualBalances(
         balancesScaled18,
         lastVirtualBalances,
-        PRICE_SHIFT_RATE_SECONDS,
+        DAILY_PRICE_SHIFT_BASE,
         lastTimestamp,
         CENTEREDNESS_MARGIN
       );
@@ -342,7 +342,7 @@ describe('ReClammMath', function () {
       const [jsCurrentVirtualBalances, jsChanged] = computeCurrentVirtualBalances(
         balancesScaled18,
         lastVirtualBalances,
-        PRICE_SHIFT_RATE_SECONDS,
+        DAILY_PRICE_SHIFT_BASE,
         lastTimestamp,
         blockTimestamp,
         CENTEREDNESS_MARGIN,
@@ -489,7 +489,7 @@ describe('ReClammMath', function () {
       const res = await mathLib.computeInvariant(
         balancesScaled18,
         lastVirtualBalances,
-        PRICE_SHIFT_RATE_SECONDS,
+        DAILY_PRICE_SHIFT_BASE,
         lastTimestamp,
         CENTEREDNESS_MARGIN,
         rounding
@@ -501,7 +501,7 @@ describe('ReClammMath', function () {
       const jsRes = computeInvariant(
         balancesScaled18,
         lastVirtualBalances,
-        PRICE_SHIFT_RATE_SECONDS,
+        DAILY_PRICE_SHIFT_BASE,
         lastTimestamp,
         currentTimestamp,
         CENTEREDNESS_MARGIN,
@@ -528,7 +528,7 @@ describe('ReClammMath', function () {
       const res = await mathLib.computeInvariant(
         balancesScaled18,
         lastVirtualBalances,
-        PRICE_SHIFT_RATE_SECONDS,
+        DAILY_PRICE_SHIFT_BASE,
         lastTimestamp,
         CENTEREDNESS_MARGIN,
         rounding
@@ -540,7 +540,7 @@ describe('ReClammMath', function () {
       const jsRes = computeInvariant(
         balancesScaled18,
         lastVirtualBalances,
-        PRICE_SHIFT_RATE_SECONDS,
+        DAILY_PRICE_SHIFT_BASE,
         lastTimestamp,
         currentTimestamp,
         CENTEREDNESS_MARGIN,

@@ -32,7 +32,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     using ArrayHelpers for *;
     using SafeCast for *;
 
-    uint256 internal constant _PRICE_SHIFT_DAILY_RATE_INTERNAL_ADJUSTMENT = 124649;
+    uint256 internal constant _PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT = 124649;
 
     uint256 internal constant _INITIAL_PROTOCOL_FEE_PERCENTAGE = 1e16;
     uint256 internal constant _DEFAULT_SWAP_FEE = 0; // 0%
@@ -56,7 +56,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     // 1 billion tokens.
     uint256 internal constant _MAX_TOKEN_BALANCE = 1e9 * 1e18;
 
-    uint256 private _priceShiftDailyRate = _DEFAULT_PRICE_SHIFT_DAILY_RATE;
+    uint256 private _dailyPriceShiftExponent = _DEFAULT_PRICE_SHIFT_DAILY_RATE;
 
     uint256[] internal _initialBalances;
     uint256[] internal _initialVirtualBalances;
@@ -88,8 +88,8 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
         _initialTargetPrice = newTargetPrice;
     }
 
-    function setPriceShiftDailyRate(uint256 priceShiftDailyRate) internal {
-        _priceShiftDailyRate = priceShiftDailyRate;
+    function setDailyPriceShiftExponent(uint256 dailyPriceShiftExponent) internal {
+        _dailyPriceShiftExponent = dailyPriceShiftExponent;
     }
 
     function createPoolFactory() internal override returns (address) {
@@ -138,7 +138,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
                 initialMinPrice: _initialMinPrice,
                 initialMaxPrice: _initialMaxPrice,
                 initialTargetPrice: _initialTargetPrice,
-                priceShiftDailyRate: _DEFAULT_PRICE_SHIFT_DAILY_RATE,
+                dailyPriceShiftExponent: _DEFAULT_PRICE_SHIFT_DAILY_RATE,
                 centerednessMargin: _DEFAULT_CENTEREDNESS_MARGIN
             }),
             vault

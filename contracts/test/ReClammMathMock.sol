@@ -94,7 +94,7 @@ contract ReClammMathMock {
     function computeCurrentVirtualBalances(
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances,
-        uint256 priceShiftDailyRateInSeconds,
+        uint256 dailyPriceShiftExponentInSeconds,
         uint32 lastTimestamp,
         uint64 centerednessMargin
     ) external view returns (uint256[] memory newVirtualBalances, bool changed) {
@@ -103,7 +103,7 @@ contract ReClammMathMock {
             balancesScaled18,
             virtualBalances[a],
             virtualBalances[b],
-            priceShiftDailyRateInSeconds,
+            dailyPriceShiftExponentInSeconds,
             lastTimestamp,
             centerednessMargin,
             _priceRatioState
@@ -153,5 +153,9 @@ contract ReClammMathMock {
         uint256[] memory virtualBalances
     ) external pure returns (bool) {
         return ReClammMath.isAboveCenter(balancesScaled18, virtualBalances[a], virtualBalances[b]);
+    }
+
+    function toDailyPriceShiftBase(uint256 dailyPriceShiftExponent) external pure returns (uint256) {
+        return ReClammMath.toDailyPriceShiftBase(dailyPriceShiftExponent);
     }
 }

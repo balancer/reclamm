@@ -76,7 +76,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint32 internal _lastTimestamp;
 
     // Internal representation of the speed at which the pool moves the virtual balances when outside the target range.
-    uint128 internal _priceShiftDailyRateInternalTimeConstant;
+    uint128 internal _dailyPriceShiftBase;
 
     // Used to define the target price range of the pool (i.e., where the pool centeredness > centeredness margin).
     uint64 internal _centerednessMargin;
@@ -133,7 +133,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _INITIAL_MAX_PRICE = params.initialMaxPrice;
         _INITIAL_TARGET_PRICE = params.initialTargetPrice;
 
-        _INITIAL_PRICE_SHIFT_DAILY_RATE = params.priceShiftDailyRate;
+        _INITIAL_PRICE_SHIFT_DAILY_RATE = params.dailyPriceShiftExponent;
         _INITIAL_CENTEREDNESS_MARGIN = params.centerednessMargin;
     }
 
@@ -148,7 +148,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                 balancesScaled18,
                 _lastVirtualBalanceA,
                 _lastVirtualBalanceB,
-                _priceShiftDailyRateInternalTimeConstant,
+                _dailyPriceShiftBase,
                 _lastTimestamp,
                 _centerednessMargin,
                 _priceRatioState,
@@ -301,7 +301,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _setLastVirtualBalances(virtualBalanceA, virtualBalanceB);
         _setPriceRatioState(fourthRootPriceRatio, block.timestamp, block.timestamp);
         // Set dynamic parameters.
-        _setPriceShiftDailyRate(_INITIAL_PRICE_SHIFT_DAILY_RATE);
+        _setDailyPriceShiftExponent(_INITIAL_PRICE_SHIFT_DAILY_RATE);
         _setCenterednessMargin(_INITIAL_CENTEREDNESS_MARGIN);
         _updateTimestamp();
 
@@ -465,13 +465,13 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function getPriceShiftDailyRate() external view returns (uint256) {
-        return _priceShiftDailyRateInternalTimeConstant.toPriceShiftDailyRate();
+    function getDailyPriceShiftExponent() external view returns (uint256) {
+        return _dailyPriceShiftBase.toDailyPriceShiftExponent();
     }
 
     /// @inheritdoc IReClammPool
-    function getPriceShiftDailyRateInternalTimeConstant() external view returns (uint256) {
-        return _priceShiftDailyRateInternalTimeConstant;
+    function getDailyPriceShiftBase() external view returns (uint256) {
+        return _dailyPriceShiftBase;
     }
 
     /// @inheritdoc IReClammPool
@@ -504,7 +504,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         data.lastTimestamp = _lastTimestamp;
         data.lastVirtualBalances = _getLastVirtualBalances();
-        data.priceShiftDailyRateInSeconds = _priceShiftDailyRateInternalTimeConstant;
+        data.dailyPriceShiftBase = _dailyPriceShiftBase;
         data.centerednessMargin = _centerednessMargin;
 
         data.currentFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio(_priceRatioState);
@@ -528,13 +528,13 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.initialMinPrice = _INITIAL_MIN_PRICE;
         data.initialMaxPrice = _INITIAL_MAX_PRICE;
         data.initialTargetPrice = _INITIAL_TARGET_PRICE;
-        data.initialPriceShiftDailyRate = _INITIAL_PRICE_SHIFT_DAILY_RATE;
+        data.initialDailyPriceShiftExponent = _INITIAL_PRICE_SHIFT_DAILY_RATE;
         data.initialCenterednessMargin = _INITIAL_CENTEREDNESS_MARGIN;
         data.minCenterednessMargin = _MIN_CENTEREDNESS_MARGIN;
         data.maxCenterednessMargin = _MAX_CENTEREDNESS_MARGIN;
         data.minTokenBalanceScaled18 = _MIN_TOKEN_BALANCE_SCALED18;
         data.minPoolCenteredness = _MIN_POOL_CENTEREDNESS;
-        data.maxPriceShiftDailyRate = _MAX_PRICE_SHIFT_DAILY_RATE;
+        data.maxDailyPriceShiftExponent = _MAX_PRICE_SHIFT_DAILY_RATE;
         data.minPriceRatioUpdateDuration = _MIN_PRICE_RATIO_UPDATE_DURATION;
         data.minFourthRootPriceRatioDelta = _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA;
     }
@@ -568,11 +568,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function setPriceShiftDailyRate(
-        uint256 newPriceShiftDailyRate
+    function setDailyPriceShiftExponent(
+        uint256 newDailyPriceShiftExponent
     ) external onlyWhenInitialized onlyWhenVaultIsLocked onlySwapFeeManagerOrGovernance(address(this)) {
         // Update virtual balances before updating the daily rate.
-        _setPriceShiftDailyRateAndUpdateVirtualBalances(newPriceShiftDailyRate);
+        _setDailyPriceShiftExponentAndUpdateVirtualBalances(newDailyPriceShiftExponent);
     }
 
     /// @inheritdoc IReClammPool
@@ -599,7 +599,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             balancesScaled18,
             _lastVirtualBalanceA,
             _lastVirtualBalanceB,
-            _priceShiftDailyRateInternalTimeConstant,
+            _dailyPriceShiftBase,
             _lastTimestamp,
             _centerednessMargin,
             _priceRatioState
@@ -663,7 +663,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// Using the pool balances to update the virtual balances is dangerous with an unlocked vault, since the balances
     /// are manipulable.
-    function _setPriceShiftDailyRateAndUpdateVirtualBalances(uint256 priceShiftDailyRate) internal {
+    function _setDailyPriceShiftExponentAndUpdateVirtualBalances(uint256 dailyPriceShiftExponent) internal {
         // Update virtual balances with current daily rate.
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
         (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) = _computeCurrentVirtualBalances(
@@ -675,24 +675,27 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _updateTimestamp();
 
         // Update the price shift rate.
-        _setPriceShiftDailyRate(priceShiftDailyRate);
+        _setDailyPriceShiftExponent(dailyPriceShiftExponent);
     }
 
-    function _setPriceShiftDailyRate(uint256 priceShiftDailyRate) internal {
-        if (priceShiftDailyRate > _MAX_PRICE_SHIFT_DAILY_RATE) {
-            revert PriceShiftDailyRateTooHigh();
+    function _setDailyPriceShiftExponent(uint256 dailyPriceShiftExponent) internal {
+        if (dailyPriceShiftExponent > _MAX_PRICE_SHIFT_DAILY_RATE) {
+            revert DailyPriceShiftExponentTooHigh();
         }
 
-        uint256 internalTimeConstant = priceShiftDailyRate.toInternalTimeConstant();
+        uint256 internalTimeConstant = dailyPriceShiftExponent.toDailyPriceShiftBase();
         // There might be precision loss when adjusting to the internal representation, so we need to
         // convert back to the external representation to emit the event.
-        priceShiftDailyRate = internalTimeConstant.toPriceShiftDailyRate();
+        dailyPriceShiftExponent = internalTimeConstant.toDailyPriceShiftExponent();
 
-        _priceShiftDailyRateInternalTimeConstant = internalTimeConstant.toUint128();
+        _dailyPriceShiftBase = internalTimeConstant.toUint128();
 
-        emit PriceShiftDailyRateUpdated(priceShiftDailyRate, internalTimeConstant);
+        emit DailyPriceShiftExponentUpdated(dailyPriceShiftExponent, internalTimeConstant);
 
-        _vault.emitAuxiliaryEvent("PriceShiftDailyRateUpdated", abi.encode(priceShiftDailyRate, internalTimeConstant));
+        _vault.emitAuxiliaryEvent(
+            "DailyPriceShiftExponentUpdated",
+            abi.encode(dailyPriceShiftExponent, internalTimeConstant)
+        );
     }
 
     /**

@@ -13,7 +13,7 @@ struct ReClammPoolParams {
     string name;
     string symbol;
     string version;
-    uint256 priceShiftDailyRate;
+    uint256 dailyPriceShiftExponent;
     uint64 centerednessMargin;
     uint256 initialMinPrice;
     uint256 initialMaxPrice;
@@ -31,12 +31,15 @@ struct ReClammPoolParams {
  * @param initialMinPrice The initial minimum price of the pool
  * @param initialMaxPrice The initial maximum price of the pool
  * @param initialTargetPrice The initial target price of the pool
- * @param minCenterednessMargin The minimum centeredness margin for the pool, as a percentage in 18-decimal FP.
- * @param maxCenterednessMargin The maximum centeredness margin for the pool, as a percentage in 18-decimal FP.
- * @param minTokenBalanceScaled18 The minimum token balance for the pool, scaled to 18 decimals.
- * @param maxPriceShiftDailyRate The maximum daily rate for the pool's price shift, as a percentage in 18-decimal FP.
- * @param minPriceRatioUpdateDuration The minimum duration for the price ratio update, expressed in seconds.
- * @param minPriceRatioUpdateDuration The minimum absolute difference between current and new fourth root price ratio.
+ * @param initialDailyPriceShiftExponent The initial daily price shift exponent
+ * @param initialCenterednessMargin
+ * @param minCenterednessMargin The minimum centeredness margin for the pool, as a percentage in 18-decimal FP
+ * @param maxCenterednessMargin The maximum centeredness margin for the pool, as a percentage in 18-decimal FP
+ * @param minTokenBalanceScaled18 The minimum token balance for the pool, scaled to 18 decimals
+ * @param minPoolCenteredness The minimum pool centeredness for the pool, as a percentage in 18-decimal FP
+ * @param maxDailyPriceShiftExponent The maximum daily rate for the pool's price shift, as a percentage in 18-decimal FP
+ * @param minPriceRatioUpdateDuration The minimum duration for the price ratio update, expressed in seconds
+ * @param minPriceRatioUpdateDuration The minimum absolute difference between current and new fourth root price ratio
  */
 struct ReClammPoolImmutableData {
     IERC20[] tokens;
@@ -44,13 +47,13 @@ struct ReClammPoolImmutableData {
     uint256 initialMinPrice;
     uint256 initialMaxPrice;
     uint256 initialTargetPrice;
-    uint256 initialPriceShiftDailyRate;
+    uint256 initialDailyPriceShiftExponent;
     uint256 initialCenterednessMargin;
     uint256 minCenterednessMargin;
     uint256 maxCenterednessMargin;
     uint256 minTokenBalanceScaled18;
     uint256 minPoolCenteredness;
-    uint256 maxPriceShiftDailyRate;
+    uint256 maxDailyPriceShiftExponent;
     uint256 minPriceRatioUpdateDuration;
     uint256 minFourthRootPriceRatioDelta;
 }
@@ -69,7 +72,8 @@ struct ReClammPoolImmutableData {
  * ReClamm:
  * @param lastTimestamp The timestamp of the last user interaction
  * @param lastVirtualBalances The last virtual balances of the pool
- * @param priceShiftDailyRateInSeconds Represents how fast the pool can move the virtual balances per day
+ * @param dailyPriceShiftBase Internal representation of the speed at which the pool moves the virtual balances when
+ *        outside the target range
  * @param centerednessMargin The centeredness margin of the pool
  * @param currentFourthRootPriceRatio The current fourth root price ratio, an interpolation of the price ratio state
  * @param startFourthRootPriceRatio The fourth root price ratio at the start of an update
@@ -90,7 +94,7 @@ struct ReClammPoolDynamicData {
     // ReClamm
     uint256 lastTimestamp;
     uint256[] lastVirtualBalances;
-    uint256 priceShiftDailyRateInSeconds;
+    uint256 dailyPriceShiftBase;
     uint256 centerednessMargin;
     uint256 currentFourthRootPriceRatio;
     uint256 startFourthRootPriceRatio;
@@ -126,7 +130,7 @@ interface IReClammPool is IBasePool {
     /**
      * @notice The virtual balances were updated after a user interaction (swap or liquidity operation).
      * @dev Unless the price range is changing, the virtual balances remain in proportion to the real balances.
-     * These balances will also be updated when governance changes the centeredness margin or price shift daily rate.
+     * These balances will also be updated when governance changes the centeredness margin or daily price shift exponent.
      *
      * @param virtualBalanceA Offset to the real balance reserves
      * @param virtualBalanceB Offset to the real balance reserves
@@ -134,12 +138,12 @@ interface IReClammPool is IBasePool {
     event VirtualBalancesUpdated(uint256 virtualBalanceA, uint256 virtualBalanceB);
 
     /**
-     * @notice The price shift daily rate was updated.
+     * @notice The daily price shift exponent was updated.
      * @dev This will be emitted on deployment, and when changed by governance or the swap manager.
-     * @param priceShiftDailyRate The new price shift daily rate
-     * @param priceShiftDailyRateInSeconds A representation of the price shift daily rate in seconds
+     * @param dailyPriceShiftExponent The new daily price shift exponent
+     * @param dailyPriceShiftBase The internal representation of the daily price shift exponent
      */
-    event PriceShiftDailyRateUpdated(uint256 priceShiftDailyRate, uint256 priceShiftDailyRateInSeconds);
+    event DailyPriceShiftExponentUpdated(uint256 dailyPriceShiftExponent, uint256 dailyPriceShiftBase);
 
     /**
      * @notice The centeredness margin was updated.
@@ -184,7 +188,7 @@ interface IReClammPool is IBasePool {
     error InvalidInitialPrice();
 
     /// @notice The daily price shift rate is too high.
-    error PriceShiftDailyRateTooHigh();
+    error DailyPriceShiftExponentTooHigh();
 
     /// @notice The difference between end time and start time is too short for the price ratio update.
     error PriceRatioUpdateDurationTooShort();
@@ -302,21 +306,18 @@ interface IReClammPool is IBasePool {
     function getCenterednessMargin() external view returns (uint256 centerednessMargin);
 
     /**
-     * @notice Returns the price shift daily rate as a FP-18 percentage.
+     * @notice Returns the daily price shift exponent as an 18-decimal FP.
      * @dev At 100% (FixedPoint.ONE), the price range doubles (or halves) within a day.
-     * @return priceShiftDailyRate The price shift daily rate
+     * @return dailyPriceShiftExponent The daily price shift exponent
      */
-    function getPriceShiftDailyRate() external view returns (uint256 priceShiftDailyRate);
+    function getDailyPriceShiftExponent() external view returns (uint256 dailyPriceShiftExponent);
 
     /**
-     * @notice Returns the internal time constant representation for the price shift daily rate (tau).
-     * @dev Equals priceShiftDailyRate / 124649.
-     * @return priceShiftDailyRateInternalTimeConstant The internal representation for the price shift daily rate
+     * @notice Returns the internal time constant representation for the daily price shift exponent (tau).
+     * @dev Equals dailyPriceShiftExponent / _PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT.
+     * @return dailyPriceShiftBase The internal representation for the daily price shift exponent
      */
-    function getPriceShiftDailyRateInternalTimeConstant()
-        external
-        view
-        returns (uint256 priceShiftDailyRateInternalTimeConstant);
+    function getDailyPriceShiftBase() external view returns (uint256 dailyPriceShiftBase);
 
     /**
      * @notice Returns the current price ratio state.
@@ -393,13 +394,20 @@ interface IReClammPool is IBasePool {
     ) external returns (uint256 actualPriceRatioUpdateStartTime);
 
     /**
-     * @notice Updates the price shift daily rate.
+     * @notice Updates the daily price shift exponent, as a 18-decimal FP percentage.
      * @dev This function is considered a user interaction, and therefore recalculates the virtual balances and sets
      * the last timestamp. This is a permissioned function.
      *
-     * @param newPriceShiftDailyRate The new price shift daily rate
+     * A percentage of 100% will make the price range double (or halve) within a day.
+     * A percentage of 200% will make the price range quadruple (or quartered) within a day.
+     *
+     * More generically, the new price range will be either
+     * Range_old * 2^(newDailyPriceShiftExponent / 100), or
+     * Range_old / 2^(newDailyPriceShiftExponent / 100)
+     *
+     * @param newDailyPriceShiftExponent The new daily price shift exponent
      */
-    function setPriceShiftDailyRate(uint256 newPriceShiftDailyRate) external;
+    function setDailyPriceShiftExponent(uint256 newDailyPriceShiftExponent) external;
 
     /**
      * @notice Set the centeredness margin.
