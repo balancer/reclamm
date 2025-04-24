@@ -30,7 +30,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
         uint256 defaultMinPrice;
         uint256 defaultMaxPrice;
         uint256 defaultTargetPrice;
-        uint256 defaultPriceShiftDailyRate;
+        uint256 defaultDailyPriceShiftExponent;
         uint256 defaultCenterednessMargin;
         string poolVersion;
         string factoryVersion;
@@ -50,7 +50,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
             defaultMinPrice: 0.5e18,
             defaultMaxPrice: 2e18,
             defaultTargetPrice: 1e18,
-            defaultPriceShiftDailyRate: 100e16, // 100%
+            defaultDailyPriceShiftExponent: 100e16, // 100%
             defaultCenterednessMargin: 10e16, // 10%
             poolVersion: "ReClamm Pool v1",
             factoryVersion: "ReClamm Pool Factory v1"
@@ -85,7 +85,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
             defaultParams.defaultMinPrice,
             defaultParams.defaultMaxPrice,
             defaultParams.defaultTargetPrice,
-            defaultParams.defaultPriceShiftDailyRate,
+            defaultParams.defaultDailyPriceShiftExponent,
             SafeCast.toUint64(defaultParams.defaultCenterednessMargin),
             bytes32(_saltIndex++)
         );
@@ -100,7 +100,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
                 initialMinPrice: defaultParams.defaultMinPrice,
                 initialMaxPrice: defaultParams.defaultMaxPrice,
                 initialTargetPrice: defaultParams.defaultTargetPrice,
-                priceShiftDailyRate: defaultParams.defaultPriceShiftDailyRate,
+                dailyPriceShiftExponent: defaultParams.defaultDailyPriceShiftExponent,
                 centerednessMargin: SafeCast.toUint64(defaultParams.defaultCenterednessMargin)
             }),
             vault
