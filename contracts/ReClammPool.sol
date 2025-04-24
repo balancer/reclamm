@@ -814,16 +814,13 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     function _checkInitializationBalanceRatio(
         uint256[] memory balancesScaled18,
         uint256[] memory theoreticalRealBalances
-    ) internal view {
+    ) internal pure {
         uint256 realBalanceRatio = balancesScaled18[b].divDown(balancesScaled18[a]);
         uint256 theoreticalBalanceRatio = theoreticalRealBalances[b].divDown(theoreticalRealBalances[a]);
 
         uint256 ratioLowerBound = theoreticalBalanceRatio.mulDown(FixedPoint.ONE - _BALANCE_RATIO_AND_PRICE_TOLERANCE);
         uint256 ratioUpperBound = theoreticalBalanceRatio.mulDown(FixedPoint.ONE + _BALANCE_RATIO_AND_PRICE_TOLERANCE);
 
-        console.log("realBalanceRatio", realBalanceRatio);
-        console.log("ratioLowerBound", ratioLowerBound);
-        console.log("ratioUpperBound", ratioUpperBound);
         if (realBalanceRatio < ratioLowerBound || realBalanceRatio > ratioUpperBound) {
             revert BalanceRatioExceedsTolerance();
         }
@@ -841,10 +838,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     ) internal view {
         // Compare current spot price with initialization target price.
         uint256 spotPrice = (balancesScaled18[b] + virtualBalanceB).divDown(balancesScaled18[a] + virtualBalanceA);
-        console.log("spotPrice", spotPrice);
         _comparePrice(spotPrice, _INITIAL_TARGET_PRICE);
-
-        console.log("_comparePrice passed");
 
         uint256 currentInvariant = ReClammMath.computeInvariant(
             balancesScaled18,
@@ -853,13 +847,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             Rounding.ROUND_DOWN
         );
 
-        console.log("currentInvariant", currentInvariant);
-
         // Compare current min price with initialization min price.
         uint256 currentMinPrice = (virtualBalanceB * virtualBalanceB) / currentInvariant;
         _comparePrice(currentMinPrice, _INITIAL_MIN_PRICE);
-
-        console.log("currentMinPrice", currentMinPrice);
 
         // Compare current max price with initialization max price.
         uint256 currentMaxPrice = currentInvariant.divDown(virtualBalanceA).divDown(virtualBalanceA);

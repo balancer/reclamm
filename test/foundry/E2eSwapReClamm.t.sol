@@ -67,9 +67,6 @@ contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest {
             uint256 rateTokenA = getRate(tokenA);
             uint256 rateTokenB = getRate(tokenB);
 
-            console.log("rateTokenA: %s, rateTokenB: %s", rateTokenA, rateTokenB);
-            console.log("decimalsTokenA: %s, decimalsTokenB: %s", decimalsTokenA, decimalsTokenB);
-
             uint256 tokenAMinTradeAmountInExactIn = PRODUCTION_MIN_TRADE_AMOUNT.divUp(rateTokenA).mulUp(
                 10 ** decimalsTokenA
             );
@@ -77,7 +74,7 @@ contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest {
                 10 ** decimalsTokenB
             );
 
-            (, , , uint256[] memory balancesScaled18) = vault.getPoolTokenInfo(pool); //TODO poolInitAmount
+            (, , , uint256[] memory balancesScaled18) = vault.getPoolTokenInfo(pool);
             (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = ReClammPoolMock(pool)
                 .computeCurrentVirtualBalances(balancesScaled18);
 
@@ -107,12 +104,12 @@ contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest {
             minSwapAmountTokenA = tokenAMinTradeAmountInExactOut > tokenAMinTradeAmountInExactIn
                 ? tokenAMinTradeAmountInExactOut
                 : tokenAMinTradeAmountInExactIn;
-            minSwapAmountTokenA *= 10; // TODO: Some rounding error?
+            minSwapAmountTokenA *= 10;
 
             minSwapAmountTokenB = tokenBMinTradeAmountOutExactIn > tokenBMinTradeAmountOutExactOut
                 ? tokenBMinTradeAmountOutExactIn
                 : tokenBMinTradeAmountOutExactOut;
-            minSwapAmountTokenB *= 10; // TODO: Some rounding error?
+            minSwapAmountTokenB *= 10;
 
             uint256[] memory balancesScaled18_ = balancesScaled18;
             maxSwapAmountTokenA = (ReClammMath.computeInGivenOut(
@@ -125,8 +122,6 @@ contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest {
             ) / 5).mulDown(10 ** (decimalsTokenA)).divDown(rateTokenA); // Divide by 5 to avoid PoolCenterednessTooLow
 
             maxSwapAmountTokenB = (balancesScaled18_[b] / 2).mulDown(10 ** (decimalsTokenB)).divDown(rateTokenB); // Divide by 2 to avoid TokenBalanceTooLow
-
-            console.log("maxSwapAmountTokenA: %s, maxSwapAmountTokenB: %s", maxSwapAmountTokenA, maxSwapAmountTokenB);
         }
     }
 
