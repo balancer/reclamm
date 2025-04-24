@@ -142,7 +142,7 @@ library ReClammMath {
         uint256 tokenInIndex,
         uint256 tokenOutIndex,
         uint256 amountInScaled18
-    ) internal view returns (uint256 amountOutScaled18) {
+    ) internal pure returns (uint256 amountOutScaled18) {
         (uint256 virtualBalanceTokenIn, uint256 virtualBalanceTokenOut) = tokenInIndex == a
             ? (virtualBalanceA, virtualBalanceB)
             : (virtualBalanceB, virtualBalanceA);
@@ -188,7 +188,7 @@ library ReClammMath {
         uint256 tokenInIndex,
         uint256 tokenOutIndex,
         uint256 amountOutScaled18
-    ) internal view returns (uint256 amountInScaled18) {
+    ) internal pure returns (uint256 amountInScaled18) {
         if (amountOutScaled18 > balancesScaled18[tokenOutIndex]) {
             // Amount out cannot be greater than the real balance of the token in the pool.
             revert AmountOutGreaterThanBalance();
