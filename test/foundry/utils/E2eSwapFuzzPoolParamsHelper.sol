@@ -42,6 +42,11 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
         uint256 minPrice;
         uint256 maxPrice;
         uint256 targetPrice;
+        uint256 rateTokenA;
+        uint256 rateTokenB;
+        uint256 decimalsTokenA;
+        uint256 decimalsTokenB;
+        uint256 mintTradeAmount;
     }
 
     function _fuzzPoolParams(
@@ -93,5 +98,88 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
         );
 
         return (testParams.initialBalances[a], testParams.initialBalances[b]);
+    }
+
+    function _calculateMinAndMaxSwapAmounts(
+        IVaultMock vault,
+        address pool,
+        uint256 rateTokenA,
+        uint256 rateTokenB,
+        uint256 decimalsTokenA,
+        uint256 decimalsTokenB,
+        uint256 mintTradeAmount
+    )
+        internal
+        returns (
+            uint256 minSwapAmountTokenA,
+            uint256 minSwapAmountTokenB,
+            uint256 maxSwapAmountTokenA,
+            uint256 maxSwapAmountTokenB
+        )
+    {
+        TestParams memory testParams;
+        testParams.rateTokenA = rateTokenA;
+        testParams.rateTokenB = rateTokenB;
+        testParams.decimalsTokenA = decimalsTokenA;
+        testParams.decimalsTokenB = decimalsTokenB;
+        testParams.mintTradeAmount = mintTradeAmount;
+
+        (, , , uint256[] memory balancesScaled18) = vault.getPoolTokenInfo(pool);
+        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = ReClammPoolMock(pool)
+            .computeCurrentVirtualBalances(balancesScaled18);
+
+        uint256 tokenAMinTradeAmountInExactOut = ReClammMath
+            .computeInGivenOut(
+                balancesScaled18,
+                currentVirtualBalanceA,
+                currentVirtualBalanceB,
+                a,
+                b,
+                testParams.mintTradeAmount
+            )
+            .divDown(testParams.rateTokenA)
+            .mulDown(10 ** testParams.decimalsTokenA);
+        uint256 tokenBMinTradeAmountOutExactIn = ReClammMath
+            .computeOutGivenIn(
+                balancesScaled18,
+                currentVirtualBalanceA,
+                currentVirtualBalanceB,
+                a,
+                b,
+                testParams.mintTradeAmount
+            )
+            .divDown(testParams.rateTokenB)
+            .mulDown(10 ** testParams.decimalsTokenB);
+
+        uint256 tokenAMinTradeAmountInExactIn = testParams.mintTradeAmount.divUp(testParams.rateTokenA).mulUp(
+            10 ** testParams.decimalsTokenA
+        );
+        uint256 tokenBMinTradeAmountOutExactOut = testParams.mintTradeAmount.divUp(testParams.rateTokenB).mulUp(
+            10 ** testParams.decimalsTokenB
+        );
+
+        minSwapAmountTokenA = tokenAMinTradeAmountInExactOut > tokenAMinTradeAmountInExactIn
+            ? tokenAMinTradeAmountInExactOut
+            : tokenAMinTradeAmountInExactIn;
+        minSwapAmountTokenA *= 10;
+
+        minSwapAmountTokenB = tokenBMinTradeAmountOutExactIn > tokenBMinTradeAmountOutExactOut
+            ? tokenBMinTradeAmountOutExactIn
+            : tokenBMinTradeAmountOutExactOut;
+        minSwapAmountTokenB *= 10;
+
+        uint256[] memory balancesScaled18_ = balancesScaled18;
+        maxSwapAmountTokenA = (ReClammMath.computeInGivenOut(
+            balancesScaled18_,
+            currentVirtualBalanceA,
+            currentVirtualBalanceB,
+            a,
+            b,
+            balancesScaled18_[b]
+        ) / 5).mulDown(10 ** (testParams.decimalsTokenA)).divDown(testParams.rateTokenA); // Divide by 5 to avoid PoolCenterednessTooLow
+
+        maxSwapAmountTokenB = (balancesScaled18_[b] / 2).mulDown(10 ** (testParams.decimalsTokenB)).divDown(
+            testParams.rateTokenB
+        ); // Divide by 2 to avoid TokenBalanceTooLow
     }
 }

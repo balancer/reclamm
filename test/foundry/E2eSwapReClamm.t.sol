@@ -29,8 +29,9 @@ contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest {
 
     function setUp() public override {
         setDefaultAccountBalance(type(uint128).max);
-        E2eSwapTest.setUp();
-        isFuzzPoolParams = false;
+        super.setUp();
+
+        exactInOutDecimalsErrorMultiplier = 2e9;
     }
 
     function setUpVariables() internal override {
@@ -50,8 +51,6 @@ contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest {
     }
 
     function fuzzPoolParams(uint256[POOL_SPECIFIC_PARAMS_SIZE] memory params) internal override {
-        exactInOutDecimalsErrorMultiplier = 2e13;
-
         address[] memory tokens = new address[](2);
         tokens[0] = address(tokenA);
         tokens[1] = address(tokenB);
@@ -66,64 +65,20 @@ contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest {
         if (isFuzzPoolParams == false) {
             super.calculateMinAndMaxSwapAmounts();
         } else {
-            uint256 rateTokenA = getRate(tokenA);
-            uint256 rateTokenB = getRate(tokenB);
-
-            uint256 tokenAMinTradeAmountInExactIn = PRODUCTION_MIN_TRADE_AMOUNT.divUp(rateTokenA).mulUp(
-                10 ** decimalsTokenA
+            (
+                minSwapAmountTokenA,
+                minSwapAmountTokenB,
+                maxSwapAmountTokenA,
+                maxSwapAmountTokenB
+            ) = _calculateMinAndMaxSwapAmounts(
+                vault,
+                pool,
+                getRate(tokenA),
+                getRate(tokenB),
+                decimalsTokenA,
+                decimalsTokenB,
+                PRODUCTION_MIN_TRADE_AMOUNT
             );
-            uint256 tokenBMinTradeAmountOutExactOut = PRODUCTION_MIN_TRADE_AMOUNT.divUp(rateTokenB).mulUp(
-                10 ** decimalsTokenB
-            );
-
-            (, , , uint256[] memory balancesScaled18) = vault.getPoolTokenInfo(pool);
-            (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = ReClammPoolMock(pool)
-                .computeCurrentVirtualBalances(balancesScaled18);
-
-            uint256 tokenAMinTradeAmountInExactOut = ReClammMath
-                .computeInGivenOut(
-                    balancesScaled18,
-                    currentVirtualBalanceA,
-                    currentVirtualBalanceB,
-                    a,
-                    b,
-                    PRODUCTION_MIN_TRADE_AMOUNT
-                )
-                .divDown(rateTokenA)
-                .mulDown(10 ** decimalsTokenA);
-            uint256 tokenBMinTradeAmountOutExactIn = ReClammMath
-                .computeOutGivenIn(
-                    balancesScaled18,
-                    currentVirtualBalanceA,
-                    currentVirtualBalanceB,
-                    a,
-                    b,
-                    PRODUCTION_MIN_TRADE_AMOUNT
-                )
-                .divDown(rateTokenB)
-                .mulDown(10 ** decimalsTokenB);
-
-            minSwapAmountTokenA = tokenAMinTradeAmountInExactOut > tokenAMinTradeAmountInExactIn
-                ? tokenAMinTradeAmountInExactOut
-                : tokenAMinTradeAmountInExactIn;
-            minSwapAmountTokenA *= 10;
-
-            minSwapAmountTokenB = tokenBMinTradeAmountOutExactIn > tokenBMinTradeAmountOutExactOut
-                ? tokenBMinTradeAmountOutExactIn
-                : tokenBMinTradeAmountOutExactOut;
-            minSwapAmountTokenB *= 10;
-
-            uint256[] memory balancesScaled18_ = balancesScaled18;
-            maxSwapAmountTokenA = (ReClammMath.computeInGivenOut(
-                balancesScaled18_,
-                currentVirtualBalanceA,
-                currentVirtualBalanceB,
-                a,
-                b,
-                balancesScaled18_[b]
-            ) / 5).mulDown(10 ** (decimalsTokenA)).divDown(rateTokenA); // Divide by 5 to avoid PoolCenterednessTooLow
-
-            maxSwapAmountTokenB = (balancesScaled18_[b] / 2).mulDown(10 ** (decimalsTokenB)).divDown(rateTokenB); // Divide by 2 to avoid TokenBalanceTooLow
         }
     }
 
