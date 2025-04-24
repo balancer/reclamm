@@ -3,7 +3,6 @@
 
 pragma solidity ^0.8.24;
 
-import "forge-std/console.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { SignedMath } from "@openzeppelin/contracts/utils/math/SignedMath.sol";
 
