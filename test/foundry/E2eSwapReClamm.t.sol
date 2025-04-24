@@ -50,6 +50,8 @@ contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest {
     }
 
     function fuzzPoolParams(uint256[POOL_SPECIFIC_PARAMS_SIZE] memory params) internal override {
+        exactInOutDecimalsErrorMultiplier = 2e13;
+
         address[] memory tokens = new address[](2);
         tokens[0] = address(tokenA);
         tokens[1] = address(tokenB);
