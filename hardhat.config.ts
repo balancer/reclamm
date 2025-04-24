@@ -17,7 +17,7 @@ const optimizerSteps =
 
 const overrides = {
   ['contracts/ReClammPool.sol']: {
-    version: '0.8.28',
+    version: '0.8.27',
     settings: {
       viaIR: true,
       evmVersion: 'cancun',
