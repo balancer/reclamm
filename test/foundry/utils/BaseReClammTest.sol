@@ -41,7 +41,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     uint256 internal constant _DEFAULT_MIN_PRICE = 1000e18;
     uint256 internal constant _DEFAULT_MAX_PRICE = 4000e18;
     uint256 internal constant _DEFAULT_TARGET_PRICE = 2500e18;
-    uint256 internal constant _DEFAULT_PRICE_SHIFT_DAILY_RATE = 100e16; // 100%
+    uint256 internal constant _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT = 100e16; // 100%
     uint64 internal constant _DEFAULT_CENTEREDNESS_MARGIN = 20e16; // 20%
 
     uint256 internal constant _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA = 1e3;
@@ -121,7 +121,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
             _initialMinPrice,
             _initialMaxPrice,
             _initialTargetPrice,
-            _DEFAULT_PRICE_SHIFT_DAILY_RATE,
+            _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
             _DEFAULT_CENTEREDNESS_MARGIN,
             bytes32(saltNumber++)
         );
