@@ -613,6 +613,53 @@ contract ReClammPoolTest is BaseReClammTest {
         ReClammPool(pool).setCenterednessMargin(_NEW_CENTEREDNESS_MARGIN);
     }
 
+    function testIsPoolInTargetRange() public {
+        (, , , uint256[] memory balancesScaled18) = vault.getPoolTokenInfo(pool);
+        (uint256 lastVirtualBalanceA, uint256 lastVirtualBalanceB) = ReClammPool(pool).getLastVirtualBalances();
+        (uint256 virtualBalanceA, uint256 virtualBalanceB, ) = ReClammPool(pool).computeCurrentVirtualBalances();
+        uint256 centerednessMargin = ReClammPool(pool).getCenterednessMargin();
+
+        // Last should equal current.
+        assertEq(lastVirtualBalanceA, virtualBalanceA, "last != current (A)");
+        assertEq(lastVirtualBalanceB, virtualBalanceB, "last != current (B)");
+
+        bool resultWithCurrentBalances = ReClammMath.isPoolWithinTargetRange(
+            balancesScaled18,
+            virtualBalanceA,
+            virtualBalanceB,
+            centerednessMargin
+        );
+        assertTrue(resultWithCurrentBalances, "Expected value not in range");
+
+        assertTrue(ReClammPool(pool).isPoolWithinTargetRange(), "Actual value not in range");
+
+        uint256[] memory newLastVirtualBalances = new uint256[](2);
+        newLastVirtualBalances[a] = lastVirtualBalanceA / 1000;
+        newLastVirtualBalances[b] = lastVirtualBalanceB;
+
+        bool resultWithLastBalances = ReClammMath.isPoolWithinTargetRange(
+            balancesScaled18,
+            newLastVirtualBalances[a],
+            newLastVirtualBalances[b],
+            centerednessMargin
+        );
+
+        assertFalse(resultWithLastBalances, "Expected value still in range");
+
+        ReClammPoolMock(pool).setLastVirtualBalances(newLastVirtualBalances);
+
+        // Must advance time, or it will return the last virtual balances. If the calculation used the last virtual
+        // balances, it would return false (per calculation above).
+        //
+        // Since it is *not* using the last balances, it should still return true.
+        vm.warp(block.timestamp + 100);
+        (bool resultWithAlternateGetter, bool virtualBalancesChanged) = ReClammPool(pool)
+            .isPoolWithinTargetRangeUsingCurrentVirtualBalances();
+
+        assertTrue(resultWithAlternateGetter, "Actual value not in range with alternate getter");
+        assertTrue(virtualBalancesChanged, "Last == current virtual balances");
+    }
+
     function testInRangeUpdatingVirtualBalancesSetCenterednessMargin() public {
         vm.prank(admin);
         // Start updating virtual balances.

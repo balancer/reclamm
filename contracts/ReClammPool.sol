@@ -490,6 +490,28 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
+    function isPoolWithinTargetRangeUsingCurrentVirtualBalances()
+        external
+        view
+        returns (bool isWithinTargetRange, bool virtualBalancesChanged)
+    {
+        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
+        uint256 currentVirtualBalanceA;
+        uint256 currentVirtualBalanceB;
+
+        (currentVirtualBalanceA, currentVirtualBalanceB, virtualBalancesChanged) = _computeCurrentVirtualBalances(
+            balancesScaled18
+        );
+
+        isWithinTargetRange = ReClammMath.isPoolWithinTargetRange(
+            balancesScaled18,
+            currentVirtualBalanceA,
+            currentVirtualBalanceB,
+            _centerednessMargin
+        );
+    }
+
+    /// @inheritdoc IReClammPool
     function computeCurrentPoolCenteredness() external view returns (uint256) {
         (, , , uint256[] memory currentBalancesScaled18) = _vault.getPoolTokenInfo(address(this));
         return ReClammMath.computeCenteredness(currentBalancesScaled18, _lastVirtualBalanceA, _lastVirtualBalanceB);
