@@ -34,7 +34,7 @@ const _INITIALIZATION_MAX_BALANCE_A = fp(1000000);
 export function computeCurrentVirtualBalances(
   balancesScaled18: bigint[],
   lastVirtualBalances: bigint[],
-  priceShiftDailyRateInSeconds: bigint,
+  dailyPriceShiftBase: bigint,
   lastTimestamp: bigint,
   currentTimestamp: bigint,
   centerednessMargin: bigint,
@@ -76,7 +76,7 @@ export function computeCurrentVirtualBalances(
   if (isPoolWithinTargetRange(balancesScaled18, lastVirtualBalances, centerednessMargin) == false) {
     const priceRatio = fpMulDown(currentFourthRootPriceRatio, currentFourthRootPriceRatio);
 
-    const base = fromFp(FP_ONE - priceShiftDailyRateInSeconds);
+    const base = fromFp(dailyPriceShiftBase);
     const exponent = fromFp(fp(currentTimestamp - lastTimestamp));
     const powResult = base.pow(exponent);
 
@@ -144,7 +144,7 @@ export function calculateVirtualBalancesUpdatingPriceRatio(
 export function computeInvariant(
   balancesScaled18: bigint[],
   lastVirtualBalances: bigint[],
-  priceShiftDailyRateInSeconds: bigint,
+  dailyPriceShiftBase: bigint,
   lastTimestamp: number,
   currentTimestamp: number,
   centerednessMargin: bigint,
@@ -154,7 +154,7 @@ export function computeInvariant(
   const [currentVirtualBalances, _] = computeCurrentVirtualBalances(
     balancesScaled18,
     lastVirtualBalances,
-    priceShiftDailyRateInSeconds,
+    dailyPriceShiftBase,
     lastTimestamp,
     currentTimestamp,
     centerednessMargin,
@@ -295,6 +295,6 @@ export function isAboveCenter(balancesScaled18: bigint[], virtualBalances: bigin
   }
 }
 
-export function computePriceShiftDailyRate(priceShiftDailyRate: bigint): bigint {
-  return bn(priceShiftDailyRate) / bn(124649);
+export function toDailyPriceShiftBase(dailyPriceShiftExponent: bigint): bigint {
+  return fp(1) - bn(dailyPriceShiftExponent) / bn(124649);
 }

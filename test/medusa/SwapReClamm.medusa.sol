@@ -58,7 +58,7 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
             1000e18, // 1000 min price
             4000e18, // 4000 max price
             3000e18, // 3000 target price
-            1e18, // 100% price shift daily rate
+            1e18, // 100% daily price shift exponent
             10e16, // 10% margin
             ""
         );
