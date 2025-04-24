@@ -691,18 +691,18 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             revert DailyPriceShiftExponentTooHigh();
         }
 
-        uint256 internalTimeConstant = dailyPriceShiftExponent.toDailyPriceShiftBase();
+        uint256 dailyPriceShiftBase = dailyPriceShiftExponent.toDailyPriceShiftBase();
         // There might be precision loss when adjusting to the internal representation, so we need to
         // convert back to the external representation to emit the event.
-        dailyPriceShiftExponent = internalTimeConstant.toDailyPriceShiftExponent();
+        dailyPriceShiftExponent = dailyPriceShiftBase.toDailyPriceShiftExponent();
 
-        _dailyPriceShiftBase = internalTimeConstant.toUint128();
+        _dailyPriceShiftBase = dailyPriceShiftBase.toUint128();
 
-        emit DailyPriceShiftExponentUpdated(dailyPriceShiftExponent, internalTimeConstant);
+        emit DailyPriceShiftExponentUpdated(dailyPriceShiftExponent, dailyPriceShiftBase);
 
         _vault.emitAuxiliaryEvent(
             "DailyPriceShiftExponentUpdated",
-            abi.encode(dailyPriceShiftExponent, internalTimeConstant)
+            abi.encode(dailyPriceShiftExponent, dailyPriceShiftBase)
         );
 
         return dailyPriceShiftExponent;

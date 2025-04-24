@@ -361,7 +361,7 @@ library ReClammMath {
             }
 
             // stack-too-deep
-            uint256 _dailyPriceShiftExponentInternalTimeConstant = dailyPriceShiftBase;
+            uint256 _dailyPriceShiftBase = dailyPriceShiftBase;
             uint256[] memory _balancesScaled18 = balancesScaled18;
             uint32 _lastTimestamp = lastTimestamp;
 
@@ -371,7 +371,7 @@ library ReClammMath {
                 currentVirtualBalanceA,
                 currentVirtualBalanceB,
                 isPoolAboveCenter == PoolAboveCenter.TRUE,
-                _dailyPriceShiftExponentInternalTimeConstant,
+                _dailyPriceShiftBase,
                 currentTimestamp,
                 _lastTimestamp
             );
