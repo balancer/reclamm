@@ -69,18 +69,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
         address poolCreator
     ) internal returns (address newPool, bytes memory poolArgs) {
         IRateProvider[] memory rateProviders = new IRateProvider[](0);
-        return
-            createReClammPool(
-                tokens,
-                rateProviders,
-                label,
-                vault,
-                poolCreator,
-                defaultParams.defaultMinPrice,
-                defaultParams.defaultMaxPrice,
-                defaultParams.defaultTargetPrice,
-                defaultParams.defaultCenterednessMargin
-            );
+        return createReClammPool(tokens, rateProviders, label, vault, poolCreator);
     }
 
     function createReClammPool(
@@ -90,38 +79,6 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
         IVaultMock vault,
         address poolCreator
     ) internal returns (address newPool, bytes memory poolArgs) {
-        return
-            createReClammPool(
-                tokens,
-                rateProviders,
-                label,
-                vault,
-                poolCreator,
-                defaultParams.defaultMinPrice,
-                defaultParams.defaultMaxPrice,
-                defaultParams.defaultTargetPrice,
-                defaultParams.defaultCenterednessMargin
-            );
-    }
-
-    function createReClammPool(
-        address[] memory tokens,
-        IRateProvider[] memory rateProviders,
-        string memory label,
-        IVaultMock vault,
-        address poolCreator,
-        uint256 minPrice,
-        uint256 maxPrice,
-        uint256 targetPrice,
-        uint256 centerednessMargin
-    ) internal returns (address newPool, bytes memory poolArgs) {
-        {
-            defaultParams.defaultMinPrice = minPrice;
-            defaultParams.defaultMaxPrice = maxPrice;
-            defaultParams.defaultTargetPrice = targetPrice;
-            defaultParams.defaultCenterednessMargin = centerednessMargin;
-        }
-
         ReClammPoolFactoryMock poolFactory;
         {
             string memory poolVersion = "ReClamm Pool v1";

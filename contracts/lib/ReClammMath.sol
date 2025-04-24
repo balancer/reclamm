@@ -3,7 +3,6 @@
 
 pragma solidity ^0.8.24;
 
-import "forge-std/console.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
@@ -164,7 +163,6 @@ library ReClammMath {
         }
 
         amountOutScaled18 = currentTotalTokenOutPoolBalance - newTotalTokenOutPoolBalance;
-
         if (amountOutScaled18 > balancesScaled18[tokenOutIndex]) {
             // Amount out cannot be greater than the real balance of the token.
             revert AmountOutGreaterThanBalance();
