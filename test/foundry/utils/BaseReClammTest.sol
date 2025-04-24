@@ -56,7 +56,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     // 1 billion tokens.
     uint256 internal constant _MAX_TOKEN_BALANCE = 1e9 * 1e18;
 
-    uint256 private _dailyPriceShiftExponent = _DEFAULT_PRICE_SHIFT_DAILY_RATE;
+    uint256 private _dailyPriceShiftExponent = _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT;
 
     uint256[] internal _initialBalances;
     uint256[] internal _initialVirtualBalances;
@@ -138,7 +138,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
                 initialMinPrice: _initialMinPrice,
                 initialMaxPrice: _initialMaxPrice,
                 initialTargetPrice: _initialTargetPrice,
-                dailyPriceShiftExponent: _DEFAULT_PRICE_SHIFT_DAILY_RATE,
+                dailyPriceShiftExponent: _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
                 centerednessMargin: _DEFAULT_CENTEREDNESS_MARGIN
             }),
             vault

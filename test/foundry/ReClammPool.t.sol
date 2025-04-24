@@ -210,7 +210,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
     function testGetReClammPoolDynamicData() public {
         // Modify values using setters
-        uint256 newDailyPriceShiftBase = 200e16;
+        uint256 newDailyPriceShiftExponent = 200e16;
         uint256 endFourthRootPriceRatio = 8e18;
         uint256 newStaticSwapFeePercentage = 5e16;
 
@@ -229,7 +229,7 @@ contract ReClammPoolTest is BaseReClammTest {
             state.priceRatioUpdateStartTime,
             state.priceRatioUpdateEndTime
         );
-        ReClammPool(pool).setDailyPriceShiftExponent(newDailyPriceShiftBase);
+        ReClammPool(pool).setDailyPriceShiftExponent(newDailyPriceShiftExponent);
         ReClammPool(pool).setCenterednessMargin(_NEW_CENTEREDNESS_MARGIN);
         vault.setStaticSwapFeePercentage(pool, newStaticSwapFeePercentage);
         vm.stopPrank();
@@ -281,7 +281,7 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(data.centerednessMargin, _NEW_CENTEREDNESS_MARGIN, "Invalid centeredness margin");
         assertEq(
             data.dailyPriceShiftBase,
-            FixedPoint.ONE - newDailyPriceShiftBase / 124649,
+            FixedPoint.ONE - newDailyPriceShiftExponent / 124649,
             "Invalid price shift time constant"
         );
         assertEq(data.lastVirtualBalances.length, 2, "Invalid number of last virtual balances");

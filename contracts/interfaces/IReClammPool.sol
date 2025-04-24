@@ -186,7 +186,7 @@ interface IReClammPool is IBasePool {
     /// @notice
     error InvalidInitialPrice();
 
-    /// @notice The daily price shift rate is too high.
+    /// @notice The daily price shift exponent is too high.
     error DailyPriceShiftExponentTooHigh();
 
     /// @notice The difference between end time and start time is too short for the price ratio update.
