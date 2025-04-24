@@ -24,7 +24,7 @@ contract ReClammPoolMock is ReClammPool {
         uint256 minPrice,
         uint256 maxPrice,
         uint256 targetPrice,
-        uint256 initialPriceShiftDailyRate,
+        uint128 initialPriceShiftDailyRate,
         uint256 centerednessMargin
     ) external {
         (
@@ -44,7 +44,7 @@ contract ReClammPoolMock is ReClammPool {
         _setLastVirtualBalances(virtualBalanceA, virtualBalanceB);
         _setPriceRatioState(fourthRootPriceRatio, block.timestamp, block.timestamp);
 
-        _setPriceShiftDailyRate(initialPriceShiftDailyRate);
+        _dailyPriceShiftBase = initialPriceShiftDailyRate;
         _setCenterednessMargin(centerednessMargin);
         _updateTimestamp();
     }
