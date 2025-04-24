@@ -648,11 +648,16 @@ contract ReClammPoolTest is BaseReClammTest {
 
         ReClammPoolMock(pool).setLastVirtualBalances(newLastVirtualBalances);
 
-        // Must advance time, or it current will return the last virtual balances. If the calculation used the last
-        // virtual balances, it would return false (per calculation above).
+        // Must advance time, or it will return the last virtual balances. If the calculation used the last virtual
+        // balances, it would return false (per calculation above).
+        //
         // Since it is *not* using the last balances, it should still return true.
         vm.warp(block.timestamp + 100);
-        assertTrue(ReClammPool(pool).isPoolWithinTargetRange(), "Actual value not in range after update");
+        (bool resultWithAlternateGetter, bool virtualBalancesChanged) = ReClammPool(pool)
+            .isPoolWithinTargetRangeUsingCurrentVirtualBalances();
+
+        assertTrue(resultWithAlternateGetter, "Actual value not in range with alternate getter");
+        assertTrue(virtualBalancesChanged, "Last == current virtual balances");
     }
 
     function testInRangeUpdatingVirtualBalancesSetCenterednessMargin() public {
