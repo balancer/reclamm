@@ -12,9 +12,6 @@ import 'hardhat-ignore-warnings';
 import 'hardhat-gas-reporter';
 import 'hardhat-contract-sizer';
 
-const optimizerSteps =
-  'dhfoDgvulfnTUtnIf [ xa[r]EscLM cCTUtTOntnfDIul Lcul Vcul [j] Tpeul xa[rul] xa[r]cL gvif CTUca[r]LSsTFOtfDnca[r]Iulc ] jmul[jul] VcTOcul jmul : fDnTOcmu';
-
 const overrides = {
   ['contracts/ReClammPool.sol']: {
     version: '0.8.27',
@@ -26,7 +23,7 @@ const overrides = {
         runs: 1500,
         details: {
           yulDetails: {
-            optimizerSteps,
+            optimizerSteps: hardhatBaseConfig.DEFAULT_OPTIMIZER_STEPS,
           },
         },
       },
