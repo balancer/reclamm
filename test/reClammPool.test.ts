@@ -26,7 +26,7 @@ import { deployPermit2 } from '@balancer-labs/v3-vault/test/Permit2Deployer';
 import { IPermit2 } from '@balancer-labs/v3-vault/typechain-types/permit2/src/interfaces/IPermit2';
 import { PoolConfigStructOutput } from '@balancer-labs/v3-interfaces/typechain-types/contracts/vault/IVault';
 import { TokenConfigStruct } from '../typechain-types/@balancer-labs/v3-interfaces/contracts/vault/IVault';
-import { computeCurrentVirtualBalances, computePriceShiftDailyRate } from './utils/reClammMath';
+import { computeCurrentVirtualBalances, toDailyPriceShiftBase } from './utils/reClammMath';
 import { expectEqualWithError } from './utils/relativeError';
 
 describe('ReClammPool', function () {
@@ -213,7 +213,7 @@ describe('ReClammPool', function () {
     const [expectedFinalVirtualBalances] = computeCurrentVirtualBalances(
       poolBalancesAfterSwap,
       [virtualBalancesAfterSwap.currentVirtualBalanceA, virtualBalancesAfterSwap.currentVirtualBalanceB],
-      computePriceShiftDailyRate(PRICE_SHIFT_DAILY_RATE),
+      toDailyPriceShiftBase(PRICE_SHIFT_DAILY_RATE),
       lastTimestamp,
       expectedTimestamp,
       CENTEREDNESS_MARGIN,
@@ -272,7 +272,7 @@ describe('ReClammPool', function () {
     const [expectedFinalVirtualBalances] = computeCurrentVirtualBalances(
       poolBalancesAfterSwap,
       [virtualBalancesAfterSwap.currentVirtualBalanceA, virtualBalancesAfterSwap.currentVirtualBalanceB],
-      computePriceShiftDailyRate(PRICE_SHIFT_DAILY_RATE),
+      toDailyPriceShiftBase(PRICE_SHIFT_DAILY_RATE),
       lastTimestamp,
       expectedTimestamp,
       CENTEREDNESS_MARGIN,

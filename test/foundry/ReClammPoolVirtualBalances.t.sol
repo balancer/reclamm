@@ -31,7 +31,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     ReClammMathMock mathMock = new ReClammMathMock();
 
     function setUp() public virtual override {
-        setPriceShiftDailyRate(0);
+        setDailyPriceShiftExponent(0);
         super.setUp();
     }
 
