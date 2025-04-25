@@ -29,6 +29,22 @@ const overrides = {
       },
     },
   },
+  ['contracts/ReClammPoolFactory.sol']: {
+    version: '0.8.27',
+    settings: {
+      viaIR: true,
+      evmVersion: 'cancun',
+      optimizer: {
+        enabled: true,
+        runs: 1500,
+        details: {
+          yulDetails: {
+            optimizerSteps: hardhatBaseConfig.DEFAULT_OPTIMIZER_STEPS,
+          },
+        },
+      },
+    },
+  },
 };
 
 const config: HardhatUserConfig = {
