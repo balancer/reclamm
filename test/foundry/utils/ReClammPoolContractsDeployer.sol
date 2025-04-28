@@ -81,7 +81,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
             defaultParams.symbol,
             vault.buildTokenConfig(_tokens),
             roleAccounts,
-            0,
+            1e16, // 1% fee
             defaultParams.defaultMinPrice,
             defaultParams.defaultMaxPrice,
             defaultParams.defaultTargetPrice,
@@ -90,6 +90,9 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
             bytes32(_saltIndex++)
         );
         vm.label(newPool, label);
+        // Force the swap fee percentage, even if it's outside the allowed limits.
+        // Tests are expected to set the fee percentage for specific purposes.
+        vault.manualSetStaticSwapFeePercentage(newPool, 0);
 
         // poolArgs is used to check pool deployment address with create2.
         poolArgs = abi.encode(

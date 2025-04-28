@@ -36,8 +36,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     using SafeCast for *;
     using ReClammMath for *;
 
-    // uint256 private constant _MIN_SWAP_FEE_PERCENTAGE = 0.001e16; // 0.001%
-    uint256 internal constant _MIN_SWAP_FEE_PERCENTAGE = 0;
+    uint256 internal constant _MIN_SWAP_FEE_PERCENTAGE = 0.1e16; // 0.1%
     uint256 internal constant _MAX_SWAP_FEE_PERCENTAGE = 10e16; // 10%
 
     // The centeredness margin defines the minimum pool centeredness to consider the pool within the target range.
