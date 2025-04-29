@@ -1069,7 +1069,7 @@ contract ReClammPoolTest is BaseReClammTest {
         // 1. Fuzz the exponent in the range [10e16, 500e16]
         exponent = bound(exponent, 10e16, 500e16);
 
-        // 2. Set the daily price shift exponent on the pool (must be admin and vault locked)
+        // 2. Set the daily price shift exponent on the pool (must be admin, and the vault must be locked)
         vm.prank(admin);
         ReClammPool(pool).setDailyPriceShiftExponent(exponent);
 
