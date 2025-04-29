@@ -92,7 +92,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
         vm.label(newPool, label);
         // Force the swap fee percentage, even if it's outside the allowed limits.
         // Tests are expected to set the fee percentage for specific purposes.
-        vault.manualSetStaticSwapFeePercentage(newPool, 0);
+        vault.manualUnsafeSetStaticSwapFeePercentage(newPool, 0);
 
         // poolArgs is used to check pool deployment address with create2.
         poolArgs = abi.encode(
