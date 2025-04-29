@@ -72,6 +72,7 @@ struct ReClammPoolImmutableData {
  * ReClamm:
  * @param lastTimestamp The timestamp of the last user interaction
  * @param lastVirtualBalances The last virtual balances of the pool
+ * @param dailyPriceShiftExponent Virtual balances will change by 2^(dailyPriceShiftExponent) per day
  * @param dailyPriceShiftBase Internal time constant used to update virtual balances (1 - tau)
  * @param centerednessMargin The centeredness margin of the pool
  * @param currentFourthRootPriceRatio The current fourth root price ratio, an interpolation of the price ratio state
@@ -93,6 +94,7 @@ struct ReClammPoolDynamicData {
     // ReClamm
     uint256 lastTimestamp;
     uint256[] lastVirtualBalances;
+    uint256 dailyPriceShiftExponent;
     uint256 dailyPriceShiftBase;
     uint256 centerednessMargin;
     uint256 currentFourthRootPriceRatio;
