@@ -419,6 +419,14 @@ interface IReClammPool is IBasePool {
     ) external returns (uint256 actualPriceRatioUpdateStartTime);
 
     /**
+     * @notice Stops an ongoing price ratio update.
+     * @dev The price ratio is calculated by interpolating between the start and end times. The new end price ratio
+     * will be set to the current one at the current timestamp, effectively pausing the update.
+     * This is a permissioned function.
+     */
+    function stopPriceRatioUpdate() external;
+
+    /**
      * @notice Updates the daily price shift exponent, as a 18-decimal FP percentage.
      * @dev This function is considered a user interaction, and therefore recalculates the virtual balances and sets
      * the last timestamp. This is a permissioned function.
