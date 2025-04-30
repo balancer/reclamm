@@ -1296,4 +1296,88 @@ contract ReClammPoolTest is BaseReClammTest {
         expectedAmount = _INITIAL_AMOUNT.divDown(bOverA);
         assertEq(initialBalances[a], expectedAmount, "Wrong other token amount (A)");
     }
+
+    function testDailyPriceShiftExponentHighPrice__Fuzz(uint256 exponent) public {
+        // 1. Fuzz the exponent in the range [10e16, 500e16]
+        exponent = bound(exponent, 10e16, 500e16);
+
+        // 2. Set the daily price shift exponent on the pool (must be admin, and the vault must be locked)
+        vm.prank(admin);
+        ReClammPool(pool).setDailyPriceShiftExponent(exponent);
+
+        // 3. Swap all of token B for token A using the router, with amountOut = current balance of A
+        (IERC20[] memory tokens, , uint256[] memory balances, ) = vault.getPoolTokenInfo(pool);
+
+        // Get min price before swap
+        (uint256 minPriceBefore, uint256 maxPriceBefore) = ReClammPool(pool).computeCurrentPriceRange();
+
+        vm.prank(alice);
+        router.swapSingleTokenExactOut(
+            pool,
+            tokens[b],
+            tokens[a],
+            balances[a] - _MIN_TOKEN_BALANCE,
+            MAX_UINT256,
+            MAX_UINT256,
+            false,
+            bytes("")
+        );
+
+        // 4. Advance time by 1 day
+        skip(1 days);
+
+        // 5. Check that the new min price is minPriceBefore * 2^exponent
+        (uint256 minPriceAfter, uint256 maxPriceAfter) = ReClammPool(pool).computeCurrentPriceRange();
+
+        // Calculate expected min price after 1 day
+        // The price should move by a factor of 2^exponent (using exp2 from FixedPoint)
+        uint256 expectedMinPrice = minPriceBefore.mulDown(uint256(2e18).powDown(exponent));
+        uint256 expectedMaxPrice = maxPriceBefore.mulDown(uint256(2e18).powDown(exponent));
+
+        // Allow for some rounding error
+        assertApproxEqRel(minPriceAfter, expectedMinPrice, 1e14, "Min price did not move as expected");
+        assertApproxEqRel(maxPriceAfter, expectedMaxPrice, 1e14, "Max price did not move as expected");
+    }
+
+    function testDailyPriceShiftExponentLowPrice__Fuzz(uint256 exponent) public {
+        // 1. Fuzz the exponent in the range [10e16, 500e16]
+        exponent = bound(exponent, 10e16, 500e16);
+
+        // 2. Set the daily price shift exponent on the pool (must be admin and vault locked)
+        vm.prank(admin);
+        ReClammPool(pool).setDailyPriceShiftExponent(exponent);
+
+        // 3. Swap all of token B for token A using the router, with amountOut = current balance of A
+        (IERC20[] memory tokens, , uint256[] memory balances, ) = vault.getPoolTokenInfo(pool);
+
+        // Get min price before swap
+        (uint256 minPriceBefore, uint256 maxPriceBefore) = ReClammPool(pool).computeCurrentPriceRange();
+
+        vm.prank(alice);
+        router.swapSingleTokenExactOut(
+            pool,
+            tokens[a],
+            tokens[b],
+            balances[b] - _MIN_TOKEN_BALANCE,
+            MAX_UINT256,
+            MAX_UINT256,
+            false,
+            bytes("")
+        );
+
+        // 4. Advance time by 1 day
+        skip(1 days);
+
+        // 5. Check that the new min price is minPriceBefore * 2^exponent
+        (uint256 minPriceAfter, uint256 maxPriceAfter) = ReClammPool(pool).computeCurrentPriceRange();
+
+        // Calculate expected min price after 1 day
+        // The price should move by a factor of 2^exponent (using exp2 from FixedPoint)
+        uint256 expectedMinPrice = minPriceBefore.divDown(uint256(2e18).powDown(exponent));
+        uint256 expectedMaxPrice = maxPriceBefore.divDown(uint256(2e18).powDown(exponent));
+
+        // Allow for some rounding error
+        assertApproxEqRel(minPriceAfter, expectedMinPrice, 1e14, "Min price did not move as expected");
+        assertApproxEqRel(maxPriceAfter, expectedMaxPrice, 1e14, "Max price did not move as expected");
+    }
 }
