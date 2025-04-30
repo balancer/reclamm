@@ -1096,7 +1096,7 @@ contract ReClammPoolTest is BaseReClammTest {
         );
 
         // Skip 1 second, so the virtual balances are updated in the pool.
-        skip(1 seconds); 
+        skip(1 seconds);
 
         (uint256 minPriceBefore, uint256 maxPriceBefore) = ReClammPool(pool).computeCurrentPriceRange();
 
