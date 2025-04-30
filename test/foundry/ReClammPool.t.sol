@@ -282,7 +282,12 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(
             data.dailyPriceShiftBase,
             FixedPoint.ONE - newDailyPriceShiftExponent / 124649,
-            "Invalid price shift time constant"
+            "Invalid daily price shift base"
+        );
+        assertEq(
+            data.dailyPriceShiftExponent,
+            mathMock.toDailyPriceShiftExponent(data.dailyPriceShiftBase),
+            "Invalid daily price shift exponent"
         );
         assertEq(data.lastVirtualBalances.length, 2, "Invalid number of last virtual balances");
         assertEq(data.lastVirtualBalances[daiIdx], currentVirtualBalances[daiIdx], "Invalid DAI last virtual balance");
