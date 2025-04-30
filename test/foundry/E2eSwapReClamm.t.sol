@@ -24,8 +24,8 @@ contract E2eSwapReClammTest is E2eSwapTest, ReClammPoolContractsDeployer {
         sender = lp;
         poolCreator = lp;
 
-        // 0.1% min swap fee.
-        minPoolSwapFeePercentage = 0.1e16;
+        // 0.001% min swap fee.
+        minPoolSwapFeePercentage = 0.001e16;
         // 10% max swap fee.
         maxPoolSwapFeePercentage = 10e16;
     }
