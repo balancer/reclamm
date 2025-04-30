@@ -70,7 +70,7 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
         );
 
         // Compute the initial balance ratio so that the target price of the pool is respected.
-        initialBalances[1] = initialBalances[0].mulDown(ReClammPool(newPool).computeInitialBalanceRatio());
+        initialBalances[1] = initialBalances[0].mulDown(ReClammPool(newPool).computeInitialBalanceRatioRaw());
 
         // Initialize liquidity of new pool.
         medusa.prank(lp);

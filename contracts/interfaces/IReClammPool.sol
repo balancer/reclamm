@@ -229,23 +229,29 @@ interface IReClammPool is IBasePool {
      * @dev To keep the pool within the target price range after initialization, the initial pool balances need to be
      * close to the value returned by this function. For example, if this returned 200, the initial balance of tokenB
      * should be 200 times the initial balance of tokenA.
+     * The ratio is computed with raw amounts, and has 18 decimals. It means, if the pool has a token with a rate,
+     * and the rate is considered to calculate the price, the price will be converted to raw first, and then the ratio
+     * will be calculated. This ensures that the initial balances informed to the initializer of the pool is always in
+     * raw amounts, which is a simpler UX.
      *
-     * @return balanceRatio The balance ratio that must be respected during initialization
+     * @return balanceRatioRaw The balance ratio that must be respected during initialization
      */
-    function computeInitialBalanceRatio() external view returns (uint256 balanceRatio);
+    function computeInitialBalanceRatioRaw() external view returns (uint256 balanceRatioRaw);
 
     /**
      * @notice Compute the initialization amounts, given a reference token and amount.
-     * @dev Convenience function to calculate the initial funding amount for the second token, given the first.
+     * @dev Convenience function to calculate the initial funding amount for the second token, given the first. It
+     * returns the amount of tokens in raw amounts.
+     *
      * @param referenceToken The token whose amount is known
-     * @param referenceAmountIn The amount of the reference token to be used for initialization
-     * @return initialBalances Initialization balances sorted in token registration order, including the given amount
-     * and a calculated amount for the other token
+     * @param referenceAmountInRaw The amount of the reference token to be used for initialization, in raw amounts
+     * @return initialBalancesRaw Initialization raw balances sorted in token registration order, including the given
+     * amount and a calculated raw amount for the other token
      */
-    function computeInitialBalances(
+    function computeInitialBalancesRaw(
         IERC20 referenceToken,
-        uint256 referenceAmountIn
-    ) external view returns (uint256[] memory initialBalances);
+        uint256 referenceAmountInRaw
+    ) external view returns (uint256[] memory initialBalancesRaw);
 
     /**
      * @notice Computes the current total price range.

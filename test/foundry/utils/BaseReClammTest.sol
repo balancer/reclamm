@@ -9,6 +9,7 @@ import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import { PoolRoleAccounts, LiquidityManagement } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
+import { IRateProvider } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/helpers/IRateProvider.sol";
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
 
 import { CastingHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/CastingHelpers.sol";
@@ -16,6 +17,7 @@ import { InputHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { PoolFactoryMock } from "@balancer-labs/v3-vault/contracts/test/PoolFactoryMock.sol";
+import { RateProviderMock } from "@balancer-labs/v3-vault/contracts/test/RateProviderMock.sol";
 import { BaseVaultTest } from "@balancer-labs/v3-vault/test/foundry/utils/BaseVaultTest.sol";
 
 import { ReClammPoolContractsDeployer } from "./ReClammPoolContractsDeployer.sol";
@@ -61,13 +63,17 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     uint256[] internal _initialBalances;
     uint256[] internal _initialVirtualBalances;
     uint256 internal _initialFourthRootPriceRatio;
-    uint256 private _initialMinPrice = _DEFAULT_MIN_PRICE;
-    uint256 private _initialMaxPrice = _DEFAULT_MAX_PRICE;
-    uint256 private _initialTargetPrice = _DEFAULT_TARGET_PRICE;
+    uint256 internal _initialMinPrice = _DEFAULT_MIN_PRICE;
+    uint256 internal _initialMaxPrice = _DEFAULT_MAX_PRICE;
+    uint256 internal _initialTargetPrice = _DEFAULT_TARGET_PRICE;
 
     uint256 internal saltNumber = 0;
 
     ReClammPoolFactoryMock internal factory;
+    RateProviderMock internal _rateProviderA;
+    bool internal _priceTokenAWithRate = false;
+    RateProviderMock internal _rateProviderB;
+    bool internal _priceTokenBWithRate = false;
 
     uint256 internal daiIdx;
     uint256 internal usdcIdx;
@@ -75,6 +81,9 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     uint256 internal _creationTimestamp;
 
     function setUp() public virtual override {
+        _rateProviderA = new RateProviderMock();
+        _rateProviderB = new RateProviderMock();
+
         super.setUp();
 
         (, , _initialBalances, ) = vault.getPoolTokenInfo(pool);
@@ -116,14 +125,18 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
             initialMinPrice: _initialMinPrice,
             initialMaxPrice: _initialMaxPrice,
             initialTargetPrice: _initialTargetPrice,
-            priceTokenAWithRate: false, // Do not consider rates in the price calculation
-            priceTokenBWithRate: false // Do not consider rates in the price calculation
+            priceTokenAWithRate: _priceTokenAWithRate,
+            priceTokenBWithRate: _priceTokenBWithRate
         });
+
+        IRateProvider[] memory rateProviders = new IRateProvider[](2);
+        rateProviders[a] = _rateProviderA;
+        rateProviders[b] = _rateProviderB;
 
         newPool = ReClammPoolFactoryMock(poolFactory).create(
             name,
             symbol,
-            vault.buildTokenConfig(sortedTokens),
+            vault.buildTokenConfig(sortedTokens, rateProviders),
             roleAccounts,
             _DEFAULT_SWAP_FEE,
             priceParams,
@@ -156,7 +169,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     function initPool() internal virtual override {
         (daiIdx, usdcIdx) = getSortedIndexes(address(dai), address(usdc));
 
-        uint256 balanceRatio = ReClammPool(pool).computeInitialBalanceRatio();
+        uint256 balanceRatio = ReClammPool(pool).computeInitialBalanceRatioRaw();
 
         _initialBalances = new uint256[](2);
 
