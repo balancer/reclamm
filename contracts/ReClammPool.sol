@@ -36,7 +36,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     using SafeCast for *;
     using ReClammMath for *;
 
-    uint256 internal constant _MIN_SWAP_FEE_PERCENTAGE = 0.1e16; // 0.1%
+    // Fees are 18-decimal, floating point values, which will be stored in the Vault using 24 bits.
+    // This means they have 0.00001% resolution (i.e., any non-zero bits < 1e11 will cause precision loss).
+    // Minimum values help make the math well-behaved (i.e., the swap fee should overwhelm any rounding error).
+    // Maximum values protect users by preventing permissioned actors from setting excessively high swap fees.
+    uint256 private constant _MIN_SWAP_FEE_PERCENTAGE = 0.001e16; // 0.001%
     uint256 internal constant _MAX_SWAP_FEE_PERCENTAGE = 10e16; // 10%
 
     // The centeredness margin defines the minimum pool centeredness to consider the pool within the target range.
