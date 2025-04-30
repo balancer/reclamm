@@ -18,6 +18,8 @@ struct ReClammPoolParams {
     uint256 initialMinPrice;
     uint256 initialMaxPrice;
     uint256 initialTargetPrice;
+    bool priceTokenAWithRate;
+    bool priceTokenBWithRate;
 }
 
 /**

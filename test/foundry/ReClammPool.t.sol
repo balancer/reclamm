@@ -794,7 +794,9 @@ contract ReClammPoolTest is BaseReClammTest {
             centerednessMargin: 0.2e18,
             initialMinPrice: 0,
             initialMaxPrice: 2000e18,
-            initialTargetPrice: 1500e18
+            initialTargetPrice: 1500e18,
+            priceTokenAWithRate: false,
+            priceTokenBWithRate: false
         });
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
@@ -810,7 +812,9 @@ contract ReClammPoolTest is BaseReClammTest {
             centerednessMargin: 0.2e18,
             initialMinPrice: 1000e18,
             initialMaxPrice: 2000e18,
-            initialTargetPrice: 0
+            initialTargetPrice: 0,
+            priceTokenAWithRate: false,
+            priceTokenBWithRate: false
         });
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);

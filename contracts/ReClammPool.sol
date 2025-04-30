@@ -70,6 +70,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 private immutable _INITIAL_TARGET_PRICE;
     uint256 private immutable _INITIAL_DAILY_PRICE_SHIFT_EXPONENT;
     uint256 private immutable _INITIAL_CENTEREDNESS_MARGIN;
+    bool private immutable _PRICE_TOKEN_A_WITH_RATE;
+    bool private immutable _PRICE_TOKEN_B_WITH_RATE;
 
     PriceRatioState internal _priceRatioState;
 
@@ -136,6 +138,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         _INITIAL_DAILY_PRICE_SHIFT_EXPONENT = params.dailyPriceShiftExponent;
         _INITIAL_CENTEREDNESS_MARGIN = params.centerednessMargin;
+
+        _PRICE_TOKEN_A_WITH_RATE = params.priceTokenAWithRate;
+        _PRICE_TOKEN_B_WITH_RATE = params.priceTokenBWithRate;
     }
 
     /********************************************************

@@ -48,6 +48,14 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
             "ReClammPoolFactory"
         );
 
+        ReClammPoolFactory.ReClammPriceParams memory priceParams = ReClammPoolFactory.ReClammPriceParams({
+            initialMinPrice: 1000e18, // 1000 min price
+            initialMaxPrice: 4000e18, // 4000 max price
+            initialTargetPrice: 3000e18, // 3000 target price
+            priceTokenAWithRate: false, // Do not consider rates in the price calculation
+            priceTokenBWithRate: false // Do not consider rates in the price calculation
+        });
+
         PoolRoleAccounts memory roleAccounts;
         address newPool = ReClammPoolFactory(factory).create(
             "ReClamm Pool",
@@ -55,9 +63,7 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
             vault.buildTokenConfig(tokens),
             roleAccounts,
             0,
-            1000e18, // 1000 min price
-            4000e18, // 4000 max price
-            3000e18, // 3000 target price
+            priceParams,
             1e18, // 100% daily price shift exponent
             10e16, // 10% margin
             ""

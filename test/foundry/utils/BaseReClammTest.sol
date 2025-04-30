@@ -112,15 +112,21 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
 
         roleAccounts = PoolRoleAccounts({ pauseManager: address(0), swapFeeManager: admin, poolCreator: address(0) });
 
+        ReClammPoolFactoryMock.ReClammPriceParams memory priceParams = ReClammPoolFactoryMock.ReClammPriceParams({
+            initialMinPrice: _initialMinPrice,
+            initialMaxPrice: _initialMaxPrice,
+            initialTargetPrice: _initialTargetPrice,
+            priceTokenAWithRate: false, // Do not consider rates in the price calculation
+            priceTokenBWithRate: false // Do not consider rates in the price calculation
+        });
+
         newPool = ReClammPoolFactoryMock(poolFactory).create(
             name,
             symbol,
             vault.buildTokenConfig(sortedTokens),
             roleAccounts,
             _DEFAULT_SWAP_FEE,
-            _initialMinPrice,
-            _initialMaxPrice,
-            _initialTargetPrice,
+            priceParams,
             _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
             _DEFAULT_CENTEREDNESS_MARGIN,
             bytes32(saltNumber++)
@@ -135,9 +141,11 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
                 name: name,
                 symbol: symbol,
                 version: _POOL_VERSION,
-                initialMinPrice: _initialMinPrice,
-                initialMaxPrice: _initialMaxPrice,
-                initialTargetPrice: _initialTargetPrice,
+                initialMinPrice: priceParams.initialMinPrice,
+                initialMaxPrice: priceParams.initialMaxPrice,
+                initialTargetPrice: priceParams.initialTargetPrice,
+                priceTokenAWithRate: priceParams.priceTokenAWithRate,
+                priceTokenBWithRate: priceParams.priceTokenBWithRate,
                 dailyPriceShiftExponent: _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
                 centerednessMargin: _DEFAULT_CENTEREDNESS_MARGIN
             }),

@@ -99,15 +99,21 @@ describe('ReClammPool', function () {
 
     const tokenConfig: TokenConfigStruct[] = buildTokenConfig(poolTokens);
 
+    const priceParams: ReClammPoolFactory.ReClammPriceParamsStruct = {
+      initialMinPrice: MIN_PRICE,
+      initialMaxPrice: MAX_PRICE,
+      initialTargetPrice: TARGET_PRICE,
+      priceTokenAWithRate: false, // Do not consider rates in the price calculation
+      priceTokenBWithRate: false, // Do not consider rates in the price calculation
+    };
+
     const tx = await factory.create(
       'ReClammPool',
       'Test',
       tokenConfig,
       { pauseManager: ZERO_ADDRESS, swapFeeManager: ZERO_ADDRESS, poolCreator: ZERO_ADDRESS },
       SWAP_FEE,
-      MIN_PRICE,
-      MAX_PRICE,
-      TARGET_PRICE,
+      priceParams,
       PRICE_SHIFT_DAILY_RATE,
       CENTEREDNESS_MARGIN,
       ZERO_BYTES32
