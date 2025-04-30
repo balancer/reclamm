@@ -322,6 +322,12 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(data.minPriceRatioUpdateDuration, 6 hours, "Invalid min price ratio update duration");
     }
 
+    function testSetFourthRootPriceRatioPermissioned() public {
+        vm.expectRevert(IAuthentication.SenderNotAllowed.selector);
+        vm.prank(alice);
+        ReClammPool(pool).setPriceRatioState(1, block.timestamp, block.timestamp);
+    }
+
     function testSetFourthRootPriceRatioPoolNotInitialized() public {
         vault.manualSetInitializedPool(pool, false);
 
@@ -373,6 +379,12 @@ contract ReClammPoolTest is BaseReClammTest {
         uint96 startFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
 
         vm.expectEmit();
+        emit IReClammPool.LastTimestampUpdated(block.timestamp.toUint32());
+
+        vm.expectEmit(address(vault));
+        emit IVaultEvents.VaultAuxiliary(pool, "LastTimestampUpdated", abi.encode(block.timestamp.toUint32()));
+
+        vm.expectEmit();
         emit IReClammPool.PriceRatioStateUpdated(
             startFourthRootPriceRatio,
             endFourthRootPriceRatio,
@@ -410,6 +422,226 @@ contract ReClammPoolTest is BaseReClammTest {
         skip(duration / 2 + 1);
         fourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
         assertEq(fourthRootPriceRatio, endFourthRootPriceRatio, "FourthRootPriceRatio does not match new value");
+    }
+
+    /// @dev Trigger a price ratio update while another one is ongoing.
+    function testSetFourthRootPriceRatioOverride() public {
+        uint96 endFourthRootPriceRatio = 2e18;
+        uint32 timeOffset = 1 hours;
+        uint32 priceRatioUpdateStartTime = uint32(block.timestamp) - timeOffset;
+        uint32 duration = 24 hours;
+        uint32 priceRatioUpdateEndTime = uint32(block.timestamp) + duration;
+
+        uint96 startFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
+
+        // Events:
+        // - Timestamp update
+        // - Price ratio state update
+        // Virtual balances don't change in this case.
+        vm.expectEmit();
+        emit IReClammPool.LastTimestampUpdated(block.timestamp.toUint32());
+
+        vm.expectEmit(address(vault));
+        emit IVaultEvents.VaultAuxiliary(pool, "LastTimestampUpdated", abi.encode(block.timestamp.toUint32()));
+
+        vm.expectEmit();
+        emit IReClammPool.PriceRatioStateUpdated(
+            startFourthRootPriceRatio,
+            endFourthRootPriceRatio,
+            block.timestamp,
+            priceRatioUpdateEndTime
+        );
+
+        vm.expectEmit();
+        emit IVaultEvents.VaultAuxiliary(
+            pool,
+            "PriceRatioStateUpdated",
+            abi.encode(startFourthRootPriceRatio, endFourthRootPriceRatio, block.timestamp, priceRatioUpdateEndTime)
+        );
+
+        vm.prank(admin);
+        uint256 actualPriceRatioUpdateStartTime = ReClammPool(pool).setPriceRatioState(
+            endFourthRootPriceRatio,
+            priceRatioUpdateStartTime,
+            priceRatioUpdateEndTime
+        );
+        assertEq(actualPriceRatioUpdateStartTime, block.timestamp, "Invalid updated actual price ratio start time");
+
+        skip(duration / 2);
+        uint96 fourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
+        uint96 mathFourthRootPriceRatio = mathMock.computeFourthRootPriceRatio(
+            uint32(block.timestamp),
+            startFourthRootPriceRatio,
+            endFourthRootPriceRatio,
+            actualPriceRatioUpdateStartTime.toUint32(),
+            priceRatioUpdateEndTime
+        );
+
+        assertEq(fourthRootPriceRatio, mathFourthRootPriceRatio, "FourthRootPriceRatio not updated correctly");
+
+        // While the update is ongoing, we'll trigger a second one.
+        // This one will update virtual balances too.
+        endFourthRootPriceRatio = 4e18;
+        timeOffset = 1 hours;
+        priceRatioUpdateStartTime = uint32(block.timestamp) - timeOffset;
+        duration = 6 hours;
+        priceRatioUpdateEndTime = uint32(block.timestamp) + duration;
+
+        startFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
+
+        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = ReClammPool(pool)
+            .computeCurrentVirtualBalances();
+
+        // Events:
+        // - Virtual balances update
+        // - Timestamp update
+        // - Price ratio state update
+        vm.expectEmit(pool);
+        emit IReClammPool.VirtualBalancesUpdated(currentVirtualBalanceA, currentVirtualBalanceB);
+
+        vm.expectEmit(address(vault));
+        emit IVaultEvents.VaultAuxiliary(
+            pool,
+            "VirtualBalancesUpdated",
+            abi.encode(currentVirtualBalanceA, currentVirtualBalanceB)
+        );
+
+        vm.expectEmit();
+        emit IReClammPool.LastTimestampUpdated(block.timestamp.toUint32());
+
+        vm.expectEmit(address(vault));
+        emit IVaultEvents.VaultAuxiliary(pool, "LastTimestampUpdated", abi.encode(block.timestamp.toUint32()));
+
+        vm.expectEmit();
+        emit IReClammPool.PriceRatioStateUpdated(
+            startFourthRootPriceRatio,
+            endFourthRootPriceRatio,
+            block.timestamp,
+            priceRatioUpdateEndTime
+        );
+
+        vm.expectEmit();
+        emit IVaultEvents.VaultAuxiliary(
+            pool,
+            "PriceRatioStateUpdated",
+            abi.encode(startFourthRootPriceRatio, endFourthRootPriceRatio, block.timestamp, priceRatioUpdateEndTime)
+        );
+
+        vm.prank(admin);
+        actualPriceRatioUpdateStartTime = ReClammPool(pool).setPriceRatioState(
+            endFourthRootPriceRatio,
+            priceRatioUpdateStartTime,
+            priceRatioUpdateEndTime
+        );
+
+        vm.warp(priceRatioUpdateEndTime + 1);
+        fourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
+        assertEq(fourthRootPriceRatio, endFourthRootPriceRatio, "FourthRootPriceRatio does not match new value");
+    }
+
+    function testStopPriceRatioUpdatePermissioned() public {
+        vm.expectRevert(IAuthentication.SenderNotAllowed.selector);
+        vm.prank(alice);
+        ReClammPool(pool).stopPriceRatioUpdate();
+    }
+
+    function testStopPriceRatioUpdatePoolNotInitialized() public {
+        vault.manualSetInitializedPool(pool, false);
+
+        vm.expectRevert(IReClammPool.PoolNotInitialized.selector);
+        vm.prank(admin);
+        ReClammPool(pool).stopPriceRatioUpdate();
+    }
+
+    function testStopPriceRatioUpdatePriceRatioNotUpdating() public {
+        skip(1 hours);
+        vm.expectRevert(IReClammPool.PriceRatioNotUpdating.selector);
+        vm.prank(admin);
+        ReClammPool(pool).stopPriceRatioUpdate();
+    }
+
+    function testStopPriceRatioUpdate() public {
+        uint96 endFourthRootPriceRatio = 2e18;
+        uint32 timeOffset = 1 hours;
+        uint32 priceRatioUpdateStartTime = uint32(block.timestamp) - timeOffset;
+        uint32 duration = 6 hours;
+        uint32 priceRatioUpdateEndTime = uint32(block.timestamp) + duration;
+
+        uint96 startFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
+
+        vm.prank(admin);
+        uint256 actualPriceRatioUpdateStartTime = ReClammPool(pool).setPriceRatioState(
+            endFourthRootPriceRatio,
+            priceRatioUpdateStartTime,
+            priceRatioUpdateEndTime
+        );
+
+        skip(duration / 2);
+        uint96 fourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
+        uint96 mathFourthRootPriceRatio = mathMock.computeFourthRootPriceRatio(
+            uint32(block.timestamp),
+            startFourthRootPriceRatio,
+            endFourthRootPriceRatio,
+            actualPriceRatioUpdateStartTime.toUint32(),
+            priceRatioUpdateEndTime
+        );
+
+        assertEq(fourthRootPriceRatio, mathFourthRootPriceRatio, "FourthRootPriceRatio not updated correctly");
+
+        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = ReClammPool(pool)
+            .computeCurrentVirtualBalances();
+
+        // Events:
+        // - Virtual balances update
+        // - Timestamp update
+        // - Price ratio state update
+        vm.expectEmit(pool);
+        emit IReClammPool.VirtualBalancesUpdated(currentVirtualBalanceA, currentVirtualBalanceB);
+
+        vm.expectEmit(address(vault));
+        emit IVaultEvents.VaultAuxiliary(
+            pool,
+            "VirtualBalancesUpdated",
+            abi.encode(currentVirtualBalanceA, currentVirtualBalanceB)
+        );
+
+        vm.expectEmit();
+        emit IReClammPool.LastTimestampUpdated(block.timestamp.toUint32());
+
+        vm.expectEmit(address(vault));
+        emit IVaultEvents.VaultAuxiliary(pool, "LastTimestampUpdated", abi.encode(block.timestamp.toUint32()));
+
+        // Price ratio update event with current value and timestamp.
+        vm.expectEmit();
+        emit IReClammPool.PriceRatioStateUpdated(
+            fourthRootPriceRatio,
+            fourthRootPriceRatio,
+            block.timestamp,
+            block.timestamp
+        );
+
+        vm.expectEmit();
+        emit IVaultEvents.VaultAuxiliary(
+            pool,
+            "PriceRatioStateUpdated",
+            abi.encode(fourthRootPriceRatio, fourthRootPriceRatio, block.timestamp, block.timestamp)
+        );
+
+        vm.prank(admin);
+        ReClammPool(pool).stopPriceRatioUpdate();
+
+        uint96 fourthRootPriceRatioAfterStop = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
+        assertEq(fourthRootPriceRatio, fourthRootPriceRatioAfterStop, "FourthRootPriceRatio changed after stop");
+
+        // Now warp a bit longer and check that it didn't keep changing.
+        skip(duration / 2 + 1);
+
+        uint96 fourthRootPriceRatioAfterWarp = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
+        assertEq(
+            fourthRootPriceRatio,
+            fourthRootPriceRatioAfterWarp,
+            "FourthRootPriceRatio changed after stop and warp"
+        );
     }
 
     function testGetRate() public {

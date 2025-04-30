@@ -195,6 +195,9 @@ interface IReClammPool is IBasePool {
     /// @dev The price ratio being set is too close to the current one.
     error FourthRootPriceRatioDeltaBelowMin(uint256 fourthRootPriceRatioDelta);
 
+    /// @dev An attempt was made to stop the price ratio update while no update was in progress.
+    error PriceRatioNotUpdating();
+
     /**
      * @notice `getRate` from `IRateProvider` was called on a ReClamm Pool.
      * @dev ReClamm Pools should never be nested. This is because the invariant of the pool is only used to calculate
