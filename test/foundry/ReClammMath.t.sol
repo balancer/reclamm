@@ -215,7 +215,7 @@ contract ReClammMathTest is BaseReClammTest {
 
         assertEq(
             isInRange,
-            ReClammMath.computeCenteredness(balancesScaled18, virtualBalances[a], virtualBalances[b]) >=
+            ReClammMath.computeCenteredness(balancesScaled18, virtualBalances[a], virtualBalances[b]) >
                 centerednessMargin
         );
     }

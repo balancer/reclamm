@@ -604,7 +604,8 @@ contract ReClammPoolTest is BaseReClammTest {
         _setPoolBalances(newDaiBalance, newUsdcBalance);
         ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
 
-        assertTrue(ReClammPoolMock(pool).isPoolWithinTargetRange(), "Pool is out of range");
+        // Exactly at boundary is out of range.
+        assertFalse(ReClammPoolMock(pool).isPoolWithinTargetRange(), "Pool is in range");
         assertApproxEqRel(
             ReClammPoolMock(pool).computeCurrentPoolCenteredness(),
             _DEFAULT_CENTEREDNESS_MARGIN,
@@ -799,6 +800,22 @@ contract ReClammPoolTest is BaseReClammTest {
             centerednessMargin: 0.2e18,
             initialMinPrice: 0,
             initialMaxPrice: 2000e18,
+            initialTargetPrice: 1500e18
+        });
+
+        vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
+        new ReClammPool(params, vault);
+    }
+
+    function testCreateWithInvalidMaxPrice() public {
+        ReClammPoolParams memory params = ReClammPoolParams({
+            name: "ReClamm Pool",
+            symbol: "FAIL_POOL",
+            version: "1",
+            dailyPriceShiftExponent: 1e18,
+            centerednessMargin: 0.2e18,
+            initialMinPrice: 1000e18,
+            initialMaxPrice: 0,
             initialTargetPrice: 1500e18
         });
 
