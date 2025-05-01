@@ -409,7 +409,7 @@ library ReClammMath {
         bool isPoolAboveCenter
     ) internal pure returns (uint256 virtualBalanceA, uint256 virtualBalanceB) {
         // The overvalued token is the one with a lower token balance (therefore, rarer and more valuable).
-        (uint256 indexTokenUndervalued, uint256 indexTokenOvervalued) = isPoolAboveCenter ? (0, 1) : (1, 0);
+        (uint256 indexTokenUndervalued, uint256 indexTokenOvervalued) = isPoolAboveCenter ? (a, b) : (b, a);
         uint256 balanceTokenUndervalued = balancesScaled18[indexTokenUndervalued];
         uint256 balanceTokenOvervalued = balancesScaled18[indexTokenOvervalued];
 
@@ -511,7 +511,7 @@ library ReClammMath {
         uint256 centerednessMargin
     ) internal pure returns (bool) {
         uint256 centeredness = computeCenteredness(balancesScaled18, virtualBalanceA, virtualBalanceB);
-        return centeredness >= centerednessMargin;
+        return centeredness > centerednessMargin;
     }
 
     /**
