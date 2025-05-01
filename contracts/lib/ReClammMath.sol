@@ -262,12 +262,16 @@ library ReClammMath {
         realBalancesScaled18 = new uint256[](2);
         // Rb = sqrt(targetPrice * Vb * (Ra_max + Va)) - Vb
         realBalancesScaled18[b] =
-            sqrtScaled18(targetPriceScaled18.mulUp(virtualBalanceBScaled18).mulUp(_INITIALIZATION_MAX_BALANCE_A + virtualBalanceAScaled18)) -
+            sqrtScaled18(
+                targetPriceScaled18.mulUp(virtualBalanceBScaled18).mulUp(
+                    _INITIALIZATION_MAX_BALANCE_A + virtualBalanceAScaled18
+                )
+            ) -
             virtualBalanceBScaled18;
         // Ra = (Rb + Vb - (Va * targetPrice)) / targetPrice
-        realBalancesScaled18[a] = (realBalancesScaled18[b] + virtualBalanceBScaled18 - virtualBalanceAScaled18.mulDown(targetPriceScaled18)).divDown(
-            targetPriceScaled18
-        );
+        realBalancesScaled18[a] = (realBalancesScaled18[b] +
+            virtualBalanceBScaled18 -
+            virtualBalanceAScaled18.mulDown(targetPriceScaled18)).divDown(targetPriceScaled18);
     }
 
     /**
