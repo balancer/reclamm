@@ -40,8 +40,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 internal constant _MIN_SWAP_FEE_PERCENTAGE = 0;
     uint256 internal constant _MAX_SWAP_FEE_PERCENTAGE = 10e16; // 10%
 
-    // The centeredness margin defines the minimum pool centeredness to consider the pool within the target range.
+    // The minimum pool centeredness required to consider the pool within the target range.
     uint256 internal constant _MIN_CENTEREDNESS_MARGIN = 0;
+    // The maximum pool centeredness allowed to consider the pool within the target range.
     uint256 internal constant _MAX_CENTEREDNESS_MARGIN = 50e16; // 50%
 
     // A pool is "centered" when it holds equal (non-zero) value in both real token balances. In this state, the ratio
@@ -124,8 +125,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         BasePoolAuthentication(vault, msg.sender)
         Version(params.version)
     {
-        if (params.initialMinPrice == 0 || params.initialTargetPrice == 0) {
-            // If either of these prices were 0, pool initialization would fail with division by zero.
+        if (params.initialMinPrice == 0 || params.initialMaxPrice == 0 || params.initialTargetPrice == 0) {
+            // If any of these prices were 0, pool initialization would revert with a numerical error.
             revert InvalidInitialPrice();
         }
 
@@ -756,7 +757,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
      * @param centerednessMargin The new centerednessMargin value, which must be within the target range
      */
     function _setCenterednessMargin(uint256 centerednessMargin) internal {
-        if (centerednessMargin < _MIN_CENTEREDNESS_MARGIN || centerednessMargin > _MAX_CENTEREDNESS_MARGIN) {
+        if (centerednessMargin > _MAX_CENTEREDNESS_MARGIN) {
             revert InvalidCenterednessMargin();
         }
 
