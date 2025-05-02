@@ -59,7 +59,7 @@ export function computeCurrentVirtualBalances(
     isPoolAboveCenter
   );
 
-  if (isPoolWithinTargetRange(balancesScaled18, lastVirtualBalances, centerednessMargin) == false) {
+  if (isPoolWithinTargetRange(balancesScaled18, virtualBalances, centerednessMargin) == false) {
     const priceRatio = fpMulDown(currentFourthRootPriceRatio, currentFourthRootPriceRatio);
 
     const base = fromFp(dailyPriceShiftBase);

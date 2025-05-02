@@ -165,12 +165,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IBasePool
     function onSwap(PoolSwapParams memory request) public virtual onlyVault returns (uint256 amountCalculatedScaled18) {
-        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB) = _computeCurrentVirtualBalances(
-            request.balancesScaled18
-        );
-
-        _setLastVirtualBalances(currentVirtualBalanceA, currentVirtualBalanceB);
-        _updateTimestamp();
+        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB) = _updateVirtualBalances();
 
         // Calculate swap result.
         if (request.kind == SwapKind.EXACT_IN) {
@@ -762,15 +757,14 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _vault.emitAuxiliaryEvent("CenterednessMarginUpdated", abi.encode(centerednessMargin));
     }
 
-    function _updateVirtualBalances() internal {
+    function _updateVirtualBalances()
+        internal
+        returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB)
+    {
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
-        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) = _computeCurrentVirtualBalances(
-            balancesScaled18
-        );
-        if (changed) {
-            _setLastVirtualBalances(currentVirtualBalanceA, currentVirtualBalanceB);
-        }
+        (currentVirtualBalanceA, currentVirtualBalanceB) = _computeCurrentVirtualBalances(balancesScaled18);
 
+        _setLastVirtualBalances(currentVirtualBalanceA, currentVirtualBalanceB);
         _updateTimestamp();
     }
 

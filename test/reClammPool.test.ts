@@ -188,7 +188,7 @@ describe('ReClammPool', function () {
     expect(await factory.getPools()).to.be.deep.eq([await pool.getAddress()]);
   });
 
-  it.only('should move virtual balances correctly (out of range > center)', async () => {
+  it('should move virtual balances correctly (out of range > center)', async () => {
     // Very big swap, putting the pool right at the edge. (Token B has 6 decimals, so we need to convert to 18
     // decimals).
     const exactAmountOut = initialBalances[tokenBIdx] - MIN_POOL_BALANCE / bn(1e12) - 1n;
@@ -201,7 +201,7 @@ describe('ReClammPool', function () {
       .swapSingleTokenExactOut(pool, tokenA, tokenB, exactAmountOut, maxAmountIn, deadline, wethIsEth, '0x');
 
     const [, , , poolBalancesAfterSwap] = await vault.getPoolTokenInfo(pool);
-    const virtualBalancesAfterSwap = await pool.computeCurrentVirtualBalances();
+    let lastVirtualBalances = await pool.getLastVirtualBalances();
 
     const lastTimestamp = await currentTimestamp();
     await advanceTime(HOUR);
@@ -209,10 +209,10 @@ describe('ReClammPool', function () {
 
     const currentFourthRootPriceRatio = await pool.computeCurrentFourthRootPriceRatio();
 
-    // calculate the expected virtual balances in the next swap
-    const expectedFinalVirtualBalances = computeCurrentVirtualBalances(
+    // calculate the expected virtual balances in the next swap without fees
+    const currentCalculatedVirtualBalances = computeCurrentVirtualBalances(
       poolBalancesAfterSwap,
-      [virtualBalancesAfterSwap.currentVirtualBalanceA, virtualBalancesAfterSwap.currentVirtualBalanceB],
+      lastVirtualBalances,
       toDailyPriceShiftBase(PRICE_SHIFT_DAILY_RATE),
       lastTimestamp,
       expectedTimestamp,
@@ -225,8 +225,8 @@ describe('ReClammPool', function () {
       }
     );
 
-    expect(expectedFinalVirtualBalances[tokenAIdx]).to.be.greaterThan(virtualBalancesAfterSwap.currentVirtualBalanceA);
-    expect(expectedFinalVirtualBalances[tokenBIdx]).to.be.lessThan(virtualBalancesAfterSwap.currentVirtualBalanceB);
+    expect(currentCalculatedVirtualBalances[tokenAIdx]).to.be.greaterThan(lastVirtualBalances[tokenAIdx]);
+    expect(currentCalculatedVirtualBalances[tokenBIdx]).to.be.lessThan(lastVirtualBalances[tokenBIdx]);
 
     // Swap in the other direction.
     await router
@@ -236,14 +236,32 @@ describe('ReClammPool', function () {
     // Check whether the virtual balances are close to their expected values.
     const actualFinalVirtualBalances = await pool.computeCurrentVirtualBalances();
 
+    // calculate the expected virtual balances in the next swap with collected fees
+    lastVirtualBalances = await pool.getLastVirtualBalances();
+    const [, , , finalPoolBalances] = await vault.getPoolTokenInfo(pool);
+    const expectedVirtualBalancesWithFees = computeCurrentVirtualBalances(
+      finalPoolBalances,
+      lastVirtualBalances,
+      toDailyPriceShiftBase(PRICE_SHIFT_DAILY_RATE),
+      await currentTimestamp(), // Forcing the last timestamp to be the current timestamp, to mimic pool's last swap.
+      expectedTimestamp,
+      CENTEREDNESS_MARGIN,
+      {
+        priceRatioUpdateStartTime: 0,
+        priceRatioUpdateEndTime: 0,
+        startFourthRootPriceRatio: currentFourthRootPriceRatio,
+        endFourthRootPriceRatio: currentFourthRootPriceRatio,
+      }
+    );
+
     expectEqualWithError(
-      actualFinalVirtualBalances.currentVirtualBalanceA,
-      expectedFinalVirtualBalances[tokenAIdx],
+      actualFinalVirtualBalances[tokenAIdx],
+      expectedVirtualBalancesWithFees[tokenAIdx],
       virtualBalancesError
     );
     expectEqualWithError(
-      actualFinalVirtualBalances.currentVirtualBalanceB,
-      expectedFinalVirtualBalances[tokenBIdx],
+      actualFinalVirtualBalances[tokenBIdx],
+      expectedVirtualBalancesWithFees[tokenBIdx],
       virtualBalancesError
     );
   });
@@ -260,7 +278,7 @@ describe('ReClammPool', function () {
       .swapSingleTokenExactOut(pool, tokenB, tokenA, exactAmountOut, maxAmountIn, deadline, wethIsEth, '0x');
 
     const [, , , poolBalancesAfterSwap] = await vault.getPoolTokenInfo(pool);
-    const virtualBalancesAfterSwap = await pool.computeCurrentVirtualBalances();
+    let lastVirtualBalances = await pool.getLastVirtualBalances();
 
     const lastTimestamp = await currentTimestamp();
     await advanceTime(HOUR);
@@ -269,9 +287,9 @@ describe('ReClammPool', function () {
     const currentFourthRootPriceRatio = await pool.computeCurrentFourthRootPriceRatio();
 
     // Calculate the expected virtual balances in the next swap.
-    const [expectedFinalVirtualBalances] = computeCurrentVirtualBalances(
+    const virtualBalancesAfterSwap = computeCurrentVirtualBalances(
       poolBalancesAfterSwap,
-      [virtualBalancesAfterSwap.currentVirtualBalanceA, virtualBalancesAfterSwap.currentVirtualBalanceB],
+      lastVirtualBalances,
       toDailyPriceShiftBase(PRICE_SHIFT_DAILY_RATE),
       lastTimestamp,
       expectedTimestamp,
@@ -284,8 +302,8 @@ describe('ReClammPool', function () {
       }
     );
 
-    expect(expectedFinalVirtualBalances[tokenAIdx]).to.be.lessThan(virtualBalancesAfterSwap.currentVirtualBalanceA);
-    expect(expectedFinalVirtualBalances[tokenBIdx]).to.be.greaterThan(virtualBalancesAfterSwap.currentVirtualBalanceB);
+    expect(virtualBalancesAfterSwap[tokenAIdx]).to.be.lessThan(lastVirtualBalances[tokenAIdx]);
+    expect(virtualBalancesAfterSwap[tokenBIdx]).to.be.greaterThan(lastVirtualBalances[tokenBIdx]);
 
     // Swap in the other direction.
     await router
@@ -304,14 +322,32 @@ describe('ReClammPool', function () {
     // Check whether the virtual balances are close to their expected values.
     const actualFinalVirtualBalances = await pool.computeCurrentVirtualBalances();
 
+    // calculate the expected virtual balances in the next swap with collected fees
+    lastVirtualBalances = await pool.getLastVirtualBalances();
+    const [, , , finalPoolBalances] = await vault.getPoolTokenInfo(pool);
+    const expectedVirtualBalancesWithFees = computeCurrentVirtualBalances(
+      finalPoolBalances,
+      lastVirtualBalances,
+      toDailyPriceShiftBase(PRICE_SHIFT_DAILY_RATE),
+      await currentTimestamp(), // Forcing the last timestamp to be the current timestamp, to mimic pool's last swap.
+      expectedTimestamp,
+      CENTEREDNESS_MARGIN,
+      {
+        priceRatioUpdateStartTime: 0,
+        priceRatioUpdateEndTime: 0,
+        startFourthRootPriceRatio: currentFourthRootPriceRatio,
+        endFourthRootPriceRatio: currentFourthRootPriceRatio,
+      }
+    );
+
     expectEqualWithError(
-      actualFinalVirtualBalances.currentVirtualBalanceA,
-      expectedFinalVirtualBalances[tokenAIdx],
+      actualFinalVirtualBalances[tokenAIdx],
+      expectedVirtualBalancesWithFees[tokenAIdx],
       virtualBalancesError
     );
     expectEqualWithError(
-      actualFinalVirtualBalances.currentVirtualBalanceB,
-      expectedFinalVirtualBalances[tokenBIdx],
+      actualFinalVirtualBalances[tokenBIdx],
+      expectedVirtualBalancesWithFees[tokenBIdx],
       virtualBalancesError
     );
   });
