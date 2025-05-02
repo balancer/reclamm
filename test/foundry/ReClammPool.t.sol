@@ -323,7 +323,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         assertEq(data.minTokenBalanceScaled18, _MIN_TOKEN_BALANCE, "Invalid min token balance");
         assertEq(data.minPoolCenteredness, _MIN_POOL_CENTEREDNESS, "Invalid min pool centeredness");
-        assertEq(data.maxDailyPriceShiftExponent, 500e16, "Invalid max daily price shift exponent");
+        assertEq(data.maxDailyPriceShiftExponent, _MAX_DAILY_PRICE_SHIFT_EXPONENT, "Invalid max daily price shift exponent");
         assertEq(data.minPriceRatioUpdateDuration, 6 hours, "Invalid min price ratio update duration");
     }
 
@@ -1088,8 +1088,8 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function testDailyPriceShiftExponentHighPrice__Fuzz(uint256 exponent) public {
-        // 1. Fuzz the exponent in the range [10e16, 500e16]
-        exponent = bound(exponent, 10e16, 500e16);
+        // 1. Fuzz the exponent in the range [10e16, _MAX_DAILY_PRICE_SHIFT_EXPONENT]
+        exponent = bound(exponent, 10e16, _MAX_DAILY_PRICE_SHIFT_EXPONENT);
 
         // 2. Set the daily price shift exponent on the pool (must be admin, and the vault must be locked)
         vm.prank(admin);
@@ -1130,8 +1130,8 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function testDailyPriceShiftExponentLowPrice__Fuzz(uint256 exponent) public {
-        // 1. Fuzz the exponent in the range [10e16, 500e16]
-        exponent = bound(exponent, 10e16, 500e16);
+        // 1. Fuzz the exponent in the range [10e16, _MAX_DAILY_PRICE_SHIFT_EXPONENT]
+        exponent = bound(exponent, 10e16, _MAX_DAILY_PRICE_SHIFT_EXPONENT);
 
         // 2. Set the daily price shift exponent on the pool (must be admin and vault locked)
         vm.prank(admin);
