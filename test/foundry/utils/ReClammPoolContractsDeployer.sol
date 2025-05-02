@@ -14,6 +14,7 @@ import { IRateProvider } from "@balancer-labs/v3-interfaces/contracts/solidity-u
 import { BaseContractsDeployer } from "@balancer-labs/v3-solidity-utils/test/foundry/utils/BaseContractsDeployer.sol";
 import { CastingHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/CastingHelpers.sol";
 
+import { ReClammMath, a, b } from "../../../contracts/lib/ReClammMath.sol";
 import { ReClammPoolFactory } from "../../../contracts/ReClammPoolFactory.sol";
 import { ReClammPoolFactoryMock } from "../../../contracts/test/ReClammPoolFactoryMock.sol";
 import { ReClammPoolParams } from "../../../contracts/interfaces/IReClammPool.sol";
@@ -30,6 +31,8 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
         uint256 defaultMinPrice;
         uint256 defaultMaxPrice;
         uint256 defaultTargetPrice;
+        bool defaultPriceTokenAWithRate;
+        bool defaultPriceTokenBWithRate;
         uint256 defaultDailyPriceShiftExponent;
         uint256 defaultCenterednessMargin;
         string poolVersion;
@@ -50,6 +53,8 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
             defaultMinPrice: 0.5e18,
             defaultMaxPrice: 2e18,
             defaultTargetPrice: 1e18,
+            defaultPriceTokenAWithRate: false,
+            defaultPriceTokenBWithRate: false,
             defaultDailyPriceShiftExponent: 100e16, // 100%
             defaultCenterednessMargin: 10e16, // 10%
             poolVersion: "ReClamm Pool v1",
@@ -76,15 +81,21 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
 
         IERC20[] memory _tokens = tokens.asIERC20();
 
+        ReClammPoolFactory.ReClammPriceParams memory priceParams = ReClammPoolFactory.ReClammPriceParams({
+            initialMinPrice: defaultParams.defaultMinPrice,
+            initialMaxPrice: defaultParams.defaultMaxPrice,
+            initialTargetPrice: defaultParams.defaultTargetPrice,
+            priceTokenAWithRate: defaultParams.defaultPriceTokenAWithRate,
+            priceTokenBWithRate: defaultParams.defaultPriceTokenBWithRate
+        });
+
         newPool = ReClammPoolFactory(poolFactory).create(
             defaultParams.name,
             defaultParams.symbol,
             vault.buildTokenConfig(_tokens),
             roleAccounts,
             0,
-            defaultParams.defaultMinPrice,
-            defaultParams.defaultMaxPrice,
-            defaultParams.defaultTargetPrice,
+            priceParams,
             defaultParams.defaultDailyPriceShiftExponent,
             SafeCast.toUint64(defaultParams.defaultCenterednessMargin),
             bytes32(_saltIndex++)
@@ -97,9 +108,11 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
                 name: defaultParams.name,
                 symbol: defaultParams.symbol,
                 version: defaultParams.poolVersion,
-                initialMinPrice: defaultParams.defaultMinPrice,
-                initialMaxPrice: defaultParams.defaultMaxPrice,
-                initialTargetPrice: defaultParams.defaultTargetPrice,
+                initialMinPrice: priceParams.initialMinPrice,
+                initialMaxPrice: priceParams.initialMaxPrice,
+                initialTargetPrice: priceParams.initialTargetPrice,
+                priceTokenAWithRate: priceParams.priceTokenAWithRate,
+                priceTokenBWithRate: priceParams.priceTokenBWithRate,
                 dailyPriceShiftExponent: defaultParams.defaultDailyPriceShiftExponent,
                 centerednessMargin: SafeCast.toUint64(defaultParams.defaultCenterednessMargin)
             }),

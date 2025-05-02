@@ -48,7 +48,7 @@ contract E2eSwapReClammTest is E2eSwapTest, ReClammPoolContractsDeployer {
         uint256 minBptOut
     ) internal override returns (uint256) {
         (IERC20[] memory tokens, , , ) = vault.getPoolTokenInfo(poolToInit);
-        uint256 balanceRatio = ReClammPool(poolToInit).computeInitialBalanceRatio();
+        uint256 balanceRatio = ReClammPool(poolToInit).computeInitialBalanceRatioRaw();
 
         uint256[] memory initialBalances = new uint256[](2);
         initialBalances[0] = amountsIn[0];
