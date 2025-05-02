@@ -32,7 +32,7 @@ contract ReClammSwapTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = _getLastVirtualBalances(pool);
-        (uint256[] memory currentVirtualBalances, ) = _computeCurrentVirtualBalances(pool);
+        uint256[] memory currentVirtualBalances = _computeCurrentVirtualBalances(pool);
 
         vm.assume(
             mathMock.isPoolWithinTargetRange(
@@ -77,7 +77,7 @@ contract ReClammSwapTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = _getLastVirtualBalances(pool);
-        (uint256[] memory currentVirtualBalances, ) = _computeCurrentVirtualBalances(pool);
+        uint256[] memory currentVirtualBalances = _computeCurrentVirtualBalances(pool);
 
         // If the price ratio is updating, the virtual balances should not match.
         _assertVirtualBalancesDoNotMatch(lastVirtualBalancesBeforeSwap, currentVirtualBalances);
@@ -125,7 +125,7 @@ contract ReClammSwapTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = _getLastVirtualBalances(pool);
-        (uint256[] memory currentVirtualBalances, ) = _computeCurrentVirtualBalances(pool);
+        uint256[] memory currentVirtualBalances = _computeCurrentVirtualBalances(pool);
 
         vm.assume(
             mathMock.isPoolWithinTargetRange(
@@ -173,18 +173,16 @@ contract ReClammSwapTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = _getLastVirtualBalances(pool);
-        (uint256[] memory currentVirtualBalances, ) = _computeCurrentVirtualBalances(pool);
 
         vm.assume(
             mathMock.isPoolWithinTargetRange(newBalances, lastVirtualBalancesBeforeSwap, _DEFAULT_CENTEREDNESS_MARGIN)
         );
 
-        // If the pool is in range, the virtual balances should match.
-        _assertVirtualBalancesMatch(lastVirtualBalancesBeforeSwap, currentVirtualBalances);
+        uint256[] memory computedVirtualBalancesBeforeSwap = _computeCurrentVirtualBalances(pool);
 
         uint256 amountDaiIn = mathMock.computeInGivenOut(
             newBalances,
-            currentVirtualBalances,
+            computedVirtualBalancesBeforeSwap,
             daiIdx,
             usdcIdx,
             (newBalances[usdcIdx] - _MIN_TOKEN_BALANCE) / 2
@@ -197,7 +195,9 @@ contract ReClammSwapTest is BaseReClammTest {
 
         uint256[] memory lastVirtualBalancesAfterSwap = _getLastVirtualBalances(pool);
 
-        _assertVirtualBalancesMatch(lastVirtualBalancesAfterSwap, currentVirtualBalances);
+        // Last virtual balances are updated before the swap, so it should match with the virtual balances measured
+        // before the swap.
+        _assertVirtualBalancesMatch(lastVirtualBalancesAfterSwap, computedVirtualBalancesBeforeSwap);
 
         assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp does not match");
     }
@@ -217,7 +217,7 @@ contract ReClammSwapTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = _getLastVirtualBalances(pool);
-        (uint256[] memory currentVirtualBalances, ) = _computeCurrentVirtualBalances(pool);
+        uint256[] memory currentVirtualBalances = _computeCurrentVirtualBalances(pool);
 
         vm.assume(
             mathMock.isPoolWithinTargetRange(
@@ -260,7 +260,7 @@ contract ReClammSwapTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = _getLastVirtualBalances(pool);
-        (uint256[] memory currentVirtualBalances, ) = _computeCurrentVirtualBalances(pool);
+        uint256[] memory currentVirtualBalances = _computeCurrentVirtualBalances(pool);
 
         // If the price ratio is updating, the virtual balances should not match.
         _assertVirtualBalancesDoNotMatch(lastVirtualBalancesBeforeSwap, currentVirtualBalances);
@@ -302,7 +302,7 @@ contract ReClammSwapTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = _getLastVirtualBalances(pool);
-        (uint256[] memory currentVirtualBalances, ) = _computeCurrentVirtualBalances(pool);
+        uint256[] memory currentVirtualBalances = _computeCurrentVirtualBalances(pool);
 
         vm.assume(
             mathMock.isPoolWithinTargetRange(
@@ -344,14 +344,12 @@ contract ReClammSwapTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = _getLastVirtualBalances(pool);
-        (uint256[] memory currentVirtualBalances, ) = _computeCurrentVirtualBalances(pool);
 
         vm.assume(
             mathMock.isPoolWithinTargetRange(newBalances, lastVirtualBalancesBeforeSwap, _DEFAULT_CENTEREDNESS_MARGIN)
         );
 
-        // If the pool is in range, the virtual balances should match.
-        _assertVirtualBalancesMatch(lastVirtualBalancesBeforeSwap, currentVirtualBalances);
+        uint256[] memory computedVirtualBalancesBeforeSwap = _computeCurrentVirtualBalances(pool);
 
         uint256 amountUsdcOut = (newBalances[usdcIdx] - _MIN_TOKEN_BALANCE) / 2;
 
@@ -361,7 +359,10 @@ contract ReClammSwapTest is BaseReClammTest {
         router.swapSingleTokenExactOut(pool, dai, usdc, amountUsdcOut, MAX_UINT256, MAX_UINT256, false, bytes(""));
 
         uint256[] memory lastVirtualBalancesAfterSwap = _getLastVirtualBalances(pool);
-        _assertVirtualBalancesMatch(lastVirtualBalancesAfterSwap, currentVirtualBalances);
+
+        // Last virtual balances are updated before the swap, so it should match with the virtual balances measured
+        // before the swap.
+        _assertVirtualBalancesMatch(lastVirtualBalancesAfterSwap, computedVirtualBalancesBeforeSwap);
         assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp does not match");
     }
 

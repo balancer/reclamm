@@ -221,7 +221,7 @@ contract ReClammPoolTest is BaseReClammTest {
             priceRatioUpdateEndTime: (block.timestamp + 1 days).toUint32()
         });
 
-        (uint256[] memory currentVirtualBalances, ) = _computeCurrentVirtualBalances(pool);
+        uint256[] memory currentVirtualBalances = _computeCurrentVirtualBalances(pool);
 
         vm.startPrank(admin);
         ReClammPool(pool).setPriceRatioState(
@@ -494,7 +494,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         startFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
 
-        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = ReClammPool(pool)
+        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB) = ReClammPool(pool)
             .computeCurrentVirtualBalances();
 
         // Events:
@@ -593,7 +593,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         assertEq(fourthRootPriceRatio, mathFourthRootPriceRatio, "FourthRootPriceRatio not updated correctly");
 
-        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = ReClammPool(pool)
+        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB) = ReClammPool(pool)
             .computeCurrentVirtualBalances();
 
         // Events:
@@ -718,7 +718,7 @@ contract ReClammPoolTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         // Check if the last virtual balances stored in the pool are different from the current virtual balances.
-        (uint256[] memory virtualBalancesBefore, ) = _computeCurrentVirtualBalances(pool);
+        uint256[] memory virtualBalancesBefore = _computeCurrentVirtualBalances(pool);
         uint256[] memory lastVirtualBalancesBeforeSet = _getLastVirtualBalances(pool);
 
         assertNotEq(
@@ -825,7 +825,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
     function testOutOfRangeAfterSetCenterednessMargin() public {
         // Move the pool close to the current margin.
-        (uint256[] memory virtualBalances, ) = _computeCurrentVirtualBalances(pool);
+        uint256[] memory virtualBalances = _computeCurrentVirtualBalances(pool);
         uint256 newBalanceB = 100e18;
 
         // Pool Centeredness = Ra * Vb / (Rb * Va). Make centeredness = margin, and you have the equation below.
@@ -853,7 +853,7 @@ contract ReClammPoolTest is BaseReClammTest {
     function testIsPoolInTargetRange() public {
         (, , , uint256[] memory balancesScaled18) = vault.getPoolTokenInfo(pool);
         (uint256 lastVirtualBalanceA, uint256 lastVirtualBalanceB) = ReClammPool(pool).getLastVirtualBalances();
-        (uint256 virtualBalanceA, uint256 virtualBalanceB, ) = ReClammPool(pool).computeCurrentVirtualBalances();
+        (uint256 virtualBalanceA, uint256 virtualBalanceB) = ReClammPool(pool).computeCurrentVirtualBalances();
         uint256 centerednessMargin = ReClammPool(pool).getCenterednessMargin();
 
         // Last should equal current.
@@ -890,11 +890,9 @@ contract ReClammPoolTest is BaseReClammTest {
         //
         // Since it is *not* using the last balances, it should still return true.
         vm.warp(block.timestamp + 100);
-        (bool resultWithAlternateGetter, bool virtualBalancesChanged) = ReClammPool(pool)
-            .isPoolWithinTargetRangeUsingCurrentVirtualBalances();
+        bool resultWithAlternateGetter = ReClammPool(pool).isPoolWithinTargetRangeUsingCurrentVirtualBalances();
 
         assertTrue(resultWithAlternateGetter, "Actual value not in range with alternate getter");
-        assertTrue(virtualBalancesChanged, "Last == current virtual balances");
     }
 
     function testInRangeUpdatingVirtualBalancesSetCenterednessMargin() public {
@@ -905,7 +903,7 @@ contract ReClammPoolTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         // Check if the last virtual balances stored in the pool are different from the current virtual balances.
-        (uint256[] memory virtualBalancesBefore, ) = _computeCurrentVirtualBalances(pool);
+        uint256[] memory virtualBalancesBefore = _computeCurrentVirtualBalances(pool);
         uint256[] memory lastVirtualBalancesBeforeSet = _getLastVirtualBalances(pool);
 
         assertNotEq(

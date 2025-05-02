@@ -375,7 +375,7 @@ contract ReClammMathTest is BaseReClammTest {
         vm.assume(oldCenteredness > _MIN_POOL_CENTEREDNESS);
 
         uint256[] memory newVirtualBalances = new uint256[](2);
-        (newVirtualBalances[a], newVirtualBalances[b]) = ReClammMath.computeVirtualBalancesUpdatingPriceRatio(
+        (newVirtualBalances[a], newVirtualBalances[b]) = ReClammMath.computeVirtualBalancesWithCurrentPriceRatio(
             expectedFourthRootPriceRatio,
             balancesScaled18,
             lastVirtualBalances[a],

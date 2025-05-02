@@ -78,7 +78,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
         super.setUp();
 
         (, , _initialBalances, ) = vault.getPoolTokenInfo(pool);
-        (_initialVirtualBalances, ) = _computeCurrentVirtualBalances(pool);
+        (_initialVirtualBalances) = _computeCurrentVirtualBalances(pool);
         _initialFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
     }
 
@@ -213,9 +213,8 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
 
     function _computeCurrentVirtualBalances(
         address pool
-    ) internal view returns (uint256[] memory currentVirtualBalances, bool changed) {
+    ) internal view returns (uint256[] memory currentVirtualBalances) {
         currentVirtualBalances = new uint256[](2);
-        (currentVirtualBalances[a], currentVirtualBalances[b], changed) = ReClammPool(pool)
-            .computeCurrentVirtualBalances();
+        (currentVirtualBalances[a], currentVirtualBalances[b]) = ReClammPool(pool).computeCurrentVirtualBalances();
     }
 }
