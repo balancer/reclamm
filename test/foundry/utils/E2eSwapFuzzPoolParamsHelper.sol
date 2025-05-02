@@ -110,6 +110,7 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
         uint256 mintTradeAmount
     )
         internal
+        view
         returns (
             uint256 minSwapAmountTokenA,
             uint256 minSwapAmountTokenB,
