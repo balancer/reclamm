@@ -323,7 +323,11 @@ contract ReClammPoolTest is BaseReClammTest {
 
         assertEq(data.minTokenBalanceScaled18, _MIN_TOKEN_BALANCE, "Invalid min token balance");
         assertEq(data.minPoolCenteredness, _MIN_POOL_CENTEREDNESS, "Invalid min pool centeredness");
-        assertEq(data.maxDailyPriceShiftExponent, _MAX_DAILY_PRICE_SHIFT_EXPONENT, "Invalid max daily price shift exponent");
+        assertEq(
+            data.maxDailyPriceShiftExponent,
+            _MAX_DAILY_PRICE_SHIFT_EXPONENT,
+            "Invalid max daily price shift exponent"
+        );
         assertEq(data.minPriceRatioUpdateDuration, 6 hours, "Invalid min price ratio update duration");
     }
 
