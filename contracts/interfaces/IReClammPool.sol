@@ -265,7 +265,7 @@ interface IReClammPool is IBasePool {
     function computeCurrentPriceRange() external view returns (uint256 minPrice, uint256 maxPrice);
 
     /**
-     * @notice Computes the current virtual balances and a flag indicating whether they have changed.
+     * @notice Computes the current virtual balances.
      * @dev The current virtual balances are calculated based on the last virtual balances. If the pool is within the
      * target range and the price ratio is not updating, the virtual balances will not change. If the pool is outside
      * the target range, or the price ratio is updating, this function will calculate the new virtual balances based on
@@ -276,12 +276,11 @@ interface IReClammPool is IBasePool {
      *
      * @return currentVirtualBalanceA The current virtual balance of token A
      * @return currentVirtualBalanceB The current virtual balance of token B
-     * @return changed Whether the current virtual balances are different from `lastVirtualBalances`
      */
     function computeCurrentVirtualBalances()
         external
         view
-        returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed);
+        returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB);
 
     /**
      * @notice Getter for the timestamp of the last user interaction.
@@ -368,12 +367,8 @@ interface IReClammPool is IBasePool {
      * instead of the last virtual balances. As noted above, these should normally give the same result.
      *
      * @return isWithinTargetRange True if pool centeredness is greater than the centeredness margin
-     * @return virtualBalancesChanged True if the current virtual balances would not match the last virtual balances
      */
-    function isPoolWithinTargetRangeUsingCurrentVirtualBalances()
-        external
-        view
-        returns (bool isWithinTargetRange, bool virtualBalancesChanged);
+    function isPoolWithinTargetRangeUsingCurrentVirtualBalances() external view returns (bool isWithinTargetRange);
 
     /**
      * @notice Compute the current pool centeredness (a measure of how pool imbalance).

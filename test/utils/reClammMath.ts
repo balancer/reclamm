@@ -39,14 +39,8 @@ export function computeCurrentVirtualBalances(
   currentTimestamp: bigint,
   centerednessMargin: bigint,
   priceRatioState: PriceRatioState
-): [bigint[], boolean] {
+): bigint[] {
   let virtualBalances = [...lastVirtualBalances];
-
-  if (lastTimestamp == currentTimestamp) {
-    return [virtualBalances, false];
-  }
-
-  let changed = false;
 
   const currentFourthRootPriceRatio = computeFourthRootPriceRatio(
     currentTimestamp,
@@ -58,20 +52,12 @@ export function computeCurrentVirtualBalances(
 
   const isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalances);
 
-  if (
-    priceRatioState.priceRatioUpdateStartTime != 0 &&
-    currentTimestamp > priceRatioState.priceRatioUpdateStartTime &&
-    (currentTimestamp < priceRatioState.priceRatioUpdateEndTime ||
-      lastTimestamp < priceRatioState.priceRatioUpdateEndTime)
-  ) {
-    virtualBalances = calculateVirtualBalancesUpdatingPriceRatio(
-      currentFourthRootPriceRatio,
-      balancesScaled18,
-      lastVirtualBalances,
-      isPoolAboveCenter
-    );
-    changed = true;
-  }
+  virtualBalances = calculateVirtualBalancesUpdatingPriceRatio(
+    currentFourthRootPriceRatio,
+    balancesScaled18,
+    lastVirtualBalances,
+    isPoolAboveCenter
+  );
 
   if (isPoolWithinTargetRange(balancesScaled18, lastVirtualBalances, centerednessMargin) == false) {
     const priceRatio = fpMulDown(currentFourthRootPriceRatio, currentFourthRootPriceRatio);
@@ -81,23 +67,21 @@ export function computeCurrentVirtualBalances(
     const powResult = base.pow(exponent);
 
     if (isPoolAboveCenter) {
-      virtualBalances[1] = fpMulDown(lastVirtualBalances[1], fp(powResult));
+      virtualBalances[1] = fpMulDown(virtualBalances[1], fp(powResult));
       virtualBalances[0] = fpDivDown(
         fpMulDown(balancesScaled18[0], virtualBalances[1] + balancesScaled18[1]),
         fpMulDown(priceRatio - FP_ONE, virtualBalances[1]) - balancesScaled18[1]
       );
     } else {
-      virtualBalances[0] = fpMulDown(lastVirtualBalances[0], fp(powResult));
+      virtualBalances[0] = fpMulDown(virtualBalances[0], fp(powResult));
       virtualBalances[1] = fpDivDown(
         fpMulDown(balancesScaled18[1], virtualBalances[0] + balancesScaled18[0]),
         fpMulDown(priceRatio - FP_ONE, virtualBalances[0]) - balancesScaled18[0]
       );
     }
-
-    changed = true;
   }
 
-  return [virtualBalances, changed];
+  return virtualBalances;
 }
 
 export function calculateVirtualBalancesUpdatingPriceRatio(
@@ -151,7 +135,7 @@ export function computeInvariant(
   priceRatioState: PriceRatioState,
   rounding: Rounding
 ): bigint {
-  const [currentVirtualBalances, _] = computeCurrentVirtualBalances(
+  const currentVirtualBalances = computeCurrentVirtualBalances(
     balancesScaled18,
     lastVirtualBalances,
     dailyPriceShiftBase,

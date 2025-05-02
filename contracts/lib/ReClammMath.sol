@@ -84,7 +84,7 @@ library ReClammMath {
         PriceRatioState storage priceRatioState,
         Rounding rounding
     ) internal view returns (uint256 invariant) {
-        (uint256 virtualBalanceA, uint256 virtualBalanceB, ) = computeCurrentVirtualBalances(
+        (uint256 virtualBalanceA, uint256 virtualBalanceB) = computeCurrentVirtualBalances(
             balancesScaled18,
             lastVirtualBalanceA,
             lastVirtualBalanceB,
@@ -272,12 +272,10 @@ library ReClammMath {
 
     /**
      * @notice Calculate the current virtual balances of the pool.
-     * @dev If the pool is within the target range, or the price ratio is not updating, the virtual balances do not
-     * change, and we return lastVirtualBalances. Otherwise, follow these three steps:
+     * @dev The update of the virtual balances follow these steps:
      *
      * 1. Calculate the current fourth root of price ratio.
-     * 2. Shrink/Expand the price interval considering the current fourth root of price ratio (if the price ratio
-     *    is updating).
+     * 2. Shrink/Expand the price interval considering the current fourth root of price ratio.
      * 3. Track the market price by moving the price interval (if the pool is outside the target range).
      *
      * Note: Virtual balances will be rounded down so that the swap result favors the Vault.
@@ -291,7 +289,6 @@ library ReClammMath {
      * @param storedPriceRatioState A struct containing start and end price ratios and a time interval
      * @return currentVirtualBalanceA The current virtual balance of token A
      * @return currentVirtualBalanceB The current virtual balance of token B
-     * @return changed Whether the virtual balances have changed and must be updated in the pool
      */
     function computeCurrentVirtualBalances(
         uint256[] memory balancesScaled18,
@@ -301,14 +298,8 @@ library ReClammMath {
         uint32 lastTimestamp,
         uint64 centerednessMargin,
         PriceRatioState storage storedPriceRatioState
-    ) internal view returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) {
+    ) internal view returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB) {
         uint32 currentTimestamp = block.timestamp.toUint32();
-
-        // If the last timestamp is the same as the current timestamp, virtual balances were already reviewed in the
-        // current block.
-        if (lastTimestamp == currentTimestamp) {
-            return (lastVirtualBalanceA, lastVirtualBalanceB, false);
-        }
 
         currentVirtualBalanceA = lastVirtualBalanceA;
         currentVirtualBalanceB = lastVirtualBalanceB;
@@ -327,25 +318,15 @@ library ReClammMath {
         // price ratio is not updating.
         PoolAboveCenter isPoolAboveCenter = PoolAboveCenter.UNKNOWN;
 
-        // If the price ratio is updating, shrink/expand the price interval by recalculating the virtual balances.
-        // Skip the update if the start and end price ratio are the same, because the virtual balances are already
-        // calculated.
-        if (
-            currentTimestamp > priceRatioState.priceRatioUpdateStartTime &&
-            lastTimestamp < priceRatioState.priceRatioUpdateEndTime
-        ) {
-            isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalanceA, lastVirtualBalanceB).toEnum();
+        isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalanceA, lastVirtualBalanceB).toEnum();
 
-            (currentVirtualBalanceA, currentVirtualBalanceB) = computeVirtualBalancesUpdatingPriceRatio(
-                currentFourthRootPriceRatio,
-                balancesScaled18,
-                lastVirtualBalanceA,
-                lastVirtualBalanceB,
-                isPoolAboveCenter == PoolAboveCenter.TRUE
-            );
-
-            changed = true;
-        }
+        (currentVirtualBalanceA, currentVirtualBalanceB) = computeVirtualBalancesWithCurrentPriceRatio(
+            currentFourthRootPriceRatio,
+            balancesScaled18,
+            lastVirtualBalanceA,
+            lastVirtualBalanceB,
+            isPoolAboveCenter == PoolAboveCenter.TRUE
+        );
 
         // If the pool is outside the target range, track the market price by moving the price interval.
         if (
@@ -375,13 +356,11 @@ library ReClammMath {
                 currentTimestamp,
                 _lastTimestamp
             );
-
-            changed = true;
         }
     }
 
     /**
-     * @notice Compute the virtual balances of the pool when the price ratio is updating.
+     * @notice Compute the virtual balances of the pool with the current price ratio.
      * @dev This function uses a Bhaskara formula to shrink/expand the price interval by recalculating the virtual
      * balances. It'll keep the pool centeredness constant, and track the desired price ratio. To derive this formula,
      * we need to solve the following simultaneous equations:
@@ -401,7 +380,7 @@ library ReClammMath {
      * @return virtualBalanceA The virtual balance of token A
      * @return virtualBalanceB The virtual balance of token B
      */
-    function computeVirtualBalancesUpdatingPriceRatio(
+    function computeVirtualBalancesWithCurrentPriceRatio(
         uint256 currentFourthRootPriceRatio,
         uint256[] memory balancesScaled18,
         uint256 lastVirtualBalanceA,

@@ -97,9 +97,9 @@ contract ReClammMathMock {
         uint256 dailyPriceShiftBase,
         uint32 lastTimestamp,
         uint64 centerednessMargin
-    ) external view returns (uint256[] memory newVirtualBalances, bool changed) {
+    ) external view returns (uint256[] memory newVirtualBalances) {
         newVirtualBalances = new uint256[](2);
-        (newVirtualBalances[a], newVirtualBalances[b], changed) = ReClammMath.computeCurrentVirtualBalances(
+        (newVirtualBalances[a], newVirtualBalances[b]) = ReClammMath.computeCurrentVirtualBalances(
             balancesScaled18,
             virtualBalances[a],
             virtualBalances[b],

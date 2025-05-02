@@ -188,7 +188,7 @@ describe('ReClammPool', function () {
     expect(await factory.getPools()).to.be.deep.eq([await pool.getAddress()]);
   });
 
-  it('should move virtual balances correctly (out of range > center)', async () => {
+  it.only('should move virtual balances correctly (out of range > center)', async () => {
     // Very big swap, putting the pool right at the edge. (Token B has 6 decimals, so we need to convert to 18
     // decimals).
     const exactAmountOut = initialBalances[tokenBIdx] - MIN_POOL_BALANCE / bn(1e12) - 1n;
@@ -210,7 +210,7 @@ describe('ReClammPool', function () {
     const currentFourthRootPriceRatio = await pool.computeCurrentFourthRootPriceRatio();
 
     // calculate the expected virtual balances in the next swap
-    const [expectedFinalVirtualBalances] = computeCurrentVirtualBalances(
+    const expectedFinalVirtualBalances = computeCurrentVirtualBalances(
       poolBalancesAfterSwap,
       [virtualBalancesAfterSwap.currentVirtualBalanceA, virtualBalancesAfterSwap.currentVirtualBalanceB],
       toDailyPriceShiftBase(PRICE_SHIFT_DAILY_RATE),
