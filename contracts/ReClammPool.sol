@@ -437,7 +437,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             // We don't have Rb_max, but: invariant=(Rb_max + Vb)(Va)
             // Then, (Rb_max + Vb) = invariant/Va, and:
             // P_max(a) = invariant / Va^2
-            maxPrice = currentInvariant.divDown(virtualBalanceA.mulDown(virtualBalanceA));
+            maxPrice = _computeMaxPrice(currentInvariant, virtualBalanceA);
         } else {
             minPrice = _INITIAL_MIN_PRICE;
             maxPrice = _INITIAL_MAX_PRICE;
@@ -917,7 +917,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _comparePrice(currentMinPrice, _INITIAL_MIN_PRICE);
 
         // Compare current max price with initialization max price.
-        uint256 currentMaxPrice = currentInvariant.divDown(virtualBalanceA).divDown(virtualBalanceA);
+        uint256 currentMaxPrice = _computeMaxPrice(currentInvariant, virtualBalanceA);
         _comparePrice(currentMaxPrice, _INITIAL_MAX_PRICE);
     }
 
@@ -952,5 +952,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         );
 
         return realBalances[b].divDown(realBalances[a]);
+    }
+
+    function _computeMaxPrice(uint256 currentInvariant, uint256 virtualBalanceA) internal pure returns (uint256) {
+        return currentInvariant.divDown(virtualBalanceA.mulDown(virtualBalanceA));
     }
 }
