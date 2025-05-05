@@ -2,6 +2,8 @@
 
 pragma solidity ^0.8.24;
 
+import "forge-std/Test.sol";
+
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
@@ -1311,9 +1313,6 @@ contract ReClammPoolTest is BaseReClammTest {
         // 3. Swap all of token B for token A using the router, with amountOut = current balance of A
         (IERC20[] memory tokens, , uint256[] memory balances, ) = vault.getPoolTokenInfo(pool);
 
-        // Get min price before swap
-        (uint256 minPriceBefore, uint256 maxPriceBefore) = ReClammPool(pool).computeCurrentPriceRange();
-
         vm.prank(alice);
         router.swapSingleTokenExactOut(
             pool,
@@ -1326,10 +1325,13 @@ contract ReClammPoolTest is BaseReClammTest {
             bytes("")
         );
 
-        // 4. Advance time by 1 day
+        // Skip 1 second, so the virtual balances are updated in the pool.
+        skip(1 seconds);
+
+        (uint256 minPriceBefore, uint256 maxPriceBefore) = ReClammPool(pool).computeCurrentPriceRange();
+
         skip(1 days);
 
-        // 5. Check that the new min price is minPriceBefore * 2^exponent
         (uint256 minPriceAfter, uint256 maxPriceAfter) = ReClammPool(pool).computeCurrentPriceRange();
 
         // Calculate expected min price after 1 day
@@ -1353,9 +1355,6 @@ contract ReClammPoolTest is BaseReClammTest {
         // 3. Swap all of token B for token A using the router, with amountOut = current balance of A
         (IERC20[] memory tokens, , uint256[] memory balances, ) = vault.getPoolTokenInfo(pool);
 
-        // Get min price before swap
-        (uint256 minPriceBefore, uint256 maxPriceBefore) = ReClammPool(pool).computeCurrentPriceRange();
-
         vm.prank(alice);
         router.swapSingleTokenExactOut(
             pool,
@@ -1367,6 +1366,12 @@ contract ReClammPoolTest is BaseReClammTest {
             false,
             bytes("")
         );
+
+        // Skip 1 second, so the virtual balances are updated in the pool.
+        skip(1 seconds);
+
+        // Get min price before swap
+        (uint256 minPriceBefore, uint256 maxPriceBefore) = ReClammPool(pool).computeCurrentPriceRange();
 
         // 4. Advance time by 1 day
         skip(1 days);
