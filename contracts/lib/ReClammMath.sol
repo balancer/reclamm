@@ -413,8 +413,9 @@ library ReClammMath {
                 Math.sqrt(poolCenteredness * (poolCenteredness + 4 * sqrtPriceRatio - 2e18) + 1e36))) /
             (2 * (sqrtPriceRatio - FixedPoint.ONE));
 
-        uint256 virtualBalanceOvervalued = ((balanceTokenOvervalued * virtualBalanceUndervalued) /
-            balanceTokenUndervalued).divDown(poolCenteredness);
+        uint256 virtualBalanceOvervalued = (balanceTokenOvervalued * virtualBalanceUndervalued).divDown(
+            poolCenteredness * balanceTokenUndervalued
+        );
 
         (virtualBalanceA, virtualBalanceB) = isPoolAboveCenter
             ? (virtualBalanceUndervalued, virtualBalanceOvervalued)
