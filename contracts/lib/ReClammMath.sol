@@ -546,8 +546,8 @@ library ReClammMath {
 
         // Round up the centeredness, so the virtual balances are rounded down when the pool prices are moving.
         return
-            ((balancesScaledOvervalued * virtualBalanceUndervalued) / balancesScaledUndervalued).divUp(
-                virtualBalanceOvervalued
+            (balancesScaledOvervalued * virtualBalanceUndervalued).divUp(
+                balancesScaledUndervalued * virtualBalanceOvervalued
             );
     }
 
