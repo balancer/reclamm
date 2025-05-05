@@ -118,7 +118,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
             symbol,
             vault.buildTokenConfig(sortedTokens),
             roleAccounts,
-            _DEFAULT_SWAP_FEE,
+            1e16, // 1% fee
             _initialMinPrice,
             _initialMaxPrice,
             _initialTargetPrice,
@@ -127,6 +127,8 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
             bytes32(saltNumber++)
         );
         vm.label(newPool, label);
+        // Force the swap fee percentage, even if it's outside the allowed limits.
+        setSwapFeePercentage(_DEFAULT_SWAP_FEE);
 
         _creationTimestamp = block.timestamp;
 
