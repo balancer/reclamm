@@ -57,7 +57,9 @@ contract E2eSwapReClammRateProvider is E2eSwapFuzzPoolParamsHelper, E2eSwapRateP
         (newPool, poolArgs) = createReClammPool(tokens, rateProviders, label, vault, lp);
     }
 
-    function fuzzPoolParams(uint256[POOL_SPECIFIC_PARAMS_SIZE] memory params) internal override {
+    function fuzzPoolParams(
+        uint256[POOL_SPECIFIC_PARAMS_SIZE] memory params
+    ) internal override returns (bool overrideSwapLimits) {
         address[] memory tokens = new address[](2);
         tokens[0] = address(tokenA);
         tokens[1] = address(tokenB);
@@ -66,6 +68,8 @@ contract E2eSwapReClammRateProvider is E2eSwapFuzzPoolParamsHelper, E2eSwapRateP
 
         isFuzzPoolParams = true;
         calculateMinAndMaxSwapAmounts();
+
+        return true;
     }
 
     function calculateMinAndMaxSwapAmounts() internal override {
