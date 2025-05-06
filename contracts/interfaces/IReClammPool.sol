@@ -72,6 +72,7 @@ struct ReClammPoolImmutableData {
  * ReClamm:
  * @param lastTimestamp The timestamp of the last user interaction
  * @param lastVirtualBalances The last virtual balances of the pool
+ * @param dailyPriceShiftExponent Virtual balances will change by 2^(dailyPriceShiftExponent) per day
  * @param dailyPriceShiftBase Internal time constant used to update virtual balances (1 - tau)
  * @param centerednessMargin The centeredness margin of the pool
  * @param currentFourthRootPriceRatio The current fourth root price ratio, an interpolation of the price ratio state
@@ -93,6 +94,7 @@ struct ReClammPoolDynamicData {
     // ReClamm
     uint256 lastTimestamp;
     uint256[] lastVirtualBalances;
+    uint256 dailyPriceShiftExponent;
     uint256 dailyPriceShiftBase;
     uint256 centerednessMargin;
     uint256 currentFourthRootPriceRatio;
@@ -194,6 +196,9 @@ interface IReClammPool is IBasePool {
 
     /// @dev The price ratio being set is too close to the current one.
     error FourthRootPriceRatioDeltaBelowMin(uint256 fourthRootPriceRatioDelta);
+
+    /// @dev An attempt was made to stop the price ratio update while no update was in progress.
+    error PriceRatioNotUpdating();
 
     /**
      * @notice `getRate` from `IRateProvider` was called on a ReClamm Pool.
@@ -332,20 +337,46 @@ interface IReClammPool is IBasePool {
      *
      * @return currentFourthRootPriceRatio The current fourth root of price ratio
      */
-    function computeCurrentFourthRootPriceRatio() external view returns (uint256);
+    function computeCurrentFourthRootPriceRatio() external view returns (uint256 currentFourthRootPriceRatio);
 
     /**
      * @notice Compute whether the pool is within the target price range.
      * @dev The pool is considered to be in the target range when the centeredness is greater than the centeredness
      * margin (i.e., the price is within the subset of the total price range defined by the centeredness margin.)
      *
-     * The centeredness margin is affected by the current live balances, so manipulating the result of this function
+     * Note that this function reports the state *after* the last operation. It is not very meaningful during or
+     * outside an operation, as the current or next operation could change it. If this is unlikely (e.g., for high-
+     * liquidity pools with high centeredness and small swaps), it may nonetheless be useful for some applications,
+     * such as off-chain indicators.
+     *
+     * The state depends on the current balances and centeredness margin, and it uses the *last* virtual balances in
+     * the calculation. This is fine because the real balances can only change during an operation, and the margin can
+     * only change through the permissioned setter - both of which update the virtual balances. So it is not possible
+     * for the current and last virtual balances to get out-of-sync.
+     *
+     * The range calculation is affected by the current live balances, so manipulating the result of this function
      * is possible while the Vault is unlocked. Ensure that the Vault is locked before calling this function if this
      * side effect is undesired (does not apply to off-chain calls).
      *
      * @return isWithinTargetRange True if pool centeredness is greater than the centeredness margin
      */
-    function isPoolWithinTargetRange() external view returns (bool);
+    function isPoolWithinTargetRange() external view returns (bool isWithinTargetRange);
+
+    /**
+     * @notice Compute whether the pool is within the target price range, recomputing the virtual balances.
+     * @dev The pool is considered to be in the target range when the centeredness is greater than the centeredness
+     * margin (i.e., the price is within the subset of the total price range defined by the centeredness margin.)
+     *
+     * This function is identical to `isPoolWithinTargetRange` above, except that it recomputes and uses the current
+     * instead of the last virtual balances. As noted above, these should normally give the same result.
+     *
+     * @return isWithinTargetRange True if pool centeredness is greater than the centeredness margin
+     * @return virtualBalancesChanged True if the current virtual balances would not match the last virtual balances
+     */
+    function isPoolWithinTargetRangeUsingCurrentVirtualBalances()
+        external
+        view
+        returns (bool isWithinTargetRange, bool virtualBalancesChanged);
 
     /**
      * @notice Compute the current pool centeredness (a measure of how pool imbalance).
@@ -358,7 +389,7 @@ interface IReClammPool is IBasePool {
      *
      * @return poolCenteredness The current centeredness margin (as a 18-decimal FP value)
      */
-    function computeCurrentPoolCenteredness() external view returns (uint256);
+    function computeCurrentPoolCenteredness() external view returns (uint256 poolCenteredness);
 
     /**
      * @notice Get dynamic pool data relevant to swap/add/remove calculations.
@@ -391,6 +422,14 @@ interface IReClammPool is IBasePool {
         uint256 priceRatioUpdateStartTime,
         uint256 priceRatioUpdateEndTime
     ) external returns (uint256 actualPriceRatioUpdateStartTime);
+
+    /**
+     * @notice Stops an ongoing price ratio update.
+     * @dev The price ratio is calculated by interpolating between the start and end times. The new end price ratio
+     * will be set to the current one at the current timestamp, effectively pausing the update.
+     * This is a permissioned function.
+     */
+    function stopPriceRatioUpdate() external;
 
     /**
      * @notice Updates the daily price shift exponent, as a 18-decimal FP percentage.

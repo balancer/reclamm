@@ -101,7 +101,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
                 ? _vault.buildTokenConfig(_tokens)
                 : _vault.buildTokenConfig(_tokens, _rateProviders),
             roleAccounts,
-            0,
+            1e16, // 1% fee
             defaultParams.defaultMinPrice,
             defaultParams.defaultMaxPrice,
             defaultParams.defaultTargetPrice,
@@ -110,6 +110,10 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
             bytes32(_saltIndex++)
         );
         vm.label(newPool, _lable);
+
+        // Force the swap fee percentage, even if it's outside the allowed limits.
+        // Tests are expected to set the fee percentage for specific purposes.
+        vault.manualUnsafeSetStaticSwapFeePercentage(newPool, 0);
 
         address _poolCreator = poolCreator;
 
