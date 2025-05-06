@@ -49,11 +49,24 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
         uint256 minTradeAmount;
     }
 
+    /**
+     * @dev Generates fuzzed parameters for the pool.
+     * Fuzz the minimum, maximum, target prices and real balances.
+     * Virtual balances depend on actual balances, so both are fuzzed together to maintain internal consistency.
+     */
     function _fuzzPoolParams(
         ReClammPoolMock pool,
-        uint256[5] memory params
+        uint256[5] memory params,
+        uint256 rateTokenA,
+        uint256 rateTokenB,
+        uint256 decimalsTokenA,
+        uint256 decimalsTokenB
     ) internal returns (uint256 balanceA, uint256 balanceB) {
         TestParams memory testParams;
+        testParams.rateTokenA = rateTokenA;
+        testParams.rateTokenB = rateTokenB;
+        testParams.decimalsTokenA = decimalsTokenA;
+        testParams.decimalsTokenB = decimalsTokenB;
         testParams.initialBalances = new uint256[](2);
 
         testParams.minPrice = bound(params[0], _MIN_PRICE, _MAX_PRICE.divDown(_MIN_PRICE_RATIO));
@@ -83,12 +96,10 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
                     _MAX_TOKEN_BALANCE.divDown(balanceRatio)
                 );
             }
-            testParams.initialBalances[b] = testParams.initialBalances[b] = testParams.initialBalances[a].mulDown(
-                balanceRatio
-            );
+            testParams.initialBalances[b] = testParams.initialBalances[a].mulDown(balanceRatio);
         }
 
-        pool.reInitialize(
+        (uint256 virtualBalanceA, uint256 virtualBalanceB) = pool.reInitialize(
             testParams.initialBalances,
             testParams.minPrice,
             testParams.maxPrice,
@@ -97,9 +108,24 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
             5e17
         );
 
-        return (testParams.initialBalances[a], testParams.initialBalances[b]);
+        uint256 currentCentredness = ReClammMath.computeCenteredness(
+            testParams.initialBalances,
+            virtualBalanceA,
+            virtualBalanceB
+        );
+
+        vm.assume(currentCentredness >= 1e17);
+
+        return (
+            _applyRateAndScale(testParams.initialBalances[a], testParams.rateTokenA, testParams.decimalsTokenA),
+            _applyRateAndScale(testParams.initialBalances[b], testParams.rateTokenB, testParams.decimalsTokenB)
+        );
     }
 
+    /**
+     * @dev Calculates the minimum and maximum swap amounts for the given pool.
+     * The function uses the current virtual balances and the initial balances to determine the swap limits.
+     */
     function _calculateMinAndMaxSwapAmounts(
         IVaultMock vault,
         address pool,
@@ -126,37 +152,44 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
         testParams.minTradeAmount = minTradeAmount;
 
         (, , , uint256[] memory balancesScaled18) = vault.getPoolTokenInfo(pool);
+
         (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = ReClammPoolMock(pool)
             .computeCurrentVirtualBalances(balancesScaled18);
 
-        uint256 tokenAMinTradeAmountInExactOut = ReClammMath
-            .computeInGivenOut(
+        uint256 tokenAMinTradeAmountInExactOut = _applyRateAndScale(
+            ReClammMath.computeInGivenOut(
                 balancesScaled18,
                 currentVirtualBalanceA,
                 currentVirtualBalanceB,
                 a,
                 b,
                 testParams.minTradeAmount
-            )
-            .divDown(testParams.rateTokenA)
-            .mulDown(10 ** testParams.decimalsTokenA);
-        uint256 tokenBMinTradeAmountOutExactIn = ReClammMath
-            .computeOutGivenIn(
-                balancesScaled18,
-                currentVirtualBalanceA,
-                currentVirtualBalanceB,
-                a,
-                b,
-                testParams.minTradeAmount
-            )
-            .divDown(testParams.rateTokenB)
-            .mulDown(10 ** testParams.decimalsTokenB);
-
-        uint256 tokenAMinTradeAmountInExactIn = testParams.minTradeAmount.divUp(testParams.rateTokenA).mulUp(
-            10 ** testParams.decimalsTokenA
+            ),
+            testParams.rateTokenA,
+            testParams.decimalsTokenA
         );
-        uint256 tokenBMinTradeAmountOutExactOut = testParams.minTradeAmount.divUp(testParams.rateTokenB).mulUp(
-            10 ** testParams.decimalsTokenB
+        uint256 tokenBMinTradeAmountOutExactIn = _applyRateAndScale(
+            ReClammMath.computeOutGivenIn(
+                balancesScaled18,
+                currentVirtualBalanceA,
+                currentVirtualBalanceB,
+                a,
+                b,
+                testParams.minTradeAmount
+            ),
+            testParams.rateTokenB,
+            testParams.decimalsTokenB
+        );
+
+        uint256 tokenAMinTradeAmountInExactIn = _applyRateAndScale(
+            testParams.minTradeAmount,
+            testParams.rateTokenA,
+            testParams.decimalsTokenA
+        );
+        uint256 tokenBMinTradeAmountOutExactOut = _applyRateAndScale(
+            testParams.minTradeAmount,
+            testParams.rateTokenB,
+            testParams.decimalsTokenB
         );
 
         // If the calculated minimum amount is less than the swap size, we use the minimum swap amount instead.
@@ -178,18 +211,28 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
         uint256[] memory balancesScaled18_ = balancesScaled18;
 
         // Divide by 5 to avoid PoolCenterednessTooLow
-        maxSwapAmountTokenA = (ReClammMath.computeInGivenOut(
-            balancesScaled18_,
-            currentVirtualBalanceA,
-            currentVirtualBalanceB,
-            a,
-            b,
-            balancesScaled18_[b]
-        ) / 5).mulDown(10 ** (testParams.decimalsTokenA)).divDown(testParams.rateTokenA);
+        maxSwapAmountTokenA = _applyRateAndScale(
+            ReClammMath.computeInGivenOut(
+                balancesScaled18_,
+                currentVirtualBalanceA,
+                currentVirtualBalanceB,
+                a,
+                b,
+                balancesScaled18_[b]
+            ) / 100,
+            testParams.rateTokenA,
+            testParams.decimalsTokenA
+        );
 
         // Divide by 2 to avoid TokenBalanceTooLow
-        maxSwapAmountTokenB = (balancesScaled18_[b] / 2).mulDown(10 ** (testParams.decimalsTokenB)).divDown(
-            testParams.rateTokenB
+        maxSwapAmountTokenB = _applyRateAndScale(
+            balancesScaled18_[b] / 100,
+            testParams.rateTokenB,
+            testParams.decimalsTokenB
         );
+    }
+
+    function _applyRateAndScale(uint256 amount, uint256 rate, uint256 decimals) internal pure returns (uint256) {
+        return amount.divUp(rate).mulUp(10 ** decimals);
     }
 }

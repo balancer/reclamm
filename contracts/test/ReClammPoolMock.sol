@@ -19,6 +19,7 @@ contract ReClammPoolMock is ReClammPool {
         // solhint-disable-previous-line no-empty-blocks
     }
 
+    /// @dev Used to fuzz price ranges and ensure the pool state remains coherent.
     function reInitialize(
         uint256[] memory balancesScaled18,
         uint256 minPrice,
@@ -26,7 +27,7 @@ contract ReClammPoolMock is ReClammPool {
         uint256 targetPrice,
         uint128 initialPriceShiftDailyRate,
         uint256 centerednessMargin
-    ) external {
+    ) external returns (uint256 virtualBalanceA, uint256 virtualBalanceB) {
         (
             uint256[] memory theoreticalRealBalances,
             uint256 theoreticalVirtualBalanceA,
@@ -38,8 +39,8 @@ contract ReClammPoolMock is ReClammPool {
 
         uint256 scale = balancesScaled18[a].divDown(theoreticalRealBalances[a]);
 
-        uint256 virtualBalanceA = theoreticalVirtualBalanceA.mulDown(scale);
-        uint256 virtualBalanceB = theoreticalVirtualBalanceB.mulDown(scale);
+        virtualBalanceA = theoreticalVirtualBalanceA.mulDown(scale);
+        virtualBalanceB = theoreticalVirtualBalanceB.mulDown(scale);
 
         _setLastVirtualBalances(virtualBalanceA, virtualBalanceB);
         _setPriceRatioState(fourthRootPriceRatio, block.timestamp, block.timestamp);

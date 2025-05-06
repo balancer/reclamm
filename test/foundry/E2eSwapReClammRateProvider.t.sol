@@ -64,9 +64,20 @@ contract E2eSwapReClammRateProvider is E2eSwapFuzzPoolParamsHelper, E2eSwapRateP
         tokens[0] = address(tokenA);
         tokens[1] = address(tokenB);
 
-        (poolInitAmountTokenA, poolInitAmountTokenB) = _fuzzPoolParams(ReClammPoolMock(pool), params);
+        (poolInitAmountTokenA, poolInitAmountTokenB) = _fuzzPoolParams(
+            ReClammPoolMock(pool),
+            params,
+            getRate(tokenA),
+            getRate(tokenB),
+            decimalsTokenA,
+            decimalsTokenB
+        );
+
+        _donateToVault();
 
         isFuzzPoolParams = true;
+
+        setPoolBalances(poolInitAmountTokenA, poolInitAmountTokenB);
         calculateMinAndMaxSwapAmounts();
 
         return true;

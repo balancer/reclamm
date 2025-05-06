@@ -25,6 +25,8 @@ contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest {
     using ArrayHelpers for *;
     using FixedPoint for uint256;
 
+    // Indicates whether to use fuzzed pool parameters. If false, standard calculateMinAndMaxSwapAmounts is used,
+    // as not all tests inside E2ESwap utilize fuzzPoolParams.
     bool isFuzzPoolParams;
 
     function setUp() public override {
@@ -57,9 +59,20 @@ contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest {
         tokens[0] = address(tokenA);
         tokens[1] = address(tokenB);
 
-        (poolInitAmountTokenA, poolInitAmountTokenB) = _fuzzPoolParams(ReClammPoolMock(pool), params);
+        (poolInitAmountTokenA, poolInitAmountTokenB) = _fuzzPoolParams(
+            ReClammPoolMock(pool),
+            params,
+            getRate(tokenA),
+            getRate(tokenB),
+            decimalsTokenA,
+            decimalsTokenB
+        );
+
+        _donateToVault();
 
         isFuzzPoolParams = true;
+
+        setPoolBalances(poolInitAmountTokenA, poolInitAmountTokenB);
         calculateMinAndMaxSwapAmounts();
 
         return true;
