@@ -28,13 +28,6 @@ library ReClammMath {
     using SafeCast for *;
     using ReClammMath for bool;
 
-    /// @notice Determines whether the pool is above center or not, or if the computation has not taken place yet.
-    enum PoolAboveCenter {
-        FALSE,
-        TRUE,
-        UNKNOWN
-    }
-
     /// @notice The swap result is greater than the real balance of the token (i.e., the balance would drop below zero).
     error AmountOutGreaterThanBalance();
 
@@ -314,33 +307,27 @@ library ReClammMath {
             priceRatioState.priceRatioUpdateEndTime
         );
 
-        // Postponing the calculation of isPoolAboveCenter saves gas when the pool is within the target range and the
-        // price ratio is not updating.
-        PoolAboveCenter isPoolAboveCenter = PoolAboveCenter.UNKNOWN;
-
-        isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalanceA, lastVirtualBalanceB).toEnum();
+        bool isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalanceA, lastVirtualBalanceB);
 
         (currentVirtualBalanceA, currentVirtualBalanceB) = computeVirtualBalancesWithCurrentPriceRatio(
             currentFourthRootPriceRatio,
             balancesScaled18,
             lastVirtualBalanceA,
             lastVirtualBalanceB,
-            isPoolAboveCenter == PoolAboveCenter.TRUE
+            isPoolAboveCenter
         );
 
         // If the pool is outside the target range, track the market price by moving the price interval.
         if (
+            currentTimestamp > lastTimestamp &&
             isPoolWithinTargetRange(
                 balancesScaled18,
                 currentVirtualBalanceA,
                 currentVirtualBalanceB,
                 centerednessMargin
-            ) == false
+            ) ==
+            false
         ) {
-            if (isPoolAboveCenter == PoolAboveCenter.UNKNOWN) {
-                isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalanceA, lastVirtualBalanceB).toEnum();
-            }
-
             // stack-too-deep
             uint256 _dailyPriceShiftBase = dailyPriceShiftBase;
             uint256[] memory _balancesScaled18 = balancesScaled18;
@@ -351,7 +338,7 @@ library ReClammMath {
                 _balancesScaled18,
                 currentVirtualBalanceA,
                 currentVirtualBalanceB,
-                isPoolAboveCenter == PoolAboveCenter.TRUE,
+                isPoolAboveCenter,
                 _dailyPriceShiftBase,
                 currentTimestamp,
                 _lastTimestamp
@@ -586,11 +573,6 @@ library ReClammMath {
         } else {
             return balancesScaled18[a].divDown(balancesScaled18[b]) > virtualBalanceA.divDown(virtualBalanceB);
         }
-    }
-
-    /// @notice Convert a boolean value to a PoolAboveCenter enum (only TRUE or FALSE).
-    function toEnum(bool value) internal pure returns (PoolAboveCenter) {
-        return PoolAboveCenter(value.toUint());
     }
 
     /**
