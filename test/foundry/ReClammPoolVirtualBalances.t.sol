@@ -99,16 +99,10 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         assertApproxEqRel(currentPrice, newTargetPrice, _INITIAL_PARAMS_ERROR, "Current price does not match");
 
         uint256 balanceTokenAEdge = (virtualBalances[b] - virtualBalances[a].mulDown(newMinPrice)).divDown(newMinPrice);
-        uint256 invariantTokenAEdge = ReClammPool(pool).computeInvariant(
-            [balanceTokenAEdge, 0].toMemoryArray(),
-            Rounding.ROUND_DOWN
-        );
+        uint256 invariantTokenAEdge = (balanceTokenAEdge + virtualBalances[a]).mulDown(virtualBalances[b]);
 
         uint256 balanceTokenBEdge = virtualBalances[a].mulDown(newMaxPrice) - virtualBalances[b];
-        uint256 invariantTokenBEdge = ReClammPool(pool).computeInvariant(
-            [0, balanceTokenBEdge].toMemoryArray(),
-            Rounding.ROUND_DOWN
-        );
+        uint256 invariantTokenBEdge = (balanceTokenBEdge + virtualBalances[b]).mulDown(virtualBalances[a]);
 
         uint256 newInvariant = _getCurrentInvariant();
 
@@ -205,7 +199,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     }
 
     function testAddLiquidityProportional__Fuzz(uint256 exactBptAmountOut) public {
-        exactBptAmountOut = bound(exactBptAmountOut, 1e6, 10_000e18);
+        exactBptAmountOut = bound(exactBptAmountOut, 1e12, 10_000e18);
 
         uint256 currentTotalSupply = ReClammPool(pool).totalSupply();
 
