@@ -46,7 +46,7 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
         uint256 rateTokenB;
         uint256 decimalsTokenA;
         uint256 decimalsTokenB;
-        uint256 mintTradeAmount;
+        uint256 minTradeAmount;
     }
 
     function _fuzzPoolParams(
@@ -55,7 +55,7 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
     ) internal returns (uint256 balanceA, uint256 balanceB) {
         TestParams memory testParams;
         testParams.initialBalances = new uint256[](2);
-        testParams.initialBalances[a] = bound(params[0], _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
+
         testParams.minPrice = bound(params[0], _MIN_PRICE, _MAX_PRICE.divDown(_MIN_PRICE_RATIO));
         testParams.maxPrice = bound(params[1], testParams.minPrice.mulUp(_MIN_PRICE_RATIO), _MAX_PRICE);
         testParams.targetPrice = bound(
@@ -107,7 +107,7 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
         uint256 rateTokenB,
         uint256 decimalsTokenA,
         uint256 decimalsTokenB,
-        uint256 mintTradeAmount
+        uint256 minTradeAmount
     )
         internal
         view
@@ -123,7 +123,7 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
         testParams.rateTokenB = rateTokenB;
         testParams.decimalsTokenA = decimalsTokenA;
         testParams.decimalsTokenB = decimalsTokenB;
-        testParams.mintTradeAmount = mintTradeAmount;
+        testParams.minTradeAmount = minTradeAmount;
 
         (, , , uint256[] memory balancesScaled18) = vault.getPoolTokenInfo(pool);
         (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = ReClammPoolMock(pool)
@@ -136,7 +136,7 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
                 currentVirtualBalanceB,
                 a,
                 b,
-                testParams.mintTradeAmount
+                testParams.minTradeAmount
             )
             .divDown(testParams.rateTokenA)
             .mulDown(10 ** testParams.decimalsTokenA);
@@ -147,28 +147,34 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
                 currentVirtualBalanceB,
                 a,
                 b,
-                testParams.mintTradeAmount
+                testParams.minTradeAmount
             )
             .divDown(testParams.rateTokenB)
             .mulDown(10 ** testParams.decimalsTokenB);
 
-        uint256 tokenAMinTradeAmountInExactIn = testParams.mintTradeAmount.divUp(testParams.rateTokenA).mulUp(
+        uint256 tokenAMinTradeAmountInExactIn = testParams.minTradeAmount.divUp(testParams.rateTokenA).mulUp(
             10 ** testParams.decimalsTokenA
         );
-        uint256 tokenBMinTradeAmountOutExactOut = testParams.mintTradeAmount.divUp(testParams.rateTokenB).mulUp(
+        uint256 tokenBMinTradeAmountOutExactOut = testParams.minTradeAmount.divUp(testParams.rateTokenB).mulUp(
             10 ** testParams.decimalsTokenB
         );
 
+        // If the calculated minimum amount is less than the swap size, we use the minimum swap amount instead.
         minSwapAmountTokenA = tokenAMinTradeAmountInExactOut > tokenAMinTradeAmountInExactIn
             ? tokenAMinTradeAmountInExactOut
             : tokenAMinTradeAmountInExactIn;
+
+        // We also multiply by 10 because there are some inaccuracies due to rounding in certain cases.
         minSwapAmountTokenA *= 10;
 
+        // We do the same for tokenB
         minSwapAmountTokenB = tokenBMinTradeAmountOutExactIn > tokenBMinTradeAmountOutExactOut
             ? tokenBMinTradeAmountOutExactIn
             : tokenBMinTradeAmountOutExactOut;
         minSwapAmountTokenB *= 10;
 
+        // Calculating the real maximum swap amount is quite difficult, so we estimate an approximate boundary.
+        // Dividing by 5 was chosen experimentally, as there's no other way to determine this value.
         uint256[] memory balancesScaled18_ = balancesScaled18;
         maxSwapAmountTokenA = (ReClammMath.computeInGivenOut(
             balancesScaled18_,
