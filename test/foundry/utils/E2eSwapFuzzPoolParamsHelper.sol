@@ -176,6 +176,8 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
         // Calculating the real maximum swap amount is quite difficult, so we estimate an approximate boundary.
         // Dividing by 5 was chosen experimentally, as there's no other way to determine this value.
         uint256[] memory balancesScaled18_ = balancesScaled18;
+
+        // Divide by 5 to avoid PoolCenterednessTooLow
         maxSwapAmountTokenA = (ReClammMath.computeInGivenOut(
             balancesScaled18_,
             currentVirtualBalanceA,
@@ -183,10 +185,11 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
             a,
             b,
             balancesScaled18_[b]
-        ) / 5).mulDown(10 ** (testParams.decimalsTokenA)).divDown(testParams.rateTokenA); // Divide by 5 to avoid PoolCenterednessTooLow
+        ) / 5).mulDown(10 ** (testParams.decimalsTokenA)).divDown(testParams.rateTokenA);
 
+        // Divide by 2 to avoid TokenBalanceTooLow
         maxSwapAmountTokenB = (balancesScaled18_[b] / 2).mulDown(10 ** (testParams.decimalsTokenB)).divDown(
             testParams.rateTokenB
-        ); // Divide by 2 to avoid TokenBalanceTooLow
+        );
     }
 }
