@@ -126,6 +126,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
             bytes32(saltNumber++)
         );
         vm.label(newPool, label);
+        pool = newPool;
         // Force the swap fee percentage, even if it's outside the allowed limits.
         setSwapFeePercentage(_DEFAULT_SWAP_FEE);
 
