@@ -58,13 +58,23 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 internal constant _MIN_TOKEN_BALANCE_SCALED18 = 1e12;
     uint256 internal constant _MIN_POOL_CENTEREDNESS = 1e3;
 
+    // The daily price shift exponent is a percentage that defines the speed at which the virtual balances will change
+    // over the course of one day. A value of 100% (i.e, FP 1) means that the min and max prices will double (or halve)
+    // every day, until the pool price is within the range defined by the margin. This constant defines the maximum
+    // "price shift" velocity.
     uint256 internal constant _MAX_DAILY_PRICE_SHIFT_EXPONENT = 500e16; // 500%
 
-    uint256 internal constant _MIN_PRICE_RATIO_UPDATE_DURATION = 6 hours;
+    // Price ratio updates must have both a minimum duration and a maximum daily rate. For instance, an update rate of
+    // FP 2 means the ratio one day later must be at least half and at most double the rate at the start of the update.
+    uint256 internal constant _MIN_PRICE_RATIO_UPDATE_DURATION = 1 days;
+    uint256 internal immutable _MAX_DAILY_PRICE_RATIO_UPDATE_RATE;
 
-    uint256 internal constant _BALANCE_RATIO_AND_PRICE_TOLERANCE = 1e14; // 0.01%
-
+    // There is also a minimum delta, to keep the math well-behaved.
     uint256 internal constant _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA = 1e3;
+
+    // This is represents the maximum deviation from the ideal state (i.e., at target price and near centered) after
+    // initialization, to prevent arbitration losses.
+    uint256 internal constant _BALANCE_RATIO_AND_PRICE_TOLERANCE = 1e14; // 0.01%
 
     // These immutables are only used during initialization, to set the virtual balances and price ratio in a more
     // user-friendly manner.
@@ -139,6 +149,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         _INITIAL_DAILY_PRICE_SHIFT_EXPONENT = params.dailyPriceShiftExponent;
         _INITIAL_CENTEREDNESS_MARGIN = params.centerednessMargin;
+
+        // The maximum daily price ratio change rate is given by 2^_MAX_DAILY_PRICE_SHIFT_EXPONENT.
+        // This is somewhat arbitrary, but it makes sense to link these rates; i.e., we are setting the maximum speed
+        // of expansion or contraction to equal the maximum speed of the price shift.
+        _MAX_DAILY_PRICE_RATIO_UPDATE_RATE = FixedPoint.powUp(2e18, _MAX_DAILY_PRICE_SHIFT_EXPONENT);
     }
 
     /********************************************************
@@ -586,13 +601,15 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             priceRatioUpdateEndTime
         );
 
+        uint256 updateDuration = priceRatioUpdateEndTime - actualPriceRatioUpdateStartTime;
+
         // We've already validated that end time >= start time at this point.
-        if (priceRatioUpdateEndTime - actualPriceRatioUpdateStartTime < _MIN_PRICE_RATIO_UPDATE_DURATION) {
+        if (updateDuration < _MIN_PRICE_RATIO_UPDATE_DURATION) {
             revert PriceRatioUpdateDurationTooShort();
         }
 
         _updateVirtualBalances();
-        uint256 fourthRootPriceRatioDelta = _setPriceRatioState(
+        (uint256 fourthRootPriceRatioDelta, uint256 startFourthRootPriceRatio) = _setPriceRatioState(
             endFourthRootPriceRatio,
             actualPriceRatioUpdateStartTime,
             priceRatioUpdateEndTime
@@ -600,6 +617,23 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         if (fourthRootPriceRatioDelta < _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA) {
             revert FourthRootPriceRatioDeltaBelowMin(fourthRootPriceRatioDelta);
+        }
+
+        // Now check that the rate of change is not too fast. First recover the actual ratios from the roots.
+        uint256 startPriceRatio = _pow4(startFourthRootPriceRatio);
+        uint256 endPriceRatio = _pow4(endFourthRootPriceRatio);
+
+        // Compute the rate of change, as a multiple of the present value per day. For example, if the initial price
+        // range was 1,000 - 4,000, the raw ratio would be 4 (`startPriceRatio` ~ 1.414). If the new fourth root is
+        // 1.682, the new `endPriceRatio` would be 1.682^4 ~ 8 (i.e., 1,000 - 8,000). If the `updateDuration is 1 day,
+        // the time period cancel, so `actualDailyPriceRatioUpdateRate` is simply given by:
+        // `endPriceRatio` / `startPriceRatio`; or 8 / 4 = 2: doubling once per day. (All values are 18-decimal FP.)
+        uint256 actualDailyPriceRatioUpdateRate = endPriceRatio > startPriceRatio
+            ? FixedPoint.divUp(endPriceRatio.mulUp(uint256(1 days)), startPriceRatio.mulDown(updateDuration))
+            : FixedPoint.divUp(startPriceRatio.mulUp(uint256(1 days)), endPriceRatio.mulDown(updateDuration));
+
+        if (actualDailyPriceRatioUpdateRate > _MAX_DAILY_PRICE_RATIO_UPDATE_RATE) {
+            revert PriceRatioUpdateTooFast();
         }
     }
 
@@ -674,14 +708,14 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256 endFourthRootPriceRatio,
         uint256 priceRatioUpdateStartTime,
         uint256 priceRatioUpdateEndTime
-    ) internal returns (uint256 fourthRootPriceRatioDelta) {
+    ) internal returns (uint256 fourthRootPriceRatioDelta, uint256 startFourthRootPriceRatio) {
         if (priceRatioUpdateStartTime > priceRatioUpdateEndTime || priceRatioUpdateStartTime < block.timestamp) {
             revert InvalidStartTime();
         }
 
         PriceRatioState memory priceRatioState = _priceRatioState;
 
-        uint256 startFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio(priceRatioState);
+        startFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio(priceRatioState);
 
         fourthRootPriceRatioDelta = SignedMath.abs(
             startFourthRootPriceRatio.toInt256() - endFourthRootPriceRatio.toInt256()
@@ -951,5 +985,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         );
 
         return realBalances[b].divDown(realBalances[a]);
+    }
+
+    function _pow4(uint256 x) private pure returns (uint256) {
+        uint256 xSquared = x.mulDown(x);
+
+        return xSquared.mulDown(xSquared);
     }
 }

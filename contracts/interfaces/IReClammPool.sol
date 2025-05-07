@@ -194,6 +194,9 @@ interface IReClammPool is IBasePool {
     /// @notice The difference between end time and start time is too short for the price ratio update.
     error PriceRatioUpdateDurationTooShort();
 
+    /// @notice The rate of change exceeds the maximum daily price ratio rate.
+    error PriceRatioUpdateTooFast();
+
     /// @dev The price ratio being set is too close to the current one.
     error FourthRootPriceRatioDeltaBelowMin(uint256 fourthRootPriceRatioDelta);
 
