@@ -35,7 +35,7 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
 
     constructor() BaseMedusaTest() {
         initInvariant = computeInvariant();
-        vault.manuallySetSwapFee(address(pool), 0);
+        vault.manualUnsafeSetStaticSwapFeePercentage(address(pool), 0);
 
         emit Debug("prevInvariant", initInvariant);
     }

@@ -68,18 +68,38 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
         IVaultMock vault,
         address poolCreator
     ) internal returns (address newPool, bytes memory poolArgs) {
-        string memory poolVersion = "ReClamm Pool v1";
-        string memory factoryVersion = "ReClamm Pool Factory v1";
+        IRateProvider[] memory rateProviders = new IRateProvider[](0);
+        return createReClammPool(tokens, rateProviders, label, vault, poolCreator);
+    }
 
-        ReClammPoolFactory poolFactory = deployReClammPoolFactory(vault, 1 days, factoryVersion, poolVersion);
+    function createReClammPool(
+        address[] memory tokens,
+        IRateProvider[] memory rateProviders,
+        string memory label,
+        IVaultMock vault,
+        address poolCreator
+    ) internal returns (address newPool, bytes memory poolArgs) {
+        ReClammPoolFactoryMock poolFactory;
+        {
+            string memory poolVersion = "ReClamm Pool v1";
+            string memory factoryVersion = "ReClamm Pool Factory v1";
+
+            poolFactory = deployReClammPoolFactoryMock(vault, 1 days, factoryVersion, poolVersion);
+        }
+
         PoolRoleAccounts memory roleAccounts;
 
         IERC20[] memory _tokens = tokens.asIERC20();
+        IRateProvider[] memory _rateProviders = rateProviders;
+        IVaultMock _vault = vault;
+        string memory _lable = label;
 
-        newPool = ReClammPoolFactory(poolFactory).create(
+        newPool = poolFactory.create(
             defaultParams.name,
             defaultParams.symbol,
-            vault.buildTokenConfig(_tokens),
+            _rateProviders.length == 0
+                ? _vault.buildTokenConfig(_tokens)
+                : _vault.buildTokenConfig(_tokens, _rateProviders),
             roleAccounts,
             1e16, // 1% fee
             defaultParams.defaultMinPrice,
@@ -89,10 +109,13 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
             SafeCast.toUint64(defaultParams.defaultCenterednessMargin),
             bytes32(_saltIndex++)
         );
-        vm.label(newPool, label);
+        vm.label(newPool, _lable);
+
         // Force the swap fee percentage, even if it's outside the allowed limits.
         // Tests are expected to set the fee percentage for specific purposes.
         vault.manualUnsafeSetStaticSwapFeePercentage(newPool, 0);
+
+        address _poolCreator = poolCreator;
 
         // poolArgs is used to check pool deployment address with create2.
         poolArgs = abi.encode(
@@ -106,11 +129,11 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
                 dailyPriceShiftExponent: defaultParams.defaultDailyPriceShiftExponent,
                 centerednessMargin: SafeCast.toUint64(defaultParams.defaultCenterednessMargin)
             }),
-            vault
+            _vault
         );
 
         // Cannot set the pool creator directly on a standard Balancer stable pool factory.
-        vault.manualSetPoolCreator(newPool, poolCreator);
+        _vault.manualSetPoolCreator(newPool, _poolCreator);
     }
 
     function deployReClammPoolFactoryWithDefaultParams(IVault vault) internal returns (ReClammPoolFactory) {
