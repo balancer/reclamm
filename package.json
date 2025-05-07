@@ -63,7 +63,7 @@
     "eslint-plugin-mocha-no-only": "^1.1.1",
     "eslint-plugin-prettier": "^4.2.1",
     "ethers": "^6.13.5",
-    "forge-std": "https://github.com/foundry-rs/forge-std.git#v1.8.1",
+    "forge-std": "https://github.com/foundry-rs/forge-std.git#v1.9.6",
     "hardhat-contract-sizer": "^2.10.0",
     "hardhat-gas-reporter": "^1.0.9",
     "hardhat-ignore-warnings": "^0.2.11",
