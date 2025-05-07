@@ -632,10 +632,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             ? FixedPoint.divUp(endPriceRatio * 1 days, startPriceRatio * updateDuration)
             : FixedPoint.divUp(startPriceRatio * 1 days, endPriceRatio * updateDuration);
 
-        if (endPriceRatio < startPriceRatio) {
-            actualDailyPriceRatioUpdateRate = FixedPoint.divUp(FixedPoint.ONE, actualDailyPriceRatioUpdateRate);
-        }
-
         if (actualDailyPriceRatioUpdateRate > _MAX_DAILY_PRICE_RATIO_UPDATE_RATE) {
             revert PriceRatioUpdateTooFast();
         }
