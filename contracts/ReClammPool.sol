@@ -633,7 +633,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             startPriceRatio * updateDuration
         );
 
-        // If endPriceRatio < startPriceRatio (less likely), we invert the rate.
+        // If endPriceRatio < startPriceRatio, we invert the rate.
         if (endPriceRatio < startPriceRatio) {
             actualDailyPriceRatioUpdateRate = FixedPoint.divUp(FixedPoint.ONE, actualDailyPriceRatioUpdateRate);
         }
