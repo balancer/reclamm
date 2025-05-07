@@ -6,27 +6,28 @@ import "forge-std/Test.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IRateProvider } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/helpers/IRateProvider.sol";
+import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
+import { CastingHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/CastingHelpers.sol";
 import { ERC20TestToken } from "@balancer-labs/v3-solidity-utils/contracts/test/ERC20TestToken.sol";
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
-import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
-import { PoolConfigLib } from "@balancer-labs/v3-vault/contracts/lib/PoolConfigLib.sol";
-import { E2eSwapTest } from "@balancer-labs/v3-vault/test/foundry/E2eSwap.t.sol";
-import "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
+import {
+    E2eSwapRateProviderTest,
+    PoolFactoryMock
+} from "@balancer-labs/v3-vault/test/foundry/E2eSwapRateProvider.t.sol";
 
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
 import { ReClammMath, a, b } from "../../contracts/lib/ReClammMath.sol";
 import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
 import { E2eSwapFuzzPoolParamsHelper } from "./utils/E2eSwapFuzzPoolParamsHelper.sol";
 
-contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest {
+contract E2eSwapReClammRateProvider is E2eSwapFuzzPoolParamsHelper, E2eSwapRateProviderTest {
     using ArrayHelpers for *;
     using FixedPoint for uint256;
+    using CastingHelpers for address[];
 
-    // Indicates whether to use fuzzed pool parameters. If false, standard calculateMinAndMaxSwapAmounts is used,
-    // as not all tests inside E2ESwap utilize fuzzPoolParams.
     bool isFuzzPoolParams;
 
     function setUp() public override {
@@ -34,7 +35,7 @@ contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest {
         super.setUp();
 
         exactInOutDecimalsErrorMultiplier = 2e9;
-        amountInExactInOutError = 9e12;
+        amountInExactInOutError = 9e14;
     }
 
     function setUpVariables() internal override {
@@ -49,8 +50,12 @@ contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest {
     function _createPool(
         address[] memory tokens,
         string memory label
-    ) internal override returns (address newPool, bytes memory poolArgs) {
-        return createReClammPool(tokens, label, vault, lp);
+    ) internal virtual override returns (address newPool, bytes memory poolArgs) {
+        IRateProvider[] memory rateProviders = new IRateProvider[](2);
+        rateProviders[tokenAIdx] = IRateProvider(address(rateProviderTokenA));
+        rateProviders[tokenBIdx] = IRateProvider(address(rateProviderTokenB));
+
+        (newPool, poolArgs) = createReClammPool(tokens, rateProviders, label, vault, lp);
     }
 
     function fuzzPoolParams(
@@ -98,20 +103,5 @@ contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest {
                 PRODUCTION_MIN_TRADE_AMOUNT
             );
         }
-    }
-
-    function _initPool(
-        address poolToInit,
-        uint256[] memory amountsIn,
-        uint256 minBptOut
-    ) internal override returns (uint256) {
-        (IERC20[] memory tokens, , , ) = vault.getPoolTokenInfo(poolToInit);
-        uint256 balanceRatio = ReClammPool(poolToInit).computeInitialBalanceRatio();
-
-        uint256[] memory initialBalances = new uint256[](2);
-        initialBalances[0] = amountsIn[0];
-        initialBalances[1] = amountsIn[0].mulDown(balanceRatio);
-
-        return router.initialize(poolToInit, tokens, initialBalances, minBptOut, false, bytes(""));
     }
 }

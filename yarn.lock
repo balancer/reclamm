@@ -154,7 +154,7 @@ __metadata:
     eslint-plugin-mocha-no-only: "npm:^1.1.1"
     eslint-plugin-prettier: "npm:^4.2.1"
     ethers: "npm:^6.13.5"
-    forge-std: "https://github.com/foundry-rs/forge-std.git#v1.8.1"
+    forge-std: "https://github.com/foundry-rs/forge-std.git#v1.9.6"
     hardhat: "npm:^2.14.0"
     hardhat-contract-sizer: "npm:^2.10.0"
     hardhat-gas-reporter: "npm:^1.0.9"
@@ -3880,6 +3880,13 @@ __metadata:
   version: 1.7.6
   resolution: "forge-std@https://github.com/foundry-rs/forge-std.git#commit=bb4ceea94d6f10eeb5b41dc2391c6c8bf8e734ef"
   checksum: f9e1156973bdc360989275bdc43b8745f388017eb97c4a0e4b7b55e944a497b5cdbef0a483c1f7a852f93f0cff45d0c9dba05f6331125da9f369c3297f5347b0
+  languageName: node
+  linkType: hard
+
+"forge-std@https://github.com/foundry-rs/forge-std.git#v1.9.6":
+  version: 1.9.6
+  resolution: "forge-std@https://github.com/foundry-rs/forge-std.git#commit=3b20d60d14b343ee4f908cb8079495c07f5e8981"
+  checksum: 03aa5b5eadf52f016ce8c23f686be5e889d9cd6db46309c90c3c7a67f145145d41f40e669d99e28e8d6be22765c8c52054f9b4144ae0e742b6ce50f47cc5abff
   languageName: node
   linkType: hard
 
