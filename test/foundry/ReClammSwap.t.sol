@@ -67,12 +67,12 @@ contract ReClammSwapTest is BaseReClammTest {
 
     function testInRangePriceRatioUpdatingSwapExactIn__Fuzz(uint256 newFourthRootPriceRatio) public {
         uint256 currentFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
-        newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 10e18);
+        newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 5e18);
 
         _assumeFourthRootPriceRatioDeltaAboveMin(currentFourthRootPriceRatio, newFourthRootPriceRatio);
 
         vm.prank(admin);
-        ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 1 days);
+        ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 5 days);
 
         vm.warp(block.timestamp + 6 hours);
 
@@ -116,11 +116,11 @@ contract ReClammSwapTest is BaseReClammTest {
         uint256[] memory newBalances = _setPoolBalances(daiBalance, usdcBalance);
 
         uint256 currentFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
-        newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 10e18);
+        newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 5e18);
         _assumeFourthRootPriceRatioDeltaAboveMin(currentFourthRootPriceRatio, newFourthRootPriceRatio);
 
         vm.prank(admin);
-        ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 1 days);
+        ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 5 days);
 
         vm.warp(block.timestamp + 6 hours);
 
@@ -246,7 +246,7 @@ contract ReClammSwapTest is BaseReClammTest {
 
     function testInRangePriceRatioUpdatingSwapExactOut__Fuzz(uint256 newFourthRootPriceRatio) public {
         uint256 currentFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
-        newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 10e18);
+        newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 5e18);
 
         if (newFourthRootPriceRatio > currentFourthRootPriceRatio) {
             vm.assume(newFourthRootPriceRatio - currentFourthRootPriceRatio >= 2);
@@ -255,7 +255,7 @@ contract ReClammSwapTest is BaseReClammTest {
         }
 
         vm.prank(admin);
-        ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 1 days);
+        ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 5 days);
 
         vm.warp(block.timestamp + 6 hours);
 
@@ -293,11 +293,11 @@ contract ReClammSwapTest is BaseReClammTest {
         uint256[] memory newBalances = _setPoolBalances(daiBalance, usdcBalance);
 
         uint256 currentFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
-        newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 10e18);
+        newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 5e18);
         _assumeFourthRootPriceRatioDeltaAboveMin(currentFourthRootPriceRatio, newFourthRootPriceRatio);
 
         vm.prank(admin);
-        ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 1 days);
+        ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 5 days);
 
         vm.warp(block.timestamp + 6 hours);
 
