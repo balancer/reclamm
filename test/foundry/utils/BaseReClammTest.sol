@@ -117,7 +117,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
             symbol,
             vault.buildTokenConfig(sortedTokens),
             roleAccounts,
-            1e16, // 1% fee
+            1e14, // 0.01% fee
             _initialMinPrice,
             _initialMaxPrice,
             _initialTargetPrice,
