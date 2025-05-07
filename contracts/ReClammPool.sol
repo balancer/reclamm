@@ -168,15 +168,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IBasePool
     function onSwap(PoolSwapParams memory request) public virtual onlyVault returns (uint256 amountCalculatedScaled18) {
-        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) = _computeCurrentVirtualBalances(
-            request.balancesScaled18
-        );
-
-        if (changed) {
-            _setLastVirtualBalances(currentVirtualBalanceA, currentVirtualBalanceB);
-        }
-
-        _updateTimestamp();
+        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB) = _updateVirtualBalances();
 
         // Calculate swap result.
         if (request.kind == SwapKind.EXACT_IN) {
@@ -329,7 +321,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         // Rounding proportion down, which will round the virtual balances down.
         uint256 proportion = minBptAmountOut.divDown(poolTotalSupply);
 
-        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = _computeCurrentVirtualBalances(
+        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB) = _computeCurrentVirtualBalances(
             balancesScaled18
         );
         // When adding/removing liquidity, round down the virtual balances. This favors the vault in swap operations.
@@ -359,7 +351,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         // Rounding proportion up, which will round the virtual balances down.
         uint256 proportion = maxBptAmountIn.divUp(poolTotalSupply);
 
-        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = _computeCurrentVirtualBalances(
+        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB) = _computeCurrentVirtualBalances(
             balancesScaled18
         );
         // When adding/removing liquidity, round down the virtual balances. This favors the vault in swap operations.
@@ -417,7 +409,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     function computeCurrentPriceRange() external view returns (uint256 minPrice, uint256 maxPrice) {
         if (_vault.isPoolInitialized(address(this))) {
             (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
-            (uint256 virtualBalanceA, uint256 virtualBalanceB, ) = _computeCurrentVirtualBalances(balancesScaled18);
+            (uint256 virtualBalanceA, uint256 virtualBalanceB) = _computeCurrentVirtualBalances(balancesScaled18);
 
             uint256 currentInvariant = ReClammMath.computeInvariant(
                 balancesScaled18,
@@ -447,10 +439,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     function computeCurrentVirtualBalances()
         external
         view
-        returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed)
+        returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB)
     {
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
-        (currentVirtualBalanceA, currentVirtualBalanceB, changed) = _computeCurrentVirtualBalances(balancesScaled18);
+        (currentVirtualBalanceA, currentVirtualBalanceB) = _computeCurrentVirtualBalances(balancesScaled18);
     }
 
     /// @inheritdoc IReClammPool
@@ -494,18 +486,12 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function isPoolWithinTargetRangeUsingCurrentVirtualBalances()
-        external
-        view
-        returns (bool isWithinTargetRange, bool virtualBalancesChanged)
-    {
+    function isPoolWithinTargetRangeUsingCurrentVirtualBalances() external view returns (bool isWithinTargetRange) {
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
         uint256 currentVirtualBalanceA;
         uint256 currentVirtualBalanceB;
 
-        (currentVirtualBalanceA, currentVirtualBalanceB, virtualBalancesChanged) = _computeCurrentVirtualBalances(
-            balancesScaled18
-        );
+        (currentVirtualBalanceA, currentVirtualBalanceB) = _computeCurrentVirtualBalances(balancesScaled18);
 
         isWithinTargetRange = ReClammMath.isPoolWithinTargetRange(
             balancesScaled18,
@@ -649,8 +635,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     function _computeCurrentVirtualBalances(
         uint256[] memory balancesScaled18
-    ) internal view returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) {
-        (currentVirtualBalanceA, currentVirtualBalanceB, changed) = ReClammMath.computeCurrentVirtualBalances(
+    ) internal view returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB) {
+        (currentVirtualBalanceA, currentVirtualBalanceB) = ReClammMath.computeCurrentVirtualBalances(
             balancesScaled18,
             _lastVirtualBalanceA,
             _lastVirtualBalanceB,
@@ -774,15 +760,14 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _vault.emitAuxiliaryEvent("CenterednessMarginUpdated", abi.encode(centerednessMargin));
     }
 
-    function _updateVirtualBalances() internal {
+    function _updateVirtualBalances()
+        internal
+        returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB)
+    {
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
-        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) = _computeCurrentVirtualBalances(
-            balancesScaled18
-        );
-        if (changed) {
-            _setLastVirtualBalances(currentVirtualBalanceA, currentVirtualBalanceB);
-        }
+        (currentVirtualBalanceA, currentVirtualBalanceB) = _computeCurrentVirtualBalances(balancesScaled18);
 
+        _setLastVirtualBalances(currentVirtualBalanceA, currentVirtualBalanceB);
         _updateTimestamp();
     }
 

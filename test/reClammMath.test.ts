@@ -322,14 +322,13 @@ describe('ReClammMath', function () {
       balancesScaled18: bigint[],
       lastVirtualBalances: bigint[],
       lastTimestamp: number,
-      priceRatioState: PriceRatioState,
-      expectChange: boolean
+      priceRatioState: PriceRatioState
     ): Promise<{
       virtualBalances: bigint[];
     }> => {
       await (await mathLib.setPriceRatioState(priceRatioState)).wait();
 
-      const [contractCurrentVirtualBalances, contractChanged] = await mathLib.computeCurrentVirtualBalances(
+      const contractCurrentVirtualBalances = await mathLib.computeCurrentVirtualBalances(
         balancesScaled18,
         lastVirtualBalances,
         DAILY_PRICE_SHIFT_BASE,
@@ -339,7 +338,7 @@ describe('ReClammMath', function () {
 
       const blockTimestamp = await getTimestampFromLastBlock();
 
-      const [jsCurrentVirtualBalances, jsChanged] = computeCurrentVirtualBalances(
+      const jsCurrentVirtualBalances = computeCurrentVirtualBalances(
         balancesScaled18,
         lastVirtualBalances,
         DAILY_PRICE_SHIFT_BASE,
@@ -353,8 +352,6 @@ describe('ReClammMath', function () {
       expect(contractCurrentVirtualBalances.length).to.equal(2);
       expectEqualWithError(contractCurrentVirtualBalances[0], jsCurrentVirtualBalances[0], EXPECTED_RELATIVE_ERROR);
       expectEqualWithError(contractCurrentVirtualBalances[1], jsCurrentVirtualBalances[1], EXPECTED_RELATIVE_ERROR);
-      expect(contractChanged).to.equal(jsChanged);
-      expect(contractChanged).to.equal(expectChange);
 
       return { virtualBalances: [contractCurrentVirtualBalances[0], contractCurrentVirtualBalances[1]] };
     };

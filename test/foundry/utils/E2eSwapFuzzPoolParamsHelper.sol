@@ -153,7 +153,7 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
 
         (, , , uint256[] memory balancesScaled18) = vault.getPoolTokenInfo(pool);
 
-        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = ReClammPoolMock(pool)
+        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB) = ReClammPoolMock(pool)
             .computeCurrentVirtualBalances(balancesScaled18);
 
         uint256 tokenAMinTradeAmountInExactOut = _applyRateAndScale(
