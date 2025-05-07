@@ -325,7 +325,11 @@ contract ReClammPoolTest is BaseReClammTest {
 
         assertEq(data.minTokenBalanceScaled18, _MIN_TOKEN_BALANCE, "Invalid min token balance");
         assertEq(data.minPoolCenteredness, _MIN_POOL_CENTEREDNESS, "Invalid min pool centeredness");
-        assertEq(data.maxDailyPriceShiftExponent, 500e16, "Invalid max daily price shift exponent");
+        assertEq(
+            data.maxDailyPriceShiftExponent,
+            _MAX_DAILY_PRICE_SHIFT_EXPONENT,
+            "Invalid max daily price shift exponent"
+        );
         assertEq(data.minPriceRatioUpdateDuration, 6 hours, "Invalid min price ratio update duration");
     }
 
@@ -838,7 +842,8 @@ contract ReClammPoolTest is BaseReClammTest {
         _setPoolBalances(newDaiBalance, newUsdcBalance);
         ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
 
-        assertTrue(ReClammPoolMock(pool).isPoolWithinTargetRange(), "Pool is out of range");
+        // Exactly at boundary is out of range.
+        assertFalse(ReClammPoolMock(pool).isPoolWithinTargetRange(), "Pool is in range");
         assertApproxEqRel(
             ReClammPoolMock(pool).computeCurrentPoolCenteredness(),
             _DEFAULT_CENTEREDNESS_MARGIN,
@@ -1033,6 +1038,22 @@ contract ReClammPoolTest is BaseReClammTest {
             centerednessMargin: 0.2e18,
             initialMinPrice: 0,
             initialMaxPrice: 2000e18,
+            initialTargetPrice: 1500e18
+        });
+
+        vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
+        new ReClammPool(params, vault);
+    }
+
+    function testCreateWithInvalidMaxPrice() public {
+        ReClammPoolParams memory params = ReClammPoolParams({
+            name: "ReClamm Pool",
+            symbol: "FAIL_POOL",
+            version: "1",
+            dailyPriceShiftExponent: 1e18,
+            centerednessMargin: 0.2e18,
+            initialMinPrice: 1000e18,
+            initialMaxPrice: 0,
             initialTargetPrice: 1500e18
         });
 
@@ -1305,8 +1326,8 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function testDailyPriceShiftExponentHighPrice__Fuzz(uint256 exponent) public {
-        // 1. Fuzz the exponent in the range [10e16, 500e16]
-        exponent = bound(exponent, 10e16, 500e16);
+        // 1. Fuzz the exponent in the range [10e16, _MAX_DAILY_PRICE_SHIFT_EXPONENT]
+        exponent = bound(exponent, 10e16, _MAX_DAILY_PRICE_SHIFT_EXPONENT);
 
         // 2. Set the daily price shift exponent on the pool (must be admin, and the vault must be locked)
         vm.prank(admin);
@@ -1347,8 +1368,8 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function testDailyPriceShiftExponentLowPrice__Fuzz(uint256 exponent) public {
-        // 1. Fuzz the exponent in the range [10e16, 500e16]
-        exponent = bound(exponent, 10e16, 500e16);
+        // 1. Fuzz the exponent in the range [10e16, _MAX_DAILY_PRICE_SHIFT_EXPONENT]
+        exponent = bound(exponent, 10e16, _MAX_DAILY_PRICE_SHIFT_EXPONENT);
 
         // 2. Set the daily price shift exponent on the pool (must be admin and vault locked)
         vm.prank(admin);
