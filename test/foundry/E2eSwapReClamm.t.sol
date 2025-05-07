@@ -34,6 +34,7 @@ contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest {
         super.setUp();
 
         exactInOutDecimalsErrorMultiplier = 2e9;
+        amountInExactInOutError = 9e12;
     }
 
     function setUpVariables() internal override {

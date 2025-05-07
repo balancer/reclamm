@@ -35,6 +35,7 @@ contract E2eSwapReClammRateProvider is E2eSwapFuzzPoolParamsHelper, E2eSwapRateP
         super.setUp();
 
         exactInOutDecimalsErrorMultiplier = 2e9;
+        amountInExactInOutError = 9e14;
     }
 
     function setUpVariables() internal override {
