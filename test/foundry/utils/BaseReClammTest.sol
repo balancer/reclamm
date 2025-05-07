@@ -8,7 +8,11 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
-import { PoolRoleAccounts, LiquidityManagement } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
+import {
+    PoolRoleAccounts,
+    LiquidityManagement,
+    Rounding
+} from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
 
 import { CastingHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/CastingHelpers.sol";
@@ -78,7 +82,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
         super.setUp();
 
         (, , _initialBalances, ) = vault.getPoolTokenInfo(pool);
-        (_initialVirtualBalances) = _computeCurrentVirtualBalances(pool);
+        (_initialVirtualBalances) = _computeCurrentVirtualBalances(pool, Rounding.ROUND_DOWN);
         _initialFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
     }
 
@@ -215,9 +219,12 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     }
 
     function _computeCurrentVirtualBalances(
-        address pool
+        address pool,
+        Rounding rounding
     ) internal view returns (uint256[] memory currentVirtualBalances) {
         currentVirtualBalances = new uint256[](2);
-        (currentVirtualBalances[a], currentVirtualBalances[b]) = ReClammPool(pool).computeCurrentVirtualBalances();
+        (currentVirtualBalances[a], currentVirtualBalances[b]) = ReClammPool(pool).computeCurrentVirtualBalances(
+            rounding
+        );
     }
 }

@@ -96,7 +96,8 @@ contract ReClammMathMock {
         uint256[] memory virtualBalances,
         uint256 dailyPriceShiftBase,
         uint32 lastTimestamp,
-        uint64 centerednessMargin
+        uint64 centerednessMargin,
+        Rounding rounding
     ) external view returns (uint256[] memory newVirtualBalances) {
         newVirtualBalances = new uint256[](2);
         (newVirtualBalances[a], newVirtualBalances[b]) = ReClammMath.computeCurrentVirtualBalances(
@@ -106,7 +107,8 @@ contract ReClammMathMock {
             dailyPriceShiftBase,
             lastTimestamp,
             centerednessMargin,
-            _priceRatioState
+            _priceRatioState,
+            rounding
         );
     }
 
@@ -120,7 +122,8 @@ contract ReClammMathMock {
                 balancesScaled18,
                 virtualBalances[a],
                 virtualBalances[b],
-                centerednessMargin
+                centerednessMargin,
+                Rounding.ROUND_DOWN
             );
     }
 
@@ -128,7 +131,13 @@ contract ReClammMathMock {
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances
     ) external pure returns (uint256) {
-        return ReClammMath.computeCenteredness(balancesScaled18, virtualBalances[a], virtualBalances[b]);
+        return
+            ReClammMath.computeCenteredness(
+                balancesScaled18,
+                virtualBalances[a],
+                virtualBalances[b],
+                Rounding.ROUND_DOWN
+            );
     }
 
     function computeFourthRootPriceRatio(

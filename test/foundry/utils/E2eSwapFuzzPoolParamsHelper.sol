@@ -108,13 +108,14 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
             5e17
         );
 
-        uint256 currentCentredness = ReClammMath.computeCenteredness(
+        uint256 currentCenteredness = ReClammMath.computeCenteredness(
             testParams.initialBalances,
             virtualBalanceA,
-            virtualBalanceB
+            virtualBalanceB,
+            Rounding.ROUND_DOWN
         );
 
-        vm.assume(currentCentredness >= 1e17);
+        vm.assume(currentCenteredness >= 1e17);
 
         return (
             _applyRateAndScale(testParams.initialBalances[a], testParams.rateTokenA, testParams.decimalsTokenA),
@@ -154,7 +155,7 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
         (, , , uint256[] memory balancesScaled18) = vault.getPoolTokenInfo(pool);
 
         (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB) = ReClammPoolMock(pool)
-            .computeCurrentVirtualBalances(balancesScaled18);
+            .computeCurrentVirtualBalances(balancesScaled18, Rounding.ROUND_DOWN);
 
         uint256 tokenAMinTradeAmountInExactOut = _applyRateAndScale(
             ReClammMath.computeInGivenOut(

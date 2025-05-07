@@ -15,7 +15,8 @@ import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/Fixe
 import {
     AddLiquidityKind,
     PoolSwapParams,
-    RemoveLiquidityKind
+    RemoveLiquidityKind,
+    Rounding
 } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { CastingHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/CastingHelpers.sol";
@@ -223,7 +224,7 @@ contract ReClammPoolTest is BaseReClammTest {
             priceRatioUpdateEndTime: (block.timestamp + 1 days).toUint32()
         });
 
-        uint256[] memory currentVirtualBalances = _computeCurrentVirtualBalances(pool);
+        uint256[] memory currentVirtualBalances = _computeCurrentVirtualBalances(pool, Rounding.ROUND_DOWN);
 
         vm.startPrank(admin);
         ReClammPool(pool).setPriceRatioState(
@@ -497,7 +498,7 @@ contract ReClammPoolTest is BaseReClammTest {
         startFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
 
         (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB) = ReClammPool(pool)
-            .computeCurrentVirtualBalances();
+            .computeCurrentVirtualBalances(Rounding.ROUND_DOWN);
 
         // Events:
         // - Virtual balances update
@@ -596,7 +597,7 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(fourthRootPriceRatio, mathFourthRootPriceRatio, "FourthRootPriceRatio not updated correctly");
 
         (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB) = ReClammPool(pool)
-            .computeCurrentVirtualBalances();
+            .computeCurrentVirtualBalances(Rounding.ROUND_DOWN);
 
         // Events:
         // - Virtual balances update
@@ -720,7 +721,7 @@ contract ReClammPoolTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         // Check if the last virtual balances stored in the pool are different from the current virtual balances.
-        uint256[] memory virtualBalancesBefore = _computeCurrentVirtualBalances(pool);
+        uint256[] memory virtualBalancesBefore = _computeCurrentVirtualBalances(pool, Rounding.ROUND_DOWN);
         uint256[] memory lastVirtualBalancesBeforeSet = _getLastVirtualBalances(pool);
 
         assertNotEq(
@@ -827,7 +828,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
     function testOutOfRangeAfterSetCenterednessMargin() public {
         // Move the pool close to the current margin.
-        uint256[] memory virtualBalances = _computeCurrentVirtualBalances(pool);
+        uint256[] memory virtualBalances = _computeCurrentVirtualBalances(pool, Rounding.ROUND_DOWN);
         uint256 newBalanceB = 100e18;
 
         // Pool Centeredness = Ra * Vb / (Rb * Va). Make centeredness = margin, and you have the equation below.
@@ -855,7 +856,9 @@ contract ReClammPoolTest is BaseReClammTest {
     function testIsPoolInTargetRange() public {
         (, , , uint256[] memory balancesScaled18) = vault.getPoolTokenInfo(pool);
         (uint256 lastVirtualBalanceA, uint256 lastVirtualBalanceB) = ReClammPool(pool).getLastVirtualBalances();
-        (uint256 virtualBalanceA, uint256 virtualBalanceB) = ReClammPool(pool).computeCurrentVirtualBalances();
+        (uint256 virtualBalanceA, uint256 virtualBalanceB) = ReClammPool(pool).computeCurrentVirtualBalances(
+            Rounding.ROUND_DOWN
+        );
         uint256 centerednessMargin = ReClammPool(pool).getCenterednessMargin();
 
         // Last should equal current.
@@ -866,7 +869,8 @@ contract ReClammPoolTest is BaseReClammTest {
             balancesScaled18,
             virtualBalanceA,
             virtualBalanceB,
-            centerednessMargin
+            centerednessMargin,
+            Rounding.ROUND_DOWN
         );
         assertTrue(resultWithCurrentBalances, "Expected value not in range");
 
@@ -880,7 +884,8 @@ contract ReClammPoolTest is BaseReClammTest {
             balancesScaled18,
             newLastVirtualBalances[a],
             newLastVirtualBalances[b],
-            centerednessMargin
+            centerednessMargin,
+            Rounding.ROUND_DOWN
         );
 
         assertFalse(resultWithLastBalances, "Expected value still in range");
@@ -905,7 +910,7 @@ contract ReClammPoolTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         // Check if the last virtual balances stored in the pool are different from the current virtual balances.
-        uint256[] memory virtualBalancesBefore = _computeCurrentVirtualBalances(pool);
+        uint256[] memory virtualBalancesBefore = _computeCurrentVirtualBalances(pool, Rounding.ROUND_DOWN);
         uint256[] memory lastVirtualBalancesBeforeSet = _getLastVirtualBalances(pool);
 
         assertNotEq(

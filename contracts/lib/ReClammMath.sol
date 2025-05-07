@@ -84,7 +84,8 @@ library ReClammMath {
             dailyPriceShiftBase,
             lastTimestamp,
             centerednessMargin,
-            priceRatioState
+            priceRatioState,
+            rounding
         );
 
         return computeInvariant(balancesScaled18, virtualBalanceA, virtualBalanceB, rounding);
@@ -280,6 +281,7 @@ library ReClammMath {
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @param centerednessMargin A limit of the pool centeredness that defines if pool is outside the target range
      * @param storedPriceRatioState A struct containing start and end price ratios and a time interval
+     * @param rounding Rounding direction to consider when computing the virtual balances
      * @return currentVirtualBalanceA The current virtual balance of token A
      * @return currentVirtualBalanceB The current virtual balance of token B
      */
@@ -290,7 +292,8 @@ library ReClammMath {
         uint256 dailyPriceShiftBase,
         uint32 lastTimestamp,
         uint64 centerednessMargin,
-        PriceRatioState storage storedPriceRatioState
+        PriceRatioState storage storedPriceRatioState,
+        Rounding rounding
     ) internal view returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB) {
         uint32 currentTimestamp = block.timestamp.toUint32();
 
@@ -314,7 +317,8 @@ library ReClammMath {
             balancesScaled18,
             lastVirtualBalanceA,
             lastVirtualBalanceB,
-            isPoolAboveCenter
+            isPoolAboveCenter,
+            rounding
         );
 
         // If the pool is outside the target range, track the market price by moving the price interval.
@@ -324,7 +328,8 @@ library ReClammMath {
                 balancesScaled18,
                 currentVirtualBalanceA,
                 currentVirtualBalanceB,
-                centerednessMargin
+                centerednessMargin,
+                rounding
             ) ==
             false
         ) {
@@ -364,6 +369,7 @@ library ReClammMath {
      * @param lastVirtualBalanceA The last virtual balance of token A
      * @param lastVirtualBalanceB The last virtual balance of token B
      * @param isPoolAboveCenter Whether the pool is above or below the center
+     * @param rounding Rounding direction to consider when computing the virtual balances
      * @return virtualBalanceA The virtual balance of token A
      * @return virtualBalanceB The virtual balance of token B
      */
@@ -372,15 +378,48 @@ library ReClammMath {
         uint256[] memory balancesScaled18,
         uint256 lastVirtualBalanceA,
         uint256 lastVirtualBalanceB,
-        bool isPoolAboveCenter
+        bool isPoolAboveCenter,
+        Rounding rounding
     ) internal pure returns (uint256 virtualBalanceA, uint256 virtualBalanceB) {
         // The overvalued token is the one with a lower token balance (therefore, rarer and more valuable).
         (uint256 indexTokenUndervalued, uint256 indexTokenOvervalued) = isPoolAboveCenter ? (0, 1) : (1, 0);
         uint256 balanceTokenUndervalued = balancesScaled18[indexTokenUndervalued];
         uint256 balanceTokenOvervalued = balancesScaled18[indexTokenOvervalued];
 
+        return
+            _vb(
+                currentFourthRootPriceRatio,
+                balancesScaled18,
+                balanceTokenUndervalued,
+                balanceTokenOvervalued,
+                lastVirtualBalanceA,
+                lastVirtualBalanceB,
+                isPoolAboveCenter,
+                rounding
+            );
+    }
+
+    function _vb(
+        uint256 currentFourthRootPriceRatio,
+        uint256[] memory balancesScaled18,
+        uint256 balanceTokenUndervalued,
+        uint256 balanceTokenOvervalued,
+        uint256 lastVirtualBalanceA,
+        uint256 lastVirtualBalanceB,
+        bool isPoolAboveCenter,
+        Rounding rounding
+    ) private pure returns (uint256 va, uint256 vb) {
+        function(uint256, uint256) pure returns (uint256) _divDownOrUp = rounding == Rounding.ROUND_DOWN
+            ? FixedPoint.divDown
+            : FixedPoint.divUp;
+
         // Compute the current pool centeredness, which will remain constant.
-        uint256 poolCenteredness = computeCenteredness(balancesScaled18, lastVirtualBalanceA, lastVirtualBalanceB);
+        uint256 poolCenteredness = computeCenteredness(
+            balancesScaled18,
+            lastVirtualBalanceA,
+            lastVirtualBalanceB,
+            rounding
+        );
 
         // The original formula was a quadratic equation, with terms:
         // a = Q0 - 1
@@ -400,11 +439,12 @@ library ReClammMath {
                 Math.sqrt(poolCenteredness * (poolCenteredness + 4 * sqrtPriceRatio - 2e18) + 1e36))) /
             (2 * (sqrtPriceRatio - FixedPoint.ONE));
 
-        uint256 virtualBalanceOvervalued = (balanceTokenOvervalued * virtualBalanceUndervalued).divDown(
+        uint256 virtualBalanceOvervalued = _divDownOrUp(
+            balanceTokenOvervalued * virtualBalanceUndervalued,
             poolCenteredness * balanceTokenUndervalued
         );
 
-        (virtualBalanceA, virtualBalanceB) = isPoolAboveCenter
+        (va, vb) = isPoolAboveCenter
             ? (virtualBalanceUndervalued, virtualBalanceOvervalued)
             : (virtualBalanceOvervalued, virtualBalanceUndervalued);
     }
@@ -475,9 +515,10 @@ library ReClammMath {
         uint256[] memory balancesScaled18,
         uint256 virtualBalanceA,
         uint256 virtualBalanceB,
-        uint256 centerednessMargin
+        uint256 centerednessMargin,
+        Rounding rounding
     ) internal pure returns (bool) {
-        uint256 centeredness = computeCenteredness(balancesScaled18, virtualBalanceA, virtualBalanceB);
+        uint256 centeredness = computeCenteredness(balancesScaled18, virtualBalanceA, virtualBalanceB, rounding);
         return centeredness >= centerednessMargin;
     }
 
@@ -490,12 +531,14 @@ library ReClammMath {
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param virtualBalanceA The last virtual balances of token A
      * @param virtualBalanceB The last virtual balances of token B
+     * @param rounding Rounding direction to consider when computing the virtual balances
      * @return poolCenteredness The centeredness of the pool
      */
     function computeCenteredness(
         uint256[] memory balancesScaled18,
         uint256 virtualBalanceA,
-        uint256 virtualBalanceB
+        uint256 virtualBalanceB,
+        Rounding rounding
     ) internal pure returns (uint256) {
         if (balancesScaled18[a] == 0 || balancesScaled18[b] == 0) {
             return 0;
@@ -511,9 +554,14 @@ library ReClammMath {
             ? (balancesScaled18[a], balancesScaled18[b])
             : (balancesScaled18[b], balancesScaled18[a]);
 
-        // Round up the centeredness, so the virtual balances are rounded down when the pool prices are moving.
+        // Round up the centeredness will round virtual balances down when the pool prices are moving.
+        function(uint256, uint256) pure returns (uint256) _divUpOrDown = rounding == Rounding.ROUND_DOWN
+            ? FixedPoint.divUp
+            : FixedPoint.mulDown;
+
         return
-            ((balancesScaledOvervalued * virtualBalanceUndervalued) / balancesScaledUndervalued).divUp(
+            _divUpOrDown(
+                ((balancesScaledOvervalued * virtualBalanceUndervalued) / balancesScaledUndervalued),
                 virtualBalanceOvervalued
             );
     }
