@@ -52,7 +52,7 @@ contract ReClammPoolMock is ReClammPool {
 
     function computeCurrentVirtualBalances(
         uint256[] memory balancesScaled18
-    ) external view returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) {
+    ) external view returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB) {
         return _computeCurrentVirtualBalances(balancesScaled18);
     }
 
