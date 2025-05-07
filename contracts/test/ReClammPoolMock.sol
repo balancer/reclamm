@@ -6,6 +6,7 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
+import "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { ReClammPool } from "../ReClammPool.sol";
 import { ReClammMath, a } from "../lib/ReClammMath.sol";
@@ -51,9 +52,10 @@ contract ReClammPoolMock is ReClammPool {
     }
 
     function computeCurrentVirtualBalances(
-        uint256[] memory balancesScaled18
+        uint256[] memory balancesScaled18,
+        Rounding rounding
     ) external view returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB) {
-        return _computeCurrentVirtualBalances(balancesScaled18);
+        return _computeCurrentVirtualBalances(balancesScaled18, rounding);
     }
 
     function setLastTimestamp(uint256 newLastTimestamp) external {

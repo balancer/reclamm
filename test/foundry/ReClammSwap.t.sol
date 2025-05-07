@@ -5,6 +5,7 @@ pragma solidity ^0.8.24;
 import "forge-std/Test.sol";
 
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
+import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
 import { ReClammMathMock } from "../../contracts/test/ReClammMathMock.sol";
@@ -32,7 +33,7 @@ contract ReClammSwapTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = _getLastVirtualBalances(pool);
-        uint256[] memory currentVirtualBalances = _computeCurrentVirtualBalances(pool);
+        uint256[] memory currentVirtualBalances = _computeCurrentVirtualBalances(pool, Rounding.ROUND_DOWN);
 
         vm.assume(
             mathMock.isPoolWithinTargetRange(
@@ -77,7 +78,7 @@ contract ReClammSwapTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = _getLastVirtualBalances(pool);
-        uint256[] memory currentVirtualBalances = _computeCurrentVirtualBalances(pool);
+        uint256[] memory currentVirtualBalances = _computeCurrentVirtualBalances(pool, Rounding.ROUND_DOWN);
 
         // If the price ratio is updating, the virtual balances should not match.
         _assertVirtualBalancesDoNotMatch(lastVirtualBalancesBeforeSwap, currentVirtualBalances);
@@ -125,7 +126,7 @@ contract ReClammSwapTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = _getLastVirtualBalances(pool);
-        uint256[] memory currentVirtualBalances = _computeCurrentVirtualBalances(pool);
+        uint256[] memory currentVirtualBalances = _computeCurrentVirtualBalances(pool, Rounding.ROUND_DOWN);
 
         vm.assume(
             mathMock.isPoolWithinTargetRange(
@@ -178,7 +179,7 @@ contract ReClammSwapTest is BaseReClammTest {
             mathMock.isPoolWithinTargetRange(newBalances, lastVirtualBalancesBeforeSwap, _DEFAULT_CENTEREDNESS_MARGIN)
         );
 
-        uint256[] memory computedVirtualBalancesBeforeSwap = _computeCurrentVirtualBalances(pool);
+        uint256[] memory computedVirtualBalancesBeforeSwap = _computeCurrentVirtualBalances(pool, Rounding.ROUND_DOWN);
 
         uint256 amountDaiIn = mathMock.computeInGivenOut(
             newBalances,
@@ -217,7 +218,7 @@ contract ReClammSwapTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = _getLastVirtualBalances(pool);
-        uint256[] memory currentVirtualBalances = _computeCurrentVirtualBalances(pool);
+        uint256[] memory currentVirtualBalances = _computeCurrentVirtualBalances(pool, Rounding.ROUND_DOWN);
 
         vm.assume(
             mathMock.isPoolWithinTargetRange(
@@ -260,7 +261,7 @@ contract ReClammSwapTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = _getLastVirtualBalances(pool);
-        uint256[] memory currentVirtualBalances = _computeCurrentVirtualBalances(pool);
+        uint256[] memory currentVirtualBalances = _computeCurrentVirtualBalances(pool, Rounding.ROUND_DOWN);
 
         // If the price ratio is updating, the virtual balances should not match.
         _assertVirtualBalancesDoNotMatch(lastVirtualBalancesBeforeSwap, currentVirtualBalances);
@@ -302,7 +303,7 @@ contract ReClammSwapTest is BaseReClammTest {
         vm.warp(block.timestamp + 6 hours);
 
         uint256[] memory lastVirtualBalancesBeforeSwap = _getLastVirtualBalances(pool);
-        uint256[] memory currentVirtualBalances = _computeCurrentVirtualBalances(pool);
+        uint256[] memory currentVirtualBalances = _computeCurrentVirtualBalances(pool, Rounding.ROUND_DOWN);
 
         vm.assume(
             mathMock.isPoolWithinTargetRange(
@@ -349,7 +350,7 @@ contract ReClammSwapTest is BaseReClammTest {
             mathMock.isPoolWithinTargetRange(newBalances, lastVirtualBalancesBeforeSwap, _DEFAULT_CENTEREDNESS_MARGIN)
         );
 
-        uint256[] memory computedVirtualBalancesBeforeSwap = _computeCurrentVirtualBalances(pool);
+        uint256[] memory computedVirtualBalancesBeforeSwap = _computeCurrentVirtualBalances(pool, Rounding.ROUND_DOWN);
 
         uint256 amountUsdcOut = (newBalances[usdcIdx] - _MIN_TOKEN_BALANCE) / 2;
 
