@@ -59,7 +59,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 internal constant _MIN_TOKEN_BALANCE_SCALED18 = 1e12;
     uint256 internal constant _MIN_POOL_CENTEREDNESS = 1e3;
 
-    uint256 internal constant _MAX_DAILY_PRICE_SHIFT_EXPONENT = 400e16; // 400%
+    uint256 internal constant _MAX_DAILY_PRICE_SHIFT_EXPONENT = 300e16; // 300%
 
     uint256 internal constant _MIN_PRICE_RATIO_UPDATE_DURATION = 6 hours;
 
