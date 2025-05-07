@@ -628,9 +628,15 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         // 1.682, the new `endPriceRatio` would be 1.682^4 ~ 8 (i.e., 1,000 - 8,000). If the `updateDuration is 1 day,
         // the time period cancel, so `actualDailyPriceRatioUpdateRate` is simply given by:
         // `endPriceRatio` / `startPriceRatio`; or 8 / 4 = 2: doubling once per day. (All values are 18-decimal FP.)
-        uint256 actualDailyPriceRatioUpdateRate = endPriceRatio > startPriceRatio
-            ? FixedPoint.divUp(endPriceRatio.mulUp(uint256(1 days)), startPriceRatio.mulDown(updateDuration))
-            : FixedPoint.divUp(startPriceRatio.mulUp(uint256(1 days)), endPriceRatio.mulDown(updateDuration));
+        uint256 actualDailyPriceRatioUpdateRate = FixedPoint.divUp(
+            endPriceRatio * 1 days,
+            startPriceRatio * updateDuration
+        );
+
+        // If endPriceRatio < startPriceRatio (less likely), we invert the rate.
+        if (endPriceRatio < startPriceRatio) {
+            actualDailyPriceRatioUpdateRate = FixedPoint.divUp(FixedPoint.ONE, actualDailyPriceRatioUpdateRate);
+        }
 
         if (actualDailyPriceRatioUpdateRate > _MAX_DAILY_PRICE_RATIO_UPDATE_RATE) {
             revert PriceRatioUpdateTooFast();
