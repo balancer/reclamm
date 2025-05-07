@@ -155,7 +155,7 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
         (, , , uint256[] memory balancesScaled18) = vault.getPoolTokenInfo(pool);
 
         (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB) = ReClammPoolMock(pool)
-            .computeCurrentVirtualBalances(balancesScaled18, Rounding.ROUND_DOWN);
+            .computeCurrentVirtualBalances(balancesScaled18, Rounding.ROUND_UP);
 
         uint256 tokenAMinTradeAmountInExactOut = _applyRateAndScale(
             ReClammMath.computeInGivenOut(
@@ -212,28 +212,28 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
         uint256[] memory balancesScaled18_ = balancesScaled18;
 
         // Divide by 5 to avoid PoolCenterednessTooLow
-        maxSwapAmountTokenA = _applyRateAndScale(
-            ReClammMath.computeInGivenOut(
-                balancesScaled18_,
-                currentVirtualBalanceA,
-                currentVirtualBalanceB,
-                a,
-                b,
-                balancesScaled18_[b]
-            ) / 100,
-            testParams.rateTokenA,
-            testParams.decimalsTokenA
-        );
+        maxSwapAmountTokenA =
+            _applyRateAndScale(
+                ReClammMath.computeInGivenOut(
+                    balancesScaled18_,
+                    currentVirtualBalanceA,
+                    currentVirtualBalanceB,
+                    a,
+                    b,
+                    balancesScaled18_[b] / 100
+                ),
+                testParams.rateTokenA,
+                testParams.decimalsTokenA
+            ) /
+            10;
 
         // Divide by 2 to avoid TokenBalanceTooLow
-        maxSwapAmountTokenB = _applyRateAndScale(
-            balancesScaled18_[b] / 100,
-            testParams.rateTokenB,
-            testParams.decimalsTokenB
-        );
+        maxSwapAmountTokenB =
+            _applyRateAndScale(balancesScaled18_[b] / 100, testParams.rateTokenB, testParams.decimalsTokenB) /
+            5;
     }
 
     function _applyRateAndScale(uint256 amount, uint256 rate, uint256 decimals) internal pure returns (uint256) {
-        return amount.divUp(rate).mulUp(10 ** decimals);
+        return (amount * (10 ** decimals)) / rate;
     }
 }

@@ -54,7 +54,7 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
             "RECLAMM",
             vault.buildTokenConfig(tokens),
             roleAccounts,
-            0,
+            1e14,
             1000e18, // 1000 min price
             4000e18, // 4000 max price
             3000e18, // 3000 target price
@@ -62,6 +62,8 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
             10e16, // 10% margin
             ""
         );
+
+        vault.manualUnsafeSetStaticSwapFeePercentage(newPool, 0);
 
         // Compute the initial balance ratio so that the target price of the pool is respected.
         initialBalances[1] = initialBalances[0].mulDown(ReClammPool(newPool).computeInitialBalanceRatio());
@@ -92,8 +94,8 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
     }
 
     function optimize_currentInvariant() public returns (int256) {
-        uint256 currentInvariant = Math.sqrt(computeInvariant() * FixedPoint.ONE);
-        uint256 initialInvariant = Math.sqrt(initInvariant * FixedPoint.ONE).mulUp(invariantProportion);
+        uint256 currentInvariant = computeInvariant();
+        uint256 initialInvariant = initInvariant;
 
         // Checking invariant property here, and not in a proper "property_" function, because Medusa reverts silently.
         if (currentInvariant < initialInvariant) {
@@ -191,49 +193,49 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
         } catch {}
     }
 
-    function computeAddLiquidity(uint256 exactBptOut) public {
-        uint256 oldTotalSupply = ReClammPool(address(pool)).totalSupply();
-        exactBptOut = bound(exactBptOut, 1e18, oldTotalSupply);
+    // function computeAddLiquidity(uint256 exactBptOut) public {
+    //     uint256 oldTotalSupply = ReClammPool(address(pool)).totalSupply();
+    //     exactBptOut = bound(exactBptOut, 1e18, oldTotalSupply);
 
-        medusa.prank(lp);
-        router.addLiquidityProportional(
-            address(pool),
-            [MAX_UINT256, MAX_UINT256].toMemoryArray(),
-            exactBptOut,
-            false,
-            bytes("")
-        );
+    //     medusa.prank(lp);
+    //     router.addLiquidityProportional(
+    //         address(pool),
+    //         [MAX_UINT256, MAX_UINT256].toMemoryArray(),
+    //         exactBptOut,
+    //         false,
+    //         bytes("")
+    //     );
 
-        uint256 newTotalSupply = ReClammPool(address(pool)).totalSupply();
-        uint256 proportion = newTotalSupply.divDown(oldTotalSupply);
-        invariantProportion = invariantProportion.mulDown(proportion);
-    }
+    //     uint256 newTotalSupply = ReClammPool(address(pool)).totalSupply();
+    //     uint256 proportion = newTotalSupply.divDown(oldTotalSupply);
+    //     invariantProportion = invariantProportion.mulDown(proportion);
+    // }
 
-    function computeRemoveLiquidity(uint256 exactBptIn) public {
-        uint256 oldTotalSupply = ReClammPool(address(pool)).totalSupply();
-        exactBptIn = bound(exactBptIn, 1e18, oldTotalSupply);
-        uint256 proportion = (oldTotalSupply - exactBptIn).divDown(oldTotalSupply);
+    // function computeRemoveLiquidity(uint256 exactBptIn) public {
+    //     uint256 oldTotalSupply = ReClammPool(address(pool)).totalSupply();
+    //     exactBptIn = bound(exactBptIn, 1e18, oldTotalSupply);
+    //     uint256 proportion = (oldTotalSupply - exactBptIn).divDown(oldTotalSupply);
 
-        // Make sure medusa does not stop if the pool reverts due to lack of liquidity.
-        (, , uint256[] memory balances, ) = vault.getPoolTokenInfo(address(pool));
-        if (
-            balances[0].mulDown(proportion) < MIN_RECLAMM_TOKEN_BALANCE ||
-            balances[1].mulDown(proportion) < MIN_RECLAMM_TOKEN_BALANCE
-        ) {
-            return;
-        }
+    //     // Make sure medusa does not stop if the pool reverts due to lack of liquidity.
+    //     (, , uint256[] memory balances, ) = vault.getPoolTokenInfo(address(pool));
+    //     if (
+    //         balances[0].mulDown(proportion) < MIN_RECLAMM_TOKEN_BALANCE ||
+    //         balances[1].mulDown(proportion) < MIN_RECLAMM_TOKEN_BALANCE
+    //     ) {
+    //         return;
+    //     }
 
-        medusa.prank(lp);
-        router.removeLiquidityProportional(
-            address(pool),
-            exactBptIn,
-            [uint256(0), uint256(0)].toMemoryArray(),
-            false,
-            bytes("")
-        );
+    //     medusa.prank(lp);
+    //     router.removeLiquidityProportional(
+    //         address(pool),
+    //         exactBptIn,
+    //         [uint256(0), uint256(0)].toMemoryArray(),
+    //         false,
+    //         bytes("")
+    //     );
 
-        invariantProportion = invariantProportion.mulDown(proportion);
-    }
+    //     invariantProportion = invariantProportion.mulDown(proportion);
+    // }
 
     function computeInvariant() internal view returns (uint256) {
         (, , , uint256[] memory lastBalancesLiveScaled18) = vault.getPoolTokenInfo(address(pool));

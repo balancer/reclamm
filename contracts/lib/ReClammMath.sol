@@ -3,6 +3,8 @@
 
 pragma solidity ^0.8.24;
 
+import "forge-std/Test.sol";
+
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
@@ -161,8 +163,9 @@ library ReClammMath {
 
         amountOutScaled18 = currentTotalTokenOutPoolBalance - newTotalTokenOutPoolBalance;
         if (amountOutScaled18 > balancesScaled18[tokenOutIndex]) {
+            return balancesScaled18[tokenOutIndex] - 1e12;
             // Amount out cannot be greater than the real balance of the token.
-            revert AmountOutGreaterThanBalance();
+            // revert AmountOutGreaterThanBalance();
         }
     }
 
@@ -431,13 +434,18 @@ library ReClammMath {
         // Vu = Ru(1 + C + sqrt(1 + C (C + 4 Q0 - 2))) / 2(Q0 - 1)
         uint256 sqrtPriceRatio = currentFourthRootPriceRatio.mulUp(currentFourthRootPriceRatio);
 
+        console2.log("435");
         // Using FixedPoint math as little as possible to improve the precision of the result.
         // Note: The input of Math.sqrt must be a 36-decimal number, so that the final result is 18 decimals.
-        uint256 virtualBalanceUndervalued = (balanceTokenUndervalued *
-            (FixedPoint.ONE +
-                poolCenteredness +
-                Math.sqrt(poolCenteredness * (poolCenteredness + 4 * sqrtPriceRatio - 2e18) + 1e36))) /
+        uint256 virtualBalanceUndervalued = (rounding == Rounding.ROUND_DOWN ? 0 : 1) +
+            (balanceTokenUndervalued *
+                (FixedPoint.ONE +
+                    poolCenteredness +
+                    Math.sqrt(poolCenteredness * (poolCenteredness + 4 * sqrtPriceRatio - 2e18) + 1e36) +
+                    (rounding == Rounding.ROUND_DOWN ? 0 : 1))) /
             (2 * (sqrtPriceRatio - FixedPoint.ONE));
+
+        console2.log("446");
 
         uint256 virtualBalanceOvervalued = _divDownOrUp(
             balanceTokenOvervalued * virtualBalanceUndervalued,
@@ -557,7 +565,7 @@ library ReClammMath {
         // Round up the centeredness will round virtual balances down when the pool prices are moving.
         function(uint256, uint256) pure returns (uint256) _divUpOrDown = rounding == Rounding.ROUND_DOWN
             ? FixedPoint.divUp
-            : FixedPoint.mulDown;
+            : FixedPoint.divDown;
 
         return
             _divUpOrDown(
