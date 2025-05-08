@@ -126,6 +126,8 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
             balances,
             virtualBalanceA,
             virtualBalanceB,
+            0,
+            0,
             tokenIndexIn,
             tokenIndexOut,
             exactAmountOut

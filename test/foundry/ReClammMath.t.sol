@@ -11,7 +11,7 @@ import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/Fixe
 import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { ReClammMathMock } from "../../contracts/test/ReClammMathMock.sol";
-import { ReClammMath, a, b } from "../../contracts/lib/ReClammMath.sol";
+import { ReClammMath, a, b, VirtualBalances } from "../../contracts/lib/ReClammMath.sol";
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
 
 contract ReClammMathTest is BaseReClammTest {
@@ -62,6 +62,8 @@ contract ReClammMathTest is BaseReClammTest {
             [balanceA, balanceB].toMemoryArray(),
             virtualBalanceA,
             virtualBalanceB,
+            0,
+            0,
             tokenIn,
             tokenOut,
             amountGivenScaled18
@@ -127,6 +129,8 @@ contract ReClammMathTest is BaseReClammTest {
             [balanceA, balanceB].toMemoryArray(),
             virtualBalanceA,
             virtualBalanceB,
+            0,
+            0,
             tokenIn,
             tokenOut,
             amountGivenScaled18
@@ -374,14 +378,17 @@ contract ReClammMathTest is BaseReClammTest {
 
         vm.assume(oldCenteredness > _MIN_POOL_CENTEREDNESS);
 
-        uint256[] memory newVirtualBalances = new uint256[](2);
-        (newVirtualBalances[a], newVirtualBalances[b]) = ReClammMath.computeVirtualBalancesWithCurrentPriceRatio(
+        VirtualBalances memory currentVirtualBalances = ReClammMath.computeVirtualBalancesWithCurrentPriceRatio(
             expectedFourthRootPriceRatio,
             balancesScaled18,
             lastVirtualBalances[a],
             lastVirtualBalances[b],
             isPoolAboveCenter
         );
+
+        uint256[] memory newVirtualBalances = new uint256[](2);
+        newVirtualBalances[a] = currentVirtualBalances.virtualBalanceA;
+        newVirtualBalances[b] = currentVirtualBalances.virtualBalanceB;
 
         // Check if centeredness is the same
         vm.assume(balancesScaled18[a].mulDown(newVirtualBalances[b]) > 0);

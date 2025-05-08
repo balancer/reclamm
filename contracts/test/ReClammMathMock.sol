@@ -3,7 +3,7 @@
 pragma solidity ^0.8.24;
 
 import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
-import { PriceRatioState, ReClammMath, a, b } from "../lib/ReClammMath.sol";
+import { PriceRatioState, ReClammMath, a, b, VirtualBalances } from "../lib/ReClammMath.sol";
 
 contract ReClammMathMock {
     PriceRatioState private _priceRatioState;
@@ -53,6 +53,8 @@ contract ReClammMathMock {
                 balancesScaled18,
                 virtualBalances[a],
                 virtualBalances[b],
+                0,
+                0,
                 tokenInIndex,
                 tokenOutIndex,
                 amountGivenScaled18
@@ -71,6 +73,8 @@ contract ReClammMathMock {
                 balancesScaled18,
                 virtualBalances[a],
                 virtualBalances[b],
+                0,
+                0,
                 tokenInIndex,
                 tokenOutIndex,
                 amountGivenScaled18
@@ -99,7 +103,7 @@ contract ReClammMathMock {
         uint64 centerednessMargin
     ) external view returns (uint256[] memory newVirtualBalances) {
         newVirtualBalances = new uint256[](2);
-        (newVirtualBalances[a], newVirtualBalances[b]) = ReClammMath.computeCurrentVirtualBalances(
+        VirtualBalances memory currentVirtualBalances = ReClammMath.computeCurrentVirtualBalances(
             balancesScaled18,
             virtualBalances[a],
             virtualBalances[b],
@@ -108,6 +112,8 @@ contract ReClammMathMock {
             centerednessMargin,
             _priceRatioState
         );
+        newVirtualBalances[a] = currentVirtualBalances.virtualBalanceA;
+        newVirtualBalances[b] = currentVirtualBalances.virtualBalanceB;
     }
 
     function isPoolWithinTargetRange(

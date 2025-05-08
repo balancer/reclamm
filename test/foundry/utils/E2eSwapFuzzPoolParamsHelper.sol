@@ -161,6 +161,8 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
                 balancesScaled18,
                 currentVirtualBalanceA,
                 currentVirtualBalanceB,
+                0,
+                0,
                 a,
                 b,
                 testParams.minTradeAmount
@@ -173,6 +175,8 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
                 balancesScaled18,
                 currentVirtualBalanceA,
                 currentVirtualBalanceB,
+                0,
+                0,
                 a,
                 b,
                 testParams.minTradeAmount
@@ -216,6 +220,8 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
                 balancesScaled18_,
                 currentVirtualBalanceA,
                 currentVirtualBalanceB,
+                0,
+                0,
                 a,
                 b,
                 balancesScaled18_[b]
