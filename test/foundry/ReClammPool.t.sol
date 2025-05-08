@@ -425,7 +425,16 @@ contract ReClammPoolTest is BaseReClammTest {
 
     function testSetFourthRootPriceRatioTooFast() public {
         uint96 startFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
-        uint96 endFourthRootPriceRatio = startFourthRootPriceRatio + 5e18;
+        ReClammPoolImmutableData memory data = ReClammPool(pool).getReClammPoolImmutableData();
+
+        // Recover the original start price, and multiply by the maximum rate to compute the maximum end price.
+        uint256 startPriceRatio = mathMock.pow4(startFourthRootPriceRatio);
+        uint256 maxEndPriceRatio = startPriceRatio.mulDown(data.maxDailyPriceRatioUpdateRate);
+
+        // Take the fourth root to get its maximum ending value, and add 1 wei to trigger the exception.
+        uint96 maxEndPriceRatioFourthRoot = mathMock.sqrtScaled18(mathMock.sqrtScaled18(maxEndPriceRatio)).toUint96();
+
+        uint96 endFourthRootPriceRatio = maxEndPriceRatioFourthRoot + 1;
         uint32 priceRatioUpdateStartTime = uint32(block.timestamp);
         uint32 priceRatioUpdateEndTime = priceRatioUpdateStartTime + 1 days;
 
