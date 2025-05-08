@@ -152,7 +152,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         // The maximum daily price ratio change rate is given by 2^_MAX_DAILY_PRICE_SHIFT_EXPONENT.
         // This is somewhat arbitrary, but it makes sense to link these rates; i.e., we are setting the maximum speed
-        // of expansion or contraction to equal the maximum speed of the price shift.
+        // of expansion or contraction to equal the maximum speed of the price shift. It is expressed as a multiple;
+        // i.e., 8e18 means it can change by 8x per day.
         _MAX_DAILY_PRICE_RATIO_UPDATE_RATE = FixedPoint.powUp(2e18, _MAX_DAILY_PRICE_SHIFT_EXPONENT);
     }
 
@@ -565,20 +566,29 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IReClammPool
     function getReClammPoolImmutableData() external view returns (ReClammPoolImmutableData memory data) {
+        // Base Pool
         data.tokens = _vault.getPoolTokens(address(this));
         (data.decimalScalingFactors, ) = _vault.getPoolTokenRates(address(this));
+        data.minSwapFeePercentage = _MIN_SWAP_FEE_PERCENTAGE;
+        data.maxSwapFeePercentage = _MAX_SWAP_FEE_PERCENTAGE;
+
+        // Initialization
         data.initialMinPrice = _INITIAL_MIN_PRICE;
         data.initialMaxPrice = _INITIAL_MAX_PRICE;
         data.initialTargetPrice = _INITIAL_TARGET_PRICE;
         data.initialDailyPriceShiftExponent = _INITIAL_DAILY_PRICE_SHIFT_EXPONENT;
         data.initialCenterednessMargin = _INITIAL_CENTEREDNESS_MARGIN;
+
+        // Operating Limits
         data.minCenterednessMargin = _MIN_CENTEREDNESS_MARGIN;
         data.maxCenterednessMargin = _MAX_CENTEREDNESS_MARGIN;
         data.minTokenBalanceScaled18 = _MIN_TOKEN_BALANCE_SCALED18;
         data.minPoolCenteredness = _MIN_POOL_CENTEREDNESS;
         data.maxDailyPriceShiftExponent = _MAX_DAILY_PRICE_SHIFT_EXPONENT;
+        data.maxDailyPriceRatioUpdateRate = _MAX_DAILY_PRICE_RATIO_UPDATE_RATE;
         data.minPriceRatioUpdateDuration = _MIN_PRICE_RATIO_UPDATE_DURATION;
         data.minFourthRootPriceRatioDelta = _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA;
+        data.balanceRatioAndPriceTolerance = _BALANCE_RATIO_AND_PRICE_TOLERANCE;
     }
 
     /********************************************************   
