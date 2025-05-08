@@ -869,8 +869,7 @@ contract ReClammPoolTest is BaseReClammTest {
             balancesScaled18,
             virtualBalanceA,
             virtualBalanceB,
-            centerednessMargin,
-            Rounding.ROUND_DOWN
+            centerednessMargin
         );
         assertTrue(resultWithCurrentBalances, "Expected value not in range");
 
@@ -884,8 +883,7 @@ contract ReClammPoolTest is BaseReClammTest {
             balancesScaled18,
             newLastVirtualBalances[a],
             newLastVirtualBalances[b],
-            centerednessMargin,
-            Rounding.ROUND_DOWN
+            centerednessMargin
         );
 
         assertFalse(resultWithLastBalances, "Expected value still in range");

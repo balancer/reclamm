@@ -122,8 +122,7 @@ contract ReClammMathMock {
                 balancesScaled18,
                 virtualBalances[a],
                 virtualBalances[b],
-                centerednessMargin,
-                Rounding.ROUND_DOWN
+                centerednessMargin
             );
     }
 
@@ -135,8 +134,7 @@ contract ReClammMathMock {
             ReClammMath.computeCenteredness(
                 balancesScaled18,
                 virtualBalances[a],
-                virtualBalances[b],
-                Rounding.ROUND_DOWN
+                virtualBalances[b]
             );
     }
 

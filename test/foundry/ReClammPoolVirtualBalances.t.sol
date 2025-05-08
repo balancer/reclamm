@@ -315,8 +315,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         uint256 centeredness = ReClammMath.computeCenteredness(
             balances,
             virtualBalanceA,
-            virtualBalanceB,
-            Rounding.ROUND_DOWN
+            virtualBalanceB
         );
         vm.assume(centeredness > _DEFAULT_CENTEREDNESS_MARGIN);
     }

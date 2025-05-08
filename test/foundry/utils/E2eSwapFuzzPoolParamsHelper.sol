@@ -111,8 +111,7 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
         uint256 currentCenteredness = ReClammMath.computeCenteredness(
             testParams.initialBalances,
             virtualBalanceA,
-            virtualBalanceB,
-            Rounding.ROUND_DOWN
+            virtualBalanceB
         );
 
         vm.assume(currentCenteredness >= 1e17);

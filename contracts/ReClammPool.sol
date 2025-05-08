@@ -291,7 +291,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _checkInitializationPrices(balancesScaled18, virtualBalanceA, virtualBalanceB);
 
         if (
-            ReClammMath.computeCenteredness(balancesScaled18, virtualBalanceA, virtualBalanceB, Rounding.ROUND_DOWN) <
+            ReClammMath.computeCenteredness(balancesScaled18, virtualBalanceA, virtualBalanceB) <
             _centerednessMargin
         ) {
             revert PoolCenterednessTooLow();
@@ -506,8 +506,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             balancesScaled18,
             currentVirtualBalanceA,
             currentVirtualBalanceB,
-            _centerednessMargin,
-            Rounding.ROUND_DOWN
+            _centerednessMargin
         );
     }
 
@@ -518,8 +517,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             ReClammMath.computeCenteredness(
                 currentBalancesScaled18,
                 _lastVirtualBalanceA,
-                _lastVirtualBalanceB,
-                Rounding.ROUND_DOWN
+                _lastVirtualBalanceB
             );
     }
 
@@ -785,7 +783,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
         (currentVirtualBalanceA, currentVirtualBalanceB) = _computeCurrentVirtualBalances(
             balancesScaled18,
-            Rounding.ROUND_DOWN
+            Rounding.ROUND_UP
         );
 
         _setLastVirtualBalances(currentVirtualBalanceA, currentVirtualBalanceB);
@@ -842,8 +840,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             ReClammMath.computeCenteredness(
                 currentBalancesScaled18,
                 currentVirtualBalanceA,
-                currentVirtualBalanceB,
-                Rounding.ROUND_DOWN
+                currentVirtualBalanceB
             ) < _MIN_POOL_CENTEREDNESS
         ) {
             // If the pool centeredness is below the minimum, the price ratio update is unreliable.
@@ -880,8 +877,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                 balancesScaled18,
                 _lastVirtualBalanceA,
                 _lastVirtualBalanceB,
-                _centerednessMargin,
-                Rounding.ROUND_DOWN
+                _centerednessMargin
             );
     }
 

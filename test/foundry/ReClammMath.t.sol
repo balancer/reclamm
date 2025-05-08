@@ -210,8 +210,7 @@ contract ReClammMathTest is BaseReClammTest {
             balancesScaled18,
             virtualBalances[a],
             virtualBalances[b],
-            centerednessMargin,
-            Rounding.ROUND_DOWN
+            centerednessMargin
         );
 
         assertEq(
@@ -219,8 +218,7 @@ contract ReClammMathTest is BaseReClammTest {
             ReClammMath.computeCenteredness(
                 balancesScaled18,
                 virtualBalances[a],
-                virtualBalances[b],
-                Rounding.ROUND_DOWN
+                virtualBalances[b]
             ) >= centerednessMargin
         );
     }
@@ -247,8 +245,7 @@ contract ReClammMathTest is BaseReClammTest {
         uint256 centeredness = ReClammMath.computeCenteredness(
             balancesScaled18,
             virtualBalances[a],
-            virtualBalances[b],
-            Rounding.ROUND_DOWN
+            virtualBalances[b]
         );
 
         if (balanceA == 0 || balanceB == 0) {
@@ -375,8 +372,7 @@ contract ReClammMathTest is BaseReClammTest {
         uint256 oldCenteredness = ReClammMath.computeCenteredness(
             balancesScaled18,
             lastVirtualBalances[a],
-            lastVirtualBalances[b],
-            Rounding.ROUND_DOWN
+            lastVirtualBalances[b]
         );
 
         vm.assume(oldCenteredness > _MIN_POOL_CENTEREDNESS);
@@ -397,8 +393,7 @@ contract ReClammMathTest is BaseReClammTest {
         uint256 newCenteredness = ReClammMath.computeCenteredness(
             balancesScaled18,
             newVirtualBalances[a],
-            newVirtualBalances[b],
-            Rounding.ROUND_DOWN
+            newVirtualBalances[b]
         );
         assertApproxEqAbs(
             newCenteredness,
@@ -566,8 +561,7 @@ contract ReClammMathTest is BaseReClammTest {
         uint256 centeredness = ReClammMath.computeCenteredness(
             balancesScaled18,
             virtualBalances[a],
-            virtualBalances[b],
-            Rounding.ROUND_DOWN
+            virtualBalances[b]
         );
         assertEq(centeredness, 0, "(0,1) non-zero centeredness with A=0");
 
@@ -576,8 +570,7 @@ contract ReClammMathTest is BaseReClammTest {
         centeredness = ReClammMath.computeCenteredness(
             balancesScaled18,
             virtualBalances[a],
-            virtualBalances[b],
-            Rounding.ROUND_DOWN
+            virtualBalances[b]
         );
         assertEq(centeredness, 0, "(1,0) non-zero centeredness with B=0");
     }
