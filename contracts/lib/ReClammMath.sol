@@ -149,27 +149,13 @@ library ReClammMath {
             ? (virtualBalanceA, virtualBalanceB)
             : (virtualBalanceB, virtualBalanceA);
 
-        // Round up, so the swapper absorbs rounding imprecisions (rounds in favor of the Vault).
-        uint256 invariant = computeInvariant(balancesScaled18, virtualBalanceA, virtualBalanceB, Rounding.ROUND_UP);
-        // Total (virtual + real) token out amount that should stay in the pool after the swap. Rounding division up,
-        // which will round the token out amount down, favoring the Vault.
-        uint256 newTotalTokenOutPoolBalance = invariant.divUp(
-            balancesScaled18[tokenInIndex] + virtualBalanceTokenIn + amountInScaled18
-        );
-
-        uint256 currentTotalTokenOutPoolBalance = balancesScaled18[tokenOutIndex] + virtualBalanceTokenOut;
-
-        if (newTotalTokenOutPoolBalance > currentTotalTokenOutPoolBalance) {
-            // If the amount of `tokenOut` remaining in the pool post-swap is greater than the total balance of
-            // `tokenOut`, that means the swap result is negative due to a rounding issue.
-            revert NegativeAmountOut();
-        }
-
-        amountOutScaled18 = currentTotalTokenOutPoolBalance - newTotalTokenOutPoolBalance;
-        if (amountOutScaled18 > balancesScaled18[tokenOutIndex]) {
-            // Amount out cannot be greater than the real balance of the token.
-            revert AmountOutGreaterThanBalance();
-        }
+        // amountOutScaled18 = currentTotalTokenOutPoolBalance - newTotalTokenOutPoolBalance,
+        // where currentTotalTokenOutPoolBalance = balancesScaled18[tokenOutIndex] + virtualBalanceTokenOut
+        // and newTotalTokenOutPoolBalance = invariant / (currentTotalTokenInPoolBalance + amountInScaled18).a
+        // Replace invariant with L = (x + a)(y + b), and simplify to arrive to:
+        amountOutScaled18 =
+            ((balancesScaled18[tokenOutIndex] + virtualBalanceTokenOut) * amountInScaled18) /
+            (balancesScaled18[tokenInIndex] + virtualBalanceTokenIn + amountInScaled18);
     }
 
     /**
@@ -196,17 +182,19 @@ library ReClammMath {
         }
 
         // Round up, so the swapper absorbs any imprecision due to rounding (i.e., it rounds in favor of the Vault).
-        uint256 invariant = computeInvariant(balancesScaled18, virtualBalanceA, virtualBalanceB, Rounding.ROUND_UP);
+        // uint256 invariant = computeInvariant(balancesScaled18, virtualBalanceA, virtualBalanceB, Rounding.ROUND_UP);
 
         (uint256 virtualBalanceTokenIn, uint256 virtualBalanceTokenOut) = tokenInIndex == a
             ? (virtualBalanceA, virtualBalanceB)
             : (virtualBalanceB, virtualBalanceA);
 
-        // Rounding division up, which will round the `tokenIn` amount up, favoring the Vault.
+        // amountInScaled18 = newTotalTokenOutPoolBalance - currentTotalTokenInPoolBalance,
+        // where newTotalTokenOutPoolBalance = [invariant / (currentTotalTokenOutPoolBalance - amountOutScaled18)]
+        // and currentTotalTokenInPoolBalance = balancesScaled18[tokenInIndex] + virtualBalanceTokenIn
+        // Replace invariant with L = (x + a)(y + b), and simplify to arrive to:
         amountInScaled18 =
-            invariant.divUp(balancesScaled18[tokenOutIndex] + virtualBalanceTokenOut - amountOutScaled18) -
-            balancesScaled18[tokenInIndex] -
-            virtualBalanceTokenIn;
+            ((balancesScaled18[tokenInIndex] + virtualBalanceTokenIn) * amountOutScaled18) /
+            (balancesScaled18[tokenOutIndex] + virtualBalanceTokenOut - amountOutScaled18);
     }
 
     /**
