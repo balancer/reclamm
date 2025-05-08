@@ -630,8 +630,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         }
 
         // Now check that the rate of change is not too fast. First recover the actual ratios from the roots.
-        uint256 startPriceRatio = _pow4(startFourthRootPriceRatio);
-        uint256 endPriceRatio = _pow4(endFourthRootPriceRatio);
+        uint256 startPriceRatio = ReClammMath.pow4(startFourthRootPriceRatio);
+        uint256 endPriceRatio = ReClammMath.pow4(endFourthRootPriceRatio);
 
         // Compute the rate of change, as a multiple of the present value per day. For example, if the initial price
         // range was 1,000 - 4,000, the raw ratio would be 4 (`startPriceRatio` ~ 1.414). If the new fourth root is
@@ -995,11 +995,5 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         );
 
         return realBalances[b].divDown(realBalances[a]);
-    }
-
-    function _pow4(uint256 x) private pure returns (uint256) {
-        uint256 xSquared = x.mulDown(x);
-
-        return xSquared.mulDown(xSquared);
     }
 }
