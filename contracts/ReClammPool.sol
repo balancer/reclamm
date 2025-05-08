@@ -418,12 +418,19 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     function computeCurrentPriceRange() external view returns (uint256 minPrice, uint256 maxPrice) {
         if (_vault.isPoolInitialized(address(this))) {
             (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
-            (uint256 virtualBalanceA, uint256 virtualBalanceB, , ) = _computeCurrentVirtualBalances(balancesScaled18);
+            (
+                uint256 virtualBalanceA,
+                uint256 virtualBalanceB,
+                uint256 errorVirtualBalanceA,
+                uint256 errorVirtualBalanceB
+            ) = _computeCurrentVirtualBalances(balancesScaled18);
 
             uint256 currentInvariant = ReClammMath.computeInvariant(
                 balancesScaled18,
                 virtualBalanceA,
                 virtualBalanceB,
+                errorVirtualBalanceA,
+                errorVirtualBalanceB,
                 Rounding.ROUND_DOWN
             );
 
@@ -927,6 +934,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             balancesScaled18,
             virtualBalanceA,
             virtualBalanceB,
+            0,
+            0,
             Rounding.ROUND_DOWN
         );
 

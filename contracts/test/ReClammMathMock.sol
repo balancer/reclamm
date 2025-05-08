@@ -38,7 +38,7 @@ contract ReClammMathMock {
         uint256[] memory virtualBalances,
         Rounding rounding
     ) external pure returns (uint256) {
-        return ReClammMath.computeInvariant(balancesScaled18, virtualBalances[a], virtualBalances[b], rounding);
+        return ReClammMath.computeInvariant(balancesScaled18, virtualBalances[a], virtualBalances[b], 0, 0, rounding);
     }
 
     function computeOutGivenIn(

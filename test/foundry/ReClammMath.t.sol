@@ -582,6 +582,8 @@ contract ReClammMathTest is BaseReClammTest {
             balancesScaled18,
             virtualBalances[a],
             virtualBalances[b],
+            0,
+            0,
             Rounding.ROUND_DOWN
         );
         newSqrtPriceRatio = ReClammMath.sqrtScaled18(invariant.divDown(virtualBalances[a]).divDown(virtualBalances[b]));

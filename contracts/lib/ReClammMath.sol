@@ -3,6 +3,8 @@
 
 pragma solidity ^0.8.24;
 
+import "forge-std/Test.sol";
+
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
@@ -99,11 +101,12 @@ library ReClammMath {
                 balancesScaled18,
                 virtualBalances.virtualBalanceA,
                 virtualBalances.virtualBalanceB,
+                virtualBalances.errorVirtualBalanceA,
+                virtualBalances.errorVirtualBalanceB,
                 rounding
             );
     }
 
-    // TODO RECALCULATE WITH VIRTUAL BALANCES ERRORS
     /**
      * @notice Compute the invariant of the pool using constant product.
      * @dev Note that the invariant is computed as (x+a)(y+b), without a square root. This is because the calculations
@@ -125,13 +128,19 @@ library ReClammMath {
         uint256[] memory balancesScaled18,
         uint256 virtualBalanceA,
         uint256 virtualBalanceB,
+        uint256 errorVirtualBalanceA,
+        uint256 errorVirtualBalanceB,
         Rounding rounding
     ) internal pure returns (uint256) {
         function(uint256, uint256) pure returns (uint256) _mulUpOrDown = rounding == Rounding.ROUND_DOWN
             ? FixedPoint.mulDown
             : FixedPoint.mulUp;
 
-        return _mulUpOrDown((balancesScaled18[a] + virtualBalanceA), (balancesScaled18[b] + virtualBalanceB));
+        return
+            _mulUpOrDown(
+                (balancesScaled18[a] + virtualBalanceA + (rounding == Rounding.ROUND_DOWN ? 0 : errorVirtualBalanceA)),
+                (balancesScaled18[b] + virtualBalanceB + (rounding == Rounding.ROUND_DOWN ? 0 : errorVirtualBalanceB))
+            );
     }
 
     /**
