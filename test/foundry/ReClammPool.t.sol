@@ -43,6 +43,18 @@ contract ReClammPoolTest is BaseReClammTest {
     uint256 private constant _NEW_CENTEREDNESS_MARGIN = 30e16;
     uint256 private constant _INITIAL_AMOUNT = 1000e18;
 
+    uint256 private constant _MIN_SWAP_FEE_PERCENTAGE = 0.001e16; // 0.001%
+    uint256 private constant _MAX_SWAP_FEE_PERCENTAGE = 10e16; // 10%
+
+    uint256 private constant _MIN_CENTEREDNESS_MARGIN = 0;
+    uint256 private constant _MAX_CENTEREDNESS_MARGIN = 50e16; // 50%
+
+    uint256 private constant _MIN_TOKEN_BALANCE_SCALED18 = 1e12;
+
+    uint256 private constant _MAX_DAILY_PRICE_SHIFT_EXPONENT = 500e16; // 500%
+    uint256 private constant _MIN_PRICE_RATIO_UPDATE_DURATION = 1 days;
+    uint256 private constant _BALANCE_RATIO_AND_PRICE_TOLERANCE = 1e14; // 0.01%
+
     ReClammMathMock mathMock = new ReClammMathMock();
 
     function testOnSwapOnlyVault() public {
@@ -306,27 +318,62 @@ contract ReClammPoolTest is BaseReClammTest {
 
     function testGetReClammPoolImmutableData() public view {
         ReClammPoolImmutableData memory data = ReClammPool(pool).getReClammPoolImmutableData();
+        // Check Base Pool parameters.
         assertEq(data.tokens.length, 2, "Invalid number of tokens");
-        assertEq(data.decimalScalingFactors.length, 2, "Invalid number of decimal scaling factors");
+        assertEq(data.minSwapFeePercentage, _MIN_SWAP_FEE_PERCENTAGE, "Invalid minimum swap fee");
+        assertEq(data.maxSwapFeePercentage, _MAX_SWAP_FEE_PERCENTAGE, "Invalid maximum swap fee");
 
         assertEq(address(data.tokens[daiIdx]), address(dai), "Invalid DAI token");
         assertEq(address(data.tokens[usdcIdx]), address(usdc), "Invalid USDC token");
 
         // Tokens with 18 decimals do not scale, so the scaling factor is 1.
+        assertEq(data.decimalScalingFactors.length, 2, "Invalid number of decimal scaling factors");
         assertEq(data.decimalScalingFactors[daiIdx], 1, "Invalid DAI decimal scaling factor");
         assertEq(data.decimalScalingFactors[usdcIdx], 1, "Invalid USDC decimal scaling factor");
 
-        assertEq(data.minCenterednessMargin, 0, "Invalid min centeredness margin");
-        assertEq(data.maxCenterednessMargin, 50e16, "Invalid max centeredness margin");
+        // Check initialization parameters.
+        assertEq(data.initialMinPrice, _DEFAULT_MIN_PRICE, "Invalid initial minimum price");
+        assertEq(data.initialMaxPrice, _DEFAULT_MAX_PRICE, "Invalid initial maximum price");
+        assertEq(data.initialTargetPrice, _DEFAULT_TARGET_PRICE, "Invalid initial target price");
+        assertEq(
+            data.initialDailyPriceShiftExponent,
+            _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
+            "Invalid initial price shift exponent"
+        );
+        assertEq(data.initialCenterednessMargin, _DEFAULT_CENTEREDNESS_MARGIN, "Invalid initial centeredness margin");
+
+        // Check operating limit parameters.
+        assertEq(data.minCenterednessMargin, _MIN_CENTEREDNESS_MARGIN, "Invalid min centeredness margin");
+        assertEq(data.maxCenterednessMargin, _MAX_CENTEREDNESS_MARGIN, "Invalid max centeredness margin");
 
         // Ensure that centeredness margin parameters fit in uint64
         assertEq(data.minCenterednessMargin, uint64(data.minCenterednessMargin), "Min centeredness margin not uint64");
         assertEq(data.maxCenterednessMargin, uint64(data.maxCenterednessMargin), "Max centeredness margin not uint64");
-
         assertEq(data.minTokenBalanceScaled18, _MIN_TOKEN_BALANCE, "Invalid min token balance");
         assertEq(data.minPoolCenteredness, _MIN_POOL_CENTEREDNESS, "Invalid min pool centeredness");
-        assertEq(data.maxDailyPriceShiftExponent, 500e16, "Invalid max daily price shift exponent");
-        assertEq(data.minPriceRatioUpdateDuration, 1 days, "Invalid min price ratio update duration");
+        assertEq(
+            data.maxDailyPriceShiftExponent,
+            _MAX_DAILY_PRICE_SHIFT_EXPONENT,
+            "Invalid max daily price shift exponent"
+        );
+        uint256 maxUpdateRate = FixedPoint.powUp(2e18, _MAX_DAILY_PRICE_SHIFT_EXPONENT);
+
+        assertEq(data.maxDailyPriceRatioUpdateRate, maxUpdateRate, "Invalid max daily price ratio update rate");
+        assertEq(
+            data.minPriceRatioUpdateDuration,
+            _MIN_PRICE_RATIO_UPDATE_DURATION,
+            "Invalid min price ratio update duration"
+        );
+        assertEq(
+            data.minFourthRootPriceRatioDelta,
+            _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA,
+            "Invalid min fourth root price ratio delta"
+        );
+        assertEq(
+            data.balanceRatioAndPriceTolerance,
+            _BALANCE_RATIO_AND_PRICE_TOLERANCE,
+            "Invalid balance ratio and price tolerance"
+        );
     }
 
     function testSetFourthRootPriceRatioPermissioned() public {
