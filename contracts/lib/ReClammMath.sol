@@ -405,19 +405,54 @@ library ReClammMath {
             poolCenteredness * balanceTokenUndervalued
         );
 
+        (uint256 errorVirtualBalanceUndervalued, uint256 errorVirtualBalanceOvervalued) = _computeErrorVirtualBalances(
+            balanceTokenUndervalued,
+            virtualBalanceUndervalued,
+            balanceTokenOvervalued,
+            virtualBalanceOvervalued,
+            poolCenteredness,
+            sqrtPriceRatio
+        );
+
         virtualBalances = isPoolAboveCenter
             ? VirtualBalances({
                 virtualBalanceA: virtualBalanceUndervalued,
                 virtualBalanceB: virtualBalanceOvervalued,
-                errorVirtualBalanceA: 0,
-                errorVirtualBalanceB: 0
+                errorVirtualBalanceA: errorVirtualBalanceUndervalued,
+                errorVirtualBalanceB: errorVirtualBalanceOvervalued
             })
             : VirtualBalances({
                 virtualBalanceA: virtualBalanceOvervalued,
                 virtualBalanceB: virtualBalanceUndervalued,
-                errorVirtualBalanceA: 0,
-                errorVirtualBalanceB: 0
+                errorVirtualBalanceA: errorVirtualBalanceOvervalued,
+                errorVirtualBalanceB: errorVirtualBalanceUndervalued
             });
+    }
+
+    function _computeErrorVirtualBalances(
+        uint256 balanceTokenUndervalued,
+        uint256 virtualBalanceUndervalued,
+        uint256 balanceTokenOvervalued,
+        uint256 virtualBalanceOvervalued,
+        uint256 poolCenteredness,
+        uint256 sqrtPriceRatio
+    ) internal pure returns (uint256 errorVirtualBalanceUndervalued, uint256 errorVirtualBalanceOvervalued) {
+        uint256 virtualBalanceUndervaluedUp = ((balanceTokenUndervalued + 1) *
+            (FixedPoint.ONE +
+                poolCenteredness +
+                1 +
+                1 +
+                Math.sqrt((poolCenteredness + 1) * (poolCenteredness + 1 + 4 * sqrtPriceRatio - 2e18) + 1e36))) /
+            (2 * (sqrtPriceRatio - FixedPoint.ONE));
+
+        uint256 virtualBalanceOvervaluedUp = ((balanceTokenOvervalued + 1) * virtualBalanceUndervaluedUp).divDown(
+            poolCenteredness * balanceTokenUndervalued
+        );
+
+        return (
+            virtualBalanceUndervaluedUp - virtualBalanceUndervalued,
+            virtualBalanceOvervaluedUp - virtualBalanceOvervalued
+        );
     }
 
     /**
