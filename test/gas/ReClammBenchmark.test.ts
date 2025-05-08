@@ -83,7 +83,7 @@ class ReClammBenchmark extends Benchmark {
         const pool: ReClammPool = await deployedAt('ReClammPool', await poolInfo.pool.getAddress());
 
         const startTimestamp = await currentTimestamp();
-        const endTimestamp = startTimestamp + BigInt(DAY);
+        const endTimestamp = startTimestamp + BigInt(DAY * 2);
 
         await pool.connect(swapFeeManager).setPriceRatioState(
           fp(3), // Price Ratio of 81 (3^4)
@@ -334,7 +334,7 @@ class ReClammBenchmark extends Benchmark {
         const pool: ReClammPool = await deployedAt('ReClammPool', await poolInfo.pool.getAddress());
 
         const startTimestamp = await currentTimestamp();
-        const endTimestamp = startTimestamp + BigInt(DAY);
+        const endTimestamp = startTimestamp + BigInt(DAY * 2);
 
         await pool.connect(swapFeeManager).setPriceRatioState(
           fp(3), // Price Ratio of 81 (3^4)
