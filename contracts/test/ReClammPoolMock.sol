@@ -52,8 +52,8 @@ contract ReClammPoolMock is ReClammPool {
 
     function computeCurrentVirtualBalances(
         uint256[] memory balancesScaled18
-    ) external view returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) {
-        return _computeCurrentVirtualBalances(balancesScaled18);
+    ) external view returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB) {
+        (currentVirtualBalanceA, currentVirtualBalanceB, , ) = _computeCurrentVirtualBalances(balancesScaled18);
     }
 
     function setLastTimestamp(uint256 newLastTimestamp) external {
