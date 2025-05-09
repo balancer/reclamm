@@ -3,8 +3,6 @@
 
 pragma solidity ^0.8.24;
 
-import "forge-std/Test.sol";
-
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
@@ -173,7 +171,8 @@ library ReClammMath {
         // Replace invariant with L = (x + a)(y + b), and simplify to arrive to:
         amountOutScaled18 =
             ((balancesScaled18[tokenOutIndex] + virtualBalanceTokenOut) * amountInScaled18) /
-            (balancesScaled18[tokenInIndex] + virtualBalanceTokenIn + amountInScaled18);
+            (balancesScaled18[tokenInIndex] + virtualBalanceTokenIn + amountInScaled18) -
+            1;
     }
 
     /**
@@ -210,8 +209,9 @@ library ReClammMath {
         // and currentTotalTokenInPoolBalance = balancesScaled18[tokenInIndex] + virtualBalanceTokenIn
         // Replace invariant with L = (x + a)(y + b), and simplify to arrive to:
         amountInScaled18 =
-            ((balancesScaled18[tokenInIndex] + virtualBalanceTokenIn) * amountOutScaled18) /
-            (balancesScaled18[tokenOutIndex] + virtualBalanceTokenOut - amountOutScaled18);
+            (((balancesScaled18[tokenInIndex] + virtualBalanceTokenIn) * (amountOutScaled18 + 1)) /
+                (balancesScaled18[tokenOutIndex] + virtualBalanceTokenOut - amountOutScaled18 - 1)) +
+            1;
     }
 
     /**
@@ -401,6 +401,7 @@ library ReClammMath {
         // The Bhaskara above can be simplified by replacing a, b and c with the terms above, which leads to:
         // Vu = Ru(1 + C + sqrt(1 + C (C + 4 Q0 - 2))) / 2(Q0 - 1)
         uint256 sqrtPriceRatio = currentFourthRootPriceRatio.mulUp(currentFourthRootPriceRatio);
+        uint256 sqrtPriceRatioUp = (currentFourthRootPriceRatio).mulUp(currentFourthRootPriceRatio);
 
         // Using FixedPoint math as little as possible to improve the precision of the result.
         // Note: The input of Math.sqrt must be a 36-decimal number, so that the final result is 18 decimals.
@@ -411,7 +412,7 @@ library ReClammMath {
             (2 * (sqrtPriceRatio - FixedPoint.ONE));
 
         uint256 virtualBalanceOvervalued = (balanceTokenOvervalued * virtualBalanceUndervalued).divDown(
-            poolCenteredness * balanceTokenUndervalued
+            (poolCenteredness + 1) * balanceTokenUndervalued
         );
 
         (uint256 errorVirtualBalanceUndervalued, uint256 errorVirtualBalanceOvervalued) = _computeErrorVirtualBalances(
@@ -420,7 +421,8 @@ library ReClammMath {
             balanceTokenOvervalued,
             virtualBalanceOvervalued,
             poolCenteredness,
-            sqrtPriceRatio
+            sqrtPriceRatio,
+            sqrtPriceRatioUp
         );
 
         virtualBalances = isPoolAboveCenter
@@ -444,22 +446,24 @@ library ReClammMath {
         uint256 balanceTokenOvervalued,
         uint256 virtualBalanceOvervalued,
         uint256 poolCenteredness,
-        uint256 sqrtPriceRatio
+        uint256 sqrtPriceRatio,
+        uint256 sqrtPriceRatioUp
     ) internal pure returns (uint256 errorVirtualBalanceUndervalued, uint256 errorVirtualBalanceOvervalued) {
+        uint256 poolCenterednessRoundedUp = poolCenteredness + 1;
+
         uint256 virtualBalanceUndervaluedUp = ((balanceTokenUndervalued + 1) *
             (FixedPoint.ONE +
-                poolCenteredness +
-                1 +
-                1 +
-                Math.sqrt((poolCenteredness + 1) * (poolCenteredness + 1 + 4 * sqrtPriceRatio - 2e18) + 1e36))) /
-            (2 * (sqrtPriceRatio - FixedPoint.ONE));
+                poolCenterednessRoundedUp +
+                (Math.sqrt(
+                    (poolCenterednessRoundedUp) * (poolCenterednessRoundedUp + 4 * sqrtPriceRatioUp - 2e18) + 1e36
+                ) + 1))) / (2 * (sqrtPriceRatio - FixedPoint.ONE));
 
-        uint256 virtualBalanceOvervaluedUp = ((balanceTokenOvervalued + 1) * virtualBalanceUndervaluedUp).divDown(
+        uint256 virtualBalanceOvervaluedUp = ((balanceTokenOvervalued + 1) * virtualBalanceUndervaluedUp).divUp(
             poolCenteredness * balanceTokenUndervalued
         );
 
         return (
-            virtualBalanceUndervaluedUp - virtualBalanceUndervalued,
+            2 * (virtualBalanceUndervaluedUp - virtualBalanceUndervalued),
             virtualBalanceOvervaluedUp - virtualBalanceOvervalued
         );
     }
@@ -556,21 +560,10 @@ library ReClammMath {
             return 0;
         }
 
-        bool isPoolAboveCenter = isAboveCenter(balancesScaled18, virtualBalanceA, virtualBalanceB);
-
-        // The overvalued token is the one with a lower token balance (therefore, rarer and more valuable).
-        (uint256 virtualBalanceUndervalued, uint256 virtualBalanceOvervalued) = isPoolAboveCenter
-            ? (virtualBalanceA, virtualBalanceB)
-            : (virtualBalanceB, virtualBalanceA);
-        (uint256 balancesScaledUndervalued, uint256 balancesScaledOvervalued) = isPoolAboveCenter
-            ? (balancesScaled18[a], balancesScaled18[b])
-            : (balancesScaled18[b], balancesScaled18[a]);
-
-        // Round up the centeredness, so the virtual balances are rounded down when the pool prices are moving.
-        return
-            ((balancesScaledOvervalued * virtualBalanceUndervalued) / balancesScaledUndervalued).divUp(
-                virtualBalanceOvervalued
-            );
+        uint256 centeredness = (balancesScaled18[a] * virtualBalanceB).divDown(virtualBalanceA * balancesScaled18[b]);
+        // The centeredness can be greater than one. In that case, we're actually on the other side of the center,
+        // so we compute the inverse value.
+        return centeredness > FixedPoint.ONE ? FixedPoint.ONE.divDown(centeredness) : centeredness;
     }
 
     /**
