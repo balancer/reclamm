@@ -247,17 +247,14 @@ contract ReClammMathTest is BaseReClammTest {
 
         if (balanceA == 0 || balanceB == 0) {
             assertEq(centeredness, 0);
-        } else if (ReClammMath.isAboveCenter(balancesScaled18, virtualBalances[a], virtualBalances[b])) {
-            assertApproxEqAbs(
-                centeredness,
-                ((balanceB * virtualBalanceA) / balanceA).divUp(virtualBalanceB),
-                _MAX_CENTEREDNESS_ERROR_ABS,
-                "Centeredness does not match"
-            );
         } else {
+            uint256 expectedCenteredness = (balanceA * virtualBalanceB).divUp(virtualBalanceA * balanceB);
+            expectedCenteredness = expectedCenteredness > FixedPoint.ONE
+                ? FixedPoint.ONE.divUp(expectedCenteredness)
+                : expectedCenteredness;
             assertApproxEqAbs(
                 centeredness,
-                ((balanceA * virtualBalanceB) / balanceB).divUp(virtualBalanceA),
+                expectedCenteredness,
                 _MAX_CENTEREDNESS_ERROR_ABS,
                 "Centeredness does not match"
             );

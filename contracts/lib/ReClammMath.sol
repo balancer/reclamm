@@ -525,21 +525,14 @@ library ReClammMath {
             return 0;
         }
 
-        bool isPoolAboveCenter = isAboveCenter(balancesScaled18, virtualBalanceA, virtualBalanceB);
-
-        // The overvalued token is the one with a lower token balance (therefore, rarer and more valuable).
-        (uint256 virtualBalanceUndervalued, uint256 virtualBalanceOvervalued) = isPoolAboveCenter
-            ? (virtualBalanceA, virtualBalanceB)
-            : (virtualBalanceB, virtualBalanceA);
-        (uint256 balancesScaledUndervalued, uint256 balancesScaledOvervalued) = isPoolAboveCenter
-            ? (balancesScaled18[a], balancesScaled18[b])
-            : (balancesScaled18[b], balancesScaled18[a]);
-
         // Round up the centeredness, so the virtual balances are rounded down when the pool prices are moving.
-        return
-            ((balancesScaledOvervalued * virtualBalanceUndervalued) / balancesScaledUndervalued).divUp(
-                virtualBalanceOvervalued
+        uint256 centeredness =
+            (balancesScaled18[a] * virtualBalanceB).divUp(
+                virtualBalanceA * balancesScaled18[b]
             );
+        // The centeredness can be greater than one. In that case, we're actually on the other side of the center,
+        // so we compute the inverse value.
+        return centeredness > FixedPoint.ONE ? FixedPoint.ONE.divUp(centeredness) : centeredness;
     }
 
     /**
