@@ -114,9 +114,13 @@ contract ReClammMathTest is BaseReClammTest {
 
         uint256 maxAmount = tokenIn == 0 ? balanceA : balanceB;
         amountGivenScaled18 = bound(amountGivenScaled18, 1, maxAmount);
+
+        uint256[] memory balances = [balanceA, balanceB].toMemoryArray();
+        uint256[] memory virtualBalances = [virtualBalanceA, virtualBalanceB].toMemoryArray();
+
         uint256 expectedAmountOutScaled18 = _computeOutGivenInAllowError(
-            [balanceA, balanceB].toMemoryArray(),
-            [virtualBalanceA, virtualBalanceB].toMemoryArray(),
+            balances,
+            virtualBalances,
             tokenIn,
             tokenOut,
             amountGivenScaled18
@@ -124,7 +128,7 @@ contract ReClammMathTest is BaseReClammTest {
         vm.assume(expectedAmountOutScaled18 < (tokenOut == 0 ? balanceA : balanceB));
 
         uint256 amountOut = ReClammMath.computeOutGivenIn(
-            [balanceA, balanceB].toMemoryArray(),
+            balances,
             virtualBalanceA,
             virtualBalanceB,
             tokenIn,
@@ -132,14 +136,9 @@ contract ReClammMathTest is BaseReClammTest {
             amountGivenScaled18
         );
 
-        uint256[] memory finalBalances = new uint256[](2);
-        finalBalances[a] = balanceA + virtualBalanceA;
-        finalBalances[b] = balanceB + virtualBalanceB;
-
-        uint256 invariant = finalBalances[a].mulUp(finalBalances[b]);
-
-        uint256 tokenOutPoolAmount = invariant.divUp(finalBalances[tokenIn] + amountGivenScaled18);
-        uint256 expected = finalBalances[tokenOut] - tokenOutPoolAmount;
+        uint256 expected =
+            ((balances[tokenOut] + virtualBalances[tokenOut]) * amountGivenScaled18) /
+            (balances[tokenIn] + virtualBalances[tokenIn] + amountGivenScaled18);
 
         assertEq(amountOut, expected, "Amount out should be correct");
     }
@@ -155,27 +154,6 @@ contract ReClammMathTest is BaseReClammTest {
         uint256 amountGivenScaled18 = balanceA;
 
         vm.expectRevert(ReClammMath.AmountOutGreaterThanBalance.selector);
-        mathContract.computeOutGivenIn(
-            [balanceA, balanceB].toMemoryArray(),
-            [virtualBalanceA, virtualBalanceB].toMemoryArray(),
-            0,
-            1,
-            amountGivenScaled18
-        );
-    }
-
-    function testComputeOutGivenInNegativeAmountOut() public {
-        // This specific case was found by fuzzing. Rounding the numbers to 1e6 * 1e18 do not revert, because the
-        // negative amount is caused by rounding, so exact numbers make the function to succeed.
-        uint256 balanceA = 999999999901321691778599;
-        uint256 balanceB = 100000000000001;
-        uint256 virtualBalanceA = 999999999900433052945972;
-        uint256 virtualBalanceB = 1e14;
-
-        // This trade will return a negative amount out due to rounding.
-        uint256 amountGivenScaled18 = 3;
-
-        vm.expectRevert(ReClammMath.NegativeAmountOut.selector);
         mathContract.computeOutGivenIn(
             [balanceA, balanceB].toMemoryArray(),
             [virtualBalanceA, virtualBalanceB].toMemoryArray(),
