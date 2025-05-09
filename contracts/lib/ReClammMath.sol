@@ -191,10 +191,13 @@ library ReClammMath {
         // amountInScaled18 = newTotalTokenOutPoolBalance - currentTotalTokenInPoolBalance,
         // where newTotalTokenOutPoolBalance = [invariant / (currentTotalTokenOutPoolBalance - amountOutScaled18)]
         // and currentTotalTokenInPoolBalance = balancesScaled18[tokenInIndex] + virtualBalanceTokenIn
-        // Replace invariant with L = (x + a)(y + b), and simplify to arrive to:
-        amountInScaled18 =
-            ((balancesScaled18[tokenInIndex] + virtualBalanceTokenIn) * amountOutScaled18) /
-            (balancesScaled18[tokenOutIndex] + virtualBalanceTokenOut - amountOutScaled18);
+        // Replace invariant with L = (x + a)(y + b), and simplify to arrive to the following formula.
+        // Round up to favor the vault (i.e. request larger amount in from the user).
+        amountInScaled18 = FixedPoint.mulDivUp(
+            balancesScaled18[tokenInIndex] + virtualBalanceTokenIn,
+            amountOutScaled18,
+            balancesScaled18[tokenOutIndex] + virtualBalanceTokenOut - amountOutScaled18
+        );
     }
 
     /**
