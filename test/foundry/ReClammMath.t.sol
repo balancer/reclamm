@@ -58,8 +58,11 @@ contract ReClammMathTest is BaseReClammTest {
         uint256 maxAmount = tokenIn == 0 ? balanceB : balanceA;
         amountGivenScaled18 = bound(amountGivenScaled18, 1, maxAmount);
 
+        uint256[] memory balances = [balanceA, balanceB].toMemoryArray();
+        uint256[] memory virtualBalances = [virtualBalanceA, virtualBalanceB].toMemoryArray();
+
         uint256 amountIn = ReClammMath.computeInGivenOut(
-            [balanceA, balanceB].toMemoryArray(),
+            balances,
             virtualBalanceA,
             virtualBalanceB,
             tokenIn,
@@ -67,13 +70,11 @@ contract ReClammMathTest is BaseReClammTest {
             amountGivenScaled18
         );
 
-        uint256[] memory finalBalances = new uint256[](2);
-        finalBalances[a] = balanceA + virtualBalanceA;
-        finalBalances[b] = balanceB + virtualBalanceB;
-
-        uint256 invariant = finalBalances[a].mulUp(finalBalances[b]);
-
-        uint256 expected = invariant.divUp(finalBalances[tokenOut] - amountGivenScaled18) - finalBalances[tokenIn];
+        uint256 expected = FixedPoint.mulDivUp(
+            balances[tokenIn] + virtualBalances[tokenIn],
+            amountGivenScaled18,
+            balances[tokenOut] + virtualBalances[tokenOut] - amountGivenScaled18
+        );
 
         assertEq(amountIn, expected, "Amount in should be correct");
     }
