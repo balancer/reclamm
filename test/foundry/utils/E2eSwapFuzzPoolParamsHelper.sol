@@ -240,11 +240,11 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
             ),
             testParams.rateTokenA,
             testParams.decimalsTokenA
-        );
+        ) / 2;
 
         // Divide by 2 to avoid TokenBalanceTooLow
         maxSwapAmountTokenB = _applyRateAndScale(
-            balancesScaled18_[b] / 100,
+            balancesScaled18_[b] / 2,
             testParams.rateTokenB,
             testParams.decimalsTokenB
         );
