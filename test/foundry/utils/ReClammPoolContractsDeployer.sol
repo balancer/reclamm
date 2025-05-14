@@ -24,6 +24,7 @@ import { ReClammPoolParams } from "../../../contracts/interfaces/IReClammPool.so
  */
 contract ReClammPoolContractsDeployer is BaseContractsDeployer {
     using CastingHelpers for address[];
+    using SafeCast for uint256;
 
     struct DefaultDeployParams {
         string name;
@@ -97,7 +98,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
         IERC20[] memory _tokens = tokens.asIERC20();
         IRateProvider[] memory _rateProviders = rateProviders;
         IVaultMock _vault = vault;
-        string memory _lable = label;
+        string memory _label = label;
 
         ReClammPoolFactory.ReClammPriceParams memory priceParams = ReClammPoolFactory.ReClammPriceParams({
             initialMinPrice: defaultParams.defaultMinPrice,
@@ -117,10 +118,10 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
             0.001e16, // minimum swap fee
             priceParams,
             defaultParams.defaultDailyPriceShiftExponent,
-            SafeCast.toUint64(defaultParams.defaultCenterednessMargin),
+            defaultParams.defaultCenterednessMargin.toUint64(),
             bytes32(_saltIndex++)
         );
-        vm.label(newPool, _lable);
+        vm.label(newPool, _label);
 
         // Force the swap fee percentage, even if it's outside the allowed limits.
         // Tests are expected to set the fee percentage for specific purposes.
@@ -140,7 +141,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
                 priceTokenAWithRate: priceParams.priceTokenAWithRate,
                 priceTokenBWithRate: priceParams.priceTokenBWithRate,
                 dailyPriceShiftExponent: defaultParams.defaultDailyPriceShiftExponent,
-                centerednessMargin: SafeCast.toUint64(defaultParams.defaultCenterednessMargin)
+                centerednessMargin: defaultParams.defaultCenterednessMargin.toUint64()
             }),
             _vault
         );
