@@ -164,9 +164,12 @@ contract ReClammPoolTest is BaseReClammTest {
     function testGetPriceRatioState() public {
         PriceRatioState memory priceRatioState = ReClammPool(pool).getPriceRatioState();
         assertEq(priceRatioState.startFourthRootPriceRatio, 0, "Invalid default startFourthRootPriceRatio");
-        assertEq(
+        // Error tolerance of 0.0000000000001%, since the price ratio is computed using the pool balances and may
+        // have a small error.
+        assertApproxEqRel(
             priceRatioState.endFourthRootPriceRatio,
             _initialFourthRootPriceRatio,
+            100,
             "Invalid default endFourthRootPriceRatio"
         );
         assertEq(
@@ -176,7 +179,7 @@ contract ReClammPoolTest is BaseReClammTest {
         );
         assertEq(priceRatioState.priceRatioUpdateEndTime, block.timestamp, "Invalid default priceRatioUpdateEndTime");
 
-        uint256 oldFourthRootPriceRatio = priceRatioState.endFourthRootPriceRatio;
+        uint256 oldFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
         uint256 newFourthRootPriceRatio = 5e18;
         uint256 newPriceRatioUpdateStartTime = block.timestamp;
         uint256 newPriceRatioUpdateEndTime = block.timestamp + 6 hours;
@@ -238,13 +241,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         vm.warp(block.timestamp + 6 hours);
 
-        uint96 currentFourthRootPriceRatio = mathMock.computeFourthRootPriceRatio(
-            block.timestamp.toUint32(),
-            state.startFourthRootPriceRatio,
-            state.endFourthRootPriceRatio,
-            state.priceRatioUpdateStartTime,
-            state.priceRatioUpdateEndTime
-        );
+        uint96 currentFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
 
         // Get initial dynamic data.
         ReClammPoolDynamicData memory data = ReClammPool(pool).getReClammPoolDynamicData();

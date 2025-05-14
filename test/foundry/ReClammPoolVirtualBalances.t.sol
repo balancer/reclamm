@@ -48,7 +48,9 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
 
         uint256 balanceRatio = _initialBalances[0].divDown(theoreticalBalances[0]);
 
-        assertEq(_initialFourthRootPriceRatio, theoreticalPriceRatio, "Invalid fourthRootPriceRatio");
+        // Error tolerance of 0.0000000000001%, since the price ratio is computed using the pool balances and may
+        // have a small error.
+        assertApproxEqRel(_initialFourthRootPriceRatio, theoreticalPriceRatio, 100, "Invalid fourthRootPriceRatio");
 
         // Don't need to check balances of token[0], since the balance ratio was calculated based on it.
         assertApproxEqRel(
