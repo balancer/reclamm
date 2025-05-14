@@ -37,8 +37,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     using SafeCast for *;
     using ReClammMath for *;
 
-    // uint256 private constant _MIN_SWAP_FEE_PERCENTAGE = 0.001e16; // 0.001%
-    uint256 internal constant _MIN_SWAP_FEE_PERCENTAGE = 0;
+    // Fees are 18-decimal, floating point values, which will be stored in the Vault using 24 bits.
+    // This means they have 0.00001% resolution (i.e., any non-zero bits < 1e11 will cause precision loss).
+    // Minimum values help make the math well-behaved (i.e., the swap fee should overwhelm any rounding error).
+    // Maximum values protect users by preventing permissioned actors from setting excessively high swap fees.
+    uint256 private constant _MIN_SWAP_FEE_PERCENTAGE = 0.001e16; // 0.001%
     uint256 internal constant _MAX_SWAP_FEE_PERCENTAGE = 10e16; // 10%
 
     // The centeredness margin defines the minimum pool centeredness to consider the pool within the target range.
@@ -541,6 +544,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.lastTimestamp = _lastTimestamp;
         data.lastVirtualBalances = _getLastVirtualBalances();
         data.dailyPriceShiftBase = _dailyPriceShiftBase;
+        data.dailyPriceShiftExponent = data.dailyPriceShiftBase.toDailyPriceShiftExponent();
         data.centerednessMargin = _centerednessMargin;
 
         data.currentFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio(_priceRatioState);
@@ -600,7 +604,29 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             revert PriceRatioUpdateDurationTooShort();
         }
 
-        _setPriceRatioState(endFourthRootPriceRatio, actualPriceRatioUpdateStartTime, priceRatioUpdateEndTime);
+        _updateVirtualBalances();
+        uint256 fourthRootPriceRatioDelta = _setPriceRatioState(
+            endFourthRootPriceRatio,
+            actualPriceRatioUpdateStartTime,
+            priceRatioUpdateEndTime
+        );
+
+        if (fourthRootPriceRatioDelta < _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA) {
+            revert FourthRootPriceRatioDeltaBelowMin(fourthRootPriceRatioDelta);
+        }
+    }
+
+    /// @inheritdoc IReClammPool
+    function stopPriceRatioUpdate() external onlyWhenInitialized onlySwapFeeManagerOrGovernance(address(this)) {
+        _updateVirtualBalances();
+
+        PriceRatioState memory priceRatioState = _priceRatioState;
+        if (priceRatioState.priceRatioUpdateEndTime < block.timestamp) {
+            revert PriceRatioNotUpdating();
+        }
+
+        uint256 currentFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio(priceRatioState);
+        _setPriceRatioState(currentFourthRootPriceRatio, block.timestamp, block.timestamp);
     }
 
     /// @inheritdoc IReClammPool
@@ -661,7 +687,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256 endFourthRootPriceRatio,
         uint256 priceRatioUpdateStartTime,
         uint256 priceRatioUpdateEndTime
-    ) internal {
+    ) internal returns (uint256 fourthRootPriceRatioDelta) {
         if (priceRatioUpdateStartTime > priceRatioUpdateEndTime || priceRatioUpdateStartTime < block.timestamp) {
             revert InvalidStartTime();
         }
@@ -670,13 +696,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         uint256 startFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio(priceRatioState);
 
-        uint256 fourthRootPriceRatioDelta = SignedMath.abs(
+        fourthRootPriceRatioDelta = SignedMath.abs(
             startFourthRootPriceRatio.toInt256() - endFourthRootPriceRatio.toInt256()
         );
-
-        if (fourthRootPriceRatioDelta < _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA) {
-            revert FourthRootPriceRatioDeltaBelowMin(fourthRootPriceRatioDelta);
-        }
 
         priceRatioState.startFourthRootPriceRatio = startFourthRootPriceRatio.toUint96();
         priceRatioState.endFourthRootPriceRatio = endFourthRootPriceRatio.toUint96();
@@ -709,14 +731,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256 dailyPriceShiftExponent
     ) internal returns (uint256) {
         // Update virtual balances with current daily price shift exponent.
-        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
-        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) = _computeCurrentVirtualBalances(
-            balancesScaled18
-        );
-        if (changed) {
-            _setLastVirtualBalances(currentVirtualBalanceA, currentVirtualBalanceB);
-        }
-        _updateTimestamp();
+        _updateVirtualBalances();
 
         // Update the price shift exponent.
         return _setDailyPriceShiftExponent(dailyPriceShiftExponent);
@@ -750,15 +765,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
      */
     function _setCenterednessMarginAndUpdateVirtualBalances(uint256 centerednessMargin) internal {
         // Update the virtual balances using the current daily price shift exponent.
-        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
-        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) = _computeCurrentVirtualBalances(
-            balancesScaled18
-        );
-        if (changed) {
-            _setLastVirtualBalances(currentVirtualBalanceA, currentVirtualBalanceB);
-        }
-
-        _updateTimestamp();
+        _updateVirtualBalances();
 
         _setCenterednessMargin(centerednessMargin);
     }
@@ -778,6 +785,18 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         emit CenterednessMarginUpdated(centerednessMargin);
 
         _vault.emitAuxiliaryEvent("CenterednessMarginUpdated", abi.encode(centerednessMargin));
+    }
+
+    function _updateVirtualBalances() internal {
+        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
+        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) = _computeCurrentVirtualBalances(
+            balancesScaled18
+        );
+        if (changed) {
+            _setLastVirtualBalances(currentVirtualBalanceA, currentVirtualBalanceB);
+        }
+
+        _updateTimestamp();
     }
 
     // Updates the last timestamp to the current timestamp.

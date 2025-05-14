@@ -74,6 +74,7 @@ struct ReClammPoolImmutableData {
  * ReClamm:
  * @param lastTimestamp The timestamp of the last user interaction
  * @param lastVirtualBalances The last virtual balances of the pool
+ * @param dailyPriceShiftExponent Virtual balances will change by 2^(dailyPriceShiftExponent) per day
  * @param dailyPriceShiftBase Internal time constant used to update virtual balances (1 - tau)
  * @param centerednessMargin The centeredness margin of the pool
  * @param currentFourthRootPriceRatio The current fourth root price ratio, an interpolation of the price ratio state
@@ -95,6 +96,7 @@ struct ReClammPoolDynamicData {
     // ReClamm
     uint256 lastTimestamp;
     uint256[] lastVirtualBalances;
+    uint256 dailyPriceShiftExponent;
     uint256 dailyPriceShiftBase;
     uint256 centerednessMargin;
     uint256 currentFourthRootPriceRatio;
@@ -196,6 +198,9 @@ interface IReClammPool is IBasePool {
 
     /// @dev The price ratio being set is too close to the current one.
     error FourthRootPriceRatioDeltaBelowMin(uint256 fourthRootPriceRatioDelta);
+
+    /// @dev An attempt was made to stop the price ratio update while no update was in progress.
+    error PriceRatioNotUpdating();
 
     /**
      * @notice `getRate` from `IRateProvider` was called on a ReClamm Pool.
@@ -425,6 +430,14 @@ interface IReClammPool is IBasePool {
         uint256 priceRatioUpdateStartTime,
         uint256 priceRatioUpdateEndTime
     ) external returns (uint256 actualPriceRatioUpdateStartTime);
+
+    /**
+     * @notice Stops an ongoing price ratio update.
+     * @dev The price ratio is calculated by interpolating between the start and end times. The new end price ratio
+     * will be set to the current one at the current timestamp, effectively pausing the update.
+     * This is a permissioned function.
+     */
+    function stopPriceRatioUpdate() external;
 
     /**
      * @notice Updates the daily price shift exponent, as a 18-decimal FP percentage.

@@ -37,7 +37,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     uint256 internal constant _PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT = 124649;
 
     uint256 internal constant _INITIAL_PROTOCOL_FEE_PERCENTAGE = 1e16;
-    uint256 internal constant _DEFAULT_SWAP_FEE = 0; // 0%
+    uint256 internal constant _DEFAULT_SWAP_FEE = 0.001e16; // minimum swap fee
     string internal constant _POOL_VERSION = "ReClamm Pool v1";
 
     uint256 internal constant _DEFAULT_MIN_PRICE = 1000e18;
@@ -145,6 +145,8 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
             bytes32(saltNumber++)
         );
         vm.label(newPool, label);
+        // Force the swap fee percentage, even if it's outside the allowed limits.
+        setSwapFeePercentage(_DEFAULT_SWAP_FEE);
 
         _creationTimestamp = block.timestamp;
 
