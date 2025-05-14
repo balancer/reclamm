@@ -584,6 +584,16 @@ library ReClammMath {
                 LogExpMath.pow(startFourthRootPriceRatio, exponent)).toUint96();
     }
 
+    /**
+     * @notice Compute the price ratio of the pool by dividing the maximum price by the minimum price.
+     * @dev The price ratio is calculated as maxPrice/minPrice, where maxPrice and minPrice are obtained
+     * from computePriceRange.
+     *
+     * @param balancesScaled18 Current pool balances, sorted in token registration order
+     * @param virtualBalanceA Virtual balance of token A
+     * @param virtualBalanceB Virtual balance of token B
+     * @return priceRatio The ratio between the maximum and minimum prices of the pool
+     */
     function computePriceRatio(
         uint256[] memory balancesScaled18,
         uint256 virtualBalanceA,
@@ -593,6 +603,19 @@ library ReClammMath {
         return maxPrice.divUp(minPrice);
     }
 
+    /**
+     * @notice Compute the minimum and maximum prices for the pool based on virtual balances and current invariant.
+     * @dev The minimum price is calculated as Vb^2/invariant, where Vb is the virtual balance of token B.
+     * The maximum price is calculated as invariant/Va^2, where Va is the virtual balance of token A.
+     * These calculations are derived from the invariant equation: invariant = (Ra + Va)(Rb + Vb),
+     * where Ra and Rb are the real balances of tokens A and B respectively.
+     *
+     * @param balancesScaled18 Current pool balances, sorted in token registration order
+     * @param virtualBalanceA Virtual balance of token A
+     * @param virtualBalanceB Virtual balance of token B
+     * @return minPrice The minimum price of token A in terms of token B
+     * @return maxPrice The maximum price of token A in terms of token B
+     */
     function computePriceRange(
         uint256[] memory balancesScaled18,
         uint256 virtualBalanceA,
