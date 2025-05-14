@@ -419,24 +419,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
             (uint256 virtualBalanceA, uint256 virtualBalanceB, ) = _computeCurrentVirtualBalances(balancesScaled18);
 
-            uint256 currentInvariant = ReClammMath.computeInvariant(
-                balancesScaled18,
-                virtualBalanceA,
-                virtualBalanceB,
-                Rounding.ROUND_DOWN
-            );
-
-            // Similarly, P_min(a) = Vb / (Va + Ra_max)
-            // We don't have Ra_max, but: invariant=(Ra_max + Va)(Vb)
-            // Then, (Va + Ra_max) = invariant/Vb, and:
-            // P_min(a) = Vb^2 / invariant
-            minPrice = (virtualBalanceB * virtualBalanceB) / currentInvariant;
-
-            // P_max(a) = (Rb_max + Vb)/Va
-            // We don't have Rb_max, but: invariant=(Rb_max + Vb)(Va)
-            // Then, (Rb_max + Vb) = invariant/Va, and:
-            // P_max(a) = invariant / Va^2
-            maxPrice = currentInvariant.divDown(virtualBalanceA.mulDown(virtualBalanceA));
+            (minPrice, maxPrice) = ReClammMath.computePriceRange(balancesScaled18, virtualBalanceA, virtualBalanceB);
         } else {
             minPrice = _INITIAL_MIN_PRICE;
             maxPrice = _INITIAL_MAX_PRICE;
