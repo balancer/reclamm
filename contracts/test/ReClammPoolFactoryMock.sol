@@ -55,12 +55,11 @@ contract ReClammPoolFactoryMock is IPoolVersion, BasePoolFactory, Version {
      * @param name The name of the pool
      * @param symbol The symbol of the pool
      * @param tokens An array of descriptors for the tokens the pool will manage
-     * @param priceParams Initial min, max and target prices, as well as a flag to indicate if the price is scaled by
-     * the rate
-     * @param dailyPriceShiftExponent Virtual balances will change by 2^(dailyPriceShiftExponent) per day
-     * @param centerednessMargin How far the price can be from the center before the price range starts to move
      * @param roleAccounts Addresses the Vault will allow to change certain pool settings
      * @param swapFeePercentage Initial swap fee percentage
+     * @param priceParams Initial min, max and target prices, and flags indicating whether tokens have rate providers
+     * @param dailyPriceShiftExponent Virtual balances will change by 2^(dailyPriceShiftExponent) per day
+     * @param centerednessMargin How far the price can be from the center before the price range starts to move
      * @param salt The salt value that will be passed to deployment
      */
     function create(

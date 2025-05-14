@@ -234,10 +234,10 @@ interface IReClammPool is IBasePool {
      * @dev To keep the pool within the target price range after initialization, the initial pool balances need to be
      * close to the value returned by this function. For example, if this returned 200, the initial balance of tokenB
      * should be 200 times the initial balance of tokenA.
+     *
      * The ratio is computed with raw amounts, and has 18 decimals. It means, if the pool has a token with a rate,
      * and the rate is considered to calculate the price, the price will be converted to raw first, and then the ratio
-     * will be calculated. This ensures that the initial balances informed to the initializer of the pool is always in
-     * raw amounts, which is a simpler UX.
+     * will be calculated.
      *
      * @return balanceRatioRaw The balance ratio that must be respected during initialization
      */
