@@ -73,8 +73,8 @@ export function computeCurrentVirtualBalances(
     changed = true;
   }
 
-  if (isPoolWithinTargetRange(balancesScaled18, lastVirtualBalances, centerednessMargin) == false) {
-    const priceRatio = fpMulDown(currentFourthRootPriceRatio, currentFourthRootPriceRatio);
+  if (isPoolWithinTargetRange(balancesScaled18, virtualBalances, centerednessMargin) == false) {
+    const sqrtPriceRatio = bn(Math.sqrt(Number(computeCurrentPriceRatio(balancesScaled18, virtualBalances) * FP_ONE)));
 
     const base = fromFp(dailyPriceShiftBase);
     const exponent = fromFp(fp(currentTimestamp - lastTimestamp));
@@ -84,13 +84,13 @@ export function computeCurrentVirtualBalances(
       virtualBalances[1] = fpMulDown(lastVirtualBalances[1], fp(powResult));
       virtualBalances[0] = fpDivDown(
         fpMulDown(balancesScaled18[0], virtualBalances[1] + balancesScaled18[1]),
-        fpMulDown(priceRatio - FP_ONE, virtualBalances[1]) - balancesScaled18[1]
+        fpMulDown(sqrtPriceRatio - FP_ONE, virtualBalances[1]) - balancesScaled18[1]
       );
     } else {
       virtualBalances[0] = fpMulDown(lastVirtualBalances[0], fp(powResult));
       virtualBalances[1] = fpDivDown(
         fpMulDown(balancesScaled18[1], virtualBalances[0] + balancesScaled18[0]),
-        fpMulDown(priceRatio - FP_ONE, virtualBalances[0]) - balancesScaled18[0]
+        fpMulDown(sqrtPriceRatio - FP_ONE, virtualBalances[0]) - balancesScaled18[0]
       );
     }
 
@@ -98,6 +98,20 @@ export function computeCurrentVirtualBalances(
   }
 
   return [virtualBalances, changed];
+}
+
+function computeCurrentPriceRatio(balancesScaled18: bigint[], virtualBalances: bigint[]): bigint {
+  const [minPrice, maxPrice] = computeCurrentPriceRange(balancesScaled18, virtualBalances);
+  return fpDivUp(maxPrice, minPrice);
+}
+
+function computeCurrentPriceRange(balancesScaled18: bigint[], virtualBalances: bigint[]): [bigint, bigint] {
+  const invariant = pureComputeInvariant(balancesScaled18, virtualBalances, Rounding.ROUND_DOWN);
+
+  const minPrice = (virtualBalances[1] * virtualBalances[1]) / invariant;
+  const maxPrice = fpDivDown(invariant, fpMulDown(virtualBalances[0], virtualBalances[0]));
+
+  return [minPrice, maxPrice];
 }
 
 export function calculateVirtualBalancesUpdatingPriceRatio(
