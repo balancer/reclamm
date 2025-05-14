@@ -87,27 +87,26 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
             uint256 balanceRatio = theoreticalRealBalances[b].divDown(theoreticalRealBalances[a]);
             // Both tokens must be kept below _MAX_TOKEN_BALANCE. The balance ratio can be anything, so we need
             // to cap the initialBalance[a] keeping in mind that initialBalance[b] also needs to be below the abs max.
-            uint256 maxBalance = Math.min(_MAX_TOKEN_BALANCE.divDown(balanceRatio), _MAX_TOKEN_BALANCE.mulDown(balanceRatio));
+            uint256 maxBalance = Math.min(
+                _MAX_TOKEN_BALANCE.divDown(balanceRatio),
+                _MAX_TOKEN_BALANCE.mulDown(balanceRatio)
+            );
 
             if (maxBalance < _MIN_TOKEN_BALANCE) {
                 testParams.initialBalances[a] = _MIN_TOKEN_BALANCE;
             } else {
-                testParams.initialBalances[a] = bound(
-                    params[3],
-                    _MIN_TOKEN_BALANCE,
-                    maxBalance
-                );
+                testParams.initialBalances[a] = bound(params[3], _MIN_TOKEN_BALANCE, maxBalance);
             }
             testParams.initialBalances[b] = testParams.initialBalances[a].mulDown(balanceRatio);
 
-            console2.log('balance ratio: ', balanceRatio);
+            console2.log("balance ratio: ", balanceRatio);
 
             // uint256 minDecimals = Math.min(decimalsTokenA, decimalsTokenB);
             // testParams.initialBalances[a] = _undoDecimals(testParams.initialBalances[a], minDecimals);
             // testParams.initialBalances[b] = _undoDecimals(testParams.initialBalances[b], minDecimals);
         }
 
-        console.log('about to reinitialize');
+        console.log("about to reinitialize");
         (uint256 virtualBalanceA, uint256 virtualBalanceB) = pool.reInitialize(
             testParams.initialBalances,
             testParams.minPrice,
@@ -117,9 +116,9 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
             5e17
         );
 
-        console2.log('about to compute centeredness');
-        console2.log('initial balance A: ', testParams.initialBalances[a]);
-        console2.log('initial balance B:', testParams.initialBalances[b]);
+        console2.log("about to compute centeredness");
+        console2.log("initial balance A: ", testParams.initialBalances[a]);
+        console2.log("initial balance B:", testParams.initialBalances[b]);
         uint256 currentCentredness = ReClammMath.computeCenteredness(
             testParams.initialBalances,
             virtualBalanceA,
@@ -128,7 +127,7 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
 
         vm.assume(currentCentredness >= 1e17);
 
-        console.log('about to apply rate and scale');
+        console.log("about to apply rate and scale");
         return (
             _applyRateAndScale(testParams.initialBalances[a], testParams.rateTokenA, testParams.decimalsTokenA),
             _applyRateAndScale(testParams.initialBalances[b], testParams.rateTokenB, testParams.decimalsTokenB)
@@ -169,7 +168,7 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
         (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = ReClammPoolMock(pool)
             .computeCurrentVirtualBalances(balancesScaled18);
 
-        console2.log('min trade amount: ', testParams.minTradeAmount);
+        console2.log("min trade amount: ", testParams.minTradeAmount);
 
         uint256 tokenAMinTradeAmountInExactOut = _applyRateAndScale(
             ReClammMath.computeInGivenOut(
@@ -225,22 +224,24 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
         // Dividing by 5 was chosen experimentally, as there's no other way to determine this value.
         uint256[] memory balancesScaled18_ = balancesScaled18;
 
-        console2.log('balance[a] scaled18: ', balancesScaled18_[a]);
-        console2.log('balance[b] scaled18: ', balancesScaled18_[b]);
+        console2.log("balance[a] scaled18: ", balancesScaled18_[a]);
+        console2.log("balance[b] scaled18: ", balancesScaled18_[b]);
 
         // Divide by 5 to avoid PoolCenterednessTooLow
-        maxSwapAmountTokenA = _applyRateAndScale(
-            ReClammMath.computeInGivenOut(
-                balancesScaled18_,
-                currentVirtualBalanceA,
-                currentVirtualBalanceB,
-                a,
-                b,
-                balancesScaled18_[b]
-            ),
-            testParams.rateTokenA,
-            testParams.decimalsTokenA
-        ) / 2;
+        maxSwapAmountTokenA =
+            _applyRateAndScale(
+                ReClammMath.computeInGivenOut(
+                    balancesScaled18_,
+                    currentVirtualBalanceA,
+                    currentVirtualBalanceB,
+                    a,
+                    b,
+                    balancesScaled18_[b]
+                ),
+                testParams.rateTokenA,
+                testParams.decimalsTokenA
+            ) /
+            2;
 
         // Divide by 2 to avoid TokenBalanceTooLow
         maxSwapAmountTokenB = _applyRateAndScale(
@@ -249,8 +250,8 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
             testParams.decimalsTokenB
         );
 
-        console2.log('min swap amount A: ', minSwapAmountTokenA);
-        console2.log('max swap amount A: ', maxSwapAmountTokenA);
+        console2.log("min swap amount A: ", minSwapAmountTokenA);
+        console2.log("max swap amount A: ", maxSwapAmountTokenA);
     }
 
     function _applyRateAndScale(uint256 amount, uint256 rate, uint256 decimals) internal pure returns (uint256) {

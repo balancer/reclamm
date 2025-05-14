@@ -137,8 +137,7 @@ contract ReClammMathTest is BaseReClammTest {
             amountGivenScaled18
         );
 
-        uint256 expected =
-            ((balances[tokenOut] + virtualBalances[tokenOut]) * amountGivenScaled18) /
+        uint256 expected = ((balances[tokenOut] + virtualBalances[tokenOut]) * amountGivenScaled18) /
             (balances[tokenIn] + virtualBalances[tokenIn] + amountGivenScaled18);
 
         assertEq(amountOut, expected, "Amount out should be correct");

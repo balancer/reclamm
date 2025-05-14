@@ -531,10 +531,7 @@ library ReClammMath {
         }
 
         // Round up the centeredness, so the virtual balances are rounded down when the pool prices are moving.
-        uint256 centeredness =
-            (balancesScaled18[a] * virtualBalanceB).divUp(
-                virtualBalanceA * balancesScaled18[b]
-            );
+        uint256 centeredness = (balancesScaled18[a] * virtualBalanceB).divUp(virtualBalanceA * balancesScaled18[b]);
         // The centeredness can be greater than one. In that case, we're actually on the other side of the center,
         // so we compute the inverse value.
         return centeredness > FixedPoint.ONE ? FixedPoint.ONE.divUp(centeredness) : centeredness;
