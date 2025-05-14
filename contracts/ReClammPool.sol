@@ -67,6 +67,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     uint256 internal constant _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA = 1e3;
 
+    uint256 internal constant _MAX_TOKEN_DECIMALS = 18;
+
     // These immutables are only used during initialization, to set the virtual balances and price ratio in a more
     // user-friendly manner.
     uint256 private immutable _INITIAL_MIN_PRICE;
@@ -74,6 +76,16 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 private immutable _INITIAL_TARGET_PRICE;
     uint256 private immutable _INITIAL_DAILY_PRICE_SHIFT_EXPONENT;
     uint256 private immutable _INITIAL_CENTEREDNESS_MARGIN;
+
+    // Unlike most pools, ReClamm pools do not need to know the tokens on deployment. The factory deploys the pool,
+    // then registers it, at which point the Vault knows the tokens and rate providers. Finally, the user initializes
+    // the pool through the router, using the `computeInitialBalancesRaw` helper function to compute the correct
+    // initial raw balances. The twist here is that the pool may contain wrapped tokens (e.g., wstETH), and the initial
+    // prices given might be in terms of either the wrapped or the underlying token. If the price is that of the actual
+    // token being supplied (e.g., the wrapped token), the initialization helper should *not* apply the rate, and the
+    // flag should be false. If the price is given in terms of the underlying token, the initialization helper *should*
+    // apply the rate, so the flag should be true. Since the prices are stored on initialization, these flags are as
+    // well (vs. passing them in at initialization time, when they might be out-of-sync with the prices).
     bool private immutable _PRICE_TOKEN_A_WITH_RATE;
     bool private immutable _PRICE_TOKEN_B_WITH_RATE;
 
@@ -419,11 +431,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         initialBalancesRaw = new uint256[](2);
         initialBalancesRaw[referenceTokenIdx] = referenceAmountInRaw;
 
-        uint256 referenceAmountInScaled18 = referenceAmountInRaw * 10 ** (18 - decimalsReferenceToken);
+        uint256 referenceAmountInScaled18 = referenceAmountInRaw * 10 ** (_MAX_TOKEN_DECIMALS - decimalsReferenceToken);
 
         initialBalancesRaw[otherTokenIdx] = referenceTokenIdx == a
-            ? referenceAmountInScaled18.mulDown(balanceRatioRaw) / 10 ** (18 - decimalsOtherToken)
-            : referenceAmountInScaled18.divDown(balanceRatioRaw) / 10 ** (18 - decimalsOtherToken);
+            ? referenceAmountInScaled18.mulDown(balanceRatioRaw) / 10 ** (_MAX_TOKEN_DECIMALS - decimalsOtherToken)
+            : referenceAmountInScaled18.divDown(balanceRatioRaw) / 10 ** (_MAX_TOKEN_DECIMALS - decimalsOtherToken);
     }
 
     /// @inheritdoc IReClammPool
@@ -960,23 +972,21 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256 rateA = FixedPoint.ONE;
         uint256 rateB = FixedPoint.ONE;
 
-        if (_PRICE_TOKEN_A_WITH_RATE || _PRICE_TOKEN_B_WITH_RATE) {
-            (, TokenInfo[] memory tokenInfo, , ) = _vault.getPoolTokenInfo(address(this));
+        (, TokenInfo[] memory tokenInfo, , ) = _vault.getPoolTokenInfo(address(this));
 
-            if (
-                _PRICE_TOKEN_A_WITH_RATE &&
-                tokenInfo[a].tokenType != TokenType.STANDARD &&
-                address(tokenInfo[a].rateProvider) != address(0)
-            ) {
+        if (_PRICE_TOKEN_A_WITH_RATE) {
+            if (tokenInfo[a].tokenType == TokenType.WITH_RATE) {
                 rateA = IRateProvider(tokenInfo[a].rateProvider).getRate();
+            } else {
+                revert IVaultErrors.InvalidTokenType();
             }
+        }
 
-            if (
-                _PRICE_TOKEN_B_WITH_RATE &&
-                tokenInfo[b].tokenType != TokenType.STANDARD &&
-                address(tokenInfo[b].rateProvider) != address(0)
-            ) {
+        if (_PRICE_TOKEN_B_WITH_RATE) {
+            if (tokenInfo[b].tokenType == TokenType.WITH_RATE) {
                 rateB = IRateProvider(tokenInfo[b].rateProvider).getRate();
+            } else {
+                revert IVaultErrors.InvalidTokenType();
             }
         }
 
