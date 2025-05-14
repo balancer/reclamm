@@ -2,6 +2,7 @@
 
 pragma solidity ^0.8.24;
 
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 // solhint-disable-next-line no-unused-import
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -22,9 +23,18 @@ import { ReClammPoolParams } from "./interfaces/IReClammPool.sol";
 
 /// @notice ReClammPool factory.
 contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
+    using SafeCast for uint256;
+
     string private _poolVersion;
 
     /**
+     * @notice ReClammPool initialization parameters.
+     * @dev ReClamm pools may contain wrapped tokens (with rate providers), in which case there are two options for
+     * providing the initialization prices (and the initialization balances can be calculated in terms of either
+     * token). If the price is that of the wrapped token, we should not apply the rate, so the flag for that token
+     * should be false. If the price is given in terms of the underlying, we do need to apply the rate when computing
+     * the initialization balances.
+     *
      * @param initialMinPrice The initial minimum price of the pool
      * @param initialMaxPrice The initial maximum price of the pool
      * @param initialTargetPrice The initial target price of the pool
@@ -60,8 +70,7 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
      * @param tokens An array of descriptors for the tokens the pool will manage
      * @param roleAccounts Addresses the Vault will allow to change certain pool settings
      * @param swapFeePercentage Initial swap fee percentage
-     * @param priceParams Initial min, max and target prices, as well as a flag to indicate if the price is scaled by
-     * the rate
+     * @param priceParams Initial min, max and target prices; flags indicating whether token prices incorporate rates
      * @param dailyPriceShiftExponent Virtual balances will change by 2^(dailyPriceShiftExponent) per day
      * @param centerednessMargin How far the price can be from the center before the price range starts to move
      * @param salt The salt value that will be passed to deployment
@@ -74,7 +83,7 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
         uint256 swapFeePercentage,
         ReClammPriceParams memory priceParams,
         uint256 dailyPriceShiftExponent,
-        uint64 centerednessMargin,
+        uint256 centerednessMargin,
         bytes32 salt
     ) external returns (address pool) {
         if (roleAccounts.poolCreator != address(0)) {
@@ -102,7 +111,7 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
                     priceTokenAWithRate: priceParams.priceTokenAWithRate,
                     priceTokenBWithRate: priceParams.priceTokenBWithRate,
                     dailyPriceShiftExponent: dailyPriceShiftExponent,
-                    centerednessMargin: centerednessMargin
+                    centerednessMargin: centerednessMargin.toUint64()
                 }),
                 getVault()
             ),
