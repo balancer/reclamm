@@ -116,6 +116,7 @@ contract E2eSwapReClammSwapFeesTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest 
 
         feeController.collectAggregateFees(pool);
 
+        // Warp 6 hours, so the pool can feel the impact of fees (specially if it's out of range).
         vm.warp(block.timestamp + 6 hours);
 
         vm.prank(poolCreator);
