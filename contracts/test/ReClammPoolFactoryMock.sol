@@ -2,6 +2,8 @@
 
 pragma solidity ^0.8.24;
 
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+
 import { IPoolVersion } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/helpers/IPoolVersion.sol";
 import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultErrors.sol";
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
@@ -19,6 +21,8 @@ import { ReClammPoolParams } from "../interfaces/IReClammPool.sol";
 
 /// @notice ReClammPool Mock factory.
 contract ReClammPoolFactoryMock is IPoolVersion, BasePoolFactory, Version {
+    using SafeCast for uint256;
+
     string private _poolVersion;
 
     /**
@@ -70,7 +74,7 @@ contract ReClammPoolFactoryMock is IPoolVersion, BasePoolFactory, Version {
         uint256 swapFeePercentage,
         ReClammPriceParams memory priceParams,
         uint256 dailyPriceShiftExponent,
-        uint64 centerednessMargin,
+        uint256 centerednessMargin,
         bytes32 salt
     ) external returns (address pool) {
         if (roleAccounts.poolCreator != address(0)) {
@@ -98,7 +102,7 @@ contract ReClammPoolFactoryMock is IPoolVersion, BasePoolFactory, Version {
                     priceTokenAWithRate: priceParams.priceTokenAWithRate,
                     priceTokenBWithRate: priceParams.priceTokenBWithRate,
                     dailyPriceShiftExponent: dailyPriceShiftExponent,
-                    centerednessMargin: centerednessMargin
+                    centerednessMargin: centerednessMargin.toUint64()
                 }),
                 getVault()
             ),
