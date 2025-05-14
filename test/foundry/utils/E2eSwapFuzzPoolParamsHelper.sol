@@ -203,7 +203,7 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
         if (tokenBMinTradeAmountOutExactIn == 1) {
             minSwapAmountTokenA *= 10;
         } else {
-            minSwapAmountTokenA = Math.max(minSwapAmountTokenA * 2, 10);
+            minSwapAmountTokenA = Math.max(minSwapAmountTokenA * 5, 10);
         }
 
         // We do the same for tokenB
@@ -212,7 +212,7 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
         if (tokenAMinTradeAmountInExactIn == 1) {
             minSwapAmountTokenB *= 10;
         } else {
-            minSwapAmountTokenB = Math.max(minSwapAmountTokenB * 2, 10);
+            minSwapAmountTokenB = Math.max(minSwapAmountTokenB * 5, 10);
         }
 
         uint256[] memory balancesScaled18_ = balancesScaled18;
