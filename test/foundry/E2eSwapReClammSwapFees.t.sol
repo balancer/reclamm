@@ -34,10 +34,6 @@ contract E2eSwapReClammSwapFeesTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest 
         setDefaultAccountBalance(type(uint128).max);
         super.setUp();
 
-        vm.prank(poolCreator);
-        // Set pool creator fee to 10%, so part of the fees are collected by the pool.
-        ProtocolFeeControllerMock(address(feeController)).manualSetPoolCreatorSwapFeePercentage(pool, uint256(10e16));
-
         exactInOutDecimalsErrorMultiplier = 2e9;
         amountInExactInOutError = 9e12;
     }
@@ -83,6 +79,9 @@ contract E2eSwapReClammSwapFeesTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest 
 
         // Set swap fee to 99%, increasing the price ratio of the pool.
         vault.manualUnsafeSetStaticSwapFeePercentage(pool, 99e16); // 99% swap fee
+        vm.prank(poolCreator);
+        // Set pool creator fee to 10%, so part of the fees are collected by the pool.
+        ProtocolFeeControllerMock(address(feeController)).manualSetPoolCreatorSwapFeePercentage(pool, uint256(10e16));
 
         (uint256 minPriceBefore, uint256 maxPriceBefore) = ReClammPoolMock(pool).computeCurrentPriceRange();
 
@@ -118,6 +117,10 @@ contract E2eSwapReClammSwapFeesTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest 
         feeController.collectAggregateFees(pool);
 
         vm.warp(block.timestamp + 6 hours);
+
+        vm.prank(poolCreator);
+        // Set pool creator fee to 100%, so E2E tests assumptions do not break.
+        ProtocolFeeControllerMock(address(feeController)).manualSetPoolCreatorSwapFeePercentage(pool, FixedPoint.ONE);
 
         return true;
     }
