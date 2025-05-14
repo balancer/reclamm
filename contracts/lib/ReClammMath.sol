@@ -186,9 +186,6 @@ library ReClammMath {
             revert AmountOutGreaterThanBalance();
         }
 
-        // Round up, so the swapper absorbs any imprecision due to rounding (i.e., it rounds in favor of the Vault).
-        // uint256 invariant = computeInvariant(balancesScaled18, virtualBalanceA, virtualBalanceB, Rounding.ROUND_UP);
-
         (uint256 virtualBalanceTokenIn, uint256 virtualBalanceTokenOut) = tokenInIndex == a
             ? (virtualBalanceA, virtualBalanceB)
             : (virtualBalanceB, virtualBalanceA);
@@ -525,16 +522,23 @@ library ReClammMath {
         uint256[] memory balancesScaled18,
         uint256 virtualBalanceA,
         uint256 virtualBalanceB
-    ) internal pure returns (uint256) {
+    ) internal pure returns (uint256 poolCenteredness) {
         if (balancesScaled18[a] == 0 || balancesScaled18[b] == 0) {
             return 0;
         }
 
-        // Round up the centeredness, so the virtual balances are rounded down when the pool prices are moving.
-        uint256 centeredness = (balancesScaled18[a] * virtualBalanceB).divUp(virtualBalanceA * balancesScaled18[b]);
-        // The centeredness can be greater than one. In that case, we're actually on the other side of the center,
-        // so we compute the inverse value.
-        return centeredness > FixedPoint.ONE ? FixedPoint.ONE.divUp(centeredness) : centeredness;
+        uint256 numerator = (balancesScaled18[a] * virtualBalanceB);
+        uint256 denominator = virtualBalanceA * balancesScaled18[b];
+
+        // The centeredness is defined between 0 and 1. If the numerator is greater than the denominator, we compute
+        // the inverse ratio.
+        if (numerator < denominator) {
+            poolCenteredness = numerator.divDown(denominator);
+        } else {
+            poolCenteredness = denominator.divDown(numerator);
+        }
+
+        return poolCenteredness;
     }
 
     /**
