@@ -295,6 +295,12 @@ interface IReClammPool is IBasePool {
         returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed);
 
     /**
+     * @notice Computes the current target price. This is the ratio of the total (i.e., real + virtual) balances (B/A).
+     * @return currentTargetPrice Target price at the current pool state (real and virtual balances)
+     */
+    function computeCurrentTargetPrice() external view returns (uint256 currentTargetPrice);
+
+    /**
      * @notice Getter for the timestamp of the last user interaction.
      * @return lastTimestamp The timestamp of the operation
      */

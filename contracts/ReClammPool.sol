@@ -474,7 +474,32 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         view
         returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed)
     {
-        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
+        (, currentVirtualBalanceA, currentVirtualBalanceB, changed) = _getRealAndVirtualBalances();
+    }
+
+    /// @inheritdoc IReClammPool
+    function computeCurrentTargetPrice() external view returns (uint256) {
+        (
+            uint256[] memory balancesScaled18,
+            uint256 currentVirtualBalanceA,
+            uint256 currentVirtualBalanceB,
+
+        ) = _getRealAndVirtualBalances();
+
+        return (balancesScaled18[b] + currentVirtualBalanceB).divDown(balancesScaled18[a] + currentVirtualBalanceA);
+    }
+
+    function _getRealAndVirtualBalances()
+        internal
+        view
+        returns (
+            uint256[] memory balancesScaled18,
+            uint256 currentVirtualBalanceA,
+            uint256 currentVirtualBalanceB,
+            bool changed
+        )
+    {
+        (, , , balancesScaled18) = _vault.getPoolTokenInfo(address(this));
         (currentVirtualBalanceA, currentVirtualBalanceB, changed) = _computeCurrentVirtualBalances(balancesScaled18);
     }
 
