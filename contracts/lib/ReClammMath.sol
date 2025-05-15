@@ -464,7 +464,6 @@ library ReClammMath {
         uint32 currentTimestamp,
         uint32 lastTimestamp
     ) internal pure returns (uint256 newVirtualBalanceA, uint256 newVirtualBalanceB) {
-        // Round up price ratio, to round virtual balances down.
         uint256 sqrtPriceRatio = Math.sqrt(
             computePriceRatio(balancesScaled18, virtualBalanceA, virtualBalanceB) * 1e18
         );
@@ -600,6 +599,7 @@ library ReClammMath {
         uint256 virtualBalanceB
     ) internal pure returns (uint256 priceRatio) {
         (uint256 minPrice, uint256 maxPrice) = computePriceRange(balancesScaled18, virtualBalanceA, virtualBalanceB);
+
         return maxPrice.divUp(minPrice);
     }
 

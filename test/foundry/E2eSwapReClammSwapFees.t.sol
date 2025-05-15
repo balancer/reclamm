@@ -112,6 +112,8 @@ contract E2eSwapReClammSwapFeesTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest 
 
         (uint256 minPriceAfter, uint256 maxPriceAfter) = ReClammPoolMock(pool).computeCurrentPriceRange();
 
+        // Check that the range has expanded. Fees have increased the invariant with constant virtual balances,
+        // de-concentrating the liquidity.
         vm.assume(maxPriceAfter.divDown(minPriceAfter) > maxPriceBefore.divDown(minPriceBefore));
 
         feeController.collectAggregateFees(pool);
