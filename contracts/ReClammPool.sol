@@ -469,11 +469,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IReClammPool
     function computeCurrentFourthRootPriceRatio() external view returns (uint256) {
-        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
-        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = _computeCurrentVirtualBalances(
-            balancesScaled18
-        );
-        return _computeCurrentFourthRootPriceRatio(balancesScaled18, currentVirtualBalanceA, currentVirtualBalanceB);
+        return _computeCurrentFourthRootPriceRatio();
     }
 
     /// @inheritdoc IReClammPool
@@ -522,15 +518,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.dailyPriceShiftExponent = data.dailyPriceShiftBase.toDailyPriceShiftExponent();
         data.centerednessMargin = _centerednessMargin;
 
-        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = _computeCurrentVirtualBalances(
-            data.balancesLiveScaled18
-        );
-
-        data.currentFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio(
-            data.balancesLiveScaled18,
-            currentVirtualBalanceA,
-            currentVirtualBalanceB
-        );
+        data.currentFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio();
 
         PriceRatioState memory state = _priceRatioState;
         data.startFourthRootPriceRatio = state.startFourthRootPriceRatio;
@@ -608,15 +596,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             revert PriceRatioNotUpdating();
         }
 
-        (, , , uint256[] memory liveBalancesScaled18) = _vault.getPoolTokenInfo(address(this));
-        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = _computeCurrentVirtualBalances(
-            liveBalancesScaled18
-        );
-        uint256 currentFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio(
-            liveBalancesScaled18,
-            currentVirtualBalanceA,
-            currentVirtualBalanceB
-        );
+        uint256 currentFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio();
+
         _setPriceRatioState(currentFourthRootPriceRatio, block.timestamp, block.timestamp);
     }
 
@@ -688,15 +669,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256 currentFourthRootPriceRatio = _priceRatioState.endFourthRootPriceRatio;
 
         if (_vault.isPoolInitialized(address(this))) {
-            (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
-            (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = _computeCurrentVirtualBalances(
-                balancesScaled18
-            );
-            currentFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio(
-                balancesScaled18,
-                currentVirtualBalanceA,
-                currentVirtualBalanceB
-            );
+            currentFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio();
         }
 
         fourthRootPriceRatioDelta = SignedMath.abs(
@@ -863,16 +836,12 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
      * then takes the fourth root of this ratio. The multiplication by FixedPoint.ONE before each sqrt operation
      * is done to maintain precision in the fixed-point calculations.
      *
-     * @param balancesScaled18 The current real balances of both tokens, scaled by 10^18
-     * @param virtualBalanceA The virtual balance of token A
-     * @param virtualBalanceB The virtual balance of token B
      * @return The fourth root of the current price ratio, maintaining precision through fixed-point arithmetic
      */
-    function _computeCurrentFourthRootPriceRatio(
-        uint256[] memory balancesScaled18,
-        uint256 virtualBalanceA,
-        uint256 virtualBalanceB
-    ) internal pure returns (uint256) {
+    function _computeCurrentFourthRootPriceRatio() internal view returns (uint256) {
+        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
+        (uint256 virtualBalanceA, uint256 virtualBalanceB, ) = _computeCurrentVirtualBalances(balancesScaled18);
+
         return
             Math.sqrt(
                 Math.sqrt(
