@@ -149,10 +149,10 @@ library ReClammMath {
             ? (virtualBalanceA, virtualBalanceB)
             : (virtualBalanceB, virtualBalanceA);
 
-        // amountOutScaled18 = currentTotalTokenOutPoolBalance - newTotalTokenOutPoolBalance,
-        // where currentTotalTokenOutPoolBalance = balancesScaled18[tokenOutIndex] + virtualBalanceTokenOut
-        // and newTotalTokenOutPoolBalance = invariant / (currentTotalTokenInPoolBalance + amountInScaled18).a
-        // Replace invariant with L = (x + a)(y + b), and simplify to arrive to:
+        // `amountOutScaled18 = currentTotalTokenOutPoolBalance - newTotalTokenOutPoolBalance`,
+        // where `currentTotalTokenOutPoolBalance = balancesScaled18[tokenOutIndex] + virtualBalanceTokenOut`
+        // and `newTotalTokenOutPoolBalance = invariant / (currentTotalTokenInPoolBalance + amountInScaled18)`.
+        // Replace invariant with `L = (x + a)(y + b)`, and simplify to arrive to:
         amountOutScaled18 =
             ((balancesScaled18[tokenOutIndex] + virtualBalanceTokenOut) * amountInScaled18) /
             (balancesScaled18[tokenInIndex] + virtualBalanceTokenIn + amountInScaled18);
@@ -190,10 +190,10 @@ library ReClammMath {
             ? (virtualBalanceA, virtualBalanceB)
             : (virtualBalanceB, virtualBalanceA);
 
-        // amountInScaled18 = newTotalTokenOutPoolBalance - currentTotalTokenInPoolBalance,
-        // where newTotalTokenOutPoolBalance = [invariant / (currentTotalTokenOutPoolBalance - amountOutScaled18)]
-        // and currentTotalTokenInPoolBalance = balancesScaled18[tokenInIndex] + virtualBalanceTokenIn
-        // Replace invariant with L = (x + a)(y + b), and simplify to arrive to the following formula.
+        // `amountInScaled18 = newTotalTokenOutPoolBalance - currentTotalTokenInPoolBalance`,
+        // where `newTotalTokenOutPoolBalance = invariant / (currentTotalTokenOutPoolBalance - amountOutScaled18)`
+        // and `currentTotalTokenInPoolBalance = balancesScaled18[tokenInIndex] + virtualBalanceTokenIn`.
+        // Replace invariant with `L = (x + a)(y + b)`, and simplify to arrive to the following formula.
         // Round up to favor the vault (i.e. request larger amount in from the user).
         amountInScaled18 = FixedPoint.mulDivUp(
             balancesScaled18[tokenInIndex] + virtualBalanceTokenIn,
