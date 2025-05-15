@@ -30,9 +30,9 @@ struct ReClammPoolParams {
  * @param tokens Pool tokens, sorted in token registration order
  * @param decimalScalingFactors Conversion factor used to adjust for token decimals for uniform precision in
  * calculations. FP(1) for 18-decimal tokens
- * @param initialMinPrice The initial minimum price of the pool
- * @param initialMaxPrice The initial maximum price of the pool
- * @param initialTargetPrice The initial target price of the pool
+ * @param initialMinPrice The initial minimum price of token A in terms of token B
+ * @param initialMaxPrice The initial maximum price of token A in terms of token B
+ * @param initialTargetPrice The initial target price of token A in terms of token B
  * @param initialDailyPriceShiftExponent The initial daily price shift exponent
  * @param initialCenterednessMargin
  * @param minCenterednessMargin The minimum centeredness margin for the pool, as an 18-decimal FP percentage
@@ -245,7 +245,7 @@ interface IReClammPool is IBasePool {
 
     /**
      * @notice Compute the initialization amounts, given a reference token and amount.
-     * @dev Convenience function to calculate the initial funding amount for the second token, given the first. It
+     * @dev Convenience function to compute the initial funding amount for the second token, given the first. It
      * returns the amount of tokens in raw amounts.
      *
      * @param referenceToken The token whose amount is known

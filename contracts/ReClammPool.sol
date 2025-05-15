@@ -77,15 +77,16 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 private immutable _INITIAL_DAILY_PRICE_SHIFT_EXPONENT;
     uint256 private immutable _INITIAL_CENTEREDNESS_MARGIN;
 
-    // Unlike most pools, ReClamm pools do not need to know the tokens on deployment. The factory deploys the pool,
-    // then registers it, at which point the Vault knows the tokens and rate providers. Finally, the user initializes
-    // the pool through the router, using the `computeInitialBalancesRaw` helper function to compute the correct
-    // initial raw balances. The twist here is that the pool may contain wrapped tokens (e.g., wstETH), and the initial
-    // prices given might be in terms of either the wrapped or the underlying token. If the price is that of the actual
-    // token being supplied (e.g., the wrapped token), the initialization helper should *not* apply the rate, and the
-    // flag should be false. If the price is given in terms of the underlying token, the initialization helper *should*
-    // apply the rate, so the flag should be true. Since the prices are stored on initialization, these flags are as
-    // well (vs. passing them in at initialization time, when they might be out-of-sync with the prices).
+    // ReClamm pools do not need to know the tokens on deployment. The factory deploys the pool, then registers it, at
+    // which point the Vault knows the tokens and rate providers. Finally, the user initializes the pool through the
+    // router, using the `computeInitialBalancesRaw` helper function to compute the correct initial raw balances.
+    //
+    // The twist here is that the pool may contain wrapped tokens (e.g., wstETH), and the initial prices given might be
+    // in terms of either the wrapped or the underlying token. If the price is that of the actual token being supplied
+    // (e.g., the wrapped token), the initialization helper should *not* apply the rate, and the flag should be false.
+    // If the price is given in terms of the underlying token, the initialization helper *should* apply the rate, so
+    // the flag should be true. Since the prices are stored on initialization, these flags are as well (vs. passing
+    // them in at initialization time, when they might be out-of-sync with the prices).
     bool private immutable _PRICE_TOKEN_A_WITH_RATE;
     bool private immutable _PRICE_TOKEN_B_WITH_RATE;
 

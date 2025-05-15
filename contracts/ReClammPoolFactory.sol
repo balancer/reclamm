@@ -35,9 +35,9 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
      * should be false. If the price is given in terms of the underlying, we do need to apply the rate when computing
      * the initialization balances.
      *
-     * @param initialMinPrice The initial minimum price of the pool
-     * @param initialMaxPrice The initial maximum price of the pool
-     * @param initialTargetPrice The initial target price of the pool
+     * @param initialMinPrice The initial minimum price of token A in terms of token B
+     * @param initialMaxPrice The initial maximum price of token A in terms of token B
+     * @param initialTargetPrice The initial target price of token A in terms of token B
      * @param priceTokenAWithRate Whether the amount of token A is scaled by the rate in the price value
      * @param priceTokenBWithRate Whether the amount of token B is scaled by the rate in the price value
      */

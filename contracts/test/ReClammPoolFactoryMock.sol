@@ -26,9 +26,9 @@ contract ReClammPoolFactoryMock is IPoolVersion, BasePoolFactory, Version {
     string private _poolVersion;
 
     /**
-     * @param initialMinPrice The initial minimum price of the pool
-     * @param initialMaxPrice The initial maximum price of the pool
-     * @param initialTargetPrice The initial target price of the pool
+     * @param initialMinPrice The initial minimum price of token A in terms of token B
+     * @param initialMaxPrice The initial maximum price of token A in terms of token B
+     * @param initialTargetPrice The initial target price of token A in terms of token B
      * @param priceTokenAWithRate Whether the amount of token A is scaled by the rate in the price value
      * @param priceTokenBWithRate Whether the amount of token B is scaled by the rate in the price value
      */
@@ -55,13 +55,13 @@ contract ReClammPoolFactoryMock is IPoolVersion, BasePoolFactory, Version {
     }
 
     /**
-     * @notice Deploys a new `StablePool`.
+     * @notice Deploys a new `ReClammPool`.
      * @param name The name of the pool
      * @param symbol The symbol of the pool
      * @param tokens An array of descriptors for the tokens the pool will manage
      * @param roleAccounts Addresses the Vault will allow to change certain pool settings
      * @param swapFeePercentage Initial swap fee percentage
-     * @param priceParams Initial min, max and target prices, and flags indicating whether tokens have rate providers
+     * @param priceParams Initial min, max and target prices; flags indicating whether token prices incorporate rates
      * @param dailyPriceShiftExponent Virtual balances will change by 2^(dailyPriceShiftExponent) per day
      * @param centerednessMargin How far the price can be from the center before the price range starts to move
      * @param salt The salt value that will be passed to deployment
