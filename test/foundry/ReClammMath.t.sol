@@ -226,9 +226,9 @@ contract ReClammMathTest is BaseReClammTest {
         if (balanceA == 0 || balanceB == 0) {
             assertEq(centeredness, 0);
         } else {
-            uint256 expectedCenteredness = (balanceA * virtualBalanceB).divUp(virtualBalanceA * balanceB);
+            uint256 expectedCenteredness = (balanceA * virtualBalanceB).divDown(virtualBalanceA * balanceB);
             expectedCenteredness = expectedCenteredness > FixedPoint.ONE
-                ? FixedPoint.ONE.divUp(expectedCenteredness)
+                ? FixedPoint.ONE.divDown(expectedCenteredness)
                 : expectedCenteredness;
             assertApproxEqAbs(
                 centeredness,
