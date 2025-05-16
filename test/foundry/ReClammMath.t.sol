@@ -374,19 +374,17 @@ contract ReClammMathTest is BaseReClammTest {
         );
 
         // Check if price ratio matches the new price ratio
-        uint256 actualFourthRootPriceRatio = _calculateCurrentPriceRatio(balancesScaled18, newVirtualBalances);
+        uint256 actualRootPriceRatio = _calculatePriceRatio(balancesScaled18, newVirtualBalances);
 
         uint256 expectedPriceRatio = expectedFourthRootPriceRatio
             .mulDown(expectedFourthRootPriceRatio)
             .mulDown(expectedFourthRootPriceRatio)
             .mulDown(expectedFourthRootPriceRatio);
 
-        uint256 actualPriceRatio = actualFourthRootPriceRatio
-            .mulDown(actualFourthRootPriceRatio)
-            .mulDown(actualFourthRootPriceRatio)
-            .mulDown(actualFourthRootPriceRatio);
+        uint256 actualPriceRatio = actualRootPriceRatio.mulDown(actualRootPriceRatio);
 
         assertApproxEqAbs(expectedPriceRatio, actualPriceRatio, _MAX_PRICE_ERROR_ABS, "Price Ratio should be correct");
+        // assertApproxEqRel(expectedPriceRatio, actualPriceRatio, 0.1e16, "Price Ratio should be correct");
     }
 
     function testComputeFourthRootPriceRatioWhenCurrentTimeIsEndTime() public pure {
@@ -542,6 +540,13 @@ contract ReClammMathTest is BaseReClammTest {
         assertEq(centeredness, 0, "(1,0) non-zero centeredness with B=0");
     }
 
+    function _calculatePriceRatio(
+        uint256[] memory balancesScaled18,
+        uint256[] memory virtualBalances
+    ) private pure returns (uint256 priceRatio) {
+        priceRatio = ((balancesScaled18[a] + virtualBalances[a]) * (balancesScaled18[b] + virtualBalances[b])) / (virtualBalances[a].mulDown(virtualBalances[b]));
+    }
+
     function _calculateCurrentPriceRatio(
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances
@@ -552,7 +557,7 @@ contract ReClammMathTest is BaseReClammTest {
             virtualBalances[b],
             Rounding.ROUND_DOWN
         );
-        newSqrtPriceRatio = ReClammMath.sqrtScaled18(invariant.divDown(virtualBalances[a]).divDown(virtualBalances[b]));
+        newSqrtPriceRatio = Math.sqrt((balancesScaled18[a] + virtualBalances[a]) * (balancesScaled18[b] + virtualBalances[b])).divDown(Math.sqrt(virtualBalances[a] * virtualBalances[b]));
     }
 
     function _computeOutGivenInAllowError(

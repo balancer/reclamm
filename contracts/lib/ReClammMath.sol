@@ -442,9 +442,13 @@ library ReClammMath {
         bool isPoolAboveCenter
     ) internal pure returns (uint256 virtualBalanceA, uint256 virtualBalanceB) {
         // The overvalued token is the one with a lower token balance (therefore, rarer and more valuable).
-        (uint256 indexTokenUndervalued, uint256 indexTokenOvervalued) = isPoolAboveCenter ? (0, 1) : (1, 0);
-        uint256 balanceTokenUndervalued = balancesScaled18[indexTokenUndervalued];
-        uint256 balanceTokenOvervalued = balancesScaled18[indexTokenOvervalued];
+        (
+            uint256 balanceTokenUndervalued,
+            uint256 lastVirtualBalanceUndervalued,
+            uint256 lastVirtualBalanceOvervalued
+        ) = isPoolAboveCenter
+                ? (balancesScaled18[a], lastVirtualBalanceA, lastVirtualBalanceB)
+                : (balancesScaled18[b], lastVirtualBalanceB, lastVirtualBalanceA);
 
         // Compute the current pool centeredness, which will remain constant.
         uint256 poolCenteredness = computeCenteredness(balancesScaled18, lastVirtualBalanceA, lastVirtualBalanceB);
@@ -457,7 +461,7 @@ library ReClammMath {
         // centeredness. Applying Bhaskara, we'd have: Vu = (-b + sqrt(b^2 - 4ac)) / 2a.
         // The Bhaskara above can be simplified by replacing a, b and c with the terms above, which leads to:
         // Vu = Ru(1 + C + sqrt(1 + C (C + 4 Q0 - 2))) / 2(Q0 - 1)
-        uint256 sqrtPriceRatio = currentFourthRootPriceRatio.mulUp(currentFourthRootPriceRatio);
+        uint256 sqrtPriceRatio = currentFourthRootPriceRatio.mulDown(currentFourthRootPriceRatio);
 
         // Using FixedPoint math as little as possible to improve the precision of the result.
         // Note: The input of Math.sqrt must be a 36-decimal number, so that the final result is 18 decimals.
@@ -467,8 +471,8 @@ library ReClammMath {
                 Math.sqrt(poolCenteredness * (poolCenteredness + 4 * sqrtPriceRatio - 2e18) + 1e36))) /
             (2 * (sqrtPriceRatio - FixedPoint.ONE));
 
-        uint256 virtualBalanceOvervalued = ((balanceTokenOvervalued * virtualBalanceUndervalued) /
-            balanceTokenUndervalued).divDown(poolCenteredness);
+        uint256 virtualBalanceOvervalued = (virtualBalanceUndervalued * lastVirtualBalanceOvervalued) /
+            lastVirtualBalanceUndervalued;
 
         (virtualBalanceA, virtualBalanceB) = isPoolAboveCenter
             ? (virtualBalanceUndervalued, virtualBalanceOvervalued)
@@ -634,7 +638,7 @@ library ReClammMath {
         if (balancesScaled18[b] == 0) {
             return true;
         } else {
-            return balancesScaled18[a].divDown(balancesScaled18[b]) > virtualBalanceA.divDown(virtualBalanceB);
+            return balancesScaled18[a] * virtualBalanceB > balancesScaled18[b] * virtualBalanceA;
         }
     }
 
