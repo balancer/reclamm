@@ -38,9 +38,6 @@ library ReClammMath {
     /// @notice The swap result is greater than the real balance of the token (i.e., the balance would drop below zero).
     error AmountOutGreaterThanBalance();
 
-    /// @notice The swap result is negative due to a rounding issue.
-    error NegativeAmountOut();
-
     // When a pool is outside the target range, we start adjusting the price range by altering the virtual balances,
     // which affects the price. At a DailyPriceShiftExponent of 100%, we want to be able to change the price by a factor
     // of two: either doubling or halving it over the course of a day (86,400 seconds). The virtual balances must
@@ -145,29 +142,41 @@ library ReClammMath {
         uint256 tokenOutIndex,
         uint256 amountInScaled18
     ) internal pure returns (uint256 amountOutScaled18) {
+        // `amountOutScaled18 = currentTotalTokenOutPoolBalance - newTotalTokenOutPoolBalance`,
+        // where `currentTotalTokenOutPoolBalance = balancesScaled18[tokenOutIndex] + virtualBalanceTokenOut`
+        // and `newTotalTokenOutPoolBalance = invariant / (currentTotalTokenInPoolBalance + amountInScaled18)`.
+        // In other words,
+        // +--------------------------------------------------+
+        // |                         L                        |
+        // | Ao = Bo + Vo - ---------------------             |
+        // |                   (Bi + Vi + Ai)                 |
+        // +--------------------------------------------------+
+        // Simplify by:
+        // - replacing `L = (Bo + Vo) (Bi + Vi)`, and
+        // - multiplying `(Bo + Vo)` by `(Bi + Vi + Ai) / (Bi + Vi + Ai)`:
+        // +--------------------------------------------------+
+        // |              (Bo + Vo) Ai                        |
+        // | Ao = ------------------------------              |
+        // |             (Bi + Vi + Ai)                       |
+        // +--------------------------------------------------+
+        // | Where:                                           |
+        // |   Ao = Amount out                                |
+        // |   Bo = Balance token out                         |
+        // |   Vo = Virtual balance token out                 |
+        // |   Ai = Amount in                                 |
+        // |   Bi = Balance token in                          |
+        // |   Vi = Virtual balance token in                  |
+        // +--------------------------------------------------+
         (uint256 virtualBalanceTokenIn, uint256 virtualBalanceTokenOut) = tokenInIndex == a
             ? (virtualBalanceA, virtualBalanceB)
             : (virtualBalanceB, virtualBalanceA);
 
-        // Round up, so the swapper absorbs rounding imprecisions (rounds in favor of the Vault).
-        uint256 invariant = computeInvariant(balancesScaled18, virtualBalanceA, virtualBalanceB, Rounding.ROUND_UP);
-        // Total (virtual + real) token out amount that should stay in the pool after the swap. Rounding division up,
-        // which will round the token out amount down, favoring the Vault.
-        uint256 newTotalTokenOutPoolBalance = invariant.divUp(
-            balancesScaled18[tokenInIndex] + virtualBalanceTokenIn + amountInScaled18
-        );
+        amountOutScaled18 =
+            ((balancesScaled18[tokenOutIndex] + virtualBalanceTokenOut) * amountInScaled18) /
+            (balancesScaled18[tokenInIndex] + virtualBalanceTokenIn + amountInScaled18);
 
-        uint256 currentTotalTokenOutPoolBalance = balancesScaled18[tokenOutIndex] + virtualBalanceTokenOut;
-
-        if (newTotalTokenOutPoolBalance > currentTotalTokenOutPoolBalance) {
-            // If the amount of `tokenOut` remaining in the pool post-swap is greater than the total balance of
-            // `tokenOut`, that means the swap result is negative due to a rounding issue.
-            revert NegativeAmountOut();
-        }
-
-        amountOutScaled18 = currentTotalTokenOutPoolBalance - newTotalTokenOutPoolBalance;
         if (amountOutScaled18 > balancesScaled18[tokenOutIndex]) {
-            // Amount out cannot be greater than the real balance of the token.
+            // Amount out cannot be greater than the real balance of the token in the pool.
             revert AmountOutGreaterThanBalance();
         }
     }
@@ -190,23 +199,47 @@ library ReClammMath {
         uint256 tokenOutIndex,
         uint256 amountOutScaled18
     ) internal pure returns (uint256 amountInScaled18) {
+        // `amountInScaled18 = newTotalTokenOutPoolBalance - currentTotalTokenInPoolBalance`,
+        // where `newTotalTokenOutPoolBalance = invariant / (currentTotalTokenOutPoolBalance - amountOutScaled18)`
+        // and `currentTotalTokenInPoolBalance = balancesScaled18[tokenInIndex] + virtualBalanceTokenIn`.
+        // In other words,
+        // +--------------------------------------------------+
+        // |               L                                  |
+        // | Ai = --------------------- - (Bi + Vi)           |
+        // |         (Bo + Vo - Ao)                           |
+        // +--------------------------------------------------+
+        // Simplify by:
+        // - replacing `L = (Bo + Vo) (Bi + Vi)`, and
+        // - multiplying `(Bi + Vi)` by `(Bo + Vo - Ao) / (Bo + Vo - Ao)`:
+        // +--------------------------------------------------+
+        // |              (Bi + Vi) Ao                        |
+        // | Ai = ------------------------------              |
+        // |             (Bo + Vo - Ao)                       |
+        // +--------------------------------------------------+
+        // | Where:                                           |
+        // |   Ao = Amount out                                |
+        // |   Bo = Balance token out                         |
+        // |   Vo = Virtual balance token out                 |
+        // |   Ai = Amount in                                 |
+        // |   Bi = Balance token in                          |
+        // |   Vi = Virtual balance token in                  |
+        // +--------------------------------------------------+
+
         if (amountOutScaled18 > balancesScaled18[tokenOutIndex]) {
             // Amount out cannot be greater than the real balance of the token in the pool.
             revert AmountOutGreaterThanBalance();
         }
 
-        // Round up, so the swapper absorbs any imprecision due to rounding (i.e., it rounds in favor of the Vault).
-        uint256 invariant = computeInvariant(balancesScaled18, virtualBalanceA, virtualBalanceB, Rounding.ROUND_UP);
-
         (uint256 virtualBalanceTokenIn, uint256 virtualBalanceTokenOut) = tokenInIndex == a
             ? (virtualBalanceA, virtualBalanceB)
             : (virtualBalanceB, virtualBalanceA);
 
-        // Rounding division up, which will round the `tokenIn` amount up, favoring the Vault.
-        amountInScaled18 =
-            invariant.divUp(balancesScaled18[tokenOutIndex] + virtualBalanceTokenOut - amountOutScaled18) -
-            balancesScaled18[tokenInIndex] -
-            virtualBalanceTokenIn;
+        // Round up to favor the vault (i.e. request larger amount in from the user).
+        amountInScaled18 = FixedPoint.mulDivUp(
+            balancesScaled18[tokenInIndex] + virtualBalanceTokenIn,
+            amountOutScaled18,
+            balancesScaled18[tokenOutIndex] + virtualBalanceTokenOut - amountOutScaled18
+        );
     }
 
     /**
@@ -533,26 +566,23 @@ library ReClammMath {
         uint256[] memory balancesScaled18,
         uint256 virtualBalanceA,
         uint256 virtualBalanceB
-    ) internal pure returns (uint256) {
+    ) internal pure returns (uint256 poolCenteredness) {
         if (balancesScaled18[a] == 0 || balancesScaled18[b] == 0) {
             return 0;
         }
 
-        bool isPoolAboveCenter = isAboveCenter(balancesScaled18, virtualBalanceA, virtualBalanceB);
+        uint256 numerator = (balancesScaled18[a] * virtualBalanceB);
+        uint256 denominator = virtualBalanceA * balancesScaled18[b];
 
-        // The overvalued token is the one with a lower token balance (therefore, rarer and more valuable).
-        (uint256 virtualBalanceUndervalued, uint256 virtualBalanceOvervalued) = isPoolAboveCenter
-            ? (virtualBalanceA, virtualBalanceB)
-            : (virtualBalanceB, virtualBalanceA);
-        (uint256 balancesScaledUndervalued, uint256 balancesScaledOvervalued) = isPoolAboveCenter
-            ? (balancesScaled18[a], balancesScaled18[b])
-            : (balancesScaled18[b], balancesScaled18[a]);
+        // The centeredness is defined between 0 and 1. If the numerator is greater than the denominator, we compute
+        // the inverse ratio.
+        if (numerator < denominator) {
+            poolCenteredness = numerator.divDown(denominator);
+        } else {
+            poolCenteredness = denominator.divDown(numerator);
+        }
 
-        // Round up the centeredness, so the virtual balances are rounded down when the pool prices are moving.
-        return
-            ((balancesScaledOvervalued * virtualBalanceUndervalued) / balancesScaledUndervalued).divUp(
-                virtualBalanceOvervalued
-            );
+        return poolCenteredness;
     }
 
     /**
