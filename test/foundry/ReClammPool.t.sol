@@ -15,7 +15,8 @@ import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/Fixe
 import {
     AddLiquidityKind,
     PoolSwapParams,
-    RemoveLiquidityKind
+    RemoveLiquidityKind,
+    PoolRoleAccounts
 } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { CastingHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/CastingHelpers.sol";
@@ -23,6 +24,7 @@ import { InputHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 
 import { PriceRatioState, ReClammMath, a, b } from "../../contracts/lib/ReClammMath.sol";
+import { ReClammPoolFactoryMock } from "../../contracts/test/ReClammPoolFactoryMock.sol";
 import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
 import { ReClammMathMock } from "../../contracts/test/ReClammMathMock.sol";
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
@@ -35,8 +37,8 @@ import {
 } from "../../contracts/interfaces/IReClammPool.sol";
 
 contract ReClammPoolTest is BaseReClammTest {
-    using CastingHelpers for IERC20[];
     using FixedPoint for uint256;
+    using CastingHelpers for *;
     using ArrayHelpers for *;
     using SafeCast for *;
 
@@ -1515,6 +1517,18 @@ contract ReClammPoolTest is BaseReClammTest {
         );
     }
 
+    function testInitializationTokenErrors() public {
+        address newPool = _createStandardPool(true, false, "Price Token A");
+
+        vm.expectRevert(IVaultErrors.InvalidTokenType.selector);
+        ReClammPool(newPool).computeInitialBalanceRatioRaw();
+
+        newPool = _createStandardPool(false, true, "Price Token B");
+
+        vm.expectRevert(IVaultErrors.InvalidTokenType.selector);
+        ReClammPool(newPool).computeInitialBalanceRatioRaw();
+    }
+
     function testInitializationCenteredness() public {
         (address newPool, ) = _createPool([address(usdc), address(dai)].toMemoryArray(), "New Test Pool");
         (IERC20[] memory tokens, , , ) = vault.getPoolTokenInfo(newPool);
@@ -1691,5 +1705,39 @@ contract ReClammPoolTest is BaseReClammTest {
             _INITIAL_PARAMS_ERROR,
             "Wrong target price after initialization with rate"
         );
+    }
+
+    function _createStandardPool(
+        bool priceTokenAWithRate,
+        bool priceTokenBWithRate,
+        string memory label
+    ) internal returns (address newPool) {
+        string memory name = "ReClamm Pool";
+        string memory symbol = "RECLAMM_POOL";
+
+        address[] memory tokens = [address(usdc), address(dai)].toMemoryArray();
+        IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens.asIERC20());
+        PoolRoleAccounts memory roleAccounts;
+
+        ReClammPoolFactoryMock.ReClammPriceParams memory priceParams = ReClammPoolFactoryMock.ReClammPriceParams({
+            initialMinPrice: _initialMinPrice,
+            initialMaxPrice: _initialMaxPrice,
+            initialTargetPrice: _initialTargetPrice,
+            priceTokenAWithRate: priceTokenAWithRate,
+            priceTokenBWithRate: priceTokenBWithRate
+        });
+
+        newPool = ReClammPoolFactoryMock(poolFactory).create(
+            name,
+            symbol,
+            vault.buildTokenConfig(sortedTokens),
+            roleAccounts,
+            _DEFAULT_SWAP_FEE,
+            priceParams,
+            _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
+            _DEFAULT_CENTEREDNESS_MARGIN,
+            bytes32(saltNumber++)
+        );
+        vm.label(newPool, label);
     }
 }
