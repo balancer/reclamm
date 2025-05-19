@@ -544,7 +544,9 @@ contract ReClammMathTest is BaseReClammTest {
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances
     ) private pure returns (uint256 priceRatio) {
-        priceRatio = ((balancesScaled18[a] + virtualBalances[a]) * (balancesScaled18[b] + virtualBalances[b])) / (virtualBalances[a].mulDown(virtualBalances[b]));
+        priceRatio =
+            ((balancesScaled18[a] + virtualBalances[a]) * (balancesScaled18[b] + virtualBalances[b])) /
+            (virtualBalances[a].mulDown(virtualBalances[b]));
     }
 
     function _calculateCurrentPriceRatio(
@@ -557,7 +559,9 @@ contract ReClammMathTest is BaseReClammTest {
             virtualBalances[b],
             Rounding.ROUND_DOWN
         );
-        newSqrtPriceRatio = Math.sqrt((balancesScaled18[a] + virtualBalances[a]) * (balancesScaled18[b] + virtualBalances[b])).divDown(Math.sqrt(virtualBalances[a] * virtualBalances[b]));
+        newSqrtPriceRatio = Math
+            .sqrt((balancesScaled18[a] + virtualBalances[a]) * (balancesScaled18[b] + virtualBalances[b]))
+            .divDown(Math.sqrt(virtualBalances[a] * virtualBalances[b]));
     }
 
     function _computeOutGivenInAllowError(
