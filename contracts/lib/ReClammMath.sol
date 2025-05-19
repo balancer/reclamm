@@ -152,7 +152,7 @@ library ReClammMath {
         // |                   (Bi + Vi + Ai)                 |
         // +--------------------------------------------------+
         // Simplify by:
-        // - replacing `L = (Bo + Vo) (Bi + Vi)`, and 
+        // - replacing `L = (Bo + Vo) (Bi + Vi)`, and
         // - multiplying `(Bo + Vo)` by `(Bi + Vi + Ai) / (Bi + Vi + Ai)`:
         // +--------------------------------------------------+
         // |              (Bo + Vo) Ai                        |
@@ -209,7 +209,7 @@ library ReClammMath {
         // |         (Bo + Vo - Ao)                           |
         // +--------------------------------------------------+
         // Simplify by:
-        // - replacing `L = (Bo + Vo) (Bi + Vi)`, and 
+        // - replacing `L = (Bo + Vo) (Bi + Vi)`, and
         // - multiplying `(Bi + Vi)` by `(Bo + Vo - Ao) / (Bo + Vo - Ao)`:
         // +--------------------------------------------------+
         // |              (Bi + Vi) Ao                        |
@@ -224,7 +224,6 @@ library ReClammMath {
         // |   Bi = Balance token in                          |
         // |   Vi = Virtual balance token in                  |
         // +--------------------------------------------------+
-
 
         if (amountOutScaled18 > balancesScaled18[tokenOutIndex]) {
             // Amount out cannot be greater than the real balance of the token in the pool.
