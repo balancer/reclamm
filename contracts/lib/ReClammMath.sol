@@ -142,14 +142,35 @@ library ReClammMath {
         uint256 tokenOutIndex,
         uint256 amountInScaled18
     ) internal pure returns (uint256 amountOutScaled18) {
+        // `amountOutScaled18 = currentTotalTokenOutPoolBalance - newTotalTokenOutPoolBalance`,
+        // where `currentTotalTokenOutPoolBalance = balancesScaled18[tokenOutIndex] + virtualBalanceTokenOut`
+        // and `newTotalTokenOutPoolBalance = invariant / (currentTotalTokenInPoolBalance + amountInScaled18)`.
+        // In other words,
+        // +--------------------------------------------------+
+        // |                         L                        |
+        // | Ao = Bo + Vo - ---------------------             |
+        // |                   (Bi + Vi + Ai)                 |
+        // +--------------------------------------------------+
+        // Simplify by:
+        // - replacing `L = (Bo + Vo) (Bi + Vi)`, and 
+        // - multiplying `(Bo + Vo)` by `(Bi + Vi + Ai) / (Bi + Vi + Ai)`:
+        // +--------------------------------------------------+
+        // |              (Bo + Vo) Ai                        |
+        // | Ao = ------------------------------              |
+        // |             (Bi + Vi + Ai)                       |
+        // +--------------------------------------------------+
+        // | Where:                                           |
+        // |   Ao = Amount out                                |
+        // |   Bo = Balance token out                         |
+        // |   Vo = Virtual balance token out                 |
+        // |   Ai = Amount in                                 |
+        // |   Bi = Balance token in                          |
+        // |   Vi = Virtual balance token in                  |
+        // +--------------------------------------------------+
         (uint256 virtualBalanceTokenIn, uint256 virtualBalanceTokenOut) = tokenInIndex == a
             ? (virtualBalanceA, virtualBalanceB)
             : (virtualBalanceB, virtualBalanceA);
 
-        // `amountOutScaled18 = currentTotalTokenOutPoolBalance - newTotalTokenOutPoolBalance`,
-        // where `currentTotalTokenOutPoolBalance = balancesScaled18[tokenOutIndex] + virtualBalanceTokenOut`
-        // and `newTotalTokenOutPoolBalance = invariant / (currentTotalTokenInPoolBalance + amountInScaled18)`.
-        // Replace invariant with `L = (x + a)(y + b)`, and simplify to arrive to:
         amountOutScaled18 =
             ((balancesScaled18[tokenOutIndex] + virtualBalanceTokenOut) * amountInScaled18) /
             (balancesScaled18[tokenInIndex] + virtualBalanceTokenIn + amountInScaled18);
@@ -178,6 +199,33 @@ library ReClammMath {
         uint256 tokenOutIndex,
         uint256 amountOutScaled18
     ) internal pure returns (uint256 amountInScaled18) {
+        // `amountInScaled18 = newTotalTokenOutPoolBalance - currentTotalTokenInPoolBalance`,
+        // where `newTotalTokenOutPoolBalance = invariant / (currentTotalTokenOutPoolBalance - amountOutScaled18)`
+        // and `currentTotalTokenInPoolBalance = balancesScaled18[tokenInIndex] + virtualBalanceTokenIn`.
+        // In other words,
+        // +--------------------------------------------------+
+        // |               L                                  |
+        // | Ai = --------------------- - (Bi + Vi)           |
+        // |         (Bo + Vo - Ao)                           |
+        // +--------------------------------------------------+
+        // Simplify by:
+        // - replacing `L = (Bo + Vo) (Bi + Vi)`, and 
+        // - multiplying `(Bi + Vi)` by `(Bo + Vo - Ao) / (Bo + Vo - Ao)`:
+        // +--------------------------------------------------+
+        // |              (Bi + Vi) Ao                        |
+        // | Ai = ------------------------------              |
+        // |             (Bo + Vo - Ao)                       |
+        // +--------------------------------------------------+
+        // | Where:                                           |
+        // |   Ao = Amount out                                |
+        // |   Bo = Balance token out                         |
+        // |   Vo = Virtual balance token out                 |
+        // |   Ai = Amount in                                 |
+        // |   Bi = Balance token in                          |
+        // |   Vi = Virtual balance token in                  |
+        // +--------------------------------------------------+
+
+
         if (amountOutScaled18 > balancesScaled18[tokenOutIndex]) {
             // Amount out cannot be greater than the real balance of the token in the pool.
             revert AmountOutGreaterThanBalance();
@@ -187,10 +235,6 @@ library ReClammMath {
             ? (virtualBalanceA, virtualBalanceB)
             : (virtualBalanceB, virtualBalanceA);
 
-        // `amountInScaled18 = newTotalTokenOutPoolBalance - currentTotalTokenInPoolBalance`,
-        // where `newTotalTokenOutPoolBalance = invariant / (currentTotalTokenOutPoolBalance - amountOutScaled18)`
-        // and `currentTotalTokenInPoolBalance = balancesScaled18[tokenInIndex] + virtualBalanceTokenIn`.
-        // Replace invariant with `L = (x + a)(y + b)`, and simplify to arrive to the following formula.
         // Round up to favor the vault (i.e. request larger amount in from the user).
         amountInScaled18 = FixedPoint.mulDivUp(
             balancesScaled18[tokenInIndex] + virtualBalanceTokenIn,
