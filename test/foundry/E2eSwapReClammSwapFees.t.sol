@@ -85,23 +85,18 @@ contract E2eSwapReClammSwapFeesTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest 
 
         (uint256 minPriceBefore, uint256 maxPriceBefore) = ReClammPoolMock(pool).computeCurrentPriceRange();
 
+        uint256 amountIn = poolInitAmountTokenA / 3;
+
         vm.startPrank(alice);
         for (uint256 i = 0; i < 50; i++) {
-            router.swapSingleTokenExactIn(
-                pool,
-                tokenA,
-                tokenB,
-                poolInitAmountTokenA / 3,
-                0,
-                MAX_UINT256,
-                false,
-                bytes("")
-            );
+            router.swapSingleTokenExactIn(pool, tokenA, tokenB, amountIn, 0, MAX_UINT256, false, bytes(""));
             router.swapSingleTokenExactOut(
                 pool,
                 tokenB,
                 tokenA,
-                (poolInitAmountTokenA) / 300,
+                // Since the swap fee is 99%, an amount out of 1% of amount in will make sure that the amount in of token B is equivalent to the previous swap.
+                // We can't use "exact in" since the balances are different, so the tokens may have different values.
+                amountIn / 100,
                 MAX_UINT256,
                 MAX_UINT256,
                 false,
