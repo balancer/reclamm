@@ -542,7 +542,7 @@ contract ReClammMathTest is BaseReClammTest {
         assertEq(centeredness, 0, "(1,0) non-zero centeredness with B=0");
     }
 
-    function testComputePriceRange__Fuzz(uint256 minPrice, uint256 maxPrice, uint256 targetPrice) public {
+    function testComputePriceRange__Fuzz(uint256 minPrice, uint256 maxPrice, uint256 targetPrice) public pure {
         minPrice = bound(minPrice, _MIN_PRICE, _MAX_PRICE.divDown(_MIN_PRICE_RATIO));
         maxPrice = bound(maxPrice, minPrice.mulUp(_MIN_PRICE_RATIO), _MAX_PRICE);
         targetPrice = bound(
@@ -551,12 +551,8 @@ contract ReClammMathTest is BaseReClammTest {
             maxPrice - minPrice.mulDown((_MIN_PRICE_RATIO - FixedPoint.ONE) / 2)
         );
 
-        (
-            uint256[] memory realBalances,
-            uint256 virtualBalanceA,
-            uint256 virtualBalanceB,
-            uint256 fourthRootPriceRatio
-        ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(minPrice, maxPrice, targetPrice);
+        (uint256[] memory realBalances, uint256 virtualBalanceA, uint256 virtualBalanceB, ) = ReClammMath
+            .computeTheoreticalPriceRatioAndBalances(minPrice, maxPrice, targetPrice);
 
         (uint256 computedMinPrice, uint256 computedMaxPrice) = ReClammMath.computePriceRange(
             realBalances,

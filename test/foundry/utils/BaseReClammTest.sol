@@ -61,9 +61,9 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     uint256[] internal _initialBalances;
     uint256[] internal _initialVirtualBalances;
     uint256 internal _initialFourthRootPriceRatio;
-    uint256 private _initialMinPrice = _DEFAULT_MIN_PRICE;
-    uint256 private _initialMaxPrice = _DEFAULT_MAX_PRICE;
-    uint256 private _initialTargetPrice = _DEFAULT_TARGET_PRICE;
+    uint256 internal _initialMinPrice = _DEFAULT_MIN_PRICE;
+    uint256 internal _initialMaxPrice = _DEFAULT_MAX_PRICE;
+    uint256 internal _initialTargetPrice = _DEFAULT_TARGET_PRICE;
 
     uint256 internal saltNumber = 0;
 

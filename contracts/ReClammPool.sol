@@ -3,9 +3,10 @@
 
 pragma solidity ^0.8.24;
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { SignedMath } from "@openzeppelin/contracts/utils/math/SignedMath.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { ISwapFeePercentageBounds } from "@balancer-labs/v3-interfaces/contracts/vault/ISwapFeePercentageBounds.sol";
 import "@balancer-labs/v3-interfaces/contracts/vault/IUnbalancedLiquidityInvariantRatioBounds.sol";
@@ -468,7 +469,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IReClammPool
     function computeCurrentFourthRootPriceRatio() external view returns (uint256) {
-        return _computeCurrentFourthRootPriceRatio(_priceRatioState);
+        return _computeCurrentFourthRootPriceRatio();
     }
 
     /// @inheritdoc IReClammPool
@@ -517,7 +518,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.dailyPriceShiftExponent = data.dailyPriceShiftBase.toDailyPriceShiftExponent();
         data.centerednessMargin = _centerednessMargin;
 
-        data.currentFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio(_priceRatioState);
+        data.currentFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio();
 
         PriceRatioState memory state = _priceRatioState;
         data.startFourthRootPriceRatio = state.startFourthRootPriceRatio;
@@ -595,7 +596,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             revert PriceRatioNotUpdating();
         }
 
-        uint256 currentFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio(priceRatioState);
+        uint256 currentFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio();
+
         _setPriceRatioState(currentFourthRootPriceRatio, block.timestamp, block.timestamp);
     }
 
@@ -664,13 +666,17 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         PriceRatioState memory priceRatioState = _priceRatioState;
 
-        uint256 startFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio(priceRatioState);
+        uint256 currentFourthRootPriceRatio = _priceRatioState.endFourthRootPriceRatio;
+
+        if (_vault.isPoolInitialized(address(this))) {
+            currentFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio();
+        }
 
         fourthRootPriceRatioDelta = SignedMath.abs(
-            startFourthRootPriceRatio.toInt256() - endFourthRootPriceRatio.toInt256()
+            currentFourthRootPriceRatio.toInt256() - endFourthRootPriceRatio.toInt256()
         );
 
-        priceRatioState.startFourthRootPriceRatio = startFourthRootPriceRatio.toUint96();
+        priceRatioState.startFourthRootPriceRatio = currentFourthRootPriceRatio.toUint96();
         priceRatioState.endFourthRootPriceRatio = endFourthRootPriceRatio.toUint96();
         priceRatioState.priceRatioUpdateStartTime = priceRatioUpdateStartTime.toUint32();
         priceRatioState.priceRatioUpdateEndTime = priceRatioUpdateEndTime.toUint32();
@@ -678,7 +684,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _priceRatioState = priceRatioState;
 
         emit PriceRatioStateUpdated(
-            startFourthRootPriceRatio,
+            currentFourthRootPriceRatio,
             endFourthRootPriceRatio,
             priceRatioUpdateStartTime,
             priceRatioUpdateEndTime
@@ -687,7 +693,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _vault.emitAuxiliaryEvent(
             "PriceRatioStateUpdated",
             abi.encode(
-                startFourthRootPriceRatio,
+                currentFourthRootPriceRatio,
                 endFourthRootPriceRatio,
                 priceRatioUpdateStartTime,
                 priceRatioUpdateEndTime
@@ -825,22 +831,22 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /**
-     * @notice Returns the current fourth root of price ratio.
-     * @dev This function uses the current timestamp and full price ratio state to compute the current fourth root
-     * price ratio value by linear interpolation between the start and end times and values.
+     * @notice Computes the fourth root of the current price ratio.
+     * @dev The function calculates the price ratio between tokens A and B using their real and virtual balances,
+     * then takes the fourth root of this ratio. The multiplication by FixedPoint.ONE before each sqrt operation
+     * is done to maintain precision in the fixed-point calculations.
      *
-     * @return currentFourthRootPriceRatio The current fourth root of price ratio
+     * @return The fourth root of the current price ratio, maintaining precision through fixed-point arithmetic
      */
-    function _computeCurrentFourthRootPriceRatio(
-        PriceRatioState memory priceRatioState
-    ) internal view returns (uint256) {
+    function _computeCurrentFourthRootPriceRatio() internal view returns (uint256) {
+        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
+        (uint256 virtualBalanceA, uint256 virtualBalanceB, ) = _computeCurrentVirtualBalances(balancesScaled18);
+
         return
-            ReClammMath.computeFourthRootPriceRatio(
-                block.timestamp.toUint32(),
-                priceRatioState.startFourthRootPriceRatio,
-                priceRatioState.endFourthRootPriceRatio,
-                priceRatioState.priceRatioUpdateStartTime,
-                priceRatioState.priceRatioUpdateEndTime
+            Math.sqrt(
+                Math.sqrt(
+                    ReClammMath.computePriceRatio(balancesScaled18, virtualBalanceA, virtualBalanceB) * FixedPoint.ONE
+                ) * FixedPoint.ONE
             );
     }
 
