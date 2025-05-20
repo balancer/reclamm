@@ -1045,6 +1045,22 @@ contract ReClammPoolTest is BaseReClammTest {
         new ReClammPool(params, vault);
     }
 
+    function testCreateWithTargetUnderMinPrice() public {
+        ReClammPoolParams memory params = ReClammPoolParams({
+            name: "ReClamm Pool",
+            symbol: "FAIL_POOL",
+            version: "1",
+            dailyPriceShiftExponent: 1e18,
+            centerednessMargin: 0.2e18,
+            initialMinPrice: 1750e18,
+            initialMaxPrice: 2000e18,
+            initialTargetPrice: 1500e18
+        });
+
+        vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
+        new ReClammPool(params, vault);
+    }
+
     function testCreateWithInvalidMaxPrice() public {
         ReClammPoolParams memory params = ReClammPoolParams({
             name: "ReClamm Pool",
@@ -1055,6 +1071,22 @@ contract ReClammPoolTest is BaseReClammTest {
             initialMinPrice: 1000e18,
             initialMaxPrice: 0,
             initialTargetPrice: 1500e18
+        });
+
+        vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
+        new ReClammPool(params, vault);
+    }
+
+    function testCreateWithTargetOverMaxPrice() public {
+        ReClammPoolParams memory params = ReClammPoolParams({
+            name: "ReClamm Pool",
+            symbol: "FAIL_POOL",
+            version: "1",
+            dailyPriceShiftExponent: 1e18,
+            centerednessMargin: 0.2e18,
+            initialMinPrice: 1000e18,
+            initialMaxPrice: 2000e18,
+            initialTargetPrice: 3500e18
         });
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
