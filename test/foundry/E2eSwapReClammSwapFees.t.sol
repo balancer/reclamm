@@ -83,25 +83,19 @@ contract E2eSwapReClammSwapFeesTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest 
         // Set pool creator fee to 10%, so part of the fees are collected by the pool.
         ProtocolFeeControllerMock(address(feeController)).manualSetPoolCreatorSwapFeePercentage(pool, uint256(10e16));
 
-        (uint256 minPriceBefore, uint256 maxPriceBefore) = ReClammPoolMock(pool).computeCurrentPriceRange();
+        uint256 amountIn = poolInitAmountTokenA / 3;
 
         vm.startPrank(alice);
         for (uint256 i = 0; i < 50; i++) {
-            router.swapSingleTokenExactIn(
-                pool,
-                tokenA,
-                tokenB,
-                poolInitAmountTokenA / 3,
-                0,
-                MAX_UINT256,
-                false,
-                bytes("")
-            );
+            router.swapSingleTokenExactIn(pool, tokenA, tokenB, amountIn, 0, MAX_UINT256, false, bytes(""));
             router.swapSingleTokenExactOut(
                 pool,
                 tokenB,
                 tokenA,
-                (poolInitAmountTokenA) / 300,
+                // Since the swap fee is 99%, an amount out of 1% of amount in will make sure that the amount in of
+                // token B is equivalent to the previous swap. We can't use "exact in" since the balances are
+                // different, so the tokens may have different values.
+                amountIn / 100,
                 MAX_UINT256,
                 MAX_UINT256,
                 false,
@@ -110,10 +104,7 @@ contract E2eSwapReClammSwapFeesTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest 
         }
         vm.stopPrank();
 
-        (uint256 minPriceAfter, uint256 maxPriceAfter) = ReClammPoolMock(pool).computeCurrentPriceRange();
-
-        vm.assume(maxPriceAfter.divDown(minPriceAfter) > maxPriceBefore.divDown(minPriceBefore));
-
+        // Collect any fees generated during pool setup, so the E2E test will only check the fees from the test.
         feeController.collectAggregateFees(pool);
 
         // Warp 6 hours, so the pool can feel the impact of fees (specially if it's out of range).

@@ -269,7 +269,7 @@ export function computeCenteredness(balancesScaled18: bigint[], virtualBalances:
 
   const [indexTokenUndervalued, indexTokenOvervalued] = isPoolAboveCenter ? [0, 1] : [1, 0];
 
-  return fpDivUp(
+  return fpDivDown(
     (balancesScaled18[indexTokenOvervalued] * virtualBalances[indexTokenUndervalued]) /
       balancesScaled18[indexTokenUndervalued],
     virtualBalances[indexTokenOvervalued]
