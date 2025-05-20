@@ -1271,6 +1271,69 @@ contract ReClammPoolTest is BaseReClammTest {
         _validatePostInitConditions();
     }
 
+    function testComputeInitialBalances__Fuzz(
+        uint256 initialAmount,
+        uint256 rateA,
+        uint256 rateB,
+        bool tokenAWithRate,
+        bool tokenBWithRate
+    ) public {
+        initialAmount = bound(initialAmount, 1e18, _INITIAL_AMOUNT);
+        rateA = bound(rateA, 1e18, 1000e18);
+        rateB = bound(rateB, 1e18, 1000e18);
+        IERC20[] memory sortedTokens = InputHelpers.sortTokens(
+            [address(usdc6Decimals), address(wbtc8Decimals)].toMemoryArray().asIERC20()
+        );
+        _priceTokenAWithRate = tokenAWithRate;
+        _priceTokenBWithRate = tokenBWithRate;
+
+        (address newPool, ) = _createPool(sortedTokens.asAddress(), "BeforeInitTest");
+
+        assertFalse(vault.isPoolInitialized(newPool), "Pool is initialized");
+
+        // Calculate initial balances with rate.
+        _rateProviderA.mockRate(rateA);
+        _rateProviderB.mockRate(rateB);
+
+        uint256[] memory initialBalancesRaw = ReClammPool(newPool).computeInitialBalancesRaw(
+            sortedTokens[b],
+            initialAmount
+        );
+        // The reference token initial balance should always equal the initial amount passed in.
+        assertEq(initialBalancesRaw[b], initialAmount, "Invalid initial balance for token B");
+
+        uint256[] memory inverseInitialBalances = ReClammPool(newPool).computeInitialBalancesRaw(
+            sortedTokens[a],
+            initialBalancesRaw[a]
+        );
+
+        // We should get the same result either way.
+        assertApproxEqRel(
+            initialBalancesRaw[a],
+            inverseInitialBalances[a],
+            _INITIAL_PARAMS_ERROR,
+            "Wrong inverse initialization balance (a)"
+        );
+
+        assertApproxEqRel(
+            initialBalancesRaw[b],
+            inverseInitialBalances[b],
+            _INITIAL_PARAMS_ERROR,
+            "Wrong inverse initialization balance (b)"
+        );
+
+        // Does not revert either way.
+        vm.startPrank(lp);
+
+        uint256 snapshotId = vm.snapshot();
+        _initPool(newPool, initialBalancesRaw, 0);
+        _validatePostInitConditions();
+        vm.revertTo(snapshotId);
+
+        _initPool(newPool, inverseInitialBalances, 0);
+        _validatePostInitConditions();
+    }
+
     function testComputeInitialBalancesInvalidToken() public {
         vm.expectRevert(IVaultErrors.InvalidToken.selector);
         ReClammPool(pool).computeInitialBalancesRaw(wsteth, _INITIAL_AMOUNT);
