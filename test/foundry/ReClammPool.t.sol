@@ -840,8 +840,8 @@ contract ReClammPoolTest is BaseReClammTest {
         _setPoolBalances(newDaiBalance, newUsdcBalance);
         ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
 
-        // Exactly at boundary is out of range.
-        assertFalse(ReClammPoolMock(pool).isPoolWithinTargetRange(), "Pool is in range");
+        // Exactly at boundary is still in range.
+        assertTrue(ReClammPoolMock(pool).isPoolWithinTargetRange(), "Pool is in range");
         assertApproxEqRel(
             ReClammPoolMock(pool).computeCurrentPoolCenteredness(),
             _DEFAULT_CENTEREDNESS_MARGIN,
