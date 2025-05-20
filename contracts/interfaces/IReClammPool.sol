@@ -33,7 +33,6 @@ struct ReClammPoolParams {
  * @param initialTargetPrice The initial target price of the pool
  * @param initialDailyPriceShiftExponent The initial daily price shift exponent (speed of the range update)
  * @param initialCenterednessMargin The initial centeredness margin (threshold for initiating a range update)
- * @param minCenterednessMargin The minimum centeredness margin for the pool, as an 18-decimal FP percentage
  * @param maxCenterednessMargin The maximum centeredness margin for the pool, as an 18-decimal FP percentage
  * @param minTokenBalanceScaled18 The minimum token balance for the pool, scaled to 18 decimals
  * @param minPoolCenteredness The minimum pool centeredness for the pool, as an 18-decimal FP percentage
@@ -49,7 +48,6 @@ struct ReClammPoolImmutableData {
     uint256 initialTargetPrice;
     uint256 initialDailyPriceShiftExponent;
     uint256 initialCenterednessMargin;
-    uint256 minCenterednessMargin;
     uint256 maxCenterednessMargin;
     uint256 minTokenBalanceScaled18;
     uint256 minPoolCenteredness;

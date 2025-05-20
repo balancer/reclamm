@@ -43,8 +43,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 private constant _MIN_SWAP_FEE_PERCENTAGE = 0.001e16; // 0.001%
     uint256 internal constant _MAX_SWAP_FEE_PERCENTAGE = 10e16; // 10%
 
-    // The minimum pool centeredness required to consider the pool within the target range.
-    uint256 internal constant _MIN_CENTEREDNESS_MARGIN = 0;
     // The maximum pool centeredness allowed to consider the pool within the target range.
     uint256 internal constant _MAX_CENTEREDNESS_MARGIN = 50e16; // 50%
 
@@ -565,7 +563,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.initialTargetPrice = _INITIAL_TARGET_PRICE;
         data.initialDailyPriceShiftExponent = _INITIAL_DAILY_PRICE_SHIFT_EXPONENT;
         data.initialCenterednessMargin = _INITIAL_CENTEREDNESS_MARGIN;
-        data.minCenterednessMargin = _MIN_CENTEREDNESS_MARGIN;
         data.maxCenterednessMargin = _MAX_CENTEREDNESS_MARGIN;
         data.minTokenBalanceScaled18 = _MIN_TOKEN_BALANCE_SCALED18;
         data.minPoolCenteredness = _MIN_POOL_CENTEREDNESS;
