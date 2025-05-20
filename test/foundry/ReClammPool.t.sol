@@ -164,8 +164,7 @@ contract ReClammPoolTest is BaseReClammTest {
     function testGetPriceRatioState() public {
         PriceRatioState memory priceRatioState = ReClammPool(pool).getPriceRatioState();
         assertEq(priceRatioState.startFourthRootPriceRatio, 0, "Invalid default startFourthRootPriceRatio");
-        // Error tolerance of 0.0000000000001%, since the price ratio is computed using the pool balances and may
-        // have a small error.
+        // Error tolerance of 100 wei (price ratio is computed using the pool balances and may have a small error).
         assertApproxEqRel(
             priceRatioState.endFourthRootPriceRatio,
             _initialFourthRootPriceRatio,
