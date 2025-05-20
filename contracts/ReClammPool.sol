@@ -603,6 +603,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     function getReClammPoolImmutableData() external view returns (ReClammPoolImmutableData memory data) {
         data.tokens = _vault.getPoolTokens(address(this));
         (data.decimalScalingFactors, ) = _vault.getPoolTokenRates(address(this));
+        data.priceTokenAWithRate = _PRICE_TOKEN_A_WITH_RATE;
+        data.priceTokenBWithRate = _PRICE_TOKEN_B_WITH_RATE;
         data.initialMinPrice = _INITIAL_MIN_PRICE;
         data.initialMaxPrice = _INITIAL_MAX_PRICE;
         data.initialTargetPrice = _INITIAL_TARGET_PRICE;

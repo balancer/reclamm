@@ -320,6 +320,9 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(data.decimalScalingFactors[daiIdx], 1, "Invalid DAI decimal scaling factor");
         assertEq(data.decimalScalingFactors[usdcIdx], 1, "Invalid USDC decimal scaling factor");
 
+        assertFalse(data.priceTokenAWithRate, "Token A priced with rate");
+        assertFalse(data.priceTokenBWithRate, "Token B priced with rate");
+
         assertEq(data.minCenterednessMargin, 0, "Invalid min centeredness margin");
         assertEq(data.maxCenterednessMargin, 50e16, "Invalid max centeredness margin");
 

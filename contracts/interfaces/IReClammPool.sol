@@ -30,9 +30,11 @@ struct ReClammPoolParams {
  * @param tokens Pool tokens, sorted in token registration order
  * @param decimalScalingFactors Conversion factor used to adjust for token decimals for uniform precision in
  * calculations. FP(1) for 18-decimal tokens
- * @param initialMinPrice The initial minimum price of token A in terms of token B
- * @param initialMaxPrice The initial maximum price of token A in terms of token B
- * @param initialTargetPrice The initial target price of token A in terms of token B
+ * @param priceTokenAWithRate True if the prices incorporate a rate for token A
+ * @param priceTokenBWithRate True if the prices incorporate a rate for token B
+ * @param initialMinPrice The initial minimum price of token A in terms of token B (possibly applying rates)
+ * @param initialMaxPrice The initial maximum price of token A in terms of token B (possibly applying rates)
+ * @param initialTargetPrice The initial target price of token A in terms of token B (possibly applying rates)
  * @param initialDailyPriceShiftExponent The initial daily price shift exponent
  * @param initialCenterednessMargin
  * @param minCenterednessMargin The minimum centeredness margin for the pool, as an 18-decimal FP percentage
@@ -46,6 +48,8 @@ struct ReClammPoolParams {
 struct ReClammPoolImmutableData {
     IERC20[] tokens;
     uint256[] decimalScalingFactors;
+    bool priceTokenAWithRate;
+    bool priceTokenBWithRate;
     uint256 initialMinPrice;
     uint256 initialMaxPrice;
     uint256 initialTargetPrice;
