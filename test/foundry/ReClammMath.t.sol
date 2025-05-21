@@ -191,12 +191,12 @@ contract ReClammMathTest is BaseReClammTest {
             centerednessMargin
         );
 
-        (uint256 centeredness, ) = ReClammMath.computeCenteredness(balancesScaled18, virtualBalances[a], virtualBalances[b]);
-        assertEq(
-            isInRange,
-             centeredness >=
-                centerednessMargin
+        (uint256 centeredness, ) = ReClammMath.computeCenteredness(
+            balancesScaled18,
+            virtualBalances[a],
+            virtualBalances[b]
         );
+        assertEq(isInRange, centeredness >= centerednessMargin);
     }
 
     function testComputeCenteredness__Fuzz(
