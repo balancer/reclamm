@@ -927,10 +927,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256[] memory balancesScaled18,
         uint256[] memory theoreticalRealBalances
     ) internal pure {
-        // (IERC20[] memory tokens,,,) = _vault.getPoolTokenInfo(address(this));
-        // uint256 decimalsA = IERC20Metadata(address(tokens[a])).decimals();
-        // uint256 decimalsB = IERC20Metadata(address(tokens[b])).decimals();
-
         uint256 realBalanceRatio = balancesScaled18[b].divDown(balancesScaled18[a]);
         uint256 theoreticalBalanceRatio = theoreticalRealBalances[b].divDown(theoreticalRealBalances[a]);
 
