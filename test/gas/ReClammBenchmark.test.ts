@@ -47,8 +47,8 @@ class ReClammBenchmark extends Benchmark {
       initialMinPrice: fp(0.5), // 0.5 min price
       initialMaxPrice: fp(2), // 2 max price
       initialTargetPrice: fp(1), // 1 target price
-      priceTokenAWithRate: false, // Do not consider rates in the price calculation
-      priceTokenBWithRate: false, // Do not consider rates in the price calculation
+      tokenAPriceIncludesRate: false, // Do not consider rates in the price calculation for token A
+      tokenBPriceIncludesRate: false, // Do not consider rates in the price calculation for token B
     };
 
     // The min, max and target prices were chosen to make sure the balance of token 1 is equal to balance of token 0.

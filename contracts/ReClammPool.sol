@@ -86,8 +86,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     // If the price is given in terms of the underlying token, the initialization helper *should* apply the rate, so
     // the flag should be true. Since the prices are stored on initialization, these flags are as well (vs. passing
     // them in at initialization time, when they might be out-of-sync with the prices).
-    bool private immutable _PRICE_TOKEN_A_WITH_RATE;
-    bool private immutable _PRICE_TOKEN_B_WITH_RATE;
+    bool private immutable _TOKEN_A_PRICE_INCLUDES_RATE;
+    bool private immutable _TOKEN_B_PRICE_INCLUDES_RATE;
 
     PriceRatioState internal _priceRatioState;
 
@@ -162,8 +162,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _INITIAL_DAILY_PRICE_SHIFT_EXPONENT = params.dailyPriceShiftExponent;
         _INITIAL_CENTEREDNESS_MARGIN = params.centerednessMargin;
 
-        _PRICE_TOKEN_A_WITH_RATE = params.priceTokenAWithRate;
-        _PRICE_TOKEN_B_WITH_RATE = params.priceTokenBWithRate;
+        _TOKEN_A_PRICE_INCLUDES_RATE = params.tokenAPriceIncludesRate;
+        _TOKEN_B_PRICE_INCLUDES_RATE = params.tokenBPriceIncludesRate;
     }
 
     /********************************************************
@@ -315,8 +315,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             );
 
         (, TokenInfo[] memory tokenInfo, , ) = _vault.getPoolTokenInfo(address(this));
-        uint256 rateA = _PRICE_TOKEN_A_WITH_RATE ? FixedPoint.ONE : IRateProvider(tokenInfo[a].rateProvider).getRate();
-        uint256 rateB = _PRICE_TOKEN_B_WITH_RATE ? FixedPoint.ONE : IRateProvider(tokenInfo[b].rateProvider).getRate();
+        uint256 rateA = _TOKEN_A_PRICE_INCLUDES_RATE ? FixedPoint.ONE : IRateProvider(tokenInfo[a].rateProvider).getRate();
+        uint256 rateB = _TOKEN_B_PRICE_INCLUDES_RATE ? FixedPoint.ONE : IRateProvider(tokenInfo[b].rateProvider).getRate();
 
         balancesScaled18[a] = balancesScaled18[a].divDown(rateA);
         balancesScaled18[b] = balancesScaled18[b].divDown(rateB);
@@ -611,8 +611,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     function getReClammPoolImmutableData() external view returns (ReClammPoolImmutableData memory data) {
         data.tokens = _vault.getPoolTokens(address(this));
         (data.decimalScalingFactors, ) = _vault.getPoolTokenRates(address(this));
-        data.priceTokenAWithRate = _PRICE_TOKEN_A_WITH_RATE;
-        data.priceTokenBWithRate = _PRICE_TOKEN_B_WITH_RATE;
+        data.tokenAPriceIncludesRate = _TOKEN_A_PRICE_INCLUDES_RATE;
+        data.tokenBPriceIncludesRate = _TOKEN_B_PRICE_INCLUDES_RATE;
         data.initialMinPrice = _INITIAL_MIN_PRICE;
         data.initialMaxPrice = _INITIAL_MAX_PRICE;
         data.initialTargetPrice = _INITIAL_TARGET_PRICE;
@@ -1004,26 +1004,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     function _computeInitialBalanceRatioRaw() internal view returns (uint256) {
-        uint256 rateA = FixedPoint.ONE;
-        uint256 rateB = FixedPoint.ONE;
-
         (IERC20[] memory tokens, TokenInfo[] memory tokenInfo, , ) = _vault.getPoolTokenInfo(address(this));
 
-        if (_PRICE_TOKEN_A_WITH_RATE) {
-            if (tokenInfo[a].tokenType == TokenType.WITH_RATE) {
-                rateA = IRateProvider(tokenInfo[a].rateProvider).getRate();
-            } else {
-                revert IVaultErrors.InvalidTokenType();
-            }
-        }
-
-        if (_PRICE_TOKEN_B_WITH_RATE) {
-            if (tokenInfo[b].tokenType == TokenType.WITH_RATE) {
-                rateB = IRateProvider(tokenInfo[b].rateProvider).getRate();
-            } else {
-                revert IVaultErrors.InvalidTokenType();
-            }
-        }
+        uint256 rateA = _getTokenRate(_TOKEN_A_PRICE_INCLUDES_RATE, tokenInfo[a]);
+        uint256 rateB = _getTokenRate(_TOKEN_B_PRICE_INCLUDES_RATE, tokenInfo[b]);
 
         uint256 minPriceScaled18 = (_INITIAL_MIN_PRICE * rateA) / rateB;
         uint256 maxPriceScaled18 = (_INITIAL_MAX_PRICE * rateA) / rateB;
@@ -1046,5 +1030,17 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     function _computeMaxPrice(uint256 currentInvariant, uint256 virtualBalanceA) internal pure returns (uint256) {
         return currentInvariant.divDown(virtualBalanceA.mulDown(virtualBalanceA));
+    }
+
+    function _getTokenRate(bool tokenPriceIncludesRate, TokenInfo memory tokenInfo) internal view returns (uint256 tokenRate) {
+        if (tokenPriceIncludesRate) {
+            if (tokenInfo.tokenType == TokenType.WITH_RATE) {
+                tokenRate = IRateProvider(tokenInfo.rateProvider).getRate();
+            } else {
+                revert IVaultErrors.InvalidTokenType();
+            }
+        } else {
+            tokenRate = FixedPoint.ONE;
+        }
     }
 }
