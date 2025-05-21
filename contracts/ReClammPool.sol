@@ -417,9 +417,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         (uint256 referenceTokenIdx, uint256 otherTokenIdx) = tokens[a] == referenceToken ? (a, b) : (b, a);
 
-        uint8 decimalsReferenceToken = IERC20Metadata(address(tokens[referenceTokenIdx])).decimals();
-        uint8 decimalsOtherToken = IERC20Metadata(address(tokens[otherTokenIdx])).decimals();
-
         if (referenceTokenIdx == b && referenceToken != tokens[b]) {
             revert IVaultErrors.InvalidToken();
         }
@@ -432,11 +429,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         initialBalancesRaw = new uint256[](2);
         initialBalancesRaw[referenceTokenIdx] = referenceAmountInRaw;
 
-        uint256 referenceAmountInScaled18 = referenceAmountInRaw * 10 ** (_MAX_TOKEN_DECIMALS - decimalsReferenceToken);
-
         initialBalancesRaw[otherTokenIdx] = referenceTokenIdx == a
-            ? referenceAmountInScaled18.mulDown(balanceRatioRaw) / 10 ** (_MAX_TOKEN_DECIMALS - decimalsOtherToken)
-            : referenceAmountInScaled18.divDown(balanceRatioRaw) / 10 ** (_MAX_TOKEN_DECIMALS - decimalsOtherToken);
+            ? referenceAmountInRaw.mulDown(balanceRatioRaw)
+            : referenceAmountInRaw.divDown(balanceRatioRaw);
     }
 
     /// @inheritdoc IReClammPool
@@ -932,6 +927,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256[] memory balancesScaled18,
         uint256[] memory theoreticalRealBalances
     ) internal pure {
+        // (IERC20[] memory tokens,,,) = _vault.getPoolTokenInfo(address(this));
+        // uint256 decimalsA = IERC20Metadata(address(tokens[a])).decimals();
+        // uint256 decimalsB = IERC20Metadata(address(tokens[b])).decimals();
+
         uint256 realBalanceRatio = balancesScaled18[b].divDown(balancesScaled18[a]);
         uint256 theoreticalBalanceRatio = theoreticalRealBalances[b].divDown(theoreticalRealBalances[a]);
 
@@ -1000,7 +999,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256 rateA = FixedPoint.ONE;
         uint256 rateB = FixedPoint.ONE;
 
-        (, TokenInfo[] memory tokenInfo, , ) = _vault.getPoolTokenInfo(address(this));
+        (IERC20[] memory tokens, TokenInfo[] memory tokenInfo, , ) = _vault.getPoolTokenInfo(address(this));
 
         if (_PRICE_TOKEN_A_WITH_RATE) {
             if (tokenInfo[a].tokenType == TokenType.WITH_RATE) {
@@ -1028,6 +1027,12 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             targetPriceScaled18
         );
 
-        return theoreticalBalancesScaled18[b].divDown(theoreticalBalancesScaled18[a]);
+        uint256 decimalsA = IERC20Metadata(address(tokens[a])).decimals();
+        uint256 decimalsB = IERC20Metadata(address(tokens[b])).decimals();
+
+        return
+            (theoreticalBalancesScaled18[b] * 10 ** (18 - decimalsA)).divDown(
+                theoreticalBalancesScaled18[a] * 10 ** (18 - decimalsB)
+            );
     }
 }
