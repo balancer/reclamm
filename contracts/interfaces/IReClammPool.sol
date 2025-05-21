@@ -36,14 +36,13 @@ struct ReClammPoolParams {
  * @param initialMaxPrice The initial maximum price of token A in terms of token B (possibly applying rates)
  * @param initialTargetPrice The initial target price of token A in terms of token B (possibly applying rates)
  * @param initialDailyPriceShiftExponent The initial daily price shift exponent
- * @param initialCenterednessMargin
- * @param minCenterednessMargin The minimum centeredness margin for the pool, as an 18-decimal FP percentage
+ * @param initialCenterednessMargin The initial centeredness margin (threshold for initiating a range update)
  * @param maxCenterednessMargin The maximum centeredness margin for the pool, as an 18-decimal FP percentage
  * @param minTokenBalanceScaled18 The minimum token balance for the pool, scaled to 18 decimals
  * @param minPoolCenteredness The minimum pool centeredness for the pool, as an 18-decimal FP percentage
  * @param maxDailyPriceShiftExponent The maximum exponent for the pool's price shift, as an 18-decimal FP percentage
  * @param minPriceRatioUpdateDuration The minimum duration for the price ratio update, expressed in seconds
- * @param minPriceRatioUpdateDuration The minimum absolute difference between current and new fourth root price ratio
+ * @param minFourthRootPriceRatioDelta The minimum absolute difference between current and new fourth root price ratio
  */
 struct ReClammPoolImmutableData {
     IERC20[] tokens;
@@ -55,7 +54,6 @@ struct ReClammPoolImmutableData {
     uint256 initialTargetPrice;
     uint256 initialDailyPriceShiftExponent;
     uint256 initialCenterednessMargin;
-    uint256 minCenterednessMargin;
     uint256 maxCenterednessMargin;
     uint256 minTokenBalanceScaled18;
     uint256 minPoolCenteredness;

@@ -44,8 +44,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 private constant _MIN_SWAP_FEE_PERCENTAGE = 0.001e16; // 0.001%
     uint256 internal constant _MAX_SWAP_FEE_PERCENTAGE = 10e16; // 10%
 
-    // The centeredness margin defines the minimum pool centeredness to consider the pool within the target range.
-    uint256 internal constant _MIN_CENTEREDNESS_MARGIN = 0;
+    // The maximum pool centeredness allowed to consider the pool within the target range.
     uint256 internal constant _MAX_CENTEREDNESS_MARGIN = 50e16; // 50%
 
     // A pool is "centered" when it holds equal (non-zero) value in both real token balances. In this state, the ratio
@@ -59,7 +58,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 internal constant _MIN_TOKEN_BALANCE_SCALED18 = 1e12;
     uint256 internal constant _MIN_POOL_CENTEREDNESS = 1e3;
 
-    uint256 internal constant _MAX_DAILY_PRICE_SHIFT_EXPONENT = 500e16; // 500%
+    uint256 internal constant _MAX_DAILY_PRICE_SHIFT_EXPONENT = 300e16; // 300%
 
     uint256 internal constant _MIN_PRICE_RATIO_UPDATE_DURATION = 6 hours;
 
@@ -143,8 +142,15 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         BasePoolAuthentication(vault, msg.sender)
         Version(params.version)
     {
-        if (params.initialMinPrice == 0 || params.initialTargetPrice == 0) {
-            // If either of these prices were 0, pool initialization would fail with division by zero.
+        if (
+            params.initialMinPrice == 0 ||
+            params.initialMaxPrice == 0 ||
+            params.initialTargetPrice == 0 ||
+            params.initialTargetPrice < params.initialMinPrice ||
+            params.initialTargetPrice > params.initialMaxPrice
+        ) {
+            // If any of these prices were 0, pool initialization would revert with a numerical error.
+            // For good measure, we also ensure the target is within the range.
             revert InvalidInitialPrice();
         }
 
@@ -457,7 +463,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             // We don't have Rb_max, but: invariant=(Rb_max + Vb)(Va)
             // Then, (Rb_max + Vb) = invariant/Va, and:
             // P_max(a) = invariant / Va^2
-            maxPrice = currentInvariant.divDown(virtualBalanceA.mulDown(virtualBalanceA));
+            maxPrice = _computeMaxPrice(currentInvariant, virtualBalanceA);
         } else {
             minPrice = _INITIAL_MIN_PRICE;
             maxPrice = _INITIAL_MAX_PRICE;
@@ -605,7 +611,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.initialTargetPrice = _INITIAL_TARGET_PRICE;
         data.initialDailyPriceShiftExponent = _INITIAL_DAILY_PRICE_SHIFT_EXPONENT;
         data.initialCenterednessMargin = _INITIAL_CENTEREDNESS_MARGIN;
-        data.minCenterednessMargin = _MIN_CENTEREDNESS_MARGIN;
         data.maxCenterednessMargin = _MAX_CENTEREDNESS_MARGIN;
         data.minTokenBalanceScaled18 = _MIN_TOKEN_BALANCE_SCALED18;
         data.minPoolCenteredness = _MIN_POOL_CENTEREDNESS;
@@ -810,7 +815,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
      * @param centerednessMargin The new centerednessMargin value, which must be within the target range
      */
     function _setCenterednessMargin(uint256 centerednessMargin) internal {
-        if (centerednessMargin < _MIN_CENTEREDNESS_MARGIN || centerednessMargin > _MAX_CENTEREDNESS_MARGIN) {
+        if (centerednessMargin > _MAX_CENTEREDNESS_MARGIN) {
             revert InvalidCenterednessMargin();
         }
 
@@ -964,7 +969,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _comparePrice(currentMinPrice, _INITIAL_MIN_PRICE);
 
         // Compare current max price with initialization max price.
-        uint256 currentMaxPrice = currentInvariant.divDown(virtualBalanceA).divDown(virtualBalanceA);
+        uint256 currentMaxPrice = _computeMaxPrice(currentInvariant, virtualBalanceA);
         _comparePrice(currentMaxPrice, _INITIAL_MAX_PRICE);
     }
 
@@ -1030,5 +1035,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             (theoreticalBalancesScaled18[b] * 10 ** (18 - decimalsA)).divDown(
                 theoreticalBalancesScaled18[a] * 10 ** (18 - decimalsB)
             );
+    }
+
+    function _computeMaxPrice(uint256 currentInvariant, uint256 virtualBalanceA) internal pure returns (uint256) {
+        return currentInvariant.divDown(virtualBalanceA.mulDown(virtualBalanceA));
     }
 }
