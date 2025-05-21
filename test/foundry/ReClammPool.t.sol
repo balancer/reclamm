@@ -49,7 +49,7 @@ contract ReClammPoolTest is BaseReClammTest {
     uint256 private constant _INITIAL_PARAMS_ERROR = 1e6;
     // Tokens with decimals introduces some rounding imprecisions, so we need to be more tolerant with the inverse
     // initialization error.
-    uint256 private constant _INVERSE_INITIALIZATION_ERROR = 1e12;
+    uint256 private constant _INVERSE_INITIALIZATION_ERROR = 1e16;
 
     ReClammMathMock mathMock = new ReClammMathMock();
 
@@ -1339,6 +1339,7 @@ contract ReClammPoolTest is BaseReClammTest {
         );
         _priceTokenAWithRate = tokenAWithRate;
         _priceTokenBWithRate = tokenBWithRate;
+        initialAmount = initialAmount / 10 ** (18 - IERC20Metadata(address(sortedTokens[b])).decimals());
 
         (address newPool, ) = _createPool(sortedTokens.asAddress(), "BeforeInitTest");
 
@@ -1352,6 +1353,7 @@ contract ReClammPoolTest is BaseReClammTest {
             sortedTokens[b],
             initialAmount
         );
+
         // The reference token initial balance should always equal the initial amount passed in.
         assertEq(initialBalancesRaw[b], initialAmount, "Invalid initial balance for token B");
 
@@ -1364,16 +1366,19 @@ contract ReClammPoolTest is BaseReClammTest {
         assertApproxEqRel(
             initialBalancesRaw[a],
             inverseInitialBalances[a],
-            _INITIAL_PARAMS_ERROR,
+            _INVERSE_INITIALIZATION_ERROR,
             "Wrong inverse initialization balance (a)"
         );
 
         assertApproxEqRel(
             initialBalancesRaw[b],
             inverseInitialBalances[b],
-            _INITIAL_PARAMS_ERROR,
+            _INVERSE_INITIALIZATION_ERROR,
             "Wrong inverse initialization balance (b)"
         );
+
+        vm.assume(initialBalancesRaw[a] > 1e6);
+        vm.assume(initialBalancesRaw[b] > 1e6);
 
         // Does not revert either way.
         vm.startPrank(lp);

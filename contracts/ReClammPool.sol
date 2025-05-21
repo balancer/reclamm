@@ -314,6 +314,13 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                 _INITIAL_TARGET_PRICE
             );
 
+        (, TokenInfo[] memory tokenInfo, , ) = _vault.getPoolTokenInfo(address(this));
+        uint256 rateA = _PRICE_TOKEN_A_WITH_RATE ? FixedPoint.ONE : IRateProvider(tokenInfo[a].rateProvider).getRate();
+        uint256 rateB = _PRICE_TOKEN_B_WITH_RATE ? FixedPoint.ONE : IRateProvider(tokenInfo[b].rateProvider).getRate();
+
+        balancesScaled18[a] = balancesScaled18[a].divDown(rateA);
+        balancesScaled18[b] = balancesScaled18[b].divDown(rateB);
+
         _checkInitializationBalanceRatio(balancesScaled18, theoreticalRealBalances);
 
         uint256 scale = balancesScaled18[a].divDown(theoreticalRealBalances[a]);
@@ -931,8 +938,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     function _checkInitializationBalanceRatio(
         uint256[] memory balancesScaled18,
         uint256[] memory theoreticalRealBalances
-    ) internal pure {
-        uint256 realBalanceRatio = balancesScaled18[b].divDown(balancesScaled18[a]);
+    ) internal view {
+        uint256 realBalanceRatio = (balancesScaled18[b]).divDown(balancesScaled18[a]);
         uint256 theoreticalBalanceRatio = theoreticalRealBalances[b].divDown(theoreticalRealBalances[a]);
 
         uint256 ratioLowerBound = theoreticalBalanceRatio.mulDown(FixedPoint.ONE - _BALANCE_RATIO_AND_PRICE_TOLERANCE);
