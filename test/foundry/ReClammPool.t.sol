@@ -312,16 +312,18 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(data.decimalScalingFactors[daiIdx], 1, "Invalid DAI decimal scaling factor");
         assertEq(data.decimalScalingFactors[usdcIdx], 1, "Invalid USDC decimal scaling factor");
 
-        assertEq(data.minCenterednessMargin, 0, "Invalid min centeredness margin");
         assertEq(data.maxCenterednessMargin, 50e16, "Invalid max centeredness margin");
 
-        // Ensure that centeredness margin parameters fit in uint64
-        assertEq(data.minCenterednessMargin, uint64(data.minCenterednessMargin), "Min centeredness margin not uint64");
+        // Ensure that the max centeredness margin parameter fits in uint64.
         assertEq(data.maxCenterednessMargin, uint64(data.maxCenterednessMargin), "Max centeredness margin not uint64");
 
         assertEq(data.minTokenBalanceScaled18, _MIN_TOKEN_BALANCE, "Invalid min token balance");
         assertEq(data.minPoolCenteredness, _MIN_POOL_CENTEREDNESS, "Invalid min pool centeredness");
-        assertEq(data.maxDailyPriceShiftExponent, 500e16, "Invalid max daily price shift exponent");
+        assertEq(
+            data.maxDailyPriceShiftExponent,
+            _MAX_DAILY_PRICE_SHIFT_EXPONENT,
+            "Invalid max daily price shift exponent"
+        );
         assertEq(data.minPriceRatioUpdateDuration, 6 hours, "Invalid min price ratio update duration");
     }
 
@@ -834,6 +836,7 @@ contract ReClammPoolTest is BaseReClammTest {
         _setPoolBalances(newDaiBalance, newUsdcBalance);
         ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
 
+        // Exactly at boundary is still in range.
         assertTrue(ReClammPoolMock(pool).isPoolWithinTargetRange(), "Pool is out of range");
         assertApproxEqRel(
             ReClammPoolMock(pool).computeCurrentPoolCenteredness(),
@@ -1033,6 +1036,54 @@ contract ReClammPoolTest is BaseReClammTest {
             initialMinPrice: 0,
             initialMaxPrice: 2000e18,
             initialTargetPrice: 1500e18
+        });
+
+        vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
+        new ReClammPool(params, vault);
+    }
+
+    function testCreateWithTargetUnderMinPrice() public {
+        ReClammPoolParams memory params = ReClammPoolParams({
+            name: "ReClamm Pool",
+            symbol: "FAIL_POOL",
+            version: "1",
+            dailyPriceShiftExponent: 1e18,
+            centerednessMargin: 0.2e18,
+            initialMinPrice: 1750e18,
+            initialMaxPrice: 2000e18,
+            initialTargetPrice: 1500e18
+        });
+
+        vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
+        new ReClammPool(params, vault);
+    }
+
+    function testCreateWithInvalidMaxPrice() public {
+        ReClammPoolParams memory params = ReClammPoolParams({
+            name: "ReClamm Pool",
+            symbol: "FAIL_POOL",
+            version: "1",
+            dailyPriceShiftExponent: 1e18,
+            centerednessMargin: 0.2e18,
+            initialMinPrice: 1000e18,
+            initialMaxPrice: 0,
+            initialTargetPrice: 1500e18
+        });
+
+        vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
+        new ReClammPool(params, vault);
+    }
+
+    function testCreateWithTargetOverMaxPrice() public {
+        ReClammPoolParams memory params = ReClammPoolParams({
+            name: "ReClamm Pool",
+            symbol: "FAIL_POOL",
+            version: "1",
+            dailyPriceShiftExponent: 1e18,
+            centerednessMargin: 0.2e18,
+            initialMinPrice: 1000e18,
+            initialMaxPrice: 2000e18,
+            initialTargetPrice: 3500e18
         });
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
@@ -1304,8 +1355,8 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function testDailyPriceShiftExponentHighPrice__Fuzz(uint256 exponent) public {
-        // 1. Fuzz the exponent in the range [10e16, 500e16]
-        exponent = bound(exponent, 10e16, 500e16);
+        // 1. Fuzz the exponent in the range [10e16, _MAX_DAILY_PRICE_SHIFT_EXPONENT]
+        exponent = bound(exponent, 10e16, _MAX_DAILY_PRICE_SHIFT_EXPONENT);
 
         // 2. Set the daily price shift exponent on the pool (must be admin, and the vault must be locked)
         vm.prank(admin);
@@ -1346,8 +1397,8 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function testDailyPriceShiftExponentLowPrice__Fuzz(uint256 exponent) public {
-        // 1. Fuzz the exponent in the range [10e16, 500e16]
-        exponent = bound(exponent, 10e16, 500e16);
+        // 1. Fuzz the exponent in the range [10e16, _MAX_DAILY_PRICE_SHIFT_EXPONENT]
+        exponent = bound(exponent, 10e16, _MAX_DAILY_PRICE_SHIFT_EXPONENT);
 
         // 2. Set the daily price shift exponent on the pool (must be admin and vault locked)
         vm.prank(admin);
