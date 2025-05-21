@@ -938,7 +938,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     function _checkInitializationBalanceRatio(
         uint256[] memory balancesScaled18,
         uint256[] memory theoreticalRealBalances
-    ) internal view {
+    ) internal pure {
         uint256 realBalanceRatio = (balancesScaled18[b]).divDown(balancesScaled18[a]);
         uint256 theoreticalBalanceRatio = theoreticalRealBalances[b].divDown(theoreticalRealBalances[a]);
 
