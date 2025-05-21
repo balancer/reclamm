@@ -839,8 +839,10 @@ contract ReClammPoolTest is BaseReClammTest {
         ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
 
         assertTrue(ReClammPoolMock(pool).isPoolWithinTargetRange(), "Pool is out of range");
+        (uint256 centeredness, ) = ReClammPoolMock(pool).computeCurrentPoolCenteredness();
+
         assertApproxEqRel(
-            ReClammPoolMock(pool).computeCurrentPoolCenteredness(),
+            centeredness,
             _DEFAULT_CENTEREDNESS_MARGIN,
             1e16,
             "Pool centeredness is not close from margin"
@@ -1054,29 +1056,6 @@ contract ReClammPoolTest is BaseReClammTest {
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
         new ReClammPool(params, vault);
-    }
-
-    function testToPoolCenterAboveEnum() public pure {
-        assertEq(
-            uint256(ReClammMath.toEnum(false)),
-            uint256(ReClammMath.PoolAboveCenter.FALSE),
-            "Invalid enum value (false)"
-        );
-        assertEq(
-            uint256(ReClammMath.toEnum(true)),
-            uint256(ReClammMath.PoolAboveCenter.TRUE),
-            "Invalid enum value (true)"
-        );
-        assertNotEq(
-            uint256(ReClammMath.toEnum(false)),
-            uint256(ReClammMath.PoolAboveCenter.TRUE),
-            "Invalid enum value (false/true)"
-        );
-        assertNotEq(
-            uint256(ReClammMath.toEnum(true)),
-            uint256(ReClammMath.PoolAboveCenter.FALSE),
-            "Invalid enum value (true/false)"
-        );
     }
 
     function testOnBeforeInitializeEvents() public {

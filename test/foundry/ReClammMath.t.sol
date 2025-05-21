@@ -191,9 +191,10 @@ contract ReClammMathTest is BaseReClammTest {
             centerednessMargin
         );
 
+        (uint256 centeredness, ) = ReClammMath.computeCenteredness(balancesScaled18, virtualBalances[a], virtualBalances[b]);
         assertEq(
             isInRange,
-            ReClammMath.computeCenteredness(balancesScaled18, virtualBalances[a], virtualBalances[b]) >=
+             centeredness >=
                 centerednessMargin
         );
     }
@@ -217,7 +218,7 @@ contract ReClammMathTest is BaseReClammTest {
         virtualBalances[a] = virtualBalanceA;
         virtualBalances[b] = virtualBalanceB;
 
-        uint256 centeredness = ReClammMath.computeCenteredness(
+        (uint256 centeredness, ) = ReClammMath.computeCenteredness(
             balancesScaled18,
             virtualBalances[a],
             virtualBalances[b]
@@ -256,11 +257,14 @@ contract ReClammMathTest is BaseReClammTest {
 
         bool isAboveCenter = ReClammMath.isAboveCenter(balancesScaled18, virtualBalanceA, virtualBalanceB);
 
-        if (balanceB == 0) {
+        (, bool isAboveCenter2) = ReClammMath.computeCenteredness(balancesScaled18, virtualBalanceA, virtualBalanceB);
+
+        if (balanceA == 0 || balanceB == 0) {
             assertEq(isAboveCenter, true);
         } else {
             assertEq(isAboveCenter, balanceA.divDown(balanceB) > virtualBalanceA.divDown(virtualBalanceB));
         }
+        assertEq(isAboveCenter, isAboveCenter2, "isAboveCenter getters differ");
     }
 
     function testComputeFourthRootPriceRatio__Fuzz(
@@ -341,7 +345,7 @@ contract ReClammMathTest is BaseReClammTest {
 
         vm.assume(balancesScaled18[a].mulDown(lastVirtualBalances[b]) > 0);
         vm.assume(balancesScaled18[b].mulDown(lastVirtualBalances[a]) > 0);
-        uint256 oldCenteredness = ReClammMath.computeCenteredness(
+        (uint256 oldCenteredness, ) = ReClammMath.computeCenteredness(
             balancesScaled18,
             lastVirtualBalances[a],
             lastVirtualBalances[b]
@@ -354,14 +358,13 @@ contract ReClammMathTest is BaseReClammTest {
             expectedFourthRootPriceRatio,
             balancesScaled18,
             lastVirtualBalances[a],
-            lastVirtualBalances[b],
-            isPoolAboveCenter
+            lastVirtualBalances[b]
         );
 
         // Check if centeredness is the same
         vm.assume(balancesScaled18[a].mulDown(newVirtualBalances[b]) > 0);
         vm.assume(balancesScaled18[b].mulDown(newVirtualBalances[a]) > 0);
-        uint256 newCenteredness = ReClammMath.computeCenteredness(
+        (uint256 newCenteredness, ) = ReClammMath.computeCenteredness(
             balancesScaled18,
             newVirtualBalances[a],
             newVirtualBalances[b]
@@ -527,7 +530,7 @@ contract ReClammMathTest is BaseReClammTest {
         uint256[] memory virtualBalances = new uint256[](2);
 
         balancesScaled18[b] = 1;
-        uint256 centeredness = ReClammMath.computeCenteredness(
+        (uint256 centeredness, ) = ReClammMath.computeCenteredness(
             balancesScaled18,
             virtualBalances[a],
             virtualBalances[b]
@@ -536,7 +539,7 @@ contract ReClammMathTest is BaseReClammTest {
 
         balancesScaled18[a] = 1;
         balancesScaled18[b] = 0;
-        centeredness = ReClammMath.computeCenteredness(balancesScaled18, virtualBalances[a], virtualBalances[b]);
+        (centeredness, ) = ReClammMath.computeCenteredness(balancesScaled18, virtualBalances[a], virtualBalances[b]);
         assertEq(centeredness, 0, "(1,0) non-zero centeredness with B=0");
     }
 

@@ -298,10 +298,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         _checkInitializationPrices(balancesScaled18, virtualBalanceA, virtualBalanceB);
 
-        if (ReClammMath.computeCenteredness(balancesScaled18, virtualBalanceA, virtualBalanceB) < _centerednessMargin) {
-            revert PoolCenterednessTooLow();
-        }
-
         _setLastVirtualBalances(virtualBalanceA, virtualBalanceB);
         _setPriceRatioState(fourthRootPriceRatio, block.timestamp, block.timestamp);
         // Set dynamic parameters.
@@ -516,7 +512,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function computeCurrentPoolCenteredness() external view returns (uint256) {
+    function computeCurrentPoolCenteredness() external view returns (uint256, bool) {
         (, , , uint256[] memory currentBalancesScaled18) = _vault.getPoolTokenInfo(address(this));
         return ReClammMath.computeCenteredness(currentBalancesScaled18, _lastVirtualBalanceA, _lastVirtualBalanceB);
     }
@@ -830,14 +826,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         if (currentBalancesScaled18[indexOut] < _MIN_TOKEN_BALANCE_SCALED18) {
             // If one of the token balances is below the minimum, the price ratio update is unreliable.
             revert TokenBalanceTooLow();
-        }
-
-        if (
-            ReClammMath.computeCenteredness(currentBalancesScaled18, currentVirtualBalanceA, currentVirtualBalanceB) <
-            _MIN_POOL_CENTEREDNESS
-        ) {
-            // If the pool centeredness is below the minimum, the price ratio update is unreliable.
-            revert PoolCenterednessTooLow();
         }
     }
 

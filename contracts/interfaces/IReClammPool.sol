@@ -388,8 +388,9 @@ interface IReClammPool is IBasePool {
      * side effect is undesired (does not apply to off-chain calls).
      *
      * @return poolCenteredness The current centeredness margin (as a 18-decimal FP value)
+     * @return isPoolAboveCenter True if the pool is above the center, false otherwise
      */
-    function computeCurrentPoolCenteredness() external view returns (uint256 poolCenteredness);
+    function computeCurrentPoolCenteredness() external view returns (uint256 poolCenteredness, bool isPoolAboveCenter);
 
     /**
      * @notice Get dynamic pool data relevant to swap/add/remove calculations.
