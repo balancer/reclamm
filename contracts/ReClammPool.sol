@@ -315,9 +315,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             );
 
         (, TokenInfo[] memory tokenInfo, , ) = _vault.getPoolTokenInfo(address(this));
-        uint256 rateA = _TOKEN_A_PRICE_INCLUDES_RATE ? FixedPoint.ONE : IRateProvider(tokenInfo[a].rateProvider).getRate();
-        uint256 rateB = _TOKEN_B_PRICE_INCLUDES_RATE ? FixedPoint.ONE : IRateProvider(tokenInfo[b].rateProvider).getRate();
 
+        uint256 rateA = _getTokenRate(_TOKEN_A_PRICE_INCLUDES_RATE, tokenInfo[a]);
+        uint256 rateB = _getTokenRate(_TOKEN_B_PRICE_INCLUDES_RATE, tokenInfo[b]);
+
+        // Divide balance by rate if the price does not consider it in the price calculation.
         balancesScaled18[a] = balancesScaled18[a].divDown(rateA);
         balancesScaled18[b] = balancesScaled18[b].divDown(rateB);
 

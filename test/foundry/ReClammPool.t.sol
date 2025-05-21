@@ -49,7 +49,7 @@ contract ReClammPoolTest is BaseReClammTest {
     uint256 private constant _INITIAL_PARAMS_ERROR = 1e6;
     // Tokens with decimals introduces some rounding imprecisions, so we need to be more tolerant with the inverse
     // initialization error.
-    uint256 private constant _INVERSE_INITIALIZATION_ERROR = 1e16;
+    uint256 private constant _INVERSE_INITIALIZATION_ERROR = 1e12;
 
     ReClammMathMock mathMock = new ReClammMathMock();
 
@@ -1366,14 +1366,14 @@ contract ReClammPoolTest is BaseReClammTest {
         assertApproxEqRel(
             initialBalancesRaw[a],
             inverseInitialBalances[a],
-            _INVERSE_INITIALIZATION_ERROR,
+            1e17, // 10% error, since a token with low decimals and a big rate can have a very big error.
             "Wrong inverse initialization balance (a)"
         );
 
         assertApproxEqRel(
             initialBalancesRaw[b],
             inverseInitialBalances[b],
-            _INVERSE_INITIALIZATION_ERROR,
+            1e17, // 10% error, since a token with low decimals and a big rate can have a very big error.
             "Wrong inverse initialization balance (b)"
         );
 

@@ -123,20 +123,14 @@ describe('ReClammPool', function () {
 
     pool = (await deployedAt('ReClammPool', event.args.pool)) as unknown as ReClammPool;
 
-    // The initial balances must respect the initialization proportion.
-    const proportion = await pool.computeInitialBalanceRatioRaw();
-    if (tokenAIdx < tokenBIdx) {
-      initialBalances[tokenAIdx] = INITIAL_BALANCE_A;
-      initialBalances[tokenBIdx] = fpMulDown(INITIAL_BALANCE_A, proportion) / bn(1e12);
-    } else {
-      initialBalances[tokenAIdx] = INITIAL_BALANCE_A;
-      initialBalances[tokenBIdx] = fpDivDown(INITIAL_BALANCE_A, proportion) / bn(1e12);
-    }
+    const contractInitialBalances = await pool.computeInitialBalancesRaw(tokenAAddress, INITIAL_BALANCE_A);
+    initialBalances = [...contractInitialBalances];
 
     await tokenA.mint(bob, 10n * TOKEN_AMOUNT);
     await tokenB.mint(bob, 10n * TOKEN_AMOUNT);
 
     await pool.connect(bob).approve(router, MAX_UINT256);
+
     for (const token of [tokenA, tokenB]) {
       await token.connect(bob).approve(permit2, MAX_UINT256);
       await permit2.connect(bob).approve(token, router, MAX_UINT160, MAX_UINT48);
@@ -231,8 +225,8 @@ describe('ReClammPool', function () {
       }
     );
 
-    expect(expectedFinalVirtualBalances[tokenAIdx]).to.be.greaterThan(virtualBalancesAfterSwap.currentVirtualBalanceA);
-    expect(expectedFinalVirtualBalances[tokenBIdx]).to.be.lessThan(virtualBalancesAfterSwap.currentVirtualBalanceB);
+    expect(expectedFinalVirtualBalances[tokenAIdx]).to.be.greaterThan(virtualBalancesAfterSwap[tokenAIdx]);
+    expect(expectedFinalVirtualBalances[tokenBIdx]).to.be.lessThan(virtualBalancesAfterSwap[tokenBIdx]);
 
     // Swap in the other direction.
     await router
@@ -243,12 +237,12 @@ describe('ReClammPool', function () {
     const actualFinalVirtualBalances = await pool.computeCurrentVirtualBalances();
 
     expectEqualWithError(
-      actualFinalVirtualBalances.currentVirtualBalanceA,
+      actualFinalVirtualBalances[tokenAIdx],
       expectedFinalVirtualBalances[tokenAIdx],
       virtualBalancesError
     );
     expectEqualWithError(
-      actualFinalVirtualBalances.currentVirtualBalanceB,
+      actualFinalVirtualBalances[tokenBIdx],
       expectedFinalVirtualBalances[tokenBIdx],
       virtualBalancesError
     );
@@ -290,8 +284,8 @@ describe('ReClammPool', function () {
       }
     );
 
-    expect(expectedFinalVirtualBalances[tokenAIdx]).to.be.lessThan(virtualBalancesAfterSwap.currentVirtualBalanceA);
-    expect(expectedFinalVirtualBalances[tokenBIdx]).to.be.greaterThan(virtualBalancesAfterSwap.currentVirtualBalanceB);
+    expect(expectedFinalVirtualBalances[tokenAIdx]).to.be.lessThan(virtualBalancesAfterSwap[tokenAIdx]);
+    expect(expectedFinalVirtualBalances[tokenBIdx]).to.be.greaterThan(virtualBalancesAfterSwap[tokenBIdx]);
 
     // Swap in the other direction.
     await router
@@ -311,12 +305,12 @@ describe('ReClammPool', function () {
     const actualFinalVirtualBalances = await pool.computeCurrentVirtualBalances();
 
     expectEqualWithError(
-      actualFinalVirtualBalances.currentVirtualBalanceA,
+      actualFinalVirtualBalances[tokenAIdx],
       expectedFinalVirtualBalances[tokenAIdx],
       virtualBalancesError
     );
     expectEqualWithError(
-      actualFinalVirtualBalances.currentVirtualBalanceB,
+      actualFinalVirtualBalances[tokenBIdx],
       expectedFinalVirtualBalances[tokenBIdx],
       virtualBalancesError
     );
