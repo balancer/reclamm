@@ -1034,7 +1034,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         return currentInvariant.divDown(virtualBalanceA.mulDown(virtualBalanceA));
     }
 
-    function _getTokenRate(bool tokenPriceIncludesRate, TokenInfo memory tokenInfo) internal view returns (uint256 tokenRate) {
+    function _getTokenRate(
+        bool tokenPriceIncludesRate,
+        TokenInfo memory tokenInfo
+    ) internal view returns (uint256 tokenRate) {
         if (tokenPriceIncludesRate) {
             if (tokenInfo.tokenType == TokenType.WITH_RATE) {
                 tokenRate = IRateProvider(tokenInfo.rateProvider).getRate();
