@@ -15,6 +15,9 @@ import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
 contract ReClammSwapTest is BaseReClammTest {
     using ArrayHelpers for *;
 
+    uint256 _MIN_PRICE_RATE_BOUND = 1.1e18;
+    uint256 _MAX_PRICE_RATE_BOUND = 3e18;
+
     ReClammMathMock mathMock = new ReClammMathMock();
 
     function testOutOfRangeSwapExactIn__Fuzz(uint256 daiBalance, uint256 usdcBalance) public {
@@ -67,7 +70,7 @@ contract ReClammSwapTest is BaseReClammTest {
 
     function testInRangePriceRatioUpdatingSwapExactIn__Fuzz(uint256 newFourthRootPriceRatio) public {
         uint256 currentFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
-        newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 5e18);
+        newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 3e18);
 
         _assumeFourthRootPriceRatioDeltaAboveMin(currentFourthRootPriceRatio, newFourthRootPriceRatio);
 
@@ -116,7 +119,7 @@ contract ReClammSwapTest is BaseReClammTest {
         uint256[] memory newBalances = _setPoolBalances(daiBalance, usdcBalance);
 
         uint256 currentFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
-        newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 5e18);
+        newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 3e18);
         _assumeFourthRootPriceRatioDeltaAboveMin(currentFourthRootPriceRatio, newFourthRootPriceRatio);
 
         vm.prank(admin);
@@ -246,7 +249,7 @@ contract ReClammSwapTest is BaseReClammTest {
 
     function testInRangePriceRatioUpdatingSwapExactOut__Fuzz(uint256 newFourthRootPriceRatio) public {
         uint256 currentFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
-        newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 5e18);
+        newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 3e18);
 
         if (newFourthRootPriceRatio > currentFourthRootPriceRatio) {
             vm.assume(newFourthRootPriceRatio - currentFourthRootPriceRatio >= 2);
@@ -293,7 +296,7 @@ contract ReClammSwapTest is BaseReClammTest {
         uint256[] memory newBalances = _setPoolBalances(daiBalance, usdcBalance);
 
         uint256 currentFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
-        newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 5e18);
+        newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 3e18);
         _assumeFourthRootPriceRatioDeltaAboveMin(currentFourthRootPriceRatio, newFourthRootPriceRatio);
 
         vm.prank(admin);

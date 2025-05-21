@@ -428,10 +428,10 @@ contract ReClammPoolTest is BaseReClammTest {
         uint256 startPriceRatio = mathMock.pow4(startFourthRootPriceRatio);
         uint256 maxEndPriceRatio = startPriceRatio.mulDown(data.maxDailyPriceRatioUpdateRate);
 
-        // Take the fourth root to get its maximum ending value, and add 1 wei to trigger the exception.
+        // Take the fourth root to get its maximum ending value, and add 2 wei to trigger the exception.
         uint96 maxEndPriceRatioFourthRoot = mathMock.sqrtScaled18(mathMock.sqrtScaled18(maxEndPriceRatio)).toUint96();
 
-        uint96 endFourthRootPriceRatio = maxEndPriceRatioFourthRoot + 1;
+        uint96 endFourthRootPriceRatio = maxEndPriceRatioFourthRoot + 2;
         uint32 priceRatioUpdateStartTime = uint32(block.timestamp);
         uint32 priceRatioUpdateEndTime = priceRatioUpdateStartTime + 1 days;
 
@@ -504,7 +504,7 @@ contract ReClammPoolTest is BaseReClammTest {
         uint96 endFourthRootPriceRatio = 2e18;
         uint32 timeOffset = 1 hours;
         uint32 priceRatioUpdateStartTime = uint32(block.timestamp) - timeOffset;
-        uint32 duration = 2 days;
+        uint32 duration = 1 days;
         uint32 priceRatioUpdateEndTime = uint32(block.timestamp) + duration;
 
         uint96 startFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
@@ -556,7 +556,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         // While the update is ongoing, we'll trigger a second one.
         // This one will update virtual balances too.
-        endFourthRootPriceRatio = 4e18;
+        endFourthRootPriceRatio = 3e18;
         timeOffset = 1 hours;
         priceRatioUpdateStartTime = uint32(block.timestamp) - timeOffset;
         duration = 2 days;

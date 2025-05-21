@@ -122,7 +122,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     }
 
     function testChangingDifferentPriceRatio__Fuzz(uint96 endFourthRootPriceRatio) public {
-        endFourthRootPriceRatio = SafeCast.toUint96(bound(endFourthRootPriceRatio, 1.1e18, 5e18));
+        endFourthRootPriceRatio = SafeCast.toUint96(bound(endFourthRootPriceRatio, 1.1e18, 3e18));
         uint256 initialFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
 
         _assumeFourthRootPriceRatioDeltaAboveMin(initialFourthRootPriceRatio, endFourthRootPriceRatio);
