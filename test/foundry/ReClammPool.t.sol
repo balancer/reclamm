@@ -51,7 +51,6 @@ contract ReClammPoolTest is BaseReClammTest {
 
     uint256 private constant _MIN_TOKEN_BALANCE_SCALED18 = 1e12;
 
-    uint256 private constant _MAX_DAILY_PRICE_SHIFT_EXPONENT = 500e16; // 500%
     uint256 private constant _MIN_PRICE_RATIO_UPDATE_DURATION = 1 days;
     uint256 private constant _BALANCE_RATIO_AND_PRICE_TOLERANCE = 1e14; // 0.01%
 
@@ -189,7 +188,7 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(priceRatioState.priceRatioUpdateEndTime, block.timestamp, "Invalid default priceRatioUpdateEndTime");
 
         uint256 oldFourthRootPriceRatio = priceRatioState.endFourthRootPriceRatio;
-        uint256 newFourthRootPriceRatio = 3e18;
+        uint256 newFourthRootPriceRatio = 2e18;
         uint256 newPriceRatioUpdateStartTime = block.timestamp;
         uint256 newPriceRatioUpdateEndTime = block.timestamp + 1 days;
         vm.prank(admin);
@@ -225,7 +224,7 @@ contract ReClammPoolTest is BaseReClammTest {
     function testGetReClammPoolDynamicData() public {
         // Modify values using setters
         uint256 newDailyPriceShiftExponent = 200e16;
-        uint256 endFourthRootPriceRatio = 3e18;
+        uint256 endFourthRootPriceRatio = 2e18;
         uint256 newStaticSwapFeePercentage = 5e16;
 
         PriceRatioState memory state = PriceRatioState({
@@ -505,7 +504,7 @@ contract ReClammPoolTest is BaseReClammTest {
         uint96 endFourthRootPriceRatio = 2e18;
         uint32 timeOffset = 1 hours;
         uint32 priceRatioUpdateStartTime = uint32(block.timestamp) - timeOffset;
-        uint32 duration = 1 days;
+        uint32 duration = 2 days;
         uint32 priceRatioUpdateEndTime = uint32(block.timestamp) + duration;
 
         uint96 startFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
