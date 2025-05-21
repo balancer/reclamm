@@ -118,4 +118,22 @@ contract E2eSwapReClammRateProvider is E2eSwapFuzzPoolParamsHelper, E2eSwapRateP
             );
         }
     }
+
+    /// Skip non-specific tests that do not fuzz pool internal parameters.
+
+    function testDoUndoExactInFees__Fuzz(uint256) public override {
+        vm.skip(true);
+    }
+
+    function testDoUndoExactInSwapAmount__Fuzz(uint256) public override {
+        vm.skip(true);
+    }
+
+    function testDoUndoExactOutFees__Fuzz(uint256) public override {
+        vm.skip(true);
+    }
+
+    function testDoUndoExactOutSwapAmount__Fuzz(uint256) public override {
+        vm.skip(true);
+    }
 }
