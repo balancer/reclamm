@@ -240,33 +240,6 @@ contract ReClammMathTest is BaseReClammTest {
         }
     }
 
-    function testIsAboveCenter__Fuzz(
-        uint256 balanceA,
-        uint256 balanceB,
-        uint256 virtualBalanceA,
-        uint256 virtualBalanceB
-    ) public pure {
-        balanceA = bound(balanceA, 0, _MAX_TOKEN_BALANCE);
-        balanceB = bound(balanceB, 0, _MAX_TOKEN_BALANCE);
-        virtualBalanceA = bound(virtualBalanceA, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
-        virtualBalanceB = bound(virtualBalanceB, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
-
-        uint256[] memory balancesScaled18 = new uint256[](2);
-        balancesScaled18[a] = balanceA;
-        balancesScaled18[b] = balanceB;
-
-        bool isAboveCenter = ReClammMath.isAboveCenter(balancesScaled18, virtualBalanceA, virtualBalanceB);
-
-        (, bool isAboveCenter2) = ReClammMath.computeCenteredness(balancesScaled18, virtualBalanceA, virtualBalanceB);
-
-        if (balanceA == 0 || balanceB == 0) {
-            assertEq(isAboveCenter, true);
-        } else {
-            assertEq(isAboveCenter, balanceA.divDown(balanceB) > virtualBalanceA.divDown(virtualBalanceB));
-        }
-        assertEq(isAboveCenter, isAboveCenter2, "isAboveCenter getters differ");
-    }
-
     function testComputeFourthRootPriceRatio__Fuzz(
         uint32 currentTime,
         uint96 startFourthRootPriceRatio,
@@ -337,15 +310,9 @@ contract ReClammMathTest is BaseReClammTest {
         vm.assume(_calculateCurrentPriceRatio(balancesScaled18, lastVirtualBalances) >= 1.1e18);
         vm.assume(_calculateCurrentPriceRatio(balancesScaled18, lastVirtualBalances) <= 10e18);
 
-        bool isPoolAboveCenter = ReClammMath.isAboveCenter(
-            balancesScaled18,
-            lastVirtualBalances[a],
-            lastVirtualBalances[b]
-        );
-
         vm.assume(balancesScaled18[a].mulDown(lastVirtualBalances[b]) > 0);
         vm.assume(balancesScaled18[b].mulDown(lastVirtualBalances[a]) > 0);
-        (uint256 oldCenteredness, ) = ReClammMath.computeCenteredness(
+        (uint256 oldCenteredness, bool isPoolAboveCenter) = ReClammMath.computeCenteredness(
             balancesScaled18,
             lastVirtualBalances[a],
             lastVirtualBalances[b]

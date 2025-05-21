@@ -382,7 +382,11 @@ library ReClammMath {
                 centerednessMargin
             ) == false
         ) {
-            bool isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalanceA, lastVirtualBalanceB);
+            (, bool isPoolAboveCenter) = computeCenteredness(
+                balancesScaled18,
+                lastVirtualBalanceA,
+                lastVirtualBalanceB
+            );
 
             // stack-too-deep
             uint256 _dailyPriceShiftBase = dailyPriceShiftBase;
@@ -431,7 +435,11 @@ library ReClammMath {
         uint256 lastVirtualBalanceB
     ) internal pure returns (uint256 virtualBalanceA, uint256 virtualBalanceB) {
         // Compute the current pool centeredness, which will remain constant.
-        (uint256 poolCenteredness, bool isPoolAboveCenter) = computeCenteredness(balancesScaled18, lastVirtualBalanceA, lastVirtualBalanceB);
+        (uint256 poolCenteredness, bool isPoolAboveCenter) = computeCenteredness(
+            balancesScaled18,
+            lastVirtualBalanceA,
+            lastVirtualBalanceB
+        );
 
         // The overvalued token is the one with a lower token balance (therefore, rarer and more valuable).
         (
@@ -610,28 +618,6 @@ library ReClammMath {
         return
             ((uint256(startFourthRootPriceRatio) * LogExpMath.pow(endFourthRootPriceRatio, exponent)) /
                 LogExpMath.pow(startFourthRootPriceRatio, exponent)).toUint96();
-    }
-
-    /**
-     * @notice Check whether the pool is above center.
-     * @dev The pool is above center if the ratio of the real balances is greater than the ratio of the virtual
-     * balances.
-     *
-     * @param balancesScaled18 Current pool balances, sorted in token registration order
-     * @param virtualBalanceA The last virtual balance of token A
-     * @param virtualBalanceB The last virtual balance of token B
-     * @return isAboveCenter Whether the pool is above center
-     */
-    function isAboveCenter(
-        uint256[] memory balancesScaled18,
-        uint256 virtualBalanceA,
-        uint256 virtualBalanceB
-    ) internal pure returns (bool) {
-        if (balancesScaled18[a] == 0 || balancesScaled18[b] == 0) {
-            return true;
-        } else {
-            return balancesScaled18[a] * virtualBalanceB > balancesScaled18[b] * virtualBalanceA;
-        }
     }
 
     /**

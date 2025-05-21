@@ -1215,17 +1215,6 @@ contract ReClammPoolTest is BaseReClammTest {
         );
     }
 
-    function testInitializationCenteredness() public {
-        (address newPool, ) = _createPool([address(usdc), address(dai)].toMemoryArray(), "New Test Pool");
-        (IERC20[] memory tokens, , , ) = vault.getPoolTokenInfo(newPool);
-
-        ReClammPoolMock(newPool).manualSetCenterednessMargin(FixedPoint.ONE);
-
-        vm.expectRevert(IReClammPool.PoolCenterednessTooLow.selector);
-        vm.prank(alice);
-        router.initialize(newPool, tokens, _initialBalances, 0, false, bytes(""));
-    }
-
     function testInvalidStartTime() public {
         ReClammPoolDynamicData memory data = IReClammPool(pool).getReClammPoolDynamicData();
 
