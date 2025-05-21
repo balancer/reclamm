@@ -530,7 +530,7 @@ library ReClammMath {
 
     /**
      * @notice Check whether the pool is in range.
-     * @dev The pool is in range if the centeredness is greater than the centeredness margin.
+     * @dev The pool is in range if the centeredness is greater than or equal to the centeredness margin.
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param virtualBalanceA The last virtual balances of token A
      * @param virtualBalanceB The last virtual balances of token B
@@ -569,7 +569,7 @@ library ReClammMath {
             return (0, true);
         }
 
-        uint256 numerator = (balancesScaled18[a] * virtualBalanceB);
+        uint256 numerator = balancesScaled18[a] * virtualBalanceB;
         uint256 denominator = virtualBalanceA * balancesScaled18[b];
 
         // The centeredness is defined between 0 and 1. If the numerator is greater than the denominator, we compute
