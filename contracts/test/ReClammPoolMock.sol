@@ -7,6 +7,8 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
 
+import { GradualValueChange } from "@balancer-labs/v3-pool-weighted/contracts/lib/GradualValueChange.sol";
+
 import { ReClammPool } from "../ReClammPool.sol";
 import { ReClammMath, a } from "../lib/ReClammMath.sol";
 import { ReClammPoolParams } from "../interfaces/IReClammPool.sol";
@@ -82,5 +84,45 @@ contract ReClammPoolMock is ReClammPool {
         uint256 priceRatioUpdateEndTime
     ) external {
         _setPriceRatioState(endFourthRootPriceRatio, priceRatioUpdateStartTime, priceRatioUpdateEndTime);
+    }
+
+    // This duplicates some code, but is required to preserve full precision while accommodating tests
+    // that expect exceptions.
+    function manualSetPriceRatioStateWithExceptions(
+        uint256 endFourthRootPriceRatio,
+        uint256 priceRatioUpdateStartTime,
+        uint256 priceRatioUpdateEndTime
+    ) external {
+        uint256 actualPriceRatioUpdateStartTime = GradualValueChange.resolveStartTime(
+            priceRatioUpdateStartTime,
+            priceRatioUpdateEndTime
+        );
+        uint256 updateDuration = priceRatioUpdateEndTime - actualPriceRatioUpdateStartTime;
+
+        // We've already validated that end time >= start time at this point.
+        if (updateDuration < _MIN_PRICE_RATIO_UPDATE_DURATION) {
+            revert PriceRatioUpdateDurationTooShort();
+        }
+
+        (uint256 fourthRootPriceRatioDelta, uint256 startFourthRootPriceRatio) = _setPriceRatioState(
+            endFourthRootPriceRatio,
+            priceRatioUpdateStartTime,
+            priceRatioUpdateEndTime
+        );
+
+        if (fourthRootPriceRatioDelta < _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA) {
+            revert FourthRootPriceRatioDeltaBelowMin(fourthRootPriceRatioDelta);
+        }
+
+        uint256 startPriceRatio = ReClammMath.pow4(startFourthRootPriceRatio);
+        uint256 endPriceRatio = ReClammMath.pow4(endFourthRootPriceRatio);
+
+        uint256 actualDailyPriceRatioUpdateRate = endPriceRatio > startPriceRatio
+            ? FixedPoint.divUp(endPriceRatio * 1 days, startPriceRatio * updateDuration)
+            : FixedPoint.divUp(startPriceRatio * 1 days, endPriceRatio * updateDuration);
+
+        if (actualDailyPriceRatioUpdateRate > _MAX_DAILY_PRICE_RATIO_UPDATE_RATE) {
+            revert PriceRatioUpdateTooFast();
+        }
     }
 }

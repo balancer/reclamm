@@ -74,8 +74,11 @@ contract ReClammSwapTest is BaseReClammTest {
 
         _assumeFourthRootPriceRatioDeltaAboveMin(currentFourthRootPriceRatio, newFourthRootPriceRatio);
 
-        vm.prank(admin);
-        ReClammPoolMock(pool).manualSetPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 5 days);
+        ReClammPoolMock(pool).manualSetPriceRatioState(
+            newFourthRootPriceRatio,
+            block.timestamp,
+            block.timestamp + 5 days
+        );
 
         vm.warp(block.timestamp + 6 hours);
 
@@ -122,8 +125,11 @@ contract ReClammSwapTest is BaseReClammTest {
         newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 3e18);
         _assumeFourthRootPriceRatioDeltaAboveMin(currentFourthRootPriceRatio, newFourthRootPriceRatio);
 
-        vm.prank(admin);
-        ReClammPoolMock(pool).manualSetPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 5 days);
+        ReClammPoolMock(pool).manualSetPriceRatioState(
+            newFourthRootPriceRatio,
+            block.timestamp,
+            block.timestamp + 5 days
+        );
 
         vm.warp(block.timestamp + 6 hours);
 
@@ -257,8 +263,11 @@ contract ReClammSwapTest is BaseReClammTest {
             vm.assume(currentFourthRootPriceRatio - newFourthRootPriceRatio >= 2);
         }
 
-        vm.prank(admin);
-        ReClammPoolMock(pool).manualSetPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 5 days);
+        ReClammPoolMock(pool).manualSetPriceRatioState(
+            newFourthRootPriceRatio,
+            block.timestamp,
+            block.timestamp + 5 days
+        );
 
         vm.warp(block.timestamp + 6 hours);
 
@@ -299,8 +308,11 @@ contract ReClammSwapTest is BaseReClammTest {
         newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 3e18);
         _assumeFourthRootPriceRatioDeltaAboveMin(currentFourthRootPriceRatio, newFourthRootPriceRatio);
 
-        vm.prank(admin);
-        ReClammPoolMock(pool).manualSetPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 5 days);
+        ReClammPoolMock(pool).manualSetPriceRatioState(
+            newFourthRootPriceRatio,
+            block.timestamp,
+            block.timestamp + 5 days
+        );
 
         vm.warp(block.timestamp + 6 hours);
 

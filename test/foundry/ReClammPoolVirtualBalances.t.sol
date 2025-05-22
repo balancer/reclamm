@@ -136,8 +136,11 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
 
         uint32 currentTimestamp = uint32(block.timestamp);
 
-        vm.prank(admin);
-        ReClammPoolMock(pool).manualSetPriceRatioState(endFourthRootPriceRatio, currentTimestamp, currentTimestamp + duration);
+        ReClammPoolMock(pool).manualSetPriceRatioState(
+            endFourthRootPriceRatio,
+            currentTimestamp,
+            currentTimestamp + duration
+        );
         skip(duration);
 
         (uint256[] memory poolVirtualBalancesAfter, ) = _computeCurrentVirtualBalances(pool);

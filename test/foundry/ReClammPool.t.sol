@@ -193,11 +193,7 @@ contract ReClammPoolTest is BaseReClammTest {
         uint256 newPriceRatioUpdateStartTime = block.timestamp;
         uint256 newPriceRatioUpdateEndTime = block.timestamp + 1 days;
         vm.prank(admin);
-        ReClammPool(pool).setPriceRatioState(
-            newPriceRatio,
-            newPriceRatioUpdateStartTime,
-            newPriceRatioUpdateEndTime
-        );
+        ReClammPool(pool).setPriceRatioState(newPriceRatio, newPriceRatioUpdateStartTime, newPriceRatioUpdateEndTime);
 
         priceRatioState = ReClammPool(pool).getPriceRatioState();
         assertEq(
@@ -398,11 +394,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         vm.expectRevert(IReClammPool.PriceRatioUpdateDurationTooShort.selector);
         vm.prank(admin);
-        ReClammPool(pool).setPriceRatioState(
-            endPriceRatio,
-            priceRatioUpdateStartTime,
-            priceRatioUpdateEndTime
-        );
+        ReClammPool(pool).setPriceRatioState(endPriceRatio, priceRatioUpdateStartTime, priceRatioUpdateEndTime);
     }
 
     function testSetFourthRootPriceRatioSmallDelta() public {
@@ -414,8 +406,7 @@ contract ReClammPoolTest is BaseReClammTest {
         uint32 priceRatioUpdateEndTime = priceRatioUpdateStartTime + duration;
 
         vm.expectRevert(abi.encodeWithSelector(IReClammPool.FourthRootPriceRatioDeltaBelowMin.selector, delta));
-        vm.prank(admin);
-        ReClammPoolMock(pool).manualSetPriceRatioState(
+        ReClammPoolMock(pool).manualSetPriceRatioStateWithExceptions(
             endFourthRootPriceRatio,
             priceRatioUpdateStartTime,
             priceRatioUpdateEndTime
@@ -438,8 +429,7 @@ contract ReClammPoolTest is BaseReClammTest {
         uint32 priceRatioUpdateEndTime = priceRatioUpdateStartTime + 1 days;
 
         vm.expectRevert(IReClammPool.PriceRatioUpdateTooFast.selector);
-        vm.prank(admin);
-        ReClammPoolMock(pool).manualSetPriceRatioState(
+        ReClammPoolMock(pool).manualSetPriceRatioStateWithExceptions(
             endFourthRootPriceRatio,
             priceRatioUpdateStartTime,
             priceRatioUpdateEndTime
