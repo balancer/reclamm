@@ -171,4 +171,12 @@ contract ReClammMathMock {
     function toDailyPriceShiftExponent(uint256 dailyPriceShiftBase) external pure returns (uint256) {
         return ReClammMath.toDailyPriceShiftExponent(dailyPriceShiftBase);
     }
+
+    function sqrtScaled18(uint256 value) external pure returns (uint256) {
+        return ReClammMath.sqrtScaled18(value);
+    }
+
+    function pow4(uint256 rootValue) external pure returns (uint256) {
+        return ReClammMath.pow4(rootValue);
+    }
 }

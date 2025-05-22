@@ -6,9 +6,11 @@ import "forge-std/Test.sol";
 
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+
+import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
+
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
-import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { ReClammMathMock } from "../../contracts/test/ReClammMathMock.sol";
 import { ReClammMath, a, b } from "../../contracts/lib/ReClammMath.sol";
@@ -508,6 +510,15 @@ contract ReClammMathTest is BaseReClammTest {
         balancesScaled18[b] = 0;
         (centeredness, ) = ReClammMath.computeCenteredness(balancesScaled18, virtualBalances[a], virtualBalances[b]);
         assertEq(centeredness, 0, "(1,0) non-zero centeredness with B=0");
+    }
+
+    function testPow4__Fuzz(uint256 value) public pure {
+        value = bound(value, 10e16, 32e18);
+
+        uint256 mathPow4 = ReClammMath.pow4(value);
+        uint256 fpPow4 = FixedPoint.powDown(value, 4e18);
+
+        assertEq(mathPow4, fpPow4, "Pow4 value mismatch");
     }
 
     function _calculatePriceRatio(
