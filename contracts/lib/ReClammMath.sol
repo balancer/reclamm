@@ -259,48 +259,52 @@ library ReClammMath {
      * For example, if the pool is ETH/USDC, and USDC has an address that is smaller than ETH, this price will
      * be defined as ETH/USDC (meaning, how much ETH is required to buy 1 USDC).
      *
-     * @param minPrice The minimum price limit of the pool
-     * @param maxPrice The maximum price limit of the pool
-     * @param targetPrice The desired initial price point within the total price range (i.e., the midpoint)
-     * @return realBalances Array of theoretical initial token balances [tokenA, tokenB]
-     * @return virtualBalanceA The theoretical initial virtual balance of token A [virtualA]
-     * @return virtualBalanceB The theoretical initial virtual balance of token B [virtualB]
+     * @param minPriceScaled18 The minimum price limit of the pool
+     * @param maxPriceScaled18 The maximum price limit of the pool
+     * @param targetPriceScaled18 The desired initial price point within the total price range (i.e., the midpoint)
+     * @return realBalancesScaled18 Array of theoretical initial token balances [tokenA, tokenB]
+     * @return virtualBalanceAScaled18 The theoretical initial virtual balance of token A [virtualA]
+     * @return virtualBalanceBScaled18 The theoretical initial virtual balance of token B [virtualB]
      * @return fourthRootPriceRatio The fourth root of maxPrice/minPrice ratio
      */
     function computeTheoreticalPriceRatioAndBalances(
-        uint256 minPrice,
-        uint256 maxPrice,
-        uint256 targetPrice
+        uint256 minPriceScaled18,
+        uint256 maxPriceScaled18,
+        uint256 targetPriceScaled18
     )
         internal
         pure
         returns (
-            uint256[] memory realBalances,
-            uint256 virtualBalanceA,
-            uint256 virtualBalanceB,
+            uint256[] memory realBalancesScaled18,
+            uint256 virtualBalanceAScaled18,
+            uint256 virtualBalanceBScaled18,
             uint256 fourthRootPriceRatio
         )
     {
         // In the formulas below, Ra_max is a random number that defines the maximum real balance of token A, and
         // consequently a random initial liquidity. We will scale all balances according to the actual amount of
         // liquidity provided during initialization.
-        uint256 sqrtPriceRatio = sqrtScaled18(maxPrice.divDown(minPrice));
+        uint256 sqrtPriceRatio = sqrtScaled18(maxPriceScaled18.divDown(minPriceScaled18));
         fourthRootPriceRatio = sqrtScaled18(sqrtPriceRatio);
 
         // Va = Ra_max / (sqrtPriceRatio - 1)
-        virtualBalanceA = _INITIALIZATION_MAX_BALANCE_A.divDown(sqrtPriceRatio - FixedPoint.ONE);
+        virtualBalanceAScaled18 = _INITIALIZATION_MAX_BALANCE_A.divDown(sqrtPriceRatio - FixedPoint.ONE);
         // Vb = minPrice * (Va + Ra_max)
-        virtualBalanceB = minPrice.mulDown(virtualBalanceA + _INITIALIZATION_MAX_BALANCE_A);
+        virtualBalanceBScaled18 = minPriceScaled18.mulDown(virtualBalanceAScaled18 + _INITIALIZATION_MAX_BALANCE_A);
 
-        realBalances = new uint256[](2);
+        realBalancesScaled18 = new uint256[](2);
         // Rb = sqrt(targetPrice * Vb * (Ra_max + Va)) - Vb
-        realBalances[b] =
-            sqrtScaled18(targetPrice.mulUp(virtualBalanceB).mulUp(_INITIALIZATION_MAX_BALANCE_A + virtualBalanceA)) -
-            virtualBalanceB;
+        realBalancesScaled18[b] =
+            sqrtScaled18(
+                targetPriceScaled18.mulUp(virtualBalanceBScaled18).mulUp(
+                    _INITIALIZATION_MAX_BALANCE_A + virtualBalanceAScaled18
+                )
+            ) -
+            virtualBalanceBScaled18;
         // Ra = (Rb + Vb - (Va * targetPrice)) / targetPrice
-        realBalances[a] = (realBalances[b] + virtualBalanceB - virtualBalanceA.mulDown(targetPrice)).divDown(
-            targetPrice
-        );
+        realBalancesScaled18[a] = (realBalancesScaled18[b] +
+            virtualBalanceBScaled18 -
+            virtualBalanceAScaled18.mulDown(targetPriceScaled18)).divDown(targetPriceScaled18);
     }
 
     /**

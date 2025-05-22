@@ -2,6 +2,7 @@
 
 pragma solidity ^0.8.24;
 
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 // solhint-disable-next-line no-unused-import
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -10,6 +11,7 @@ import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaul
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
 import {
     TokenConfig,
+    TokenType,
     PoolRoleAccounts,
     LiquidityManagement
 } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
@@ -22,7 +24,31 @@ import { ReClammPoolParams } from "./interfaces/IReClammPool.sol";
 
 /// @notice ReClammPool factory.
 contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
+    using SafeCast for uint256;
+
     string private _poolVersion;
+
+    /**
+     * @notice ReClammPool initialization parameters.
+     * @dev ReClamm pools may contain wrapped tokens (with rate providers), in which case there are two options for
+     * providing the initialization prices (and the initialization balances can be calculated in terms of either
+     * token). If the price is that of the wrapped token, we should not apply the rate, so the flag for that token
+     * should be false. If the price is given in terms of the underlying, we do need to apply the rate when computing
+     * the initialization balances.
+     *
+     * @param initialMinPrice The initial minimum price of token A in terms of token B
+     * @param initialMaxPrice The initial maximum price of token A in terms of token B
+     * @param initialTargetPrice The initial target price of token A in terms of token B
+     * @param tokenAPriceIncludesRate Whether the amount of token A is scaled by the rate when calculating the price
+     * @param tokenBPriceIncludesRate Whether the amount of token B is scaled by the rate when calculating the price
+     */
+    struct ReClammPriceParams {
+        uint256 initialMinPrice;
+        uint256 initialMaxPrice;
+        uint256 initialTargetPrice;
+        bool tokenAPriceIncludesRate;
+        bool tokenBPriceIncludesRate;
+    }
 
     constructor(
         IVault vault,
@@ -45,9 +71,7 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
      * @param tokens An array of descriptors for the tokens the pool will manage
      * @param roleAccounts Addresses the Vault will allow to change certain pool settings
      * @param swapFeePercentage Initial swap fee percentage
-     * @param initialMinPrice The initial minimum price of the pool
-     * @param initialMaxPrice The initial maximum price of the pool
-     * @param initialTargetPrice The initial target price of the pool
+     * @param priceParams Initial min, max and target prices; flags indicating whether token prices incorporate rates
      * @param dailyPriceShiftExponent Virtual balances will change by 2^(dailyPriceShiftExponent) per day
      * @param centerednessMargin How far the price can be from the center before the price range starts to move
      * @param salt The salt value that will be passed to deployment
@@ -58,11 +82,9 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
         TokenConfig[] memory tokens,
         PoolRoleAccounts memory roleAccounts,
         uint256 swapFeePercentage,
-        uint256 initialMinPrice,
-        uint256 initialMaxPrice,
-        uint256 initialTargetPrice,
+        ReClammPriceParams memory priceParams,
         uint256 dailyPriceShiftExponent,
-        uint64 centerednessMargin,
+        uint256 centerednessMargin,
         bytes32 salt
     ) external returns (address pool) {
         if (roleAccounts.poolCreator != address(0)) {
@@ -72,6 +94,13 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
         // The ReClammPool only supports 2 tokens.
         if (tokens.length > 2) {
             revert IVaultErrors.MaxTokens();
+        }
+
+        if (priceParams.tokenAPriceIncludesRate && tokens[0].tokenType != TokenType.WITH_RATE) {
+            revert IVaultErrors.InvalidTokenType();
+        }
+        if (priceParams.tokenBPriceIncludesRate && tokens[1].tokenType != TokenType.WITH_RATE) {
+            revert IVaultErrors.InvalidTokenType();
         }
 
         LiquidityManagement memory liquidityManagement = getDefaultLiquidityManagement();
@@ -84,11 +113,13 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
                     name: name,
                     symbol: symbol,
                     version: _poolVersion,
-                    initialMinPrice: initialMinPrice,
-                    initialMaxPrice: initialMaxPrice,
-                    initialTargetPrice: initialTargetPrice,
+                    initialMinPrice: priceParams.initialMinPrice,
+                    initialMaxPrice: priceParams.initialMaxPrice,
+                    initialTargetPrice: priceParams.initialTargetPrice,
+                    tokenAPriceIncludesRate: priceParams.tokenAPriceIncludesRate,
+                    tokenBPriceIncludesRate: priceParams.tokenBPriceIncludesRate,
                     dailyPriceShiftExponent: dailyPriceShiftExponent,
-                    centerednessMargin: centerednessMargin
+                    centerednessMargin: centerednessMargin.toUint64()
                 }),
                 getVault()
             ),

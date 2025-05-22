@@ -3,9 +3,10 @@
 
 pragma solidity ^0.8.24;
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { SignedMath } from "@openzeppelin/contracts/utils/math/SignedMath.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { ISwapFeePercentageBounds } from "@balancer-labs/v3-interfaces/contracts/vault/ISwapFeePercentageBounds.sol";
 import "@balancer-labs/v3-interfaces/contracts/vault/IUnbalancedLiquidityInvariantRatioBounds.sol";
@@ -71,6 +72,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     // There is also a minimum delta, to keep the math well-behaved.
     uint256 internal constant _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA = 1e3;
 
+    uint256 internal constant _MAX_TOKEN_DECIMALS = 18;
     // This represents the maximum deviation from the ideal state (i.e., at target price and near centered) after
     // initialization, to prevent arbitration losses.
     uint256 internal constant _BALANCE_RATIO_AND_PRICE_TOLERANCE = 1e14; // 0.01%
@@ -82,6 +84,19 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 private immutable _INITIAL_TARGET_PRICE;
     uint256 private immutable _INITIAL_DAILY_PRICE_SHIFT_EXPONENT;
     uint256 private immutable _INITIAL_CENTEREDNESS_MARGIN;
+
+    // ReClamm pools do not need to know the tokens on deployment. The factory deploys the pool, then registers it, at
+    // which point the Vault knows the tokens and rate providers. Finally, the user initializes the pool through the
+    // router, using the `computeInitialBalancesRaw` helper function to compute the correct initial raw balances.
+    //
+    // The twist here is that the pool may contain wrapped tokens (e.g., wstETH), and the initial prices given might be
+    // in terms of either the wrapped or the underlying token. If the price is that of the actual token being supplied
+    // (e.g., the wrapped token), the initialization helper should *not* apply the rate, and the flag should be false.
+    // If the price is given in terms of the underlying token, the initialization helper *should* apply the rate, so
+    // the flag should be true. Since the prices are stored on initialization, these flags are as well (vs. passing
+    // them in at initialization time, when they might be out-of-sync with the prices).
+    bool private immutable _TOKEN_A_PRICE_INCLUDES_RATE;
+    bool private immutable _TOKEN_B_PRICE_INCLUDES_RATE;
 
     PriceRatioState internal _priceRatioState;
 
@@ -155,6 +170,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         _INITIAL_DAILY_PRICE_SHIFT_EXPONENT = params.dailyPriceShiftExponent;
         _INITIAL_CENTEREDNESS_MARGIN = params.centerednessMargin;
+
+        _TOKEN_A_PRICE_INCLUDES_RATE = params.tokenAPriceIncludesRate;
+        _TOKEN_B_PRICE_INCLUDES_RATE = params.tokenBPriceIncludesRate;
 
         // The maximum daily price ratio change rate is given by 2^_MAX_DAILY_PRICE_SHIFT_EXPONENT.
         // This is somewhat arbitrary, but it makes sense to link these rates; i.e., we are setting the maximum speed
@@ -311,6 +329,15 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                 _INITIAL_TARGET_PRICE
             );
 
+        (, TokenInfo[] memory tokenInfo, , ) = _vault.getPoolTokenInfo(address(this));
+
+        // We want to undo the rate, so we get it with the opposite flag.
+        uint256 rateA = _getTokenRate(_TOKEN_A_PRICE_INCLUDES_RATE == false, tokenInfo[a]);
+        uint256 rateB = _getTokenRate(_TOKEN_B_PRICE_INCLUDES_RATE == false, tokenInfo[b]);
+
+        balancesScaled18[a] = balancesScaled18[a].divDown(rateA);
+        balancesScaled18[b] = balancesScaled18[b].divDown(rateB);
+
         _checkInitializationBalanceRatio(balancesScaled18, theoreticalRealBalances);
 
         uint256 scale = balancesScaled18[a].divDown(theoreticalRealBalances[a]);
@@ -407,32 +434,34 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     ********************************************************/
 
     /// @inheritdoc IReClammPool
-    function computeInitialBalanceRatio() external view returns (uint256) {
-        return _computeInitialBalanceRatio();
+    function computeInitialBalanceRatioRaw() external view returns (uint256) {
+        return _computeInitialBalanceRatioRaw();
     }
 
     /// @inheritdoc IReClammPool
-    function computeInitialBalances(
+    function computeInitialBalancesRaw(
         IERC20 referenceToken,
-        uint256 referenceAmountIn
-    ) external view returns (uint256[] memory initialBalances) {
+        uint256 referenceAmountInRaw
+    ) external view returns (uint256[] memory initialBalancesRaw) {
         IERC20[] memory tokens = _vault.getPoolTokens(address(this));
 
         (uint256 referenceTokenIdx, uint256 otherTokenIdx) = tokens[a] == referenceToken ? (a, b) : (b, a);
+
         if (referenceTokenIdx == b && referenceToken != tokens[b]) {
             revert IVaultErrors.InvalidToken();
         }
 
-        uint256 balanceRatio = _computeInitialBalanceRatio();
+        uint256 balanceRatioRaw = _computeInitialBalanceRatioRaw();
 
         // Since the ratio is defined as b/a, multiply if we're given a, and divide if we're given b.
         // If the theoretical virtual balances were a=50 and b=100, then the ratio would be 100/50 = 2.
         // If we're given 100 a tokens, b = a * 2 = 200. If we're given 200 b tokens, a = b / 2 = 100.
-        initialBalances = new uint256[](2);
-        initialBalances[referenceTokenIdx] = referenceAmountIn;
-        initialBalances[otherTokenIdx] = referenceTokenIdx == a
-            ? referenceAmountIn.mulDown(balanceRatio)
-            : referenceAmountIn.divDown(balanceRatio);
+        initialBalancesRaw = new uint256[](2);
+        initialBalancesRaw[referenceTokenIdx] = referenceAmountInRaw;
+
+        initialBalancesRaw[otherTokenIdx] = referenceTokenIdx == a
+            ? referenceAmountInRaw.mulDown(balanceRatioRaw)
+            : referenceAmountInRaw.divDown(balanceRatioRaw);
     }
 
     /// @inheritdoc IReClammPool
@@ -471,7 +500,32 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         view
         returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed)
     {
-        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
+        (, currentVirtualBalanceA, currentVirtualBalanceB, changed) = _getRealAndVirtualBalances();
+    }
+
+    /// @inheritdoc IReClammPool
+    function computeCurrentTargetPrice() external view returns (uint256) {
+        (
+            uint256[] memory balancesScaled18,
+            uint256 currentVirtualBalanceA,
+            uint256 currentVirtualBalanceB,
+
+        ) = _getRealAndVirtualBalances();
+
+        return (balancesScaled18[b] + currentVirtualBalanceB).divDown(balancesScaled18[a] + currentVirtualBalanceA);
+    }
+
+    function _getRealAndVirtualBalances()
+        internal
+        view
+        returns (
+            uint256[] memory balancesScaled18,
+            uint256 currentVirtualBalanceA,
+            uint256 currentVirtualBalanceB,
+            bool changed
+        )
+    {
+        (, , , balancesScaled18) = _vault.getPoolTokenInfo(address(this));
         (currentVirtualBalanceA, currentVirtualBalanceB, changed) = _computeCurrentVirtualBalances(balancesScaled18);
     }
 
@@ -575,6 +629,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         // Base Pool
         data.tokens = _vault.getPoolTokens(address(this));
         (data.decimalScalingFactors, ) = _vault.getPoolTokenRates(address(this));
+        data.tokenAPriceIncludesRate = _TOKEN_A_PRICE_INCLUDES_RATE;
+        data.tokenBPriceIncludesRate = _TOKEN_B_PRICE_INCLUDES_RATE;
         data.minSwapFeePercentage = _MIN_SWAP_FEE_PERCENTAGE;
         data.maxSwapFeePercentage = _MAX_SWAP_FEE_PERCENTAGE;
 
@@ -932,7 +988,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256[] memory balancesScaled18,
         uint256[] memory theoreticalRealBalances
     ) internal pure {
-        uint256 realBalanceRatio = balancesScaled18[b].divDown(balancesScaled18[a]);
+        uint256 realBalanceRatio = (balancesScaled18[b]).divDown(balancesScaled18[a]);
         uint256 theoreticalBalanceRatio = theoreticalRealBalances[b].divDown(theoreticalRealBalances[a]);
 
         uint256 ratioLowerBound = theoreticalBalanceRatio.mulDown(FixedPoint.ONE - _BALANCE_RATIO_AND_PRICE_TOLERANCE);
@@ -996,17 +1052,43 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         }
     }
 
-    function _computeInitialBalanceRatio() internal view returns (uint256) {
-        (uint256[] memory realBalances, , , ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
-            _INITIAL_MIN_PRICE,
-            _INITIAL_MAX_PRICE,
-            _INITIAL_TARGET_PRICE
+    function _computeInitialBalanceRatioRaw() internal view returns (uint256) {
+        (IERC20[] memory tokens, TokenInfo[] memory tokenInfo, , ) = _vault.getPoolTokenInfo(address(this));
+
+        uint256 rateA = _getTokenRate(_TOKEN_A_PRICE_INCLUDES_RATE, tokenInfo[a]);
+        uint256 rateB = _getTokenRate(_TOKEN_B_PRICE_INCLUDES_RATE, tokenInfo[b]);
+
+        uint256 minPriceScaled18 = (_INITIAL_MIN_PRICE * rateA) / rateB;
+        uint256 maxPriceScaled18 = (_INITIAL_MAX_PRICE * rateA) / rateB;
+        uint256 targetPriceScaled18 = (_INITIAL_TARGET_PRICE * rateA) / rateB;
+
+        (uint256[] memory theoreticalBalancesScaled18, , , ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
+            minPriceScaled18,
+            maxPriceScaled18,
+            targetPriceScaled18
         );
 
-        return realBalances[b].divDown(realBalances[a]);
+        uint256 decimalsA = IERC20Metadata(address(tokens[a])).decimals();
+        uint256 decimalsB = IERC20Metadata(address(tokens[b])).decimals();
+
+        return
+            (theoreticalBalancesScaled18[b] * 10 ** (18 - decimalsA)).divDown(
+                theoreticalBalancesScaled18[a] * 10 ** (18 - decimalsB)
+            );
     }
 
     function _computeMaxPrice(uint256 currentInvariant, uint256 virtualBalanceA) internal pure returns (uint256) {
         return currentInvariant.divDown(virtualBalanceA.mulDown(virtualBalanceA));
+    }
+
+    function _getTokenRate(
+        bool tokenPriceIncludesRate,
+        TokenInfo memory tokenInfo
+    ) internal view returns (uint256 tokenRate) {
+        if (tokenPriceIncludesRate && tokenInfo.tokenType == TokenType.WITH_RATE) {
+            tokenRate = IRateProvider(tokenInfo.rateProvider).getRate();
+        } else {
+            tokenRate = FixedPoint.ONE;
+        }
     }
 }
