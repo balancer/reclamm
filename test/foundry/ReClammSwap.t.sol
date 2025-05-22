@@ -75,7 +75,7 @@ contract ReClammSwapTest is BaseReClammTest {
         _assumeFourthRootPriceRatioDeltaAboveMin(currentFourthRootPriceRatio, newFourthRootPriceRatio);
 
         vm.prank(admin);
-        ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 5 days);
+        ReClammPoolMock(pool).manualSetPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 5 days);
 
         vm.warp(block.timestamp + 6 hours);
 
@@ -123,7 +123,7 @@ contract ReClammSwapTest is BaseReClammTest {
         _assumeFourthRootPriceRatioDeltaAboveMin(currentFourthRootPriceRatio, newFourthRootPriceRatio);
 
         vm.prank(admin);
-        ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 5 days);
+        ReClammPoolMock(pool).manualSetPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 5 days);
 
         vm.warp(block.timestamp + 6 hours);
 
@@ -258,7 +258,7 @@ contract ReClammSwapTest is BaseReClammTest {
         }
 
         vm.prank(admin);
-        ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 5 days);
+        ReClammPoolMock(pool).manualSetPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 5 days);
 
         vm.warp(block.timestamp + 6 hours);
 
@@ -300,7 +300,7 @@ contract ReClammSwapTest is BaseReClammTest {
         _assumeFourthRootPriceRatioDeltaAboveMin(currentFourthRootPriceRatio, newFourthRootPriceRatio);
 
         vm.prank(admin);
-        ReClammPool(pool).setPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 5 days);
+        ReClammPoolMock(pool).manualSetPriceRatioState(newFourthRootPriceRatio, block.timestamp, block.timestamp + 5 days);
 
         vm.warp(block.timestamp + 6 hours);
 

@@ -188,12 +188,13 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(priceRatioState.priceRatioUpdateEndTime, block.timestamp, "Invalid default priceRatioUpdateEndTime");
 
         uint256 oldFourthRootPriceRatio = priceRatioState.endFourthRootPriceRatio;
-        uint256 newFourthRootPriceRatio = 2e18;
+        uint256 newPriceRatio = 16e18;
+        uint256 newFourthRootPriceRatio = 2e18; // 4th root of 16
         uint256 newPriceRatioUpdateStartTime = block.timestamp;
         uint256 newPriceRatioUpdateEndTime = block.timestamp + 1 days;
         vm.prank(admin);
         ReClammPool(pool).setPriceRatioState(
-            newFourthRootPriceRatio,
+            newPriceRatio,
             newPriceRatioUpdateStartTime,
             newPriceRatioUpdateEndTime
         );
@@ -224,6 +225,7 @@ contract ReClammPoolTest is BaseReClammTest {
     function testGetReClammPoolDynamicData() public {
         // Modify values using setters
         uint256 newDailyPriceShiftExponent = 200e16;
+        uint256 endPriceRatio = 16e18;
         uint256 endFourthRootPriceRatio = 2e18;
         uint256 newStaticSwapFeePercentage = 5e16;
 
@@ -238,7 +240,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         vm.startPrank(admin);
         ReClammPool(pool).setPriceRatioState(
-            state.endFourthRootPriceRatio,
+            endPriceRatio,
             state.priceRatioUpdateStartTime,
             state.priceRatioUpdateEndTime
         );
@@ -388,7 +390,7 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function testSetFourthRootPriceRatioShortDuration() public {
-        uint96 endFourthRootPriceRatio = 2e18;
+        uint96 endPriceRatio = 16e18;
         uint32 timeOffset = 1 hours;
         uint32 priceRatioUpdateStartTime = uint32(block.timestamp) - timeOffset;
         uint32 duration = 1 days;
@@ -397,7 +399,7 @@ contract ReClammPoolTest is BaseReClammTest {
         vm.expectRevert(IReClammPool.PriceRatioUpdateDurationTooShort.selector);
         vm.prank(admin);
         ReClammPool(pool).setPriceRatioState(
-            endFourthRootPriceRatio,
+            endPriceRatio,
             priceRatioUpdateStartTime,
             priceRatioUpdateEndTime
         );
@@ -413,7 +415,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         vm.expectRevert(abi.encodeWithSelector(IReClammPool.FourthRootPriceRatioDeltaBelowMin.selector, delta));
         vm.prank(admin);
-        ReClammPool(pool).setPriceRatioState(
+        ReClammPoolMock(pool).manualSetPriceRatioState(
             endFourthRootPriceRatio,
             priceRatioUpdateStartTime,
             priceRatioUpdateEndTime
@@ -437,7 +439,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         vm.expectRevert(IReClammPool.PriceRatioUpdateTooFast.selector);
         vm.prank(admin);
-        ReClammPool(pool).setPriceRatioState(
+        ReClammPoolMock(pool).manualSetPriceRatioState(
             endFourthRootPriceRatio,
             priceRatioUpdateStartTime,
             priceRatioUpdateEndTime
@@ -445,6 +447,7 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function testSetFourthRootPriceRatio() public {
+        uint96 endPriceRatio = 16e18;
         uint96 endFourthRootPriceRatio = 2e18;
         uint32 timeOffset = 1 hours;
         uint32 priceRatioUpdateStartTime = uint32(block.timestamp) - timeOffset;
@@ -476,7 +479,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         vm.prank(admin);
         uint256 actualPriceRatioUpdateStartTime = ReClammPool(pool).setPriceRatioState(
-            endFourthRootPriceRatio,
+            endPriceRatio,
             priceRatioUpdateStartTime,
             priceRatioUpdateEndTime
         );
@@ -501,6 +504,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
     /// @dev Trigger a price ratio update while another one is ongoing.
     function testSetFourthRootPriceRatioOverride() public {
+        uint96 endPriceRatio = 16e18;
         uint96 endFourthRootPriceRatio = 2e18;
         uint32 timeOffset = 1 hours;
         uint32 priceRatioUpdateStartTime = uint32(block.timestamp) - timeOffset;
@@ -536,7 +540,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         vm.prank(admin);
         uint256 actualPriceRatioUpdateStartTime = ReClammPool(pool).setPriceRatioState(
-            endFourthRootPriceRatio,
+            endPriceRatio,
             priceRatioUpdateStartTime,
             priceRatioUpdateEndTime
         );
@@ -556,6 +560,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         // While the update is ongoing, we'll trigger a second one.
         // This one will update virtual balances too.
+        endPriceRatio = 81e18;
         endFourthRootPriceRatio = 3e18;
         timeOffset = 1 hours;
         priceRatioUpdateStartTime = uint32(block.timestamp) - timeOffset;
@@ -604,7 +609,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         vm.prank(admin);
         actualPriceRatioUpdateStartTime = ReClammPool(pool).setPriceRatioState(
-            endFourthRootPriceRatio,
+            endPriceRatio,
             priceRatioUpdateStartTime,
             priceRatioUpdateEndTime
         );
@@ -636,6 +641,7 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function testStopPriceRatioUpdate() public {
+        uint96 endPriceRatio = 16e18;
         uint96 endFourthRootPriceRatio = 2e18;
         uint32 timeOffset = 1 hours;
         uint32 priceRatioUpdateStartTime = uint32(block.timestamp) - timeOffset;
@@ -646,7 +652,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         vm.prank(admin);
         uint256 actualPriceRatioUpdateStartTime = ReClammPool(pool).setPriceRatioState(
-            endFourthRootPriceRatio,
+            endPriceRatio,
             priceRatioUpdateStartTime,
             priceRatioUpdateEndTime
         );
@@ -971,7 +977,7 @@ contract ReClammPoolTest is BaseReClammTest {
     function testInRangeUpdatingVirtualBalancesSetCenterednessMargin() public {
         vm.prank(admin);
         // Start updating virtual balances.
-        ReClammPool(pool).setPriceRatioState(2e18, block.timestamp, block.timestamp + 1 days);
+        ReClammPool(pool).setPriceRatioState(16e18, block.timestamp, block.timestamp + 1 days);
 
         vm.warp(block.timestamp + 6 hours);
 

@@ -8,15 +8,18 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
-import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
-import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
+
+import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
+import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
+
+import { ReClammMathMock } from "../../contracts/test/ReClammMathMock.sol";
+import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
+import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
+import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
 
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
-import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
-import { ReClammMathMock } from "../../contracts/test/ReClammMathMock.sol";
-import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
 
 contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     using FixedPoint for uint256;
@@ -134,7 +137,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         uint32 currentTimestamp = uint32(block.timestamp);
 
         vm.prank(admin);
-        ReClammPool(pool).setPriceRatioState(endFourthRootPriceRatio, currentTimestamp, currentTimestamp + duration);
+        ReClammPoolMock(pool).manualSetPriceRatioState(endFourthRootPriceRatio, currentTimestamp, currentTimestamp + duration);
         skip(duration);
 
         (uint256[] memory poolVirtualBalancesAfter, ) = _computeCurrentVirtualBalances(pool);
