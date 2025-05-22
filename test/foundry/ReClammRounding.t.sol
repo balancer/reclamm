@@ -88,7 +88,7 @@ contract ReClammRoundingTest is BaseReClammTest {
 
         vm.assume(_MIN_SWAP_AMOUNT <= maxAmountIn);
         amountGivenScaled18 = bound(amountGivenScaled18, _MIN_SWAP_AMOUNT, maxAmountIn);
-        mathMock.setPriceRatioState(
+        mathMock.startPriceRatioUpdate(
             PriceRatioState({
                 startFourthRootPriceRatio: fourthRootPriceRatio.toUint96(),
                 endFourthRootPriceRatio: fourthRootPriceRatio.toUint96(),
@@ -159,7 +159,7 @@ contract ReClammRoundingTest is BaseReClammTest {
             balances[tokenOutIndex] - _MIN_TOKEN_BALANCE - 1
         );
 
-        mathMock.setPriceRatioState(
+        mathMock.startPriceRatioUpdate(
             PriceRatioState({
                 startFourthRootPriceRatio: fourthRootPriceRatio.toUint96(),
                 endFourthRootPriceRatio: fourthRootPriceRatio.toUint96(),
