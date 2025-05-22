@@ -190,7 +190,7 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(priceRatioState.priceRatioUpdateEndTime, block.timestamp, "Invalid default priceRatioUpdateEndTime");
 
         uint256 oldFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
-        uint256 newFourthRootPriceRatio = 5e18;
+        uint256 newFourthRootPriceRatio = oldFourthRootPriceRatio.mulDown(90e16);
         uint256 newPriceRatioUpdateStartTime = block.timestamp;
         uint256 newPriceRatioUpdateEndTime = block.timestamp + 1 days;
         vm.prank(admin);
