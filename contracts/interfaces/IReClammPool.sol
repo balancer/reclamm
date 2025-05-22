@@ -27,11 +27,13 @@ struct ReClammPoolParams {
  * @dev Note that the initial prices are used only during pool initialization. After the initialization, the prices
  * will shift according to price ratio and pool centeredness.
  *
+ * Base Pool:
  * @param tokens Pool tokens, sorted in token registration order
- * @param decimalScalingFactors Conversion factor used to adjust for token decimals for uniform precision in
- * calculations. FP(1) for 18-decimal tokens
+ * @param decimalScalingFactors Adjust for token decimals to retain calculation precision. FP(1) for 18-decimal tokens
  * @param priceTokenAWithRate True if the prices incorporate a rate for token A
  * @param priceTokenBWithRate True if the prices incorporate a rate for token B
+ * @param minSwapFeePercentage The minimum allowed static swap fee percentage; mitigates precision loss due to rounding
+ * @param maxSwapFeePercentage The maximum allowed static swap fee percentage
  * @param initialMinPrice The initial minimum price of token A in terms of token B (possibly applying rates)
  * @param initialMaxPrice The initial maximum price of token A in terms of token B (possibly applying rates)
  * @param initialTargetPrice The initial target price of token A in terms of token B (possibly applying rates)
@@ -41,25 +43,34 @@ struct ReClammPoolParams {
  * @param minTokenBalanceScaled18 The minimum token balance for the pool, scaled to 18 decimals
  * @param minPoolCenteredness The minimum pool centeredness for the pool, as an 18-decimal FP percentage
  * @param maxDailyPriceShiftExponent The maximum exponent for the pool's price shift, as an 18-decimal FP percentage
+ * @param maxDailyPriceRatioUpdateRate The maximum percentage the price range can expand/contract per day
  * @param minPriceRatioUpdateDuration The minimum duration for the price ratio update, expressed in seconds
  * @param minFourthRootPriceRatioDelta The minimum absolute difference between current and new fourth root price ratio
+ * @param balanceRatioAndPriceTolerance The maximum amount initialized pool parameters can deviate from ideal values
  */
 struct ReClammPoolImmutableData {
+    // Base Pool
     IERC20[] tokens;
     uint256[] decimalScalingFactors;
     bool priceTokenAWithRate;
     bool priceTokenBWithRate;
+    uint256 minSwapFeePercentage;
+    uint256 maxSwapFeePercentage;
+    // Initialization
     uint256 initialMinPrice;
     uint256 initialMaxPrice;
     uint256 initialTargetPrice;
     uint256 initialDailyPriceShiftExponent;
     uint256 initialCenterednessMargin;
+    // Operating Limits
     uint256 maxCenterednessMargin;
     uint256 minTokenBalanceScaled18;
     uint256 minPoolCenteredness;
     uint256 maxDailyPriceShiftExponent;
+    uint256 maxDailyPriceRatioUpdateRate;
     uint256 minPriceRatioUpdateDuration;
     uint256 minFourthRootPriceRatioDelta;
+    uint256 balanceRatioAndPriceTolerance;
 }
 
 /**
@@ -73,6 +84,7 @@ struct ReClammPoolImmutableData {
  * @param tokenRates 18-decimal FP values for rate tokens (e.g., yield-bearing), or FP(1) for standard tokens
  * @param staticSwapFeePercentage 18-decimal FP value of the static swap fee percentage
  * @param totalSupply The current total supply of the pool tokens (BPT)
+ *
  * ReClamm:
  * @param lastTimestamp The timestamp of the last user interaction
  * @param lastVirtualBalances The last virtual balances of the pool
@@ -84,6 +96,7 @@ struct ReClammPoolImmutableData {
  * @param endFourthRootPriceRatio The fourth root price ratio at the end of an update
  * @param priceRatioUpdateStartTime The timestamp when the update begins
  * @param priceRatioUpdateEndTime The timestamp when the update ends
+ *
  * Pool State:
  * @param isPoolInitialized If false, the pool has not been seeded with initial liquidity, so operations will revert
  * @param isPoolPaused If true, the pool is paused, and all non-recovery-mode state-changing operations will revert
@@ -197,6 +210,9 @@ interface IReClammPool is IBasePool {
 
     /// @notice The difference between end time and start time is too short for the price ratio update.
     error PriceRatioUpdateDurationTooShort();
+
+    /// @notice The rate of change exceeds the maximum daily price ratio rate.
+    error PriceRatioUpdateTooFast();
 
     /// @dev The price ratio being set is too close to the current one.
     error FourthRootPriceRatioDeltaBelowMin(uint256 fourthRootPriceRatioDelta);

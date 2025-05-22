@@ -674,4 +674,15 @@ library ReClammMath {
     function sqrtScaled18(uint256 valueScaled18) internal pure returns (uint256) {
         return Math.sqrt(valueScaled18 * FixedPoint.ONE);
     }
+
+    /**
+     * @notice Raise a value to the fourth power (i.e., recover a range limit from its fourth root).
+     * @dev Input and output are all 18-decimal floating point numbers.
+     * @return limitValue `rootValue` raised to the fourth power
+     */
+    function pow4(uint256 rootValue) internal pure returns (uint256) {
+        uint256 vSquared = rootValue.mulDown(rootValue);
+
+        return vSquared.mulDown(vSquared);
+    }
 }
