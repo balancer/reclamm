@@ -325,7 +325,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         }
 
         _setLastVirtualBalances(virtualBalanceA, virtualBalanceB);
-        _setPriceRatioState(fourthRootPriceRatio, block.timestamp, block.timestamp);
+        _startPriceRatioUpdate(fourthRootPriceRatio, block.timestamp, block.timestamp);
         // Set dynamic parameters.
         _setDailyPriceShiftExponent(_INITIAL_DAILY_PRICE_SHIFT_EXPONENT);
         _setCenterednessMargin(_INITIAL_CENTEREDNESS_MARGIN);
@@ -601,7 +601,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     ********************************************************/
 
     /// @inheritdoc IReClammPool
-    function setPriceRatioState(
+    function startPriceRatioUpdate(
         uint256 endFourthRootPriceRatio,
         uint256 priceRatioUpdateStartTime,
         uint256 priceRatioUpdateEndTime
@@ -624,7 +624,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         }
 
         _updateVirtualBalances();
-        (uint256 fourthRootPriceRatioDelta, uint256 startFourthRootPriceRatio) = _setPriceRatioState(
+        (uint256 fourthRootPriceRatioDelta, uint256 startFourthRootPriceRatio) = _startPriceRatioUpdate(
             endFourthRootPriceRatio,
             actualPriceRatioUpdateStartTime,
             priceRatioUpdateEndTime
@@ -666,7 +666,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         }
 
         uint256 currentFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio(priceRatioState);
-        _setPriceRatioState(currentFourthRootPriceRatio, block.timestamp, block.timestamp);
+        _startPriceRatioUpdate(currentFourthRootPriceRatio, block.timestamp, block.timestamp);
     }
 
     /// @inheritdoc IReClammPool
@@ -723,7 +723,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _vault.emitAuxiliaryEvent("VirtualBalancesUpdated", abi.encode(virtualBalanceA, virtualBalanceB));
     }
 
-    function _setPriceRatioState(
+    function _startPriceRatioUpdate(
         uint256 endFourthRootPriceRatio,
         uint256 priceRatioUpdateStartTime,
         uint256 priceRatioUpdateEndTime
