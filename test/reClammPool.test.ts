@@ -417,11 +417,10 @@ describe('ReClammPool', function () {
     );
 
     // Concentrating liquidity
-    const updatStartTimestamp = await currentTimestamp();
-    const updateEndTimestamp = updatStartTimestamp + 1n * BigInt(DAY);
-    await pool
-      .connect(bob)
-      .setPriceRatioState(initialFourthRootPriceRatio / 2n, updatStartTimestamp, updateEndTimestamp);
+    const updateStartTimestamp = await currentTimestamp();
+    const updateEndTimestamp = updateStartTimestamp + 1n * BigInt(DAY) + 1n;
+    const endFourthRootPriceRatio = fpDivDown(initialFourthRootPriceRatio, fp(1.1));
+    await pool.connect(bob).setPriceRatioState(endFourthRootPriceRatio, updateStartTimestamp, updateEndTimestamp);
 
     // Virtual balances were updated, but prices should not move yet.
     const { minPrice: minPriceAfterSetPriceRatioState, maxPrice: maxPriceAfterSetPriceRatioState } =
@@ -434,7 +433,7 @@ describe('ReClammPool', function () {
     // (final ratio / initial ratio)^1/4.
     const expectedPriceRatioAfterConcentration = fpMulDown(
       initialFourthRootPriceRatio,
-      fourthRoot(fpDivDown(initialFourthRootPriceRatio / 2n, initialFourthRootPriceRatio))
+      fourthRoot(fpDivDown(endFourthRootPriceRatio, initialFourthRootPriceRatio))
     );
     expectEqualWithError(
       await pool.computeCurrentFourthRootPriceRatio(),
@@ -475,14 +474,14 @@ describe('ReClammPool', function () {
       poolBalancesAfterSwap,
       lastVirtualBalances,
       toDailyPriceShiftBase(PRICE_SHIFT_DAILY_RATE),
-      updatStartTimestamp,
+      updateStartTimestamp,
       expectedTimestamp,
       CENTEREDNESS_MARGIN,
       {
-        priceRatioUpdateStartTime: updatStartTimestamp,
+        priceRatioUpdateStartTime: updateStartTimestamp,
         priceRatioUpdateEndTime: updateEndTimestamp,
         startFourthRootPriceRatio: initialFourthRootPriceRatio,
-        endFourthRootPriceRatio: initialFourthRootPriceRatio / 2n,
+        endFourthRootPriceRatio: endFourthRootPriceRatio,
       }
     );
 
@@ -604,11 +603,10 @@ describe('ReClammPool', function () {
     );
 
     // Concentrating liquidity
-    const updatStartTimestamp = await currentTimestamp();
-    const updateEndTimestamp = updatStartTimestamp + 1n * BigInt(DAY);
-    await pool
-      .connect(bob)
-      .setPriceRatioState(initialFourthRootPriceRatio / 2n, updatStartTimestamp, updateEndTimestamp);
+    const updateStartTimestamp = await currentTimestamp();
+    const updateEndTimestamp = updateStartTimestamp + 1n * BigInt(DAY) + 1n;
+    const endFourthRootPriceRatio = fpDivDown(initialFourthRootPriceRatio, fp(1.1));
+    await pool.connect(bob).setPriceRatioState(endFourthRootPriceRatio, updateStartTimestamp, updateEndTimestamp);
 
     // Virtual balances were updated, but prices should not move yet.
     const { minPrice: minPriceAfterSetPriceRatioState, maxPrice: maxPriceAfterSetPriceRatioState } =
@@ -621,7 +619,7 @@ describe('ReClammPool', function () {
     // (final ratio / initial ratio)^1/4.
     const expectedPriceRatioAfterConcentration = fpMulDown(
       initialFourthRootPriceRatio,
-      fourthRoot(fpDivDown(initialFourthRootPriceRatio / 2n, initialFourthRootPriceRatio))
+      fourthRoot(fpDivDown(endFourthRootPriceRatio, initialFourthRootPriceRatio))
     );
     expectEqualWithError(
       await pool.computeCurrentFourthRootPriceRatio(),
@@ -662,14 +660,14 @@ describe('ReClammPool', function () {
       poolBalancesAfterSwap,
       lastVirtualBalances,
       toDailyPriceShiftBase(PRICE_SHIFT_DAILY_RATE),
-      updatStartTimestamp,
+      updateStartTimestamp,
       expectedTimestamp,
       CENTEREDNESS_MARGIN,
       {
-        priceRatioUpdateStartTime: updatStartTimestamp,
+        priceRatioUpdateStartTime: updateStartTimestamp,
         priceRatioUpdateEndTime: updateEndTimestamp,
         startFourthRootPriceRatio: initialFourthRootPriceRatio,
-        endFourthRootPriceRatio: initialFourthRootPriceRatio / 2n,
+        endFourthRootPriceRatio: endFourthRootPriceRatio,
       }
     );
 
