@@ -426,7 +426,7 @@ interface IReClammPool is IBasePool {
     ********************************************************/
 
     /**
-     * @notice Resets the price ratio update by setting a new end fourth root price ratio and time interval.
+     * @notice Initiates a price ratio update by setting a new end fourth root price ratio and time interval.
      * @dev The price ratio is calculated by interpolating between the start and end times. The start price ratio will
      * be set to the current fourth root price ratio of the pool. This is a permissioned function.
      *
@@ -435,7 +435,7 @@ interface IReClammPool is IBasePool {
      * @param priceRatioUpdateEndTime The timestamp when the price ratio update will end
      * @return actualPriceRatioUpdateStartTime The actual start time for the price ratio update (min: block.timestamp).
      */
-    function setPriceRatioState(
+    function startPriceRatioUpdate(
         uint256 endFourthRootPriceRatio,
         uint256 priceRatioUpdateStartTime,
         uint256 priceRatioUpdateEndTime

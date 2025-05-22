@@ -8,7 +8,7 @@ import { PriceRatioState, ReClammMath, a, b } from "../lib/ReClammMath.sol";
 contract ReClammMathMock {
     PriceRatioState private _priceRatioState;
 
-    function setPriceRatioState(PriceRatioState memory priceRatioState) external {
+    function startPriceRatioUpdate(PriceRatioState memory priceRatioState) external {
         _priceRatioState = priceRatioState;
     }
 
