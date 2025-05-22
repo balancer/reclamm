@@ -4,9 +4,9 @@ pragma solidity ^0.8.24;
 
 import "forge-std/Test.sol";
 
-import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { IAuthentication } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/helpers/IAuthentication.sol";
@@ -1025,9 +1025,6 @@ contract ReClammPoolTest is BaseReClammTest {
     function testComputeInitialBalancesTokenA() public {
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens);
 
-        // Avoids math overflow when decimal is a low number.
-        uint256 initialAmountRaw = _INITIAL_AMOUNT / 10 ** (18 - IERC20Metadata(address(sortedTokens[a])).decimals());
-
         (address pool, ) = _createPool(
             [address(sortedTokens[a]), address(sortedTokens[b])].toMemoryArray(),
             "BeforeInitTest"
@@ -1038,14 +1035,12 @@ contract ReClammPoolTest is BaseReClammTest {
 
         uint256[] memory initialBalancesRaw = ReClammPool(pool).computeInitialBalancesRaw(
             sortedTokens[a],
-            initialAmountRaw
+            _INITIAL_AMOUNT
         );
-
-        assertEq(initialBalancesRaw[a], initialAmountRaw, "Invalid initial balance for token A");
-
+        assertEq(initialBalancesRaw[a], _INITIAL_AMOUNT, "Invalid initial balance for token A");
         assertEq(
             initialBalancesRaw[b],
-            initialAmountRaw.mulDown(initialBalanceRatio),
+            _INITIAL_AMOUNT.mulDown(initialBalanceRatio),
             "Invalid initial balance for token B"
         );
 
@@ -1059,9 +1054,6 @@ contract ReClammPoolTest is BaseReClammTest {
         uint256 rateA = 2e18;
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens);
         _priceTokenAWithRate = true;
-
-        // Avoids math overflow when decimal is a low number.
-        uint256 initialAmountRaw = _INITIAL_AMOUNT / 10 ** (18 - IERC20Metadata(address(sortedTokens[a])).decimals());
 
         (address pool, ) = _createPool(
             [address(sortedTokens[a]), address(sortedTokens[b])].toMemoryArray(),
@@ -1077,15 +1069,13 @@ contract ReClammPoolTest is BaseReClammTest {
         _rateProviderA.mockRate(rateA);
         uint256[] memory initialBalancesRaw = ReClammPool(pool).computeInitialBalancesRaw(
             sortedTokens[a],
-            initialAmountRaw
+            _INITIAL_AMOUNT
         );
-        assertEq(initialBalancesRaw[a], initialAmountRaw, "Invalid initial balance for token A");
+        assertEq(initialBalancesRaw[a], _INITIAL_AMOUNT, "Invalid initial balance for token A");
 
-        // Allows some rounding errors due to multiplication and division by the decimal factor.
-        assertApproxEqAbs(
+        assertEq(
             initialBalancesRaw[b],
-            initialAmountRaw.mulDown(initialBalanceRatio).mulDown(rateA),
-            1000,
+            _INITIAL_AMOUNT.mulDown(initialBalanceRatio).mulDown(rateA),
             "Invalid initial balance for token B"
         );
 
@@ -1099,9 +1089,6 @@ contract ReClammPoolTest is BaseReClammTest {
         uint256 rateB = 2e18;
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens);
         _priceTokenBWithRate = true;
-
-        // Avoids math overflow when decimal is a low number.
-        uint256 initialAmountRaw = _INITIAL_AMOUNT / 10 ** (18 - IERC20Metadata(address(sortedTokens[a])).decimals());
 
         (address pool, ) = _createPool(
             [address(sortedTokens[a]), address(sortedTokens[b])].toMemoryArray(),
@@ -1117,15 +1104,13 @@ contract ReClammPoolTest is BaseReClammTest {
         _rateProviderB.mockRate(rateB);
         uint256[] memory initialBalancesRaw = ReClammPool(pool).computeInitialBalancesRaw(
             sortedTokens[a],
-            initialAmountRaw
+            _INITIAL_AMOUNT
         );
-        assertEq(initialBalancesRaw[a], initialAmountRaw, "Invalid initial balance for token A");
+        assertEq(initialBalancesRaw[a], _INITIAL_AMOUNT, "Invalid initial balance for token A");
 
-        // Allows some rounding errors due to multiplication and division by the decimal factor.
-        assertApproxEqAbs(
+        assertEq(
             initialBalancesRaw[b],
-            initialAmountRaw.mulDown(initialBalanceRatio).divDown(rateB),
-            1000,
+            _INITIAL_AMOUNT.mulDown(initialBalanceRatio).divDown(rateB),
             "Invalid initial balance for token B"
         );
 
@@ -1142,9 +1127,6 @@ contract ReClammPoolTest is BaseReClammTest {
         _priceTokenAWithRate = true;
         _priceTokenBWithRate = true;
 
-        // Avoids math overflow when decimal is a low number.
-        uint256 initialAmountRaw = _INITIAL_AMOUNT / 10 ** (18 - IERC20Metadata(address(sortedTokens[a])).decimals());
-
         (address pool, ) = _createPool(
             [address(sortedTokens[a]), address(sortedTokens[b])].toMemoryArray(),
             "BeforeInitTest"
@@ -1160,15 +1142,13 @@ contract ReClammPoolTest is BaseReClammTest {
         _rateProviderB.mockRate(rateB);
         uint256[] memory initialBalancesRaw = ReClammPool(pool).computeInitialBalancesRaw(
             sortedTokens[a],
-            initialAmountRaw
+            _INITIAL_AMOUNT
         );
-        assertEq(initialBalancesRaw[a], initialAmountRaw, "Invalid initial balance for token A");
+        assertEq(initialBalancesRaw[a], _INITIAL_AMOUNT, "Invalid initial balance for token A");
 
-        // Allows some rounding errors due to multiplication and division by the decimal factor.
-        assertApproxEqAbs(
+        assertEq(
             initialBalancesRaw[b],
-            initialAmountRaw.mulDown(initialBalanceRatio).mulDown(rateA).divDown(rateB),
-            1000,
+            _INITIAL_AMOUNT.mulDown(initialBalanceRatio).mulDown(rateA).divDown(rateB),
             "Invalid initial balance for token B"
         );
 
@@ -1181,9 +1161,6 @@ contract ReClammPoolTest is BaseReClammTest {
     function testComputeInitialBalancesTokenB() public {
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens);
 
-        // Avoids math overflow when decimal is a low number.
-        uint256 initialAmountRaw = _INITIAL_AMOUNT / 10 ** (18 - IERC20Metadata(address(sortedTokens[b])).decimals());
-
         (address pool, ) = _createPool(
             [address(sortedTokens[a]), address(sortedTokens[b])].toMemoryArray(),
             "BeforeInitTest"
@@ -1194,15 +1171,12 @@ contract ReClammPoolTest is BaseReClammTest {
 
         uint256[] memory initialBalancesRaw = ReClammPool(pool).computeInitialBalancesRaw(
             sortedTokens[b],
-            initialAmountRaw
+            _INITIAL_AMOUNT
         );
-        assertEq(initialBalancesRaw[b], initialAmountRaw, "Invalid initial balance for token B");
-
-        // Allows some rounding errors due to multiplication and division by the decimal factor.
-        assertApproxEqAbs(
+        assertEq(initialBalancesRaw[b], _INITIAL_AMOUNT, "Invalid initial balance for token B");
+        assertEq(
             initialBalancesRaw[a],
-            initialAmountRaw.divDown(initialBalanceRatio),
-            1000,
+            _INITIAL_AMOUNT.divDown(initialBalanceRatio),
             "Invalid initial balance for token A"
         );
 
@@ -1216,9 +1190,6 @@ contract ReClammPoolTest is BaseReClammTest {
         uint256 rateA = 2e18;
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens);
         _priceTokenAWithRate = true;
-
-        // Avoids math overflow when decimal is a low number.
-        uint256 initialAmountRaw = _INITIAL_AMOUNT / 10 ** (18 - IERC20Metadata(address(sortedTokens[b])).decimals());
 
         (address pool, ) = _createPool(
             [address(sortedTokens[a]), address(sortedTokens[b])].toMemoryArray(),
@@ -1235,18 +1206,16 @@ contract ReClammPoolTest is BaseReClammTest {
 
         uint256[] memory initialBalancesRaw = ReClammPool(pool).computeInitialBalancesRaw(
             sortedTokens[b],
-            initialAmountRaw
+            _INITIAL_AMOUNT
         );
         // The reference token initial balance should always equal the initial amount passed in.
-        assertEq(initialBalancesRaw[b], initialAmountRaw, "Invalid initial balance for token B");
+        assertEq(initialBalancesRaw[b], _INITIAL_AMOUNT, "Invalid initial balance for token B");
 
-        // Allows some rounding errors due to multiplication and division by the decimal factor.
         // The other token should be the reference / initialBalanceRatio (adjusted for the rate).
         // Note that the balance ratio != price ratio (unless it's perfectly centered).
-        assertApproxEqAbs(
+        assertEq(
             initialBalancesRaw[a],
-            initialAmountRaw.divDown(initialBalanceRatio.mulDown(rateA)),
-            1000,
+            _INITIAL_AMOUNT.divDown(initialBalanceRatio.mulDown(rateA)),
             "Invalid initial balance for token A"
         );
 
@@ -1258,8 +1227,8 @@ contract ReClammPoolTest is BaseReClammTest {
         // Should be very close to initial amount.
         assertApproxEqRel(
             inverseInitialBalances[b],
-            initialAmountRaw,
-            _INVERSE_INITIALIZATION_ERROR,
+            _INITIAL_AMOUNT,
+            _INITIAL_PARAMS_ERROR,
             "Wrong inverse initialization balance (A)"
         );
 
@@ -1275,9 +1244,6 @@ contract ReClammPoolTest is BaseReClammTest {
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens);
         _priceTokenBWithRate = true;
 
-        // Avoids math overflow when decimal is a low number.
-        uint256 initialAmountRaw = _INITIAL_AMOUNT / 10 ** (18 - IERC20Metadata(address(sortedTokens[b])).decimals());
-
         (address pool, ) = _createPool(
             [address(sortedTokens[a]), address(sortedTokens[b])].toMemoryArray(),
             "BeforeInitTest"
@@ -1293,18 +1259,15 @@ contract ReClammPoolTest is BaseReClammTest {
 
         uint256[] memory initialBalancesRaw = ReClammPool(pool).computeInitialBalancesRaw(
             sortedTokens[b],
-            initialAmountRaw
+            _INITIAL_AMOUNT
         );
         // The reference token initial balance should always equal the initial amount passed in.
-        assertEq(initialBalancesRaw[b], initialAmountRaw, "Invalid initial balance for token B");
-
-        // Allows some rounding errors due to multiplication and division by the decimal factor.
+        assertEq(initialBalancesRaw[b], _INITIAL_AMOUNT, "Invalid initial balance for token B");
         // The other token should be the reference / initialBalanceRatio (adjusted for the rate).
         // Note that the balance ratio != price ratio (unless it's perfectly centered).
-        assertApproxEqAbs(
+        assertEq(
             initialBalancesRaw[a],
-            initialAmountRaw.mulDown(rateB).divDown(initialBalanceRatio),
-            1000,
+            _INITIAL_AMOUNT.mulDown(rateB).divDown(initialBalanceRatio),
             "Invalid initial balance for token A"
         );
 
@@ -1316,8 +1279,8 @@ contract ReClammPoolTest is BaseReClammTest {
         // Should be very close to initial amount.
         assertApproxEqRel(
             inverseInitialBalances[b],
-            initialAmountRaw,
-            _INVERSE_INITIALIZATION_ERROR,
+            _INITIAL_AMOUNT,
+            _INITIAL_PARAMS_ERROR,
             "Wrong inverse initialization balance (B)"
         );
 
@@ -1335,9 +1298,6 @@ contract ReClammPoolTest is BaseReClammTest {
         _priceTokenAWithRate = true;
         _priceTokenBWithRate = true;
 
-        // Avoids math overflow when decimal is a low number.
-        uint256 initialAmountRaw = _INITIAL_AMOUNT / 10 ** (18 - IERC20Metadata(address(sortedTokens[b])).decimals());
-
         (address pool, ) = _createPool(
             [address(sortedTokens[a]), address(sortedTokens[b])].toMemoryArray(),
             "BeforeInitTest"
@@ -1354,18 +1314,15 @@ contract ReClammPoolTest is BaseReClammTest {
 
         uint256[] memory initialBalancesRaw = ReClammPool(pool).computeInitialBalancesRaw(
             sortedTokens[b],
-            initialAmountRaw
+            _INITIAL_AMOUNT
         );
         // The reference token initial balance should always equal the initial amount passed in.
-        assertEq(initialBalancesRaw[b], initialAmountRaw, "Invalid initial balance for token B");
-
-        // Allows some rounding errors due to multiplication and division by the decimal factor.
+        assertEq(initialBalancesRaw[b], _INITIAL_AMOUNT, "Invalid initial balance for token B");
         // The other token should be the reference / initialBalanceRatio (adjusted for both rates).
         // Note that the balance ratio != price ratio (unless it's perfectly centered).
-        assertApproxEqAbs(
+        assertEq(
             initialBalancesRaw[a],
-            initialAmountRaw.divDown(initialBalanceRatio).mulDown(rateB).divDown(rateA),
-            1000,
+            _INITIAL_AMOUNT.divDown(initialBalanceRatio).mulDown(rateB).divDown(rateA),
             "Invalid initial balance for token A"
         );
 
@@ -1376,8 +1333,8 @@ contract ReClammPoolTest is BaseReClammTest {
         // Should be very close to initial amount.
         assertApproxEqRel(
             inverseInitialBalances[b],
-            initialAmountRaw,
-            _INVERSE_INITIALIZATION_ERROR,
+            _INITIAL_AMOUNT,
+            _INITIAL_PARAMS_ERROR,
             "Wrong inverse initialization balance (AB)"
         );
 
