@@ -331,8 +331,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         (, TokenInfo[] memory tokenInfo, , ) = _vault.getPoolTokenInfo(address(this));
 
-        uint256 rateA = _getTokenRate(_TOKEN_A_PRICE_INCLUDES_RATE, tokenInfo[a]);
-        uint256 rateB = _getTokenRate(_TOKEN_B_PRICE_INCLUDES_RATE, tokenInfo[b]);
+        // We want to undo the rate, so we get it with the opposite flag.
+        uint256 rateA = _getTokenRate(_TOKEN_A_PRICE_INCLUDES_RATE == false, tokenInfo[a]);
+        uint256 rateB = _getTokenRate(_TOKEN_B_PRICE_INCLUDES_RATE == false, tokenInfo[b]);
 
         balancesScaled18[a] = balancesScaled18[a].divDown(rateA);
         balancesScaled18[b] = balancesScaled18[b].divDown(rateB);
@@ -1084,12 +1085,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         bool tokenPriceIncludesRate,
         TokenInfo memory tokenInfo
     ) internal view returns (uint256 tokenRate) {
-        if (tokenPriceIncludesRate) {
-            if (tokenInfo.tokenType == TokenType.WITH_RATE) {
-                tokenRate = IRateProvider(tokenInfo.rateProvider).getRate();
-            } else {
-                revert IVaultErrors.InvalidTokenType();
-            }
+        if (tokenPriceIncludesRate && tokenInfo.tokenType == TokenType.WITH_RATE) {
+            tokenRate = IRateProvider(tokenInfo.rateProvider).getRate();
         } else {
             tokenRate = FixedPoint.ONE;
         }

@@ -13,12 +13,7 @@ import { IAuthentication } from "@balancer-labs/v3-interfaces/contracts/solidity
 import { IVaultEvents } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultEvents.sol";
 import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultErrors.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
-import {
-    AddLiquidityKind,
-    PoolSwapParams,
-    RemoveLiquidityKind,
-    PoolRoleAccounts
-} from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
+import "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { CastingHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/CastingHelpers.sol";
 import { InputHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/InputHelpers.sol";
@@ -1714,15 +1709,58 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function testInitializationTokenErrors() public {
-        address newPool = _createStandardPool(true, false, "Price Token A");
+        string memory name = "ReClamm Pool";
+        string memory symbol = "RECLAMM_POOL";
+
+        address[] memory tokens = [address(usdc), address(dai)].toMemoryArray();
+        IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens.asIERC20());
+        TokenConfig[] memory tokenConfig = vault.buildTokenConfig(sortedTokens);
+
+        PoolRoleAccounts memory roleAccounts;
+
+        // Standard tokens, one includes rate in the price.
+        ReClammPoolFactoryMock.ReClammPriceParams memory priceParams = ReClammPoolFactoryMock.ReClammPriceParams({
+            initialMinPrice: _initialMinPrice,
+            initialMaxPrice: _initialMaxPrice,
+            initialTargetPrice: _initialTargetPrice,
+            tokenAPriceIncludesRate: true,
+            tokenBPriceIncludesRate: false
+        });
 
         vm.expectRevert(IVaultErrors.InvalidTokenType.selector);
-        ReClammPool(newPool).computeInitialBalanceRatioRaw();
+        ReClammPoolFactoryMock(poolFactory).create(
+            name,
+            symbol,
+            tokenConfig,
+            roleAccounts,
+            _DEFAULT_SWAP_FEE,
+            priceParams,
+            _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
+            _DEFAULT_CENTEREDNESS_MARGIN,
+            bytes32(saltNumber++)
+        );
 
-        newPool = _createStandardPool(false, true, "Price Token B");
+        // Repeat for the other one.
+        priceParams = ReClammPoolFactoryMock.ReClammPriceParams({
+            initialMinPrice: _initialMinPrice,
+            initialMaxPrice: _initialMaxPrice,
+            initialTargetPrice: _initialTargetPrice,
+            tokenAPriceIncludesRate: false,
+            tokenBPriceIncludesRate: true
+        });
 
         vm.expectRevert(IVaultErrors.InvalidTokenType.selector);
-        ReClammPool(newPool).computeInitialBalanceRatioRaw();
+        ReClammPoolFactoryMock(poolFactory).create(
+            name,
+            symbol,
+            tokenConfig,
+            roleAccounts,
+            _DEFAULT_SWAP_FEE,
+            priceParams,
+            _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
+            _DEFAULT_CENTEREDNESS_MARGIN,
+            bytes32(saltNumber++)
+        );
     }
 
     function testInitializationCenteredness() public {
