@@ -81,13 +81,13 @@ export function computeCurrentVirtualBalances(
     const powResult = base.pow(exponent);
 
     if (isPoolAboveCenter) {
-      virtualBalances[1] = fpMulDown(lastVirtualBalances[1], fp(powResult));
+      virtualBalances[1] = fpMulDown(virtualBalances[1], fp(powResult));
       virtualBalances[0] = fpDivDown(
         fpMulDown(balancesScaled18[0], virtualBalances[1] + balancesScaled18[1]),
         fpMulDown(sqrtPriceRatio - FP_ONE, virtualBalances[1]) - balancesScaled18[1]
       );
     } else {
-      virtualBalances[0] = fpMulDown(lastVirtualBalances[0], fp(powResult));
+      virtualBalances[0] = fpMulDown(virtualBalances[0], fp(powResult));
       virtualBalances[1] = fpDivDown(
         fpMulDown(balancesScaled18[1], virtualBalances[0] + balancesScaled18[0]),
         fpMulDown(sqrtPriceRatio - FP_ONE, virtualBalances[0]) - balancesScaled18[0]
@@ -311,4 +311,12 @@ export function isAboveCenter(balancesScaled18: bigint[], virtualBalances: bigin
 
 export function toDailyPriceShiftBase(dailyPriceShiftExponent: bigint): bigint {
   return fp(1) - bn(dailyPriceShiftExponent) / bn(124649);
+}
+
+export function pow4(value: bigint): bigint {
+  return fpMulDown(fpMulDown(value, value), fpMulDown(value, value));
+}
+
+export function fourthRoot(value: bigint): bigint {
+  return bn(Math.sqrt(Number(BigInt(Math.sqrt(Number(value * FP_ONE))) * FP_ONE)));
 }

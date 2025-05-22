@@ -5,7 +5,7 @@ import { sharedBeforeEach } from '@balancer-labs/v3-common/sharedBeforeEach';
 import { Router } from '@balancer-labs/v3-vault/typechain-types/contracts/Router';
 import { ERC20TestToken } from '@balancer-labs/v3-solidity-utils/typechain-types/contracts/test/ERC20TestToken';
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/dist/src/signer-with-address';
-import { FP_ZERO, bn, fp, fpDivDown, fpMulDown } from '@balancer-labs/v3-helpers/src/numbers';
+import { FP_ONE, FP_ZERO, bn, fp, fpDivDown, fpMulDown } from '@balancer-labs/v3-helpers/src/numbers';
 import {
   MAX_UINT256,
   MAX_UINT160,
@@ -19,14 +19,20 @@ import TypesConverter from '@balancer-labs/v3-helpers/src/models/types/TypesConv
 import { buildTokenConfig } from '@balancer-labs/v3-helpers/src/models/tokens/tokenConfig';
 import { ReClammPool, ReClammPoolFactory } from '../typechain-types';
 import { actionId } from '@balancer-labs/v3-helpers/src/models/misc/actions';
-import { advanceTime, currentTimestamp, HOUR, MONTH } from '@balancer-labs/v3-helpers/src/time';
+import { advanceTime, currentTimestamp, DAY, HOUR, MONTH } from '@balancer-labs/v3-helpers/src/time';
 import * as expectEvent from '@balancer-labs/v3-helpers/src/test/expectEvent';
 import { sortAddresses } from '@balancer-labs/v3-helpers/src/models/tokens/sortingHelper';
 import { deployPermit2 } from '@balancer-labs/v3-vault/test/Permit2Deployer';
 import { IPermit2 } from '@balancer-labs/v3-vault/typechain-types/permit2/src/interfaces/IPermit2';
 import { PoolConfigStructOutput } from '@balancer-labs/v3-interfaces/typechain-types/contracts/vault/IVault';
 import { TokenConfigStruct } from '../typechain-types/@balancer-labs/v3-interfaces/contracts/vault/IVault';
-import { computeCurrentVirtualBalances, toDailyPriceShiftBase } from './utils/reClammMath';
+import {
+  computeCurrentVirtualBalances,
+  Rounding,
+  pureComputeInvariant,
+  toDailyPriceShiftBase,
+  fourthRoot,
+} from './utils/reClammMath';
 import { expectEqualWithError } from './utils/relativeError';
 
 describe('ReClammPool', function () {
@@ -46,11 +52,13 @@ describe('ReClammPool', function () {
   const MAX_PRICE = fp(8);
   const TARGET_PRICE = fp(3);
 
-  const PRICE_SHIFT_DAILY_RATE = fp(1); // 100%. Price interval can double or reduce by half each day
-  // 20%. If pool centeredness is less than margin, price interval will track the market price.
-  const CENTEREDNESS_MARGIN = fp(0.2);
+  // 100%. Price interval can double or reduce by half each day.
+  const PRICE_SHIFT_DAILY_RATE = fp(1);
+  // 50%. If pool centeredness is less than margin, price interval will track the market price.
+  const CENTEREDNESS_MARGIN = fp(0.5);
 
   const virtualBalancesError = 0.000000000000001;
+  const pricesError = 0.06; // 6% error tolerance.
 
   let permit2: IPermit2;
   let vault: IVaultMock;
@@ -127,8 +135,8 @@ describe('ReClammPool', function () {
       initialBalances[tokenBIdx] = fpDivDown(INITIAL_BALANCE_A, proportion) / bn(1e12);
     }
 
-    await tokenA.mint(bob, 10n * TOKEN_AMOUNT);
-    await tokenB.mint(bob, 10n * TOKEN_AMOUNT);
+    await tokenA.mint(bob, 100n * TOKEN_AMOUNT);
+    await tokenB.mint(bob, 100n * TOKEN_AMOUNT);
 
     await pool.connect(bob).approve(router, MAX_UINT256);
     for (const token of [tokenA, tokenB]) {
@@ -142,6 +150,7 @@ describe('ReClammPool', function () {
   });
 
   sharedBeforeEach('grant permission', async () => {
+    // Permission to set the pool swap fee
     const setPoolSwapFeeAction = await actionId(vault, 'setStaticSwapFeePercentage');
 
     const authorizerAddress = await vault.getAuthorizer();
@@ -150,6 +159,10 @@ describe('ReClammPool', function () {
     await authorizer.grantRole(setPoolSwapFeeAction, bob.address);
 
     await vault.connect(bob).setStaticSwapFeePercentage(pool, POOL_SWAP_FEE);
+
+    // Permission to set the price ratio
+    const setPriceRatioAction = await actionId(pool, 'setPriceRatioState');
+    await authorizer.grantRole(setPriceRatioAction, bob.address);
   });
 
   it('should have correct versions', async () => {
@@ -315,4 +328,398 @@ describe('ReClammPool', function () {
       virtualBalancesError
     );
   });
+
+  it('should move virtual balances correctly (out of range < center and price ratio updating)', async () => {
+    // 10% swap fee, will accumulate in the pool.
+    await vault.connect(bob).setStaticSwapFeePercentage(pool, fp(0.1));
+
+    // check price ratio before
+    const priceRatioBeforeSwaps = await pool.computeCurrentFourthRootPriceRatio();
+
+    // Do a lot of swaps to move the price ratio.
+    for (let i = 0; i < 50; i++) {
+      await router
+        .connect(bob)
+        .swapSingleTokenExactIn(
+          pool,
+          tokenA,
+          tokenB,
+          fpMulDown(INITIAL_BALANCE_A, fp(0.8)),
+          0,
+          MAX_UINT256,
+          false,
+          '0x'
+        );
+      await router
+        .connect(bob)
+        .swapSingleTokenExactOut(
+          pool,
+          tokenB,
+          tokenA,
+          fpMulDown(INITIAL_BALANCE_A, fp(0.9 * 0.8)),
+          MAX_UINT256,
+          MAX_UINT256,
+          false,
+          '0x'
+        );
+    }
+
+    // 0% swap fee, making sure no fees will be accrued by the pool in the next swaps.
+    await vault.connect(bob).manualUnsafeSetStaticSwapFeePercentage(pool, fp(0));
+
+    const initialFourthRootPriceRatio = await pool.computeCurrentFourthRootPriceRatio();
+    // Make sure the price ratio raised by 16 (2^4), at least.
+    expect(initialFourthRootPriceRatio).to.be.greaterThan(2n * priceRatioBeforeSwaps);
+
+    const { minPrice: minPriceBeforeBigSwap, maxPrice: maxPriceBeforeBigSwap } = await checkPoolPrices(
+      pool,
+      initialFourthRootPriceRatio,
+      0n,
+      0n,
+      false
+    );
+
+    // Very big swap, putting the pool right at the edge.
+    const [, , poolBalancesBeforeSwapRaw] = await vault.getPoolTokenInfo(pool);
+    const exactAmountOut = fpMulDown(poolBalancesBeforeSwapRaw[tokenAIdx], fp(0.99));
+    const maxAmountIn = MAX_UINT256;
+    const deadline = MAX_UINT256;
+    const wethIsEth = false;
+
+    await router
+      .connect(bob)
+      .swapSingleTokenExactOut(pool, tokenB, tokenA, exactAmountOut, maxAmountIn, deadline, wethIsEth, '0x');
+
+    const [, , , poolBalancesAfterSwap] = await vault.getPoolTokenInfo(pool);
+
+    const { minPrice: minPriceAfterBigSwap, maxPrice: maxPriceAfterBigSwap } = await checkPoolPrices(
+      pool,
+      initialFourthRootPriceRatio,
+      minPriceBeforeBigSwap,
+      maxPriceBeforeBigSwap,
+      true
+    );
+
+    await advanceTime(6 * HOUR);
+
+    // Since price shift daily is 100%, prices will double each day. It's exponential, so we expect that
+    // after 6 hours the new prices are oldPrice * 2^(1/4).
+    const expectedMinPriceOOR = fpMulDown(minPriceAfterBigSwap, fourthRoot(fp(2)));
+    const expectedMaxPriceOOR = fpMulDown(maxPriceAfterBigSwap, fourthRoot(fp(2)));
+
+    // Pool is OOR, so min and max prices moved. However, the price ratio should be the same.
+    const { minPrice: minPriceOOR, maxPrice: maxPriceOOR } = await checkPoolPrices(
+      pool,
+      initialFourthRootPriceRatio,
+      expectedMinPriceOOR,
+      expectedMaxPriceOOR,
+      true
+    );
+
+    // Concentrating liquidity
+    const updatStartTimestamp = await currentTimestamp();
+    const updateEndTimestamp = updatStartTimestamp + 1n * BigInt(DAY);
+    await pool
+      .connect(bob)
+      .setPriceRatioState(initialFourthRootPriceRatio / 2n, updatStartTimestamp, updateEndTimestamp);
+
+    // Virtual balances were updated, but prices should not move yet.
+    const { minPrice: minPriceAfterSetPriceRatioState, maxPrice: maxPriceAfterSetPriceRatioState } =
+      await checkPoolPrices(pool, initialFourthRootPriceRatio, minPriceOOR, maxPriceOOR, true);
+
+    await advanceTime(6 * HOUR);
+
+    // After 6 hours, there are 2 moves: concentration of liquidity and price shift due to out-of-range state.
+    // Since the concentration of liquidity is exponential and the duration is 1 day, it should have moved respecting
+    // (final ratio / initial ratio)^1/4.
+    const expectedPriceRatioAfterConcentration = fpMulDown(
+      initialFourthRootPriceRatio,
+      fourthRoot(fpDivDown(initialFourthRootPriceRatio / 2n, initialFourthRootPriceRatio))
+    );
+    expectEqualWithError(
+      await pool.computeCurrentFourthRootPriceRatio(),
+      expectedPriceRatioAfterConcentration,
+      pricesError
+    );
+
+    // The center is equally spaced from min and max price, geometrically, which means that
+    // `centerednessPrice / minPrice = maxPrice / centerednessPrice`. Since priceRatio is maxPrice / minPrice,
+    // centerednessPrice = sqrt(priceRatio) * minPrice. (or maxPrice / sqrt(priceRatio)).
+    const sqrtInitialPriceRatio = fpMulDown(initialFourthRootPriceRatio, initialFourthRootPriceRatio);
+    const centerednessPrice = fpMulDown(minPriceAfterSetPriceRatioState, sqrtInitialPriceRatio);
+    const sqrtPriceRatioAfterConcentration = fpMulDown(
+      expectedPriceRatioAfterConcentration,
+      expectedPriceRatioAfterConcentration
+    );
+    const expectedMinPriceIRAfterConcentration = fpDivDown(centerednessPrice, sqrtPriceRatioAfterConcentration);
+    const expectedMaxPriceIRAfterConcentration = fpMulDown(centerednessPrice, sqrtPriceRatioAfterConcentration);
+
+    // Also, the prices are shifting since the pool is OOR. The prices should have moved by the same factor
+    // 2ˆ(1/4) = 1.189207, applied to the previous min and max prices.
+    const expectedMinPriceOORAfterConcentration = fpMulDown(expectedMinPriceIRAfterConcentration, fp(1.189207));
+    const expectedMaxPriceOORAfterConcentration = fpMulDown(expectedMaxPriceIRAfterConcentration, fp(1.189207));
+    const { minPrice: minPriceAfterPriceShift, maxPrice: maxPriceAfterPriceShift } = await checkPoolPrices(
+      pool,
+      expectedPriceRatioAfterConcentration,
+      expectedMinPriceOORAfterConcentration,
+      expectedMaxPriceOORAfterConcentration,
+      true
+    );
+
+    const expectedTimestamp = await currentTimestamp();
+
+    const lastVirtualBalances = await pool.getLastVirtualBalances();
+
+    // Calculate the expected virtual balances in the next swap.
+    const [expectedFinalVirtualBalances] = computeCurrentVirtualBalances(
+      poolBalancesAfterSwap,
+      lastVirtualBalances,
+      toDailyPriceShiftBase(PRICE_SHIFT_DAILY_RATE),
+      updatStartTimestamp,
+      expectedTimestamp,
+      CENTEREDNESS_MARGIN,
+      {
+        priceRatioUpdateStartTime: updatStartTimestamp,
+        priceRatioUpdateEndTime: updateEndTimestamp,
+        startFourthRootPriceRatio: initialFourthRootPriceRatio,
+        endFourthRootPriceRatio: initialFourthRootPriceRatio / 2n,
+      }
+    );
+
+    // Swap in the other direction.
+    await router
+      .connect(bob)
+      .swapSingleTokenExactOut(
+        pool,
+        tokenA,
+        tokenB,
+        initialBalances[tokenBIdx],
+        MAX_UINT256,
+        deadline,
+        wethIsEth,
+        '0x'
+      );
+
+    // Prices should not changed from the last check.
+    await checkPoolPrices(
+      pool,
+      expectedPriceRatioAfterConcentration,
+      minPriceAfterPriceShift,
+      maxPriceAfterPriceShift,
+      true
+    );
+
+    // Check whether the virtual balances are close to their expected values.
+    const actualFinalVirtualBalances = await pool.computeCurrentVirtualBalances();
+
+    expectEqualWithError(actualFinalVirtualBalances[tokenAIdx], expectedFinalVirtualBalances[tokenAIdx], pricesError);
+    expectEqualWithError(actualFinalVirtualBalances[tokenBIdx], expectedFinalVirtualBalances[tokenBIdx], pricesError);
+  });
+
+  it('should move virtual balances correctly (out of range > center and price ratio updating)', async () => {
+    // 10% swap fee, will accumulate in the pool.
+    await vault.connect(bob).setStaticSwapFeePercentage(pool, fp(0.1));
+
+    // check price ratio before
+    const priceRatioBeforeSwaps = await pool.computeCurrentFourthRootPriceRatio();
+
+    // Do a lot of swaps to move the price ratio.
+    for (let i = 0; i < 50; i++) {
+      await router
+        .connect(bob)
+        .swapSingleTokenExactIn(
+          pool,
+          tokenA,
+          tokenB,
+          fpMulDown(INITIAL_BALANCE_A, fp(0.8)),
+          0,
+          MAX_UINT256,
+          false,
+          '0x'
+        );
+      await router
+        .connect(bob)
+        .swapSingleTokenExactOut(
+          pool,
+          tokenB,
+          tokenA,
+          fpMulDown(INITIAL_BALANCE_A, fp(0.9 * 0.8)),
+          MAX_UINT256,
+          MAX_UINT256,
+          false,
+          '0x'
+        );
+    }
+
+    // 0% swap fee, making sure no fees will be accrued by the pool in the next swaps.
+    await vault.connect(bob).manualUnsafeSetStaticSwapFeePercentage(pool, fp(0));
+
+    const initialFourthRootPriceRatio = await pool.computeCurrentFourthRootPriceRatio();
+    // Make sure the price ratio raised by 16 (2^4), at least.
+    expect(initialFourthRootPriceRatio).to.be.greaterThan(2n * priceRatioBeforeSwaps);
+
+    const { minPrice: minPriceBeforeBigSwap, maxPrice: maxPriceBeforeBigSwap } = await checkPoolPrices(
+      pool,
+      initialFourthRootPriceRatio,
+      0n,
+      0n,
+      false
+    );
+
+    // Very big swap, putting the pool right at the edge.
+    const [, , poolBalancesBeforeSwapRaw] = await vault.getPoolTokenInfo(pool);
+    const exactAmountOut = fpMulDown(poolBalancesBeforeSwapRaw[tokenBIdx], fp(0.9));
+    const maxAmountIn = MAX_UINT256;
+    const deadline = MAX_UINT256;
+    const wethIsEth = false;
+
+    await router
+      .connect(bob)
+      .swapSingleTokenExactOut(pool, tokenA, tokenB, exactAmountOut, maxAmountIn, deadline, wethIsEth, '0x');
+
+    const [, , , poolBalancesAfterSwap] = await vault.getPoolTokenInfo(pool);
+
+    const { minPrice: minPriceAfterBigSwap, maxPrice: maxPriceAfterBigSwap } = await checkPoolPrices(
+      pool,
+      initialFourthRootPriceRatio,
+      minPriceBeforeBigSwap,
+      maxPriceBeforeBigSwap,
+      true
+    );
+
+    await advanceTime(6 * HOUR);
+
+    // Since price shift daily is 100%, prices will halve each day. It's exponential, so we expect that
+    // after 6 hours the new prices are oldPrice / 2^(1/4).
+    const expectedMinPriceOOR = fpDivDown(minPriceAfterBigSwap, fourthRoot(fp(2)));
+    const expectedMaxPriceOOR = fpDivDown(maxPriceAfterBigSwap, fourthRoot(fp(2)));
+
+    // Pool is OOR, so min and max prices moved. However, the price ratio should be the same.
+    const { minPrice: minPriceOOR, maxPrice: maxPriceOOR } = await checkPoolPrices(
+      pool,
+      initialFourthRootPriceRatio,
+      expectedMinPriceOOR,
+      expectedMaxPriceOOR,
+      true
+    );
+
+    // Concentrating liquidity
+    const updatStartTimestamp = await currentTimestamp();
+    const updateEndTimestamp = updatStartTimestamp + 1n * BigInt(DAY);
+    await pool
+      .connect(bob)
+      .setPriceRatioState(initialFourthRootPriceRatio / 2n, updatStartTimestamp, updateEndTimestamp);
+
+    // Virtual balances were updated, but prices should not move yet.
+    const { minPrice: minPriceAfterSetPriceRatioState, maxPrice: maxPriceAfterSetPriceRatioState } =
+      await checkPoolPrices(pool, initialFourthRootPriceRatio, minPriceOOR, maxPriceOOR, true);
+
+    await advanceTime(6 * HOUR);
+
+    // After 6 hours, there are 2 moves: concentration of liquidity and price shift due to out-of-range state.
+    // Since the concentration of liquidity is exponential and the duration is 1 day, it should have moved respecting
+    // (final ratio / initial ratio)^1/4.
+    const expectedPriceRatioAfterConcentration = fpMulDown(
+      initialFourthRootPriceRatio,
+      fourthRoot(fpDivDown(initialFourthRootPriceRatio / 2n, initialFourthRootPriceRatio))
+    );
+    expectEqualWithError(
+      await pool.computeCurrentFourthRootPriceRatio(),
+      expectedPriceRatioAfterConcentration,
+      pricesError
+    );
+
+    // The center is equally spaced from min and max price, geometrically, which means that
+    // `centerednessPrice / minPrice = maxPrice / centerednessPrice`. Since priceRatio is maxPrice / minPrice,
+    // centerednessPrice = sqrt(priceRatio) * minPrice. (or maxPrice / sqrt(priceRatio)).
+    const sqrtInitialPriceRatio = fpMulDown(initialFourthRootPriceRatio, initialFourthRootPriceRatio);
+    const centerednessPrice = fpMulDown(minPriceAfterSetPriceRatioState, sqrtInitialPriceRatio);
+    const sqrtPriceRatioAfterConcentration = fpMulDown(
+      expectedPriceRatioAfterConcentration,
+      expectedPriceRatioAfterConcentration
+    );
+    const expectedMinPriceIRAfterConcentration = fpDivDown(centerednessPrice, sqrtPriceRatioAfterConcentration);
+    const expectedMaxPriceIRAfterConcentration = fpMulDown(centerednessPrice, sqrtPriceRatioAfterConcentration);
+
+    // Also, the prices are shifting since the pool is OOR. The prices should have moved by the same factor
+    // 2ˆ(1/4), applied to the previous min and max prices.
+    const expectedMinPriceOORAfterConcentration = fpDivDown(expectedMinPriceIRAfterConcentration, fourthRoot(fp(2)));
+    const expectedMaxPriceOORAfterConcentration = fpDivDown(expectedMaxPriceIRAfterConcentration, fourthRoot(fp(2)));
+    const { minPrice: minPriceAfterPriceShift, maxPrice: maxPriceAfterPriceShift } = await checkPoolPrices(
+      pool,
+      expectedPriceRatioAfterConcentration,
+      expectedMinPriceOORAfterConcentration,
+      expectedMaxPriceOORAfterConcentration,
+      true
+    );
+
+    const expectedTimestamp = await currentTimestamp();
+
+    const lastVirtualBalances = await pool.getLastVirtualBalances();
+
+    // Calculate the expected virtual balances in the next swap.
+    const [expectedFinalVirtualBalances] = computeCurrentVirtualBalances(
+      poolBalancesAfterSwap,
+      lastVirtualBalances,
+      toDailyPriceShiftBase(PRICE_SHIFT_DAILY_RATE),
+      updatStartTimestamp,
+      expectedTimestamp,
+      CENTEREDNESS_MARGIN,
+      {
+        priceRatioUpdateStartTime: updatStartTimestamp,
+        priceRatioUpdateEndTime: updateEndTimestamp,
+        startFourthRootPriceRatio: initialFourthRootPriceRatio,
+        endFourthRootPriceRatio: initialFourthRootPriceRatio / 2n,
+      }
+    );
+
+    // Swap in the other direction.
+    await router
+      .connect(bob)
+      .swapSingleTokenExactIn(pool, tokenB, tokenA, exactAmountOut, 0, deadline, wethIsEth, '0x');
+
+    // Prices should not changed from the last check.
+    await checkPoolPrices(
+      pool,
+      expectedPriceRatioAfterConcentration,
+      minPriceAfterPriceShift,
+      maxPriceAfterPriceShift,
+      true
+    );
+
+    // Check whether the virtual balances are close to their expected values.
+    const actualFinalVirtualBalances = await pool.computeCurrentVirtualBalances();
+
+    expectEqualWithError(actualFinalVirtualBalances[tokenAIdx], expectedFinalVirtualBalances[tokenAIdx], pricesError);
+    expectEqualWithError(actualFinalVirtualBalances[tokenBIdx], expectedFinalVirtualBalances[tokenBIdx], pricesError);
+  });
+
+  async function checkPoolPrices(
+    pool: ReClammPool,
+    currentFourthRootPriceRatio: bigint,
+    expectedMinPrice: bigint,
+    expectedMaxPrice: bigint,
+    compareMinAndMaxPrices: boolean
+  ): Promise<{ minPrice: bigint; maxPrice: bigint }> {
+    const [virtualBalanceA, virtualBalanceB] = await pool.computeCurrentVirtualBalances();
+
+    const virtualBalances = [virtualBalanceA, virtualBalanceB];
+    const [, , , poolBalances] = await vault.getPoolTokenInfo(pool);
+
+    const invariant = pureComputeInvariant(poolBalances, virtualBalances, Rounding.ROUND_DOWN);
+
+    const minPrice = (virtualBalances[tokenBIdx] * virtualBalances[tokenBIdx]) / invariant;
+    const maxPrice = fpDivDown(invariant, fpMulDown(virtualBalances[tokenAIdx], virtualBalances[tokenAIdx]));
+
+    const sqrtPriceRatio = fpMulDown(currentFourthRootPriceRatio, currentFourthRootPriceRatio);
+    const priceRatio = fpMulDown(sqrtPriceRatio, sqrtPriceRatio);
+
+    expectEqualWithError(fpDivDown(maxPrice, minPrice), priceRatio, pricesError);
+    if (compareMinAndMaxPrices) {
+      expectEqualWithError(minPrice, expectedMinPrice, pricesError);
+      expectEqualWithError(maxPrice, expectedMaxPrice, pricesError);
+    }
+
+    return { minPrice, maxPrice };
+  }
 });
