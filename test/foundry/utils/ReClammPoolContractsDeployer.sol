@@ -32,8 +32,8 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
         uint256 defaultMinPrice;
         uint256 defaultMaxPrice;
         uint256 defaultTargetPrice;
-        bool defaultPriceTokenAWithRate;
-        bool defaultPriceTokenBWithRate;
+        bool defaultTokenAPriceIncludesRate;
+        bool defaultTokenBPriceIncludesRate;
         uint256 defaultDailyPriceShiftExponent;
         uint256 defaultCenterednessMargin;
         string poolVersion;
@@ -54,8 +54,8 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
             defaultMinPrice: 0.5e18,
             defaultMaxPrice: 2e18,
             defaultTargetPrice: 1e18,
-            defaultPriceTokenAWithRate: false,
-            defaultPriceTokenBWithRate: false,
+            defaultTokenAPriceIncludesRate: false,
+            defaultTokenBPriceIncludesRate: false,
             defaultDailyPriceShiftExponent: 100e16, // 100%
             defaultCenterednessMargin: 10e16, // 10%
             poolVersion: "ReClamm Pool v1",
@@ -104,8 +104,8 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
             initialMinPrice: defaultParams.defaultMinPrice,
             initialMaxPrice: defaultParams.defaultMaxPrice,
             initialTargetPrice: defaultParams.defaultTargetPrice,
-            priceTokenAWithRate: defaultParams.defaultPriceTokenAWithRate,
-            priceTokenBWithRate: defaultParams.defaultPriceTokenBWithRate
+            tokenAPriceIncludesRate: defaultParams.defaultTokenAPriceIncludesRate,
+            tokenBPriceIncludesRate: defaultParams.defaultTokenBPriceIncludesRate
         });
 
         newPool = ReClammPoolFactory(address(poolFactory)).create(
@@ -138,8 +138,8 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
                 initialMinPrice: priceParams.initialMinPrice,
                 initialMaxPrice: priceParams.initialMaxPrice,
                 initialTargetPrice: priceParams.initialTargetPrice,
-                priceTokenAWithRate: priceParams.priceTokenAWithRate,
-                priceTokenBWithRate: priceParams.priceTokenBWithRate,
+                tokenAPriceIncludesRate: priceParams.tokenAPriceIncludesRate,
+                tokenBPriceIncludesRate: priceParams.tokenBPriceIncludesRate,
                 dailyPriceShiftExponent: defaultParams.defaultDailyPriceShiftExponent,
                 centerednessMargin: defaultParams.defaultCenterednessMargin.toUint64()
             }),

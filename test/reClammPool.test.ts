@@ -103,8 +103,8 @@ describe('ReClammPool', function () {
       initialMinPrice: MIN_PRICE,
       initialMaxPrice: MAX_PRICE,
       initialTargetPrice: TARGET_PRICE,
-      priceTokenAWithRate: false, // Do not consider rates in the price calculation
-      priceTokenBWithRate: false, // Do not consider rates in the price calculation
+      tokenAPriceIncludesRate: false, // Do not consider rates in the price calculation for token A
+      tokenBPriceIncludesRate: false, // Do not consider rates in the price calculation for token B
     };
 
     const tx = await factory.create(

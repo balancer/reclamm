@@ -18,8 +18,8 @@ struct ReClammPoolParams {
     uint256 initialMinPrice;
     uint256 initialMaxPrice;
     uint256 initialTargetPrice;
-    bool priceTokenAWithRate;
-    bool priceTokenBWithRate;
+    bool tokenAPriceIncludesRate;
+    bool tokenBPriceIncludesRate;
 }
 
 /**
@@ -30,8 +30,8 @@ struct ReClammPoolParams {
  * Base Pool:
  * @param tokens Pool tokens, sorted in token registration order
  * @param decimalScalingFactors Adjust for token decimals to retain calculation precision. FP(1) for 18-decimal tokens
- * @param priceTokenAWithRate True if the prices incorporate a rate for token A
- * @param priceTokenBWithRate True if the prices incorporate a rate for token B
+ * @param tokenAPriceIncludesRate True if the prices incorporate a rate for token A
+ * @param tokenBPriceIncludesRate True if the prices incorporate a rate for token B
  * @param minSwapFeePercentage The minimum allowed static swap fee percentage; mitigates precision loss due to rounding
  * @param maxSwapFeePercentage The maximum allowed static swap fee percentage
  * @param initialMinPrice The initial minimum price of token A in terms of token B (possibly applying rates)
@@ -52,8 +52,8 @@ struct ReClammPoolImmutableData {
     // Base Pool
     IERC20[] tokens;
     uint256[] decimalScalingFactors;
-    bool priceTokenAWithRate;
-    bool priceTokenBWithRate;
+    bool tokenAPriceIncludesRate;
+    bool tokenBPriceIncludesRate;
     uint256 minSwapFeePercentage;
     uint256 maxSwapFeePercentage;
     // Initialization

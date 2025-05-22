@@ -336,8 +336,8 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(data.decimalScalingFactors[daiIdx], 1, "Invalid DAI decimal scaling factor");
         assertEq(data.decimalScalingFactors[usdcIdx], 1, "Invalid USDC decimal scaling factor");
 
-        assertFalse(data.priceTokenAWithRate, "Token A priced with rate");
-        assertFalse(data.priceTokenBWithRate, "Token B priced with rate");
+        assertFalse(data.tokenAPriceIncludesRate, "Token A priced with rate");
+        assertFalse(data.tokenBPriceIncludesRate, "Token B priced with rate");
 
         // Check initialization parameters.
         assertEq(data.initialMinPrice, _DEFAULT_MIN_PRICE, "Invalid initial minimum price");
@@ -1053,7 +1053,7 @@ contract ReClammPoolTest is BaseReClammTest {
     function testComputeInitialBalancesTokenAWithRateA() public {
         uint256 rateA = 2e18;
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens);
-        _priceTokenAWithRate = true;
+        _tokenAPriceIncludesRate = true;
 
         (address pool, ) = _createPool(
             [address(sortedTokens[a]), address(sortedTokens[b])].toMemoryArray(),
@@ -1088,7 +1088,7 @@ contract ReClammPoolTest is BaseReClammTest {
     function testComputeInitialBalancesTokenAWithRateB() public {
         uint256 rateB = 2e18;
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens);
-        _priceTokenBWithRate = true;
+        _tokenBPriceIncludesRate = true;
 
         (address pool, ) = _createPool(
             [address(sortedTokens[a]), address(sortedTokens[b])].toMemoryArray(),
@@ -1124,8 +1124,8 @@ contract ReClammPoolTest is BaseReClammTest {
         uint256 rateA = 3e18;
         uint256 rateB = 2e18;
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens);
-        _priceTokenAWithRate = true;
-        _priceTokenBWithRate = true;
+        _tokenAPriceIncludesRate = true;
+        _tokenBPriceIncludesRate = true;
 
         (address pool, ) = _createPool(
             [address(sortedTokens[a]), address(sortedTokens[b])].toMemoryArray(),
@@ -1189,7 +1189,7 @@ contract ReClammPoolTest is BaseReClammTest {
     function testComputeInitialBalancesTokenBWithRateA() public {
         uint256 rateA = 2e18;
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens);
-        _priceTokenAWithRate = true;
+        _tokenAPriceIncludesRate = true;
 
         (address pool, ) = _createPool(
             [address(sortedTokens[a]), address(sortedTokens[b])].toMemoryArray(),
@@ -1242,7 +1242,7 @@ contract ReClammPoolTest is BaseReClammTest {
     function testComputeInitialBalancesTokenBWithRateB() public {
         uint256 rateB = 2e18;
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens);
-        _priceTokenBWithRate = true;
+        _tokenBPriceIncludesRate = true;
 
         (address pool, ) = _createPool(
             [address(sortedTokens[a]), address(sortedTokens[b])].toMemoryArray(),
@@ -1295,8 +1295,8 @@ contract ReClammPoolTest is BaseReClammTest {
         uint256 rateA = 3e18;
         uint256 rateB = 2e18;
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens);
-        _priceTokenAWithRate = true;
-        _priceTokenBWithRate = true;
+        _tokenAPriceIncludesRate = true;
+        _tokenBPriceIncludesRate = true;
 
         (address pool, ) = _createPool(
             [address(sortedTokens[a]), address(sortedTokens[b])].toMemoryArray(),
@@ -1358,8 +1358,8 @@ contract ReClammPoolTest is BaseReClammTest {
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(
             [address(usdc6Decimals), address(wbtc8Decimals)].toMemoryArray().asIERC20()
         );
-        _priceTokenAWithRate = tokenAWithRate;
-        _priceTokenBWithRate = tokenBWithRate;
+        _tokenAPriceIncludesRate = tokenAWithRate;
+        _tokenBPriceIncludesRate = tokenBWithRate;
         initialAmount = initialAmount / 10 ** (18 - IERC20Metadata(address(sortedTokens[b])).decimals());
 
         (address newPool, ) = _createPool(sortedTokens.asAddress(), "BeforeInitTest");
@@ -1453,8 +1453,8 @@ contract ReClammPoolTest is BaseReClammTest {
             initialMinPrice: 0,
             initialMaxPrice: 2000e18,
             initialTargetPrice: 1500e18,
-            priceTokenAWithRate: false,
-            priceTokenBWithRate: false
+            tokenAPriceIncludesRate: false,
+            tokenBPriceIncludesRate: false
         });
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
@@ -1471,8 +1471,8 @@ contract ReClammPoolTest is BaseReClammTest {
             initialMinPrice: 1750e18,
             initialMaxPrice: 2000e18,
             initialTargetPrice: 1500e18,
-            priceTokenAWithRate: false,
-            priceTokenBWithRate: false
+            tokenAPriceIncludesRate: false,
+            tokenBPriceIncludesRate: false
         });
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
@@ -1489,8 +1489,8 @@ contract ReClammPoolTest is BaseReClammTest {
             initialMinPrice: 1000e18,
             initialMaxPrice: 0,
             initialTargetPrice: 1500e18,
-            priceTokenAWithRate: false,
-            priceTokenBWithRate: false
+            tokenAPriceIncludesRate: false,
+            tokenBPriceIncludesRate: false
         });
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
@@ -1507,8 +1507,8 @@ contract ReClammPoolTest is BaseReClammTest {
             initialMinPrice: 1000e18,
             initialMaxPrice: 2000e18,
             initialTargetPrice: 3500e18,
-            priceTokenAWithRate: false,
-            priceTokenBWithRate: false
+            tokenAPriceIncludesRate: false,
+            tokenBPriceIncludesRate: false
         });
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
@@ -1525,8 +1525,8 @@ contract ReClammPoolTest is BaseReClammTest {
             initialMinPrice: 1000e18,
             initialMaxPrice: 2000e18,
             initialTargetPrice: 0,
-            priceTokenAWithRate: false,
-            priceTokenBWithRate: false
+            tokenAPriceIncludesRate: false,
+            tokenBPriceIncludesRate: false
         });
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
@@ -1904,8 +1904,8 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function _createStandardPool(
-        bool priceTokenAWithRate,
-        bool priceTokenBWithRate,
+        bool tokenAPriceIncludesRate,
+        bool tokenBPriceIncludesRate,
         string memory label
     ) internal returns (address newPool) {
         string memory name = "ReClamm Pool";
@@ -1919,8 +1919,8 @@ contract ReClammPoolTest is BaseReClammTest {
             initialMinPrice: _initialMinPrice,
             initialMaxPrice: _initialMaxPrice,
             initialTargetPrice: _initialTargetPrice,
-            priceTokenAWithRate: priceTokenAWithRate,
-            priceTokenBWithRate: priceTokenBWithRate
+            tokenAPriceIncludesRate: tokenAPriceIncludesRate,
+            tokenBPriceIncludesRate: tokenBPriceIncludesRate
         });
 
         newPool = ReClammPoolFactoryMock(poolFactory).create(

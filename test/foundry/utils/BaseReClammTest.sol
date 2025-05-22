@@ -72,9 +72,9 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
 
     ReClammPoolFactoryMock internal factory;
     RateProviderMock internal _rateProviderA;
-    bool internal _priceTokenAWithRate = false;
+    bool internal _tokenAPriceIncludesRate = false;
     RateProviderMock internal _rateProviderB;
-    bool internal _priceTokenBWithRate = false;
+    bool internal _tokenBPriceIncludesRate = false;
 
     uint256 internal daiIdx;
     uint256 internal usdcIdx;
@@ -126,8 +126,8 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
             initialMinPrice: _initialMinPrice,
             initialMaxPrice: _initialMaxPrice,
             initialTargetPrice: _initialTargetPrice,
-            priceTokenAWithRate: _priceTokenAWithRate,
-            priceTokenBWithRate: _priceTokenBWithRate
+            tokenAPriceIncludesRate: _tokenAPriceIncludesRate,
+            tokenBPriceIncludesRate: _tokenBPriceIncludesRate
         });
 
         IRateProvider[] memory rateProviders = new IRateProvider[](2);
@@ -160,8 +160,8 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
                 initialMinPrice: priceParams.initialMinPrice,
                 initialMaxPrice: priceParams.initialMaxPrice,
                 initialTargetPrice: priceParams.initialTargetPrice,
-                priceTokenAWithRate: priceParams.priceTokenAWithRate,
-                priceTokenBWithRate: priceParams.priceTokenBWithRate,
+                tokenAPriceIncludesRate: priceParams.tokenAPriceIncludesRate,
+                tokenBPriceIncludesRate: priceParams.tokenBPriceIncludesRate,
                 dailyPriceShiftExponent: _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
                 centerednessMargin: _DEFAULT_CENTEREDNESS_MARGIN
             }),

@@ -38,15 +38,15 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
      * @param initialMinPrice The initial minimum price of token A in terms of token B
      * @param initialMaxPrice The initial maximum price of token A in terms of token B
      * @param initialTargetPrice The initial target price of token A in terms of token B
-     * @param priceTokenAWithRate Whether the amount of token A is scaled by the rate in the price value
-     * @param priceTokenBWithRate Whether the amount of token B is scaled by the rate in the price value
+     * @param tokenAPriceIncludesRate Whether the amount of token A is scaled by the rate when calculating the price
+     * @param tokenBPriceIncludesRate Whether the amount of token B is scaled by the rate when calculating the price
      */
     struct ReClammPriceParams {
         uint256 initialMinPrice;
         uint256 initialMaxPrice;
         uint256 initialTargetPrice;
-        bool priceTokenAWithRate;
-        bool priceTokenBWithRate;
+        bool tokenAPriceIncludesRate;
+        bool tokenBPriceIncludesRate;
     }
 
     constructor(
@@ -108,8 +108,8 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
                     initialMinPrice: priceParams.initialMinPrice,
                     initialMaxPrice: priceParams.initialMaxPrice,
                     initialTargetPrice: priceParams.initialTargetPrice,
-                    priceTokenAWithRate: priceParams.priceTokenAWithRate,
-                    priceTokenBWithRate: priceParams.priceTokenBWithRate,
+                    tokenAPriceIncludesRate: priceParams.tokenAPriceIncludesRate,
+                    tokenBPriceIncludesRate: priceParams.tokenBPriceIncludesRate,
                     dailyPriceShiftExponent: dailyPriceShiftExponent,
                     centerednessMargin: centerednessMargin.toUint64()
                 }),

@@ -52,8 +52,8 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
             initialMinPrice: 1000e18, // 1000 min price
             initialMaxPrice: 4000e18, // 4000 max price
             initialTargetPrice: 3000e18, // 3000 target price
-            priceTokenAWithRate: false, // Do not consider rates in the price calculation
-            priceTokenBWithRate: false // Do not consider rates in the price calculation
+            tokenAPriceIncludesRate: false, // Do not consider rates in the price calculation for token A
+            tokenBPriceIncludesRate: false // Do not consider rates in the price calculation for token B
         });
 
         PoolRoleAccounts memory roleAccounts;
