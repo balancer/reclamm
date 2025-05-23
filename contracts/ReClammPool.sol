@@ -337,9 +337,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             uint256 theoreticalVirtualBalanceB,
             uint256 fourthRootPriceRatio
         ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
-                (_INITIAL_MIN_PRICE * rateB) / rateA,
-                (_INITIAL_MAX_PRICE * rateB) / rateA,
-                (_INITIAL_TARGET_PRICE * rateB) / rateA
+                (_INITIAL_MIN_PRICE * rateA) / rateB,
+                (_INITIAL_MAX_PRICE * rateA) / rateB,
+                (_INITIAL_TARGET_PRICE * rateA) / rateB
             );
 
         // balancesScaled18[a] = balancesScaled18[a].divDown(rateA);
@@ -1090,9 +1090,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         console2.log("B INCLUDES RATE: ", _TOKEN_B_PRICE_INCLUDES_RATE);
         rateA = _TOKEN_A_PRICE_INCLUDES_RATE ? rateA : FixedPoint.ONE;
         rateB = _TOKEN_B_PRICE_INCLUDES_RATE ? rateB : FixedPoint.ONE;
-        uint256 minPriceScaled18 = (_INITIAL_MIN_PRICE * rateB) / rateA;
-        uint256 maxPriceScaled18 = (_INITIAL_MAX_PRICE * rateB) / rateA;
-        uint256 targetPriceScaled18 = (_INITIAL_TARGET_PRICE * rateB) / rateA;
+        uint256 minPriceScaled18 = (_INITIAL_MIN_PRICE * rateA) / rateB;
+        uint256 maxPriceScaled18 = (_INITIAL_MAX_PRICE * rateA) / rateB;
+        uint256 targetPriceScaled18 = (_INITIAL_TARGET_PRICE * rateA) / rateB;
 
         (uint256[] memory theoreticalBalancesScaled18, , , ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
             minPriceScaled18,
