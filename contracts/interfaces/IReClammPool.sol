@@ -27,7 +27,6 @@ struct ReClammPoolParams {
  * @dev Note that the initial prices are used only during pool initialization. After the initialization, the prices
  * will shift according to price ratio and pool centeredness.
  *
- * Base Pool:
  * @param tokens Pool tokens, sorted in token registration order
  * @param decimalScalingFactors Adjust for token decimals to retain calculation precision. FP(1) for 18-decimal tokens
  * @param tokenAPriceIncludesRate True if the prices incorporate a rate for token A
@@ -264,7 +263,8 @@ interface IReClammPool is IBasePool {
     /**
      * @notice Compute the initialization amounts, given a reference token and amount.
      * @dev Convenience function to compute the initial funding amount for the second token, given the first. It
-     * returns the amount of tokens in raw amounts.
+     * returns the amount of tokens in raw amounts, which can be used as-is to initialize the pool using a standard
+     * router.
      *
      * @param referenceToken The token whose amount is known
      * @param referenceAmountInRaw The amount of the reference token to be used for initialization, in raw amounts
@@ -316,7 +316,7 @@ interface IReClammPool is IBasePool {
      * @notice Computes the current target price. This is the ratio of the total (i.e., real + virtual) balances (B/A).
      * @return currentTargetPrice Target price at the current pool state (real and virtual balances)
      */
-    function computeCurrentTargetPrice() external view returns (uint256 currentTargetPrice);
+    function computeCurrentSpotPrice() external view returns (uint256 currentTargetPrice);
 
     /**
      * @notice Getter for the timestamp of the last user interaction.

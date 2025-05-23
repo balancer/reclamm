@@ -82,7 +82,6 @@ contract ReClammPoolFactoryMock is IPoolVersion, BasePoolFactory, Version {
             revert IVaultErrors.MaxTokens();
         }
 
-
         if (priceParams.tokenAPriceIncludesRate && tokens[0].tokenType != TokenType.WITH_RATE) {
             revert IVaultErrors.InvalidTokenType();
         }
