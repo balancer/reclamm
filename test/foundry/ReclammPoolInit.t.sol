@@ -53,7 +53,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         // This salt produces the address 0xfFFFFaE77e11D7E60F2f0955bd4b21c78F168Ce3.
         // In some tests we want to reproduce 'real' scenarios involving ETHUSD prices. To simplify things and
         // think in those terms, we need the USD token to be the second in the registration order.
-        usdc6Decimals = new ERC20TestToken{salt: bytes32(uint256(15420225402638))}('USDC-6', 'USDC-6', 6);
+        usdc6Decimals = new ERC20TestToken{ salt: bytes32(uint256(15420225402638)) }("USDC-6", "USDC-6", 6);
         usdc6Decimals.mint(lp, DEFAULT_BALANCE);
         vm.startPrank(lp);
         usdc6Decimals.approve(address(permit2), type(uint256).max);
@@ -153,7 +153,12 @@ contract ReClammPoolInitTest is BaseReClammTest {
         vm.startPrank(lp);
         _initPool(pool, initialBalancesRaw, 0);
         assertTrue(vault.isPoolInitialized(pool), "Pool is not initialized");
-        assertApproxEqRel(ReClammPool(pool).computeCurrentSpotPrice(), _initialTargetPrice.mulDown(rateA), 0.01e16, "Incorrect spot price after init");
+        assertApproxEqRel(
+            ReClammPool(pool).computeCurrentSpotPrice(),
+            _initialTargetPrice.mulDown(rateA),
+            0.01e16,
+            "Incorrect spot price after init"
+        );
     }
 
     /// @dev This test uses 18-decimal tokens.
@@ -184,7 +189,12 @@ contract ReClammPoolInitTest is BaseReClammTest {
         vm.startPrank(lp);
         _initPool(pool, initialBalancesRaw, 0);
         assertTrue(vault.isPoolInitialized(pool), "Pool is not initialized");
-        assertApproxEqRel(ReClammPool(pool).computeCurrentSpotPrice(), _initialTargetPrice.divDown(rateB), 0.01e16, "Incorrect spot price after init");
+        assertApproxEqRel(
+            ReClammPool(pool).computeCurrentSpotPrice(),
+            _initialTargetPrice.divDown(rateB),
+            0.01e16,
+            "Incorrect spot price after init"
+        );
     }
 
     /// @dev This test uses 18-decimal tokens.
@@ -218,7 +228,12 @@ contract ReClammPoolInitTest is BaseReClammTest {
         vm.startPrank(lp);
         _initPool(pool, initialBalancesRaw, 0);
         assertTrue(vault.isPoolInitialized(pool), "Pool is not initialized");
-        assertApproxEqRel(ReClammPool(pool).computeCurrentSpotPrice(), _initialTargetPrice.mulDown(rateA).divDown(rateB), 0.01e16, "Incorrect spot price after init");
+        assertApproxEqRel(
+            ReClammPool(pool).computeCurrentSpotPrice(),
+            _initialTargetPrice.mulDown(rateA).divDown(rateB),
+            0.01e16,
+            "Incorrect spot price after init"
+        );
     }
 
     /// @dev This test uses 18-decimal tokens.
@@ -243,7 +258,12 @@ contract ReClammPoolInitTest is BaseReClammTest {
         vm.startPrank(lp);
         _initPool(pool, initialBalancesRaw, 0);
         assertTrue(vault.isPoolInitialized(pool), "Pool is not initialized");
-        assertApproxEqRel(ReClammPool(pool).computeCurrentSpotPrice(), _initialTargetPrice, 0.01e16, "Incorrect spot price after init");
+        assertApproxEqRel(
+            ReClammPool(pool).computeCurrentSpotPrice(),
+            _initialTargetPrice,
+            0.01e16,
+            "Incorrect spot price after init"
+        );
     }
 
     /// @dev This test uses 18-decimal tokens.
@@ -290,7 +310,12 @@ contract ReClammPoolInitTest is BaseReClammTest {
         _initPool(pool, initialBalancesRaw, 0);
 
         _validatePostInitConditions();
-        assertApproxEqRel(ReClammPool(pool).computeCurrentSpotPrice(), _initialTargetPrice.mulDown(rateA), 0.01e16, "Incorrect spot price after init");
+        assertApproxEqRel(
+            ReClammPool(pool).computeCurrentSpotPrice(),
+            _initialTargetPrice.mulDown(rateA),
+            0.01e16,
+            "Incorrect spot price after init"
+        );
     }
 
     /// @dev This test uses 18-decimal tokens.
@@ -337,7 +362,12 @@ contract ReClammPoolInitTest is BaseReClammTest {
         _initPool(pool, initialBalancesRaw, 0);
 
         _validatePostInitConditions();
-        assertApproxEqRel(ReClammPool(pool).computeCurrentSpotPrice(), _initialTargetPrice.divDown(rateB), 0.01e16, "Incorrect spot price after init");
+        assertApproxEqRel(
+            ReClammPool(pool).computeCurrentSpotPrice(),
+            _initialTargetPrice.divDown(rateB),
+            0.01e16,
+            "Incorrect spot price after init"
+        );
     }
 
     /// @dev This test uses 18-decimal tokens.
@@ -386,7 +416,12 @@ contract ReClammPoolInitTest is BaseReClammTest {
         _initPool(pool, initialBalancesRaw, 0);
 
         _validatePostInitConditions();
-        assertApproxEqRel(ReClammPool(pool).computeCurrentSpotPrice(), _initialTargetPrice.mulDown(rateA).divDown(rateB), 0.01e16, "Incorrect spot price after init");
+        assertApproxEqRel(
+            ReClammPool(pool).computeCurrentSpotPrice(),
+            _initialTargetPrice.mulDown(rateA).divDown(rateB),
+            0.01e16,
+            "Incorrect spot price after init"
+        );
     }
 
     /// @dev This test uses odd-decimal tokens with rates.
@@ -404,9 +439,9 @@ contract ReClammPoolInitTest is BaseReClammTest {
             [address(usdc6Decimals), address(wbtc8Decimals)].toMemoryArray().asIERC20()
         );
         if (sortedTokens[a] == usdc6Decimals) {
-            console.log('TOKEN A IS USDC; WBTC/USDC');
+            console.log("TOKEN A IS USDC; WBTC/USDC");
         } else {
-            console.log('TOKEN B IS USDC; USDC/WBTC');
+            console.log("TOKEN B IS USDC; USDC/WBTC");
         }
         _tokenAPriceIncludesRate = tokenAWithRate;
         _tokenBPriceIncludesRate = tokenBWithRate;
@@ -677,7 +712,12 @@ contract ReClammPoolInitTest is BaseReClammTest {
         assertApproxEqRel(spotPrice1, spotPrice2, 0.1e16, "Spot prices are not equal");
         // The actual spot price after initialization corresponds to waWeth/USDC, so it is larger than the one specified
         // at creation time because of the rate between waWeth and ETH.
-        assertApproxEqRel(spotPrice1, _initialTargetPrice.mulDown(waWethRate), 0.01e16, "Spot prices differ from initial target price");
+        assertApproxEqRel(
+            spotPrice1,
+            _initialTargetPrice.mulDown(waWethRate),
+            0.01e16,
+            "Spot prices differ from initial target price"
+        );
         console2.log("spot price: ", spotPrice2);
     }
 

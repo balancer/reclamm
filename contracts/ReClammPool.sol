@@ -473,10 +473,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             rateReferenceToken
         );
 
-        console2.log('Reference amount in raw: ', referenceAmountInRaw);
-        console2.log('Reference amount in scaled18: ', referenceAmountInScaled18);
-        console2.log('decimals reference token: ', decimalsReferenceToken);
-        console2.log('decimals other token: ', decimalsOtherToken);
+        console2.log("Reference amount in raw: ", referenceAmountInRaw);
+        console2.log("Reference amount in scaled18: ", referenceAmountInScaled18);
+        console2.log("decimals reference token: ", decimalsReferenceToken);
+        console2.log("decimals other token: ", decimalsOtherToken);
 
         // Since the ratio is defined as b/a, multiply if we're given a, and divide if we're given b.
         // If the theoretical virtual balances were a=50 and b=100, then the ratio would be 100/50 = 2.
@@ -494,7 +494,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                 rateOtherToken
             );
 
-        console2.log('Other amount in raw: ', initialBalancesRaw[otherTokenIdx]);
+        console2.log("Other amount in raw: ", initialBalancesRaw[otherTokenIdx]);
     }
 
     /// @inheritdoc IReClammPool
