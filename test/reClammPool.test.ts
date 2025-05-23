@@ -58,7 +58,16 @@ describe('ReClammPool', function () {
   const CENTEREDNESS_MARGIN = fp(0.5);
 
   const virtualBalancesError = 0.000000000000001;
-  const pricesError = 0.06; // 6% error tolerance.
+  const priceRatioError = 0.00001; // 0.001% error tolerance.
+
+  // When comparing a price before and after a swap, the error is small because the prices should not change.
+  const pricesSmallError = 0.0001; // 0.01% error tolerance.
+  // When comparing a price after time has passed, the error is bigger because we are comparing the actual pool price
+  // with an adjustment of the prices before time warp.
+  const pricesBigError = 0.01; // 1% error tolerance.
+  // If the pool is out of range below center, the price adjustment to compare with the actual price is a division,
+  // so the error is a bit bigger.
+  const pricesVeryBigError = 0.06; // 6% error tolerance.
 
   let permit2: IPermit2;
   let vault: IVaultMock;
@@ -376,6 +385,8 @@ describe('ReClammPool', function () {
       initialFourthRootPriceRatio,
       0n,
       0n,
+      priceRatioError,
+      pricesSmallError,
       false
     );
 
@@ -397,6 +408,8 @@ describe('ReClammPool', function () {
       initialFourthRootPriceRatio,
       minPriceBeforeBigSwap,
       maxPriceBeforeBigSwap,
+      priceRatioError,
+      pricesSmallError,
       true
     );
 
@@ -413,6 +426,8 @@ describe('ReClammPool', function () {
       initialFourthRootPriceRatio,
       expectedMinPriceOOR,
       expectedMaxPriceOOR,
+      priceRatioError,
+      pricesBigError,
       true
     );
 
@@ -423,8 +438,15 @@ describe('ReClammPool', function () {
     await pool.connect(bob).setPriceRatioState(endFourthRootPriceRatio, updateStartTimestamp, updateEndTimestamp);
 
     // Virtual balances were updated, but prices should not move yet.
-    const { minPrice: minPriceAfterSetPriceRatioState, maxPrice: maxPriceAfterSetPriceRatioState } =
-      await checkPoolPrices(pool, initialFourthRootPriceRatio, minPriceOOR, maxPriceOOR, true);
+    const { minPrice: minPriceAfterSetPriceRatioState } = await checkPoolPrices(
+      pool,
+      initialFourthRootPriceRatio,
+      minPriceOOR,
+      maxPriceOOR,
+      priceRatioError,
+      pricesSmallError,
+      true
+    );
 
     await advanceTime(6 * HOUR);
 
@@ -438,7 +460,7 @@ describe('ReClammPool', function () {
     expectEqualWithError(
       await pool.computeCurrentFourthRootPriceRatio(),
       expectedPriceRatioAfterConcentration,
-      pricesError
+      priceRatioError
     );
 
     // The center is equally spaced from min and max price, geometrically, which means that
@@ -462,6 +484,8 @@ describe('ReClammPool', function () {
       expectedPriceRatioAfterConcentration,
       expectedMinPriceOORAfterConcentration,
       expectedMaxPriceOORAfterConcentration,
+      priceRatioError,
+      pricesBigError,
       true
     );
 
@@ -505,14 +529,24 @@ describe('ReClammPool', function () {
       expectedPriceRatioAfterConcentration,
       minPriceAfterPriceShift,
       maxPriceAfterPriceShift,
+      priceRatioError,
+      pricesSmallError,
       true
     );
 
     // Check whether the virtual balances are close to their expected values.
     const actualFinalVirtualBalances = await pool.computeCurrentVirtualBalances();
 
-    expectEqualWithError(actualFinalVirtualBalances[tokenAIdx], expectedFinalVirtualBalances[tokenAIdx], pricesError);
-    expectEqualWithError(actualFinalVirtualBalances[tokenBIdx], expectedFinalVirtualBalances[tokenBIdx], pricesError);
+    expectEqualWithError(
+      actualFinalVirtualBalances[tokenAIdx],
+      expectedFinalVirtualBalances[tokenAIdx],
+      virtualBalancesError
+    );
+    expectEqualWithError(
+      actualFinalVirtualBalances[tokenBIdx],
+      expectedFinalVirtualBalances[tokenBIdx],
+      virtualBalancesError
+    );
   });
 
   it('should move virtual balances correctly (out of range > center and price ratio updating)', async () => {
@@ -562,6 +596,8 @@ describe('ReClammPool', function () {
       initialFourthRootPriceRatio,
       0n,
       0n,
+      priceRatioError,
+      pricesSmallError,
       false
     );
 
@@ -583,6 +619,8 @@ describe('ReClammPool', function () {
       initialFourthRootPriceRatio,
       minPriceBeforeBigSwap,
       maxPriceBeforeBigSwap,
+      priceRatioError,
+      pricesSmallError,
       true
     );
 
@@ -599,6 +637,8 @@ describe('ReClammPool', function () {
       initialFourthRootPriceRatio,
       expectedMinPriceOOR,
       expectedMaxPriceOOR,
+      priceRatioError,
+      pricesVeryBigError,
       true
     );
 
@@ -610,7 +650,15 @@ describe('ReClammPool', function () {
 
     // Virtual balances were updated, but prices should not move yet.
     const { minPrice: minPriceAfterSetPriceRatioState, maxPrice: maxPriceAfterSetPriceRatioState } =
-      await checkPoolPrices(pool, initialFourthRootPriceRatio, minPriceOOR, maxPriceOOR, true);
+      await checkPoolPrices(
+        pool,
+        initialFourthRootPriceRatio,
+        minPriceOOR,
+        maxPriceOOR,
+        priceRatioError,
+        pricesSmallError,
+        true
+      );
 
     await advanceTime(6 * HOUR);
 
@@ -624,7 +672,7 @@ describe('ReClammPool', function () {
     expectEqualWithError(
       await pool.computeCurrentFourthRootPriceRatio(),
       expectedPriceRatioAfterConcentration,
-      pricesError
+      priceRatioError
     );
 
     // The center is equally spaced from min and max price, geometrically, which means that
@@ -648,6 +696,8 @@ describe('ReClammPool', function () {
       expectedPriceRatioAfterConcentration,
       expectedMinPriceOORAfterConcentration,
       expectedMaxPriceOORAfterConcentration,
+      priceRatioError,
+      pricesVeryBigError,
       true
     );
 
@@ -682,14 +732,24 @@ describe('ReClammPool', function () {
       expectedPriceRatioAfterConcentration,
       minPriceAfterPriceShift,
       maxPriceAfterPriceShift,
+      priceRatioError,
+      pricesSmallError,
       true
     );
 
     // Check whether the virtual balances are close to their expected values.
     const actualFinalVirtualBalances = await pool.computeCurrentVirtualBalances();
 
-    expectEqualWithError(actualFinalVirtualBalances[tokenAIdx], expectedFinalVirtualBalances[tokenAIdx], pricesError);
-    expectEqualWithError(actualFinalVirtualBalances[tokenBIdx], expectedFinalVirtualBalances[tokenBIdx], pricesError);
+    expectEqualWithError(
+      actualFinalVirtualBalances[tokenAIdx],
+      expectedFinalVirtualBalances[tokenAIdx],
+      virtualBalancesError
+    );
+    expectEqualWithError(
+      actualFinalVirtualBalances[tokenBIdx],
+      expectedFinalVirtualBalances[tokenBIdx],
+      virtualBalancesError
+    );
   });
 
   async function checkPoolPrices(
@@ -697,6 +757,8 @@ describe('ReClammPool', function () {
     currentFourthRootPriceRatio: bigint,
     expectedMinPrice: bigint,
     expectedMaxPrice: bigint,
+    expectedPriceRatioError: number,
+    expectedPricesError: number,
     compareMinAndMaxPrices: boolean
   ): Promise<{ minPrice: bigint; maxPrice: bigint }> {
     const [virtualBalanceA, virtualBalanceB] = await pool.computeCurrentVirtualBalances();
@@ -712,10 +774,10 @@ describe('ReClammPool', function () {
     const sqrtPriceRatio = fpMulDown(currentFourthRootPriceRatio, currentFourthRootPriceRatio);
     const priceRatio = fpMulDown(sqrtPriceRatio, sqrtPriceRatio);
 
-    expectEqualWithError(fpDivDown(maxPrice, minPrice), priceRatio, pricesError);
+    expectEqualWithError(fpDivDown(maxPrice, minPrice), priceRatio, expectedPriceRatioError);
     if (compareMinAndMaxPrices) {
-      expectEqualWithError(minPrice, expectedMinPrice, pricesError);
-      expectEqualWithError(maxPrice, expectedMaxPrice, pricesError);
+      expectEqualWithError(minPrice, expectedMinPrice, expectedPricesError);
+      expectEqualWithError(maxPrice, expectedMaxPrice, expectedPricesError);
     }
 
     return { minPrice, maxPrice };
