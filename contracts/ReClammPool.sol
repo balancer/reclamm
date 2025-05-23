@@ -461,12 +461,17 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         (uint256 rateA, uint256 rateB) = _getTokenRates();
         uint256 balanceRatio = _computeInitialBalanceRatioRaw(rateA, rateB);
-        (uint256 rateReferenceToken, uint256 rateOtherToken) = tokens[a] == referenceToken ? (rateA, rateB) : (rateB, rateA);
+        (uint256 rateReferenceToken, uint256 rateOtherToken) = tokens[a] == referenceToken
+            ? (rateA, rateB)
+            : (rateB, rateA);
 
         uint8 decimalsReferenceToken = IERC20Metadata(address(tokens[referenceTokenIdx])).decimals();
         uint8 decimalsOtherToken = IERC20Metadata(address(tokens[otherTokenIdx])).decimals();
 
-        uint256 referenceAmountInScaled18 = referenceAmountInRaw.toScaled18ApplyRateRoundDown(10 ** (_MAX_TOKEN_DECIMALS - decimalsReferenceToken), rateReferenceToken);
+        uint256 referenceAmountInScaled18 = referenceAmountInRaw.toScaled18ApplyRateRoundDown(
+            10 ** (_MAX_TOKEN_DECIMALS - decimalsReferenceToken),
+            rateReferenceToken
+        );
 
         // Since the ratio is defined as b/a, multiply if we're given a, and divide if we're given b.
         // If the theoretical virtual balances were a=50 and b=100, then the ratio would be 100/50 = 2.
@@ -475,8 +480,14 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         initialBalancesRaw[referenceTokenIdx] = referenceAmountInRaw;
 
         initialBalancesRaw[otherTokenIdx] = referenceTokenIdx == a
-            ? referenceAmountInScaled18.mulDown(balanceRatio).toRawUndoRateRoundDown(10 ** (_MAX_TOKEN_DECIMALS - decimalsOtherToken), rateOtherToken)
-            : referenceAmountInScaled18.divDown(balanceRatio).toRawUndoRateRoundDown(10 ** (_MAX_TOKEN_DECIMALS - decimalsOtherToken), rateOtherToken);
+            ? referenceAmountInScaled18.mulDown(balanceRatio).toRawUndoRateRoundDown(
+                10 ** (_MAX_TOKEN_DECIMALS - decimalsOtherToken),
+                rateOtherToken
+            )
+            : referenceAmountInScaled18.divDown(balanceRatio).toRawUndoRateRoundDown(
+                10 ** (_MAX_TOKEN_DECIMALS - decimalsOtherToken),
+                rateOtherToken
+            );
     }
 
     /// @inheritdoc IReClammPool
@@ -1068,8 +1079,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     function _computeInitialBalanceRatioRaw(uint256 rateA, uint256 rateB) internal view returns (uint256) {
-        console2.log('A INCLUDES RATE: ', _TOKEN_A_PRICE_INCLUDES_RATE);
-        console2.log('B INCLUDES RATE: ', _TOKEN_B_PRICE_INCLUDES_RATE);
+        console2.log("A INCLUDES RATE: ", _TOKEN_A_PRICE_INCLUDES_RATE);
+        console2.log("B INCLUDES RATE: ", _TOKEN_B_PRICE_INCLUDES_RATE);
         rateA = _TOKEN_A_PRICE_INCLUDES_RATE ? rateA : FixedPoint.ONE;
         rateB = _TOKEN_B_PRICE_INCLUDES_RATE ? rateB : FixedPoint.ONE;
         uint256 minPriceScaled18 = (_INITIAL_MIN_PRICE * rateB) / rateA;

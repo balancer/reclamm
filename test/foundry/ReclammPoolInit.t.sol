@@ -429,7 +429,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         _tokenAPriceIncludesRate = tokenAWithRate;
         _tokenBPriceIncludesRate = tokenBWithRate;
         initialAmount = initialAmount / 10 ** (18 - IERC20Metadata(address(sortedTokens[b])).decimals());
-        console2.log('initial amount: ', initialAmount);
+        console2.log("initial amount: ", initialAmount);
 
         (address newPool, ) = _createPool(sortedTokens.asAddress(), "BeforeInitTest");
 
@@ -439,7 +439,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         _rateProviderA.mockRate(rateA);
         _rateProviderB.mockRate(rateB);
 
-        console2.log('initial balance ratio raw:', ReClammPool(newPool).computeInitialBalanceRatioRaw());
+        console2.log("initial balance ratio raw:", ReClammPool(newPool).computeInitialBalanceRatioRaw());
 
         uint256[] memory initialBalancesRaw = ReClammPool(newPool).computeInitialBalancesRaw(
             sortedTokens[b],
@@ -489,9 +489,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(
             [address(usdc6Decimals), address(weth)].toMemoryArray().asIERC20()
         );
-        (uint256 usdcIndex, uint256 wethIndex) = sortedTokens[a] == usdc6Decimals
-            ? (a, b)
-            : (b, a);
+        (uint256 usdcIndex, uint256 wethIndex) = sortedTokens[a] == usdc6Decimals ? (a, b) : (b, a);
 
         _tokenAPriceIncludesRate = false;
         _tokenBPriceIncludesRate = false;
@@ -553,9 +551,9 @@ contract ReClammPoolInitTest is BaseReClammTest {
         assertEq(spotPrice1, spotPrice2, "Spot prices are not equal");
         assertApproxEqRel(spotPrice1, _initialTargetPrice, 0.01e16, "Spot prices differ from initial target price");
 
-        console2.log('Initial balance USDC: ', initialBalancesRaw[usdcIndex]);
-        console2.log('Initial balance waWETH: ', initialBalancesRaw[wethIndex]);
-        console2.log('spot price: ', spotPrice2);
+        console2.log("Initial balance USDC: ", initialBalancesRaw[usdcIndex]);
+        console2.log("Initial balance waWETH: ", initialBalancesRaw[wethIndex]);
+        console2.log("spot price: ", spotPrice2);
     }
 
     function testComputeInitialBalancesUsdcWstEth() public {
@@ -565,9 +563,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(
             [address(usdc6Decimals), address(weth)].toMemoryArray().asIERC20()
         );
-        (uint256 usdcIndex, uint256 wethIndex) = sortedTokens[a] == usdc6Decimals
-            ? (a, b)
-            : (b, a);
+        (uint256 usdcIndex, uint256 wethIndex) = sortedTokens[a] == usdc6Decimals ? (a, b) : (b, a);
 
         if (usdcIndex == a) {
             _tokenAPriceIncludesRate = false;
@@ -591,8 +587,8 @@ contract ReClammPoolInitTest is BaseReClammTest {
             initialAmount
         );
 
-        console2.log('Initial balance USDC: ', initialBalancesRaw[usdcIndex]);
-        console2.log('Initial balance waWETH: ', initialBalancesRaw[wethIndex]);
+        console2.log("Initial balance USDC: ", initialBalancesRaw[usdcIndex]);
+        console2.log("Initial balance waWETH: ", initialBalancesRaw[wethIndex]);
 
         // The reference token initial balance should always equal the initial amount passed in.
         assertEq(initialBalancesRaw[usdcIndex], initialAmount, "Invalid initial balance for usdc index");
@@ -635,28 +631,26 @@ contract ReClammPoolInitTest is BaseReClammTest {
         uint256 spotPrice2 = ReClammPool(newPool).computeCurrentSpotPrice();
         assertApproxEqRel(spotPrice1, spotPrice2, 0.1e16, "Spot prices are not equal");
         // assertApproxEqRel(spotPrice1, _initialTargetPrice.mulDown(1.2e18), 0.01e16, "Spot prices differ from initial target price");
-        console2.log('spot price: ', spotPrice2);
+        console2.log("spot price: ", spotPrice2);
     }
 
     function testComputeInitialBalancesUsdcWaEth() public {
-        console.log('TEST START');
+        console.log("TEST START");
         // Spot price is 2.5k ETH/USDC --> spot price for waETH/USDC is 2.5k * 1.2
 
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(
             [address(usdc6Decimals), address(weth)].toMemoryArray().asIERC20()
         );
-        (uint256 usdcIndex, uint256 wethIndex) = sortedTokens[a] == usdc6Decimals
-            ? (a, b)
-            : (b, a);
+        (uint256 usdcIndex, uint256 wethIndex) = sortedTokens[a] == usdc6Decimals ? (a, b) : (b, a);
 
         if (usdcIndex == a) {
-            console.log('USDC IS A');
+            console.log("USDC IS A");
             _tokenAPriceIncludesRate = false;
             _tokenBPriceIncludesRate = true;
             _rateProviderA.mockRate(FixedPoint.ONE);
             _rateProviderB.mockRate(1.2e18);
         } else {
-            console.log('WETH IS A');
+            console.log("WETH IS A");
             _tokenAPriceIncludesRate = true;
             _tokenBPriceIncludesRate = false;
             _rateProviderA.mockRate(1.2e18);
@@ -673,8 +667,8 @@ contract ReClammPoolInitTest is BaseReClammTest {
             initialAmount
         );
 
-        console2.log('Initial balance USDC: ', initialBalancesRaw[usdcIndex]);
-        console2.log('Initial balance waWETH: ', initialBalancesRaw[wethIndex]);
+        console2.log("Initial balance USDC: ", initialBalancesRaw[usdcIndex]);
+        console2.log("Initial balance waWETH: ", initialBalancesRaw[wethIndex]);
 
         // The reference token initial balance should always equal the initial amount passed in.
         assertEq(initialBalancesRaw[usdcIndex], initialAmount, "Invalid initial balance for usdc index");
@@ -717,7 +711,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         uint256 spotPrice2 = ReClammPool(newPool).computeCurrentSpotPrice();
         assertApproxEqRel(spotPrice1, spotPrice2, 0.1e16, "Spot prices are not equal");
         // assertApproxEqRel(spotPrice1, _initialTargetPrice.mulDown(1.2e18), 0.01e16, "Spot prices differ from initial target price");
-        console2.log('spot price: ', spotPrice2);
+        console2.log("spot price: ", spotPrice2);
     }
 
     function _validatePostInitConditions() private view {
