@@ -3,9 +3,9 @@
 
 pragma solidity ^0.8.24;
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { SignedMath } from "@openzeppelin/contracts/utils/math/SignedMath.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { ISwapFeePercentageBounds } from "@balancer-labs/v3-interfaces/contracts/vault/ISwapFeePercentageBounds.sol";
 import "@balancer-labs/v3-interfaces/contracts/vault/IUnbalancedLiquidityInvariantRatioBounds.sol";
@@ -602,7 +602,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IReClammPool
     function setPriceRatioState(
-        uint256 endFourthRootPriceRatio,
+        uint256 endPriceRatio,
         uint256 priceRatioUpdateStartTime,
         uint256 priceRatioUpdateEndTime
     )
@@ -624,6 +624,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         }
 
         _updateVirtualBalances();
+
+        uint256 endFourthRootPriceRatio = ReClammMath.sqrtScaled18(ReClammMath.sqrtScaled18(endPriceRatio));
         (uint256 fourthRootPriceRatioDelta, uint256 startFourthRootPriceRatio) = _setPriceRatioState(
             endFourthRootPriceRatio,
             actualPriceRatioUpdateStartTime,
@@ -636,7 +638,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         // Now check that the rate of change is not too fast. First recover the actual ratios from the roots.
         uint256 startPriceRatio = ReClammMath.pow4(startFourthRootPriceRatio);
-        uint256 endPriceRatio = ReClammMath.pow4(endFourthRootPriceRatio);
 
         // Compute the rate of change, as a multiple of the present value per day. For example, if the initial price
         // range was 1,000 - 4,000, with a target price of 2,000, the raw ratio would be 4 (`startPriceRatio` ~ 1.414).

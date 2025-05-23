@@ -80,7 +80,7 @@ contract ReClammPoolMock is ReClammPool {
         uint256 endFourthRootPriceRatio,
         uint256 priceRatioUpdateStartTime,
         uint256 priceRatioUpdateEndTime
-    ) external {
-        _setPriceRatioState(endFourthRootPriceRatio, priceRatioUpdateStartTime, priceRatioUpdateEndTime);
+    ) external returns (uint256 fourthRootPriceRatioDelta, uint256 startFourthRootPriceRatio) {
+        return _setPriceRatioState(endFourthRootPriceRatio, priceRatioUpdateStartTime, priceRatioUpdateEndTime);
     }
 }
