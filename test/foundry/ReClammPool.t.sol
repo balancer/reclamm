@@ -405,35 +405,35 @@ contract ReClammPoolTest is BaseReClammTest {
         uint32 duration = 1 days;
         uint32 priceRatioUpdateEndTime = priceRatioUpdateStartTime + duration;
 
-        vm.expectRevert(abi.encodeWithSelector(IReClammPool.FourthRootPriceRatioDeltaBelowMin.selector, delta));
-        ReClammPoolMock(pool).manualSetPriceRatioStateWithExceptions(
+        (uint256 fourthRootPriceRatioDelta, ) = ReClammPoolMock(pool).manualSetPriceRatioState(
             endFourthRootPriceRatio,
             priceRatioUpdateStartTime,
             priceRatioUpdateEndTime
         );
+
+        // The error in `pow` is greater than the very small delta, so there's no way to make this fail in the main
+        // function that passes in the raw price ratio. We can't increase the size of the delta for the test because
+        // it's a constant that is read directly in the code. Mocking the exception is a bit silly, since it's not
+        // testing the actual code.
+        //
+        // So I think the best we can do is verify that the actual code reproduces the delta, since that value is
+        // directly compared to the limit in the code to trigger the exception. Since it is returning a number less
+        // than the minimum, we can see by inspection that the main function would revert.
+        assertEq(fourthRootPriceRatioDelta, delta, "Wrong delta");
     }
 
     function testSetFourthRootPriceRatioTooFast() public {
-        uint96 startFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
-        ReClammPoolImmutableData memory data = ReClammPool(pool).getReClammPoolImmutableData();
+        uint256 newPriceRatio = 64e18;
+        uint256 priceRatioUpdateStartTime = block.timestamp;
+        uint256 priceRatioUpdateEndTime = block.timestamp + 1 days;
 
-        // Recover the original start price, and multiply by the maximum rate to compute the maximum end price.
-        uint256 startPriceRatio = mathMock.pow4(startFourthRootPriceRatio);
-        uint256 maxEndPriceRatio = startPriceRatio.mulDown(data.maxDailyPriceRatioUpdateRate);
-
-        // Take the fourth root to get its maximum ending value, and add 2 wei to trigger the exception.
-        uint96 maxEndPriceRatioFourthRoot = mathMock.sqrtScaled18(mathMock.sqrtScaled18(maxEndPriceRatio)).toUint96();
-
-        uint96 endFourthRootPriceRatio = maxEndPriceRatioFourthRoot + 2;
-        uint32 priceRatioUpdateStartTime = uint32(block.timestamp);
-        uint32 priceRatioUpdateEndTime = priceRatioUpdateStartTime + 1 days;
-
+        // The previous approach (calculating the exact point where it would be too fast) no longer works when we're
+        // passing in the actual price ratio, since the error in pow >> 1-2 wei delta that would meaningfully check the
+        // boundary. And the error is only raised in the external function, so we can't use the mock here. Best we can
+        // do is set a large update that would be too fast, and show that the error is triggered.
         vm.expectRevert(IReClammPool.PriceRatioUpdateTooFast.selector);
-        ReClammPoolMock(pool).manualSetPriceRatioStateWithExceptions(
-            endFourthRootPriceRatio,
-            priceRatioUpdateStartTime,
-            priceRatioUpdateEndTime
-        );
+        vm.prank(admin);
+        ReClammPool(pool).setPriceRatioState(newPriceRatio, priceRatioUpdateStartTime, priceRatioUpdateEndTime);
     }
 
     function testSetFourthRootPriceRatio() public {
