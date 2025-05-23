@@ -339,46 +339,7 @@ describe('ReClammPool', function () {
   });
 
   it('should move virtual balances correctly (out of range < center and price ratio concentrating)', async () => {
-    // 10% swap fee, will accumulate in the pool.
-    await vault.connect(bob).setStaticSwapFeePercentage(pool, fp(0.1));
-
-    // check price ratio before
-    const priceRatioBeforeSwaps = await pool.computeCurrentFourthRootPriceRatio();
-
-    // Do a lot of swaps to move the price ratio.
-    for (let i = 0; i < 50; i++) {
-      await router
-        .connect(bob)
-        .swapSingleTokenExactIn(
-          pool,
-          tokenA,
-          tokenB,
-          fpMulDown(INITIAL_BALANCE_A, fp(0.8)),
-          0,
-          MAX_UINT256,
-          false,
-          '0x'
-        );
-      await router
-        .connect(bob)
-        .swapSingleTokenExactOut(
-          pool,
-          tokenB,
-          tokenA,
-          fpMulDown(INITIAL_BALANCE_A, fp(0.9 * 0.8)),
-          MAX_UINT256,
-          MAX_UINT256,
-          false,
-          '0x'
-        );
-    }
-
-    // 0% swap fee, making sure no fees will be accrued by the pool in the next swaps.
-    await vault.connect(bob).manualUnsafeSetStaticSwapFeePercentage(pool, fp(0));
-
-    const initialFourthRootPriceRatio = await pool.computeCurrentFourthRootPriceRatio();
-    // Make sure the price ratio raised by 16 (2^4), at least.
-    expect(initialFourthRootPriceRatio).to.be.greaterThan(2n * priceRatioBeforeSwaps);
+    const initialFourthRootPriceRatio = await swapToCollectFeesAndDeconcentrateLiquidity();
 
     const { minPrice: minPriceBeforeBigSwap, maxPrice: maxPriceBeforeBigSwap } = await checkPoolPrices(
       pool,
@@ -554,46 +515,7 @@ describe('ReClammPool', function () {
   });
 
   it('should move virtual balances correctly (out of range > center and price ratio concentrating)', async () => {
-    // 10% swap fee, will accumulate in the pool.
-    await vault.connect(bob).setStaticSwapFeePercentage(pool, fp(0.1));
-
-    // check price ratio before
-    const priceRatioBeforeSwaps = await pool.computeCurrentFourthRootPriceRatio();
-
-    // Do a lot of swaps to move the price ratio.
-    for (let i = 0; i < 50; i++) {
-      await router
-        .connect(bob)
-        .swapSingleTokenExactIn(
-          pool,
-          tokenA,
-          tokenB,
-          fpMulDown(INITIAL_BALANCE_A, fp(0.8)),
-          0,
-          MAX_UINT256,
-          false,
-          '0x'
-        );
-      await router
-        .connect(bob)
-        .swapSingleTokenExactOut(
-          pool,
-          tokenB,
-          tokenA,
-          fpMulDown(INITIAL_BALANCE_A, fp(0.9 * 0.8)),
-          MAX_UINT256,
-          MAX_UINT256,
-          false,
-          '0x'
-        );
-    }
-
-    // 0% swap fee, making sure no fees will be accrued by the pool in the next swaps.
-    await vault.connect(bob).manualUnsafeSetStaticSwapFeePercentage(pool, fp(0));
-
-    const initialFourthRootPriceRatio = await pool.computeCurrentFourthRootPriceRatio();
-    // Make sure the price ratio raised by 16 (2^4), at least.
-    expect(initialFourthRootPriceRatio).to.be.greaterThan(2n * priceRatioBeforeSwaps);
+    const initialFourthRootPriceRatio = await swapToCollectFeesAndDeconcentrateLiquidity();
 
     const { minPrice: minPriceBeforeBigSwap, maxPrice: maxPriceBeforeBigSwap } = await checkPoolPrices(
       pool,
@@ -757,46 +679,7 @@ describe('ReClammPool', function () {
   });
 
   it('should move virtual balances correctly (out of range < center and price ratio deconcentrating)', async () => {
-    // 10% swap fee, will accumulate in the pool.
-    await vault.connect(bob).setStaticSwapFeePercentage(pool, fp(0.1));
-
-    // check price ratio before
-    const priceRatioBeforeSwaps = await pool.computeCurrentFourthRootPriceRatio();
-
-    // Do a lot of swaps to move the price ratio.
-    for (let i = 0; i < 50; i++) {
-      await router
-        .connect(bob)
-        .swapSingleTokenExactIn(
-          pool,
-          tokenA,
-          tokenB,
-          fpMulDown(INITIAL_BALANCE_A, fp(0.8)),
-          0,
-          MAX_UINT256,
-          false,
-          '0x'
-        );
-      await router
-        .connect(bob)
-        .swapSingleTokenExactOut(
-          pool,
-          tokenB,
-          tokenA,
-          fpMulDown(INITIAL_BALANCE_A, fp(0.9 * 0.8)),
-          MAX_UINT256,
-          MAX_UINT256,
-          false,
-          '0x'
-        );
-    }
-
-    // 0% swap fee, making sure no fees will be accrued by the pool in the next swaps.
-    await vault.connect(bob).manualUnsafeSetStaticSwapFeePercentage(pool, fp(0));
-
-    const initialFourthRootPriceRatio = await pool.computeCurrentFourthRootPriceRatio();
-    // Make sure the price ratio raised by 16 (2^4), at least.
-    expect(initialFourthRootPriceRatio).to.be.greaterThan(2n * priceRatioBeforeSwaps);
+    const initialFourthRootPriceRatio = await swapToCollectFeesAndDeconcentrateLiquidity();
 
     const { minPrice: minPriceBeforeBigSwap, maxPrice: maxPriceBeforeBigSwap } = await checkPoolPrices(
       pool,
@@ -972,46 +855,7 @@ describe('ReClammPool', function () {
   });
 
   it('should move virtual balances correctly (out of range > center and price ratio deconcentrating)', async () => {
-    // 10% swap fee, will accumulate in the pool.
-    await vault.connect(bob).setStaticSwapFeePercentage(pool, fp(0.1));
-
-    // check price ratio before
-    const priceRatioBeforeSwaps = await pool.computeCurrentFourthRootPriceRatio();
-
-    // Do a lot of swaps to move the price ratio.
-    for (let i = 0; i < 50; i++) {
-      await router
-        .connect(bob)
-        .swapSingleTokenExactIn(
-          pool,
-          tokenA,
-          tokenB,
-          fpMulDown(INITIAL_BALANCE_A, fp(0.8)),
-          0,
-          MAX_UINT256,
-          false,
-          '0x'
-        );
-      await router
-        .connect(bob)
-        .swapSingleTokenExactOut(
-          pool,
-          tokenB,
-          tokenA,
-          fpMulDown(INITIAL_BALANCE_A, fp(0.9 * 0.8)),
-          MAX_UINT256,
-          MAX_UINT256,
-          false,
-          '0x'
-        );
-    }
-
-    // 0% swap fee, making sure no fees will be accrued by the pool in the next swaps.
-    await vault.connect(bob).manualUnsafeSetStaticSwapFeePercentage(pool, fp(0));
-
-    const initialFourthRootPriceRatio = await pool.computeCurrentFourthRootPriceRatio();
-    // Make sure the price ratio raised by 16 (2^4), at least.
-    expect(initialFourthRootPriceRatio).to.be.greaterThan(2n * priceRatioBeforeSwaps);
+    const initialFourthRootPriceRatio = await swapToCollectFeesAndDeconcentrateLiquidity();
 
     const { minPrice: minPriceBeforeBigSwap, maxPrice: maxPriceBeforeBigSwap } = await checkPoolPrices(
       pool,
@@ -1173,6 +1017,52 @@ describe('ReClammPool', function () {
       virtualBalancesError
     );
   });
+
+  async function swapToCollectFeesAndDeconcentrateLiquidity(): Promise<bigint> {
+    // 10% swap fee, will accumulate in the pool.
+    await vault.connect(bob).setStaticSwapFeePercentage(pool, fp(0.1));
+
+    // check price ratio before
+    const fourthRootPriceRatioBeforeSwaps = await pool.computeCurrentFourthRootPriceRatio();
+
+    // Do a lot of swaps with 80% of pool liquidity to collect fees. This will move the price ratio up,
+    // deconcentrating the liquidity.
+    for (let i = 0; i < 50; i++) {
+      await router
+        .connect(bob)
+        .swapSingleTokenExactIn(
+          pool,
+          tokenA,
+          tokenB,
+          fpMulDown(INITIAL_BALANCE_A, fp(0.8)),
+          0,
+          MAX_UINT256,
+          false,
+          '0x'
+        );
+      await router
+        .connect(bob)
+        .swapSingleTokenExactOut(
+          pool,
+          tokenB,
+          tokenA,
+          fpMulDown(INITIAL_BALANCE_A, fp(0.9 * 0.8)),
+          MAX_UINT256,
+          MAX_UINT256,
+          false,
+          '0x'
+        );
+    }
+
+    // 0% swap fee, making sure no fees will be accrued by the pool in the next swaps.
+    await vault.connect(bob).manualUnsafeSetStaticSwapFeePercentage(pool, fp(0));
+
+    const fourthRootPriceRatioAfterSwaps = await pool.computeCurrentFourthRootPriceRatio();
+    // Make sure the fourth root price ratio increased by 2x (it means, price ratio increased by 16 times), at least.
+    expect(fourthRootPriceRatioAfterSwaps).to.be.greaterThan(2n * fourthRootPriceRatioBeforeSwaps);
+
+    return fourthRootPriceRatioAfterSwaps;
+  }
 
   async function checkPoolPrices(
     pool: ReClammPool,
