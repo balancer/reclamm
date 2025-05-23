@@ -320,3 +320,25 @@ export function pow4(value: bigint): bigint {
 export function fourthRoot(value: bigint): bigint {
   return bn(Math.sqrt(Number(BigInt(Math.sqrt(Number(value * FP_ONE))) * FP_ONE)));
 }
+
+export function computePriceRange(
+  balancesScaled18: bigint[],
+  virtualBalanceA: bigint,
+  virtualBalanceB: bigint
+): [bigint, bigint] {
+  const invariant = pureComputeInvariant(balancesScaled18, [virtualBalanceA, virtualBalanceB], Rounding.ROUND_DOWN);
+
+  const minPrice = (virtualBalanceB * virtualBalanceB) / invariant;
+  const maxPrice = fpDivDown(invariant, fpMulDown(virtualBalanceA, virtualBalanceA));
+
+  return [minPrice, maxPrice];
+}
+
+export function computePriceRatio(
+  balancesScaled18: bigint[],
+  virtualBalanceA: bigint,
+  virtualBalanceB: bigint
+): bigint {
+  const [minPrice, maxPrice] = computePriceRange(balancesScaled18, virtualBalanceA, virtualBalanceB);
+  return fpDivUp(maxPrice, minPrice);
+}
