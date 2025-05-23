@@ -213,8 +213,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
             _ensureValidPoolStateAfterSwap(
                 request.balancesScaled18,
-                currentVirtualBalanceA,
-                currentVirtualBalanceB,
                 request.amountGivenScaled18,
                 amountCalculatedScaled18,
                 request.indexIn,
@@ -232,8 +230,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
             _ensureValidPoolStateAfterSwap(
                 request.balancesScaled18,
-                currentVirtualBalanceA,
-                currentVirtualBalanceB,
                 amountCalculatedScaled18,
                 request.amountGivenScaled18,
                 request.indexIn,
@@ -848,13 +844,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     /**
      * @notice Ensures the pool state is valid after a swap.
      * @dev This function ensures that the balance of each token is greater than the minimum balance after a swap.
-     * It further verifies that the pool does not end up too unbalanced, by ensuring the pool centeredness is above
-     * the minimum. A unbalanced pool, with balances near the minimum/maximum price points, can result in large
-     * rounding errors in the swap calculations.
      *
      * @param currentBalancesScaled18 The current balances of the pool, sorted in token registration order
-     * @param currentVirtualBalanceA The current virtual balance of token A
-     * @param currentVirtualBalanceB The current virtual balance of token B
      * @param amountInScaled18 Amount of tokenIn (entering the Vault)
      * @param amountOutScaled18 Amount of tokenOut (leaving the Vault)
      * @param indexIn The zero-based index of tokenIn
@@ -862,8 +853,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
      */
     function _ensureValidPoolStateAfterSwap(
         uint256[] memory currentBalancesScaled18,
-        uint256 currentVirtualBalanceA,
-        uint256 currentVirtualBalanceB,
         uint256 amountInScaled18,
         uint256 amountOutScaled18,
         uint256 indexIn,

@@ -21,7 +21,7 @@ contract ReClammMathTest is BaseReClammTest {
     using FixedPoint for uint256;
 
     uint256 private constant _MAX_CENTEREDNESS_ERROR_ABS = 5e7;
-    uint256 private constant _MAX_PRICE_ERROR_ABS = 20e16;
+    uint256 private constant _MAX_PRICE_ERROR_ABS = 2e16;
 
     ReClammMathMock internal mathContract;
 
@@ -314,7 +314,7 @@ contract ReClammMathTest is BaseReClammTest {
 
         vm.assume(balancesScaled18[a].mulDown(lastVirtualBalances[b]) > 0);
         vm.assume(balancesScaled18[b].mulDown(lastVirtualBalances[a]) > 0);
-        (uint256 oldCenteredness, bool isPoolAboveCenter) = ReClammMath.computeCenteredness(
+        (uint256 oldCenteredness, ) = ReClammMath.computeCenteredness(
             balancesScaled18,
             lastVirtualBalances[a],
             lastVirtualBalances[b]
@@ -356,7 +356,6 @@ contract ReClammMathTest is BaseReClammTest {
         uint256 actualPriceRatio = actualRootPriceRatio.mulDown(actualRootPriceRatio);
 
         assertApproxEqAbs(expectedPriceRatio, actualPriceRatio, _MAX_PRICE_ERROR_ABS, "Price Ratio should be correct");
-        // assertApproxEqRel(expectedPriceRatio, actualPriceRatio, 0.1e16, "Price Ratio should be correct");
     }
 
     function testComputeFourthRootPriceRatioWhenCurrentTimeIsEndTime() public pure {
