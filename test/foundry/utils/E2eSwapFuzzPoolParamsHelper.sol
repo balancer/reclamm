@@ -35,7 +35,8 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
     uint256 internal constant _MAX_TOKEN_BALANCE = 1e9 * 1e18;
     uint256 internal constant _MIN_PRICE = 1e14; // 0.0001
     uint256 internal constant _MAX_PRICE = 1e24; // 1_000_000
-    uint256 internal constant _MIN_PRICE_RATIO = 1.1e18;
+    uint256 internal constant _MIN_PRICE_RATIO = 1.01e18;
+    uint256 internal constant _POOL_SPECIFIC_PARAMS_SIZE = 5;
 
     struct TestParams {
         uint256[] initialBalances;
@@ -56,7 +57,7 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
      */
     function _fuzzPoolParams(
         ReClammPoolMock pool,
-        uint256[5] memory params,
+        uint256[_POOL_SPECIFIC_PARAMS_SIZE] memory params,
         uint256 rateTokenA,
         uint256 rateTokenB,
         uint256 decimalsTokenA,

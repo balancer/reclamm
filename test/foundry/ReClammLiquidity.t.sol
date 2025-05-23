@@ -534,7 +534,7 @@ contract ReClammLiquidityTest is BaseReClammTest {
         assertApproxEqRel(
             Math.sqrt(invariantSquaredAfter * FixedPoint.ONE),
             Math.sqrt(invariantSquaredBefore * FixedPoint.ONE).mulUp(expectedProportion),
-            1e6, // Error of 0.0000000001%
+            1e6, // Error of 1 million wei
             "Invariant did not change proportionally"
         );
     }

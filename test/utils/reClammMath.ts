@@ -73,24 +73,24 @@ export function computeCurrentVirtualBalances(
     changed = true;
   }
 
-  if (isPoolWithinTargetRange(balancesScaled18, lastVirtualBalances, centerednessMargin) == false) {
-    const priceRatio = fpMulDown(currentFourthRootPriceRatio, currentFourthRootPriceRatio);
+  if (isPoolWithinTargetRange(balancesScaled18, virtualBalances, centerednessMargin) == false) {
+    const sqrtPriceRatio = bn(Math.sqrt(Number(computeCurrentPriceRatio(balancesScaled18, virtualBalances) * FP_ONE)));
 
     const base = fromFp(dailyPriceShiftBase);
     const exponent = fromFp(fp(currentTimestamp - lastTimestamp));
     const powResult = base.pow(exponent);
 
     if (isPoolAboveCenter) {
-      virtualBalances[1] = fpMulDown(lastVirtualBalances[1], fp(powResult));
+      virtualBalances[1] = fpMulDown(virtualBalances[1], fp(powResult));
       virtualBalances[0] = fpDivDown(
         fpMulDown(balancesScaled18[0], virtualBalances[1] + balancesScaled18[1]),
-        fpMulDown(priceRatio - FP_ONE, virtualBalances[1]) - balancesScaled18[1]
+        fpMulDown(sqrtPriceRatio - FP_ONE, virtualBalances[1]) - balancesScaled18[1]
       );
     } else {
-      virtualBalances[0] = fpMulDown(lastVirtualBalances[0], fp(powResult));
+      virtualBalances[0] = fpMulDown(virtualBalances[0], fp(powResult));
       virtualBalances[1] = fpDivDown(
         fpMulDown(balancesScaled18[1], virtualBalances[0] + balancesScaled18[0]),
-        fpMulDown(priceRatio - FP_ONE, virtualBalances[0]) - balancesScaled18[0]
+        fpMulDown(sqrtPriceRatio - FP_ONE, virtualBalances[0]) - balancesScaled18[0]
       );
     }
 
@@ -98,6 +98,20 @@ export function computeCurrentVirtualBalances(
   }
 
   return [virtualBalances, changed];
+}
+
+function computeCurrentPriceRatio(balancesScaled18: bigint[], virtualBalances: bigint[]): bigint {
+  const [minPrice, maxPrice] = computeCurrentPriceRange(balancesScaled18, virtualBalances);
+  return fpDivUp(maxPrice, minPrice);
+}
+
+function computeCurrentPriceRange(balancesScaled18: bigint[], virtualBalances: bigint[]): [bigint, bigint] {
+  const invariant = pureComputeInvariant(balancesScaled18, virtualBalances, Rounding.ROUND_DOWN);
+
+  const minPrice = (virtualBalances[1] * virtualBalances[1]) / invariant;
+  const maxPrice = fpDivDown(invariant, fpMulDown(virtualBalances[0], virtualBalances[0]));
+
+  return [minPrice, maxPrice];
 }
 
 export function calculateVirtualBalancesUpdatingPriceRatio(
@@ -297,4 +311,34 @@ export function isAboveCenter(balancesScaled18: bigint[], virtualBalances: bigin
 
 export function toDailyPriceShiftBase(dailyPriceShiftExponent: bigint): bigint {
   return fp(1) - bn(dailyPriceShiftExponent) / bn(124649);
+}
+
+export function pow4(value: bigint): bigint {
+  return fpMulDown(fpMulDown(value, value), fpMulDown(value, value));
+}
+
+export function fourthRoot(value: bigint): bigint {
+  return bn(Math.sqrt(Number(BigInt(Math.sqrt(Number(value * FP_ONE))) * FP_ONE)));
+}
+
+export function computePriceRange(
+  balancesScaled18: bigint[],
+  virtualBalanceA: bigint,
+  virtualBalanceB: bigint
+): [bigint, bigint] {
+  const invariant = pureComputeInvariant(balancesScaled18, [virtualBalanceA, virtualBalanceB], Rounding.ROUND_DOWN);
+
+  const minPrice = (virtualBalanceB * virtualBalanceB) / invariant;
+  const maxPrice = fpDivDown(invariant, fpMulDown(virtualBalanceA, virtualBalanceA));
+
+  return [minPrice, maxPrice];
+}
+
+export function computePriceRatio(
+  balancesScaled18: bigint[],
+  virtualBalanceA: bigint,
+  virtualBalanceB: bigint
+): bigint {
+  const [minPrice, maxPrice] = computePriceRange(balancesScaled18, virtualBalanceA, virtualBalanceB);
+  return fpDivUp(maxPrice, minPrice);
 }
