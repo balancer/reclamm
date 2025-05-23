@@ -498,7 +498,7 @@ library ReClammMath {
         uint32 lastTimestamp
     ) internal pure returns (uint256 newVirtualBalanceA, uint256 newVirtualBalanceB) {
         uint256 sqrtPriceRatio = Math.sqrt(
-            computePriceRatio(balancesScaled18, virtualBalanceA, virtualBalanceB) * 1e18
+            computePriceRatio(balancesScaled18, virtualBalanceA, virtualBalanceB) * FixedPoint.ONE
         );
 
         // The overvalued token is the one with a lower token balance (therefore, rarer and more valuable).
