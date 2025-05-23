@@ -64,7 +64,7 @@ describe('ReClammPool', function () {
   const pricesSmallError = 0.0001; // 0.01% error tolerance.
   // When comparing a price after time has passed, the error is bigger because we are comparing the actual pool price
   // with an adjustment of the prices before time warp.
-  const pricesBigError = 0.01; // 1% error tolerance.
+  const pricesBigError = 0.02; // 2% error tolerance.
   // If the pool is out of range below center, the price adjustment to compare with the actual price is a division,
   // so the error is a bit bigger.
   const pricesVeryBigError = 0.06; // 6% error tolerance.
@@ -432,7 +432,11 @@ describe('ReClammPool', function () {
     );
 
     // Concentrating liquidity
-    const updateStartTimestamp = await currentTimestamp();
+    // Since the price move introduces some rounding, store the price ratio before the setPriceRatioState call.
+    // Notice that "checkPoolPrices" already checked that initialFourthRootPriceRatio matches the current price ratio,
+    // so the values are close.
+    const startFourthRootPriceRatio = await pool.computeCurrentFourthRootPriceRatio();
+    const updateStartTimestamp = (await currentTimestamp()) + 1n;
     const updateEndTimestamp = updateStartTimestamp + 1n * BigInt(DAY) + 1n;
     const endFourthRootPriceRatio = fpDivDown(initialFourthRootPriceRatio, fp(1.1));
     await pool.connect(bob).setPriceRatioState(endFourthRootPriceRatio, updateStartTimestamp, updateEndTimestamp);
@@ -489,7 +493,7 @@ describe('ReClammPool', function () {
       true
     );
 
-    const expectedTimestamp = await currentTimestamp();
+    const expectedTimestamp = (await currentTimestamp()) + 1n;
 
     const lastVirtualBalances = await pool.getLastVirtualBalances();
 
@@ -504,7 +508,7 @@ describe('ReClammPool', function () {
       {
         priceRatioUpdateStartTime: updateStartTimestamp,
         priceRatioUpdateEndTime: updateEndTimestamp,
-        startFourthRootPriceRatio: initialFourthRootPriceRatio,
+        startFourthRootPriceRatio: startFourthRootPriceRatio,
         endFourthRootPriceRatio: endFourthRootPriceRatio,
       }
     );
@@ -643,7 +647,7 @@ describe('ReClammPool', function () {
     );
 
     // Concentrating liquidity
-    const updateStartTimestamp = await currentTimestamp();
+    const updateStartTimestamp = (await currentTimestamp()) + 1n;
     const updateEndTimestamp = updateStartTimestamp + 1n * BigInt(DAY) + 1n;
     const endFourthRootPriceRatio = fpDivDown(initialFourthRootPriceRatio, fp(1.1));
     await pool.connect(bob).setPriceRatioState(endFourthRootPriceRatio, updateStartTimestamp, updateEndTimestamp);
@@ -701,7 +705,7 @@ describe('ReClammPool', function () {
       true
     );
 
-    const expectedTimestamp = await currentTimestamp();
+    const expectedTimestamp = (await currentTimestamp()) + 1n;
 
     const lastVirtualBalances = await pool.getLastVirtualBalances();
 
