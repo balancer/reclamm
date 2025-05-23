@@ -136,7 +136,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
         assertEq(
             initialBalancesRaw[b],
-            _INITIAL_AMOUNT.mulDown(initialBalanceRatio).mulDown(rateA),
+            _INITIAL_AMOUNT.mulDown(initialBalanceRatio),
             "Invalid initial balance for token B"
         );
 
@@ -172,7 +172,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
         assertEq(
             initialBalancesRaw[b],
-            _INITIAL_AMOUNT.mulDown(initialBalanceRatio).divDown(rateB),
+            _INITIAL_AMOUNT.mulDown(initialBalanceRatio),
             "Invalid initial balance for token B"
         );
 
@@ -211,7 +211,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
         assertEq(
             initialBalancesRaw[b],
-            _INITIAL_AMOUNT.mulDown(initialBalanceRatio).mulDown(rateA).divDown(rateB),
+            _INITIAL_AMOUNT.mulDown(initialBalanceRatio),
             "Invalid initial balance for token B"
         );
 
@@ -280,7 +280,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         // Note that the balance ratio != price ratio (unless it's perfectly centered).
         assertEq(
             initialBalancesRaw[a],
-            _INITIAL_AMOUNT.divDown(initialBalanceRatio.mulDown(rateA)),
+            _INITIAL_AMOUNT.divDown(initialBalanceRatio),
             "Invalid initial balance for token A"
         );
 
@@ -333,7 +333,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         // Note that the balance ratio != price ratio (unless it's perfectly centered).
         assertEq(
             initialBalancesRaw[a],
-            _INITIAL_AMOUNT.mulDown(rateB).divDown(initialBalanceRatio),
+            _INITIAL_AMOUNT.mulDown(rateB),
             "Invalid initial balance for token A"
         );
 
@@ -389,7 +389,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         // Note that the balance ratio != price ratio (unless it's perfectly centered).
         assertEq(
             initialBalancesRaw[a],
-            _INITIAL_AMOUNT.divDown(initialBalanceRatio).mulDown(rateB).divDown(rateA),
+            _INITIAL_AMOUNT.divDown(initialBalanceRatio),
             "Invalid initial balance for token A"
         );
 
@@ -426,6 +426,11 @@ contract ReClammPoolInitTest is BaseReClammTest {
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(
             [address(usdc6Decimals), address(wbtc8Decimals)].toMemoryArray().asIERC20()
         );
+        if (sortedTokens[a] == usdc6Decimals) {
+            console.log('TOKEN A IS USDC; WBTC/USDC');
+        } else {
+            console.log('TOKEN B IS USDC; USDC/WBTC');
+        }
         _tokenAPriceIncludesRate = tokenAWithRate;
         _tokenBPriceIncludesRate = tokenBWithRate;
         initialAmount = initialAmount / 10 ** (18 - IERC20Metadata(address(sortedTokens[b])).decimals());

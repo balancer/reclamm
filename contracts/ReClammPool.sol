@@ -79,7 +79,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 internal constant _MAX_TOKEN_DECIMALS = 18;
     // This represents the maximum deviation from the ideal state (i.e., at target price and near centered) after
     // initialization, to prevent arbitration losses.
-    uint256 internal constant _BALANCE_RATIO_AND_PRICE_TOLERANCE = 1000e14; // 0.01%
+    uint256 internal constant _BALANCE_RATIO_AND_PRICE_TOLERANCE = 0.01e16; // 0.01%
 
     // These immutables are only used during initialization, to set the virtual balances and price ratio in a more
     // user-friendly manner.
@@ -473,6 +473,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             rateReferenceToken
         );
 
+        console2.log('Reference amount in raw: ', referenceAmountInRaw);
+        console2.log('Reference amount in scaled18: ', referenceAmountInScaled18);
+        console2.log('decimals reference token: ', decimalsReferenceToken);
+        console2.log('decimals other token: ', decimalsOtherToken);
+
         // Since the ratio is defined as b/a, multiply if we're given a, and divide if we're given b.
         // If the theoretical virtual balances were a=50 and b=100, then the ratio would be 100/50 = 2.
         // If we're given 100 a tokens, b = a * 2 = 200. If we're given 200 b tokens, a = b / 2 = 100.
@@ -488,6 +493,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                 10 ** (_MAX_TOKEN_DECIMALS - decimalsOtherToken),
                 rateOtherToken
             );
+
+        console2.log('Other amount in raw: ', initialBalancesRaw[otherTokenIdx]);
     }
 
     /// @inheritdoc IReClammPool

@@ -52,7 +52,7 @@ contract ReClammPoolTest is BaseReClammTest {
     uint256 private constant _MIN_TOKEN_BALANCE_SCALED18 = 1e12;
 
     uint256 private constant _MIN_PRICE_RATIO_UPDATE_DURATION = 1 days;
-    uint256 private constant _BALANCE_RATIO_AND_PRICE_TOLERANCE = 1e14; // 0.01%
+    uint256 private constant _BALANCE_RATIO_AND_PRICE_TOLERANCE = 0.01e16; // 0.01%
 
     ReClammMathMock mathMock = new ReClammMathMock();
 
