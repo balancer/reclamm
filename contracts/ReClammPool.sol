@@ -317,49 +317,58 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             liquidityManagement.enableDonation == false;
     }
 
+    struct InitializeLocals {
+        uint256 rateA;
+        uint256 rateB;
+        uint256 minPriceScaled18;
+        uint256 maxPriceScaled18;
+        uint256 targetPriceScaled18;
+        uint256[] theoreticalRealBalances;
+        uint256 theoreticalVirtualBalanceA;
+        uint256 theoreticalVirtualBalanceB;
+        uint256 fourthRootPriceRatio;
+    }
+
     /// @inheritdoc IHooks
     function onBeforeInitialize(
         uint256[] memory balancesScaled18,
         bytes memory
     ) public override onlyVault returns (bool) {
-        (, TokenInfo[] memory tokenInfo, , ) = _vault.getPoolTokenInfo(address(this));
-
-        // We want to undo the rate, so we get it with the opposite flag.
-        uint256 rateA = _getTokenRate(true, tokenInfo[a]);
-        uint256 rateB = _getTokenRate(true, tokenInfo[b]);
-
-        rateA = _TOKEN_A_PRICE_INCLUDES_RATE ? rateA : FixedPoint.ONE;
-        rateB = _TOKEN_B_PRICE_INCLUDES_RATE ? rateB : FixedPoint.ONE;
+        InitializeLocals memory locals;
+        (locals.rateA, locals.rateB) = _getTokenRates();
 
         (
-            uint256[] memory theoreticalRealBalances,
-            uint256 theoreticalVirtualBalanceA,
-            uint256 theoreticalVirtualBalanceB,
-            uint256 fourthRootPriceRatio
+            locals.minPriceScaled18,
+            locals.maxPriceScaled18,
+            locals.targetPriceScaled18
+        ) = _getPriceSettingsAdjustedByRates(locals.rateA, locals.rateB);
+
+        (
+            locals.theoreticalRealBalances,
+            locals.theoreticalVirtualBalanceA,
+            locals.theoreticalVirtualBalanceB,
+            locals.fourthRootPriceRatio
         ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
-                (_INITIAL_MIN_PRICE * rateA) / rateB,
-                (_INITIAL_MAX_PRICE * rateA) / rateB,
-                (_INITIAL_TARGET_PRICE * rateA) / rateB
+                locals.minPriceScaled18,
+                locals.maxPriceScaled18,
+                locals.targetPriceScaled18
             );
 
-        // balancesScaled18[a] = balancesScaled18[a].divDown(rateA);
-        // balancesScaled18[b] = balancesScaled18[b].divDown(rateB);
+        _checkInitializationBalanceRatio(balancesScaled18, locals.theoreticalRealBalances);
 
-        _checkInitializationBalanceRatio(balancesScaled18, theoreticalRealBalances);
+        uint256 scale = balancesScaled18[a].divDown(locals.theoreticalRealBalances[a]);
 
-        uint256 scale = balancesScaled18[a].divDown(theoreticalRealBalances[a]);
+        uint256 virtualBalanceA = locals.theoreticalVirtualBalanceA.mulDown(scale);
+        uint256 virtualBalanceB = locals.theoreticalVirtualBalanceB.mulDown(scale);
 
-        uint256 virtualBalanceA = theoreticalVirtualBalanceA.mulDown(scale);
-        uint256 virtualBalanceB = theoreticalVirtualBalanceB.mulDown(scale);
-
-        // _checkInitializationPrices(balancesScaled18, virtualBalanceA, virtualBalanceB);
+        _checkInitializationPrices(balancesScaled18, locals.minPriceScaled18, locals.maxPriceScaled18, locals.targetPriceScaled18, virtualBalanceA, virtualBalanceB);
 
         if (ReClammMath.computeCenteredness(balancesScaled18, virtualBalanceA, virtualBalanceB) < _centerednessMargin) {
             revert PoolCenterednessTooLow();
         }
 
         _setLastVirtualBalances(virtualBalanceA, virtualBalanceB);
-        _setPriceRatioState(fourthRootPriceRatio, block.timestamp, block.timestamp);
+        _setPriceRatioState(locals.fourthRootPriceRatio, block.timestamp, block.timestamp);
         // Set dynamic parameters.
         _setDailyPriceShiftExponent(_INITIAL_DAILY_PRICE_SHIFT_EXPONENT);
         _setCenterednessMargin(_INITIAL_CENTEREDNESS_MARGIN);
@@ -1032,12 +1041,15 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
      */
     function _checkInitializationPrices(
         uint256[] memory balancesScaled18,
+        uint256 minPrice,
+        uint256 maxPrice,
+        uint256 targetPrice,
         uint256 virtualBalanceA,
         uint256 virtualBalanceB
     ) internal view {
         // Compare current spot price with initialization target price.
         uint256 spotPrice = (balancesScaled18[b] + virtualBalanceB).divDown(balancesScaled18[a] + virtualBalanceA);
-        _comparePrice(spotPrice, _INITIAL_TARGET_PRICE);
+        _comparePrice(spotPrice, targetPrice);
 
         uint256 currentInvariant = ReClammMath.computeInvariant(
             balancesScaled18,
@@ -1048,11 +1060,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         // Compare current min price with initialization min price.
         uint256 currentMinPrice = (virtualBalanceB * virtualBalanceB) / currentInvariant;
-        _comparePrice(currentMinPrice, _INITIAL_MIN_PRICE);
+        _comparePrice(currentMinPrice, minPrice);
 
         // Compare current max price with initialization max price.
         uint256 currentMaxPrice = _computeMaxPrice(currentInvariant, virtualBalanceA);
-        _comparePrice(currentMaxPrice, _INITIAL_MAX_PRICE);
+        _comparePrice(currentMaxPrice, maxPrice);
     }
 
     function _comparePrice(uint256 currentPrice, uint256 initializationPrice) internal pure {
@@ -1079,11 +1091,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     function _computeInitialBalanceRatioRaw(uint256 rateA, uint256 rateB) internal view returns (uint256) {
-        rateA = _TOKEN_A_PRICE_INCLUDES_RATE ? rateA : FixedPoint.ONE;
-        rateB = _TOKEN_B_PRICE_INCLUDES_RATE ? rateB : FixedPoint.ONE;
-        uint256 minPriceScaled18 = (_INITIAL_MIN_PRICE * rateA) / rateB;
-        uint256 maxPriceScaled18 = (_INITIAL_MAX_PRICE * rateA) / rateB;
-        uint256 targetPriceScaled18 = (_INITIAL_TARGET_PRICE * rateA) / rateB;
+        (
+            uint256 minPriceScaled18,
+            uint256 maxPriceScaled18,
+            uint256 targetPriceScaled18
+        ) = _getPriceSettingsAdjustedByRates(rateA, rateB);
 
         (uint256[] memory theoreticalBalancesScaled18, , , ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
             minPriceScaled18,
@@ -1101,18 +1113,24 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     function _getTokenRates() internal view returns (uint256 rateA, uint256 rateB) {
         (, TokenInfo[] memory tokenInfo, , ) = _vault.getPoolTokenInfo(address(this));
 
-        rateA = _getTokenRate(true, tokenInfo[a]);
-        rateB = _getTokenRate(true, tokenInfo[b]);
+        rateA = _getTokenRate(tokenInfo[a]);
+        rateB = _getTokenRate(tokenInfo[b]);
     }
 
-    function _getTokenRate(
-        bool tokenPriceIncludesRate,
-        TokenInfo memory tokenInfo
-    ) internal view returns (uint256 tokenRate) {
-        if (tokenPriceIncludesRate && tokenInfo.tokenType == TokenType.WITH_RATE) {
+    function _getTokenRate(TokenInfo memory tokenInfo) internal view returns (uint256 tokenRate) {
+        if (tokenInfo.tokenType == TokenType.WITH_RATE) {
             tokenRate = IRateProvider(tokenInfo.rateProvider).getRate();
         } else {
             tokenRate = FixedPoint.ONE;
         }
+    }
+
+    function _getPriceSettingsAdjustedByRates(
+        uint256 rateA,
+        uint256 rateB
+    ) internal view returns (uint256 minPrice, uint256 maxPrice, uint256 targetPrice) {
+        minPrice = (_INITIAL_MIN_PRICE * rateA) / rateB;
+        maxPrice = (_INITIAL_MAX_PRICE * rateA) / rateB;
+        targetPrice = (_INITIAL_TARGET_PRICE * rateA) / rateB;
     }
 }

@@ -106,7 +106,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         );
 
         assertFalse(vault.isPoolInitialized(pool), "Pool is initialized");
-        ReClammPool(pool).computeInitialBalanceRatioRaw();
+        uint256 initialBalanceRatio = ReClammPool(pool).computeInitialBalanceRatioRaw();
 
         uint256[] memory initialBalancesRaw = ReClammPool(pool).computeInitialBalancesRaw(
             sortedTokens[a],

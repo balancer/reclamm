@@ -64,13 +64,13 @@ contract ReClammPoolMock is ReClammPool {
         _setLastVirtualBalances(newLastVirtualBalances[0], newLastVirtualBalances[1]);
     }
 
-    function checkInitializationPrices(
-        uint256[] memory balancesScaled18,
-        uint256 virtualBalanceA,
-        uint256 virtualBalanceB
-    ) external view {
-        _checkInitializationPrices(balancesScaled18, virtualBalanceA, virtualBalanceB);
-    }
+    // function checkInitializationPrices(
+    //     uint256[] memory balancesScaled18,
+    //     uint256 virtualBalanceA,
+    //     uint256 virtualBalanceB
+    // ) external view {
+    //     _checkInitializationPrices(balancesScaled18, virtualBalanceA, virtualBalanceB);
+    // }
 
     function manualSetCenterednessMargin(uint256 newCenterednessMargin) external {
         _centerednessMargin = newCenterednessMargin.toUint64();
