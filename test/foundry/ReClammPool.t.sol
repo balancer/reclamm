@@ -1272,45 +1272,6 @@ contract ReClammPoolTest is BaseReClammTest {
         router.initialize(newPool, tokens, lowRatioAmounts, 0, false, bytes(""));
     }
 
-    // function testInitializationPriceErrors() public {
-    //     (address newPool, ) = _createPool([address(usdc), address(dai)].toMemoryArray(), "New Test Pool");
-
-    //     ReClammPoolImmutableData memory data = ReClammPool(newPool).getReClammPoolImmutableData();
-
-    //     (
-    //         uint256[] memory theoreticalRealBalances,
-    //         uint256 theoreticalVirtualBalanceA,
-    //         uint256 theoreticalVirtualBalanceB,
-
-    //     ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
-    //             data.initialMinPrice,
-    //             data.initialMaxPrice,
-    //             data.initialTargetPrice
-    //         );
-
-    //     uint256[] memory realBalances = theoreticalRealBalances;
-    //     realBalances[a] = 0;
-
-    //     // Trigger on upper bound.
-    //     vm.expectRevert(IReClammPool.WrongInitializationPrices.selector);
-    //     ReClammPoolMock(newPool).checkInitializationPrices(
-    //         realBalances,
-    //         theoreticalVirtualBalanceA,
-    //         theoreticalVirtualBalanceB
-    //     );
-
-    //     realBalances[a] = theoreticalRealBalances[a];
-    //     realBalances[b] = 0;
-
-    //     // Trigger on lower bound.
-    //     vm.expectRevert(IReClammPool.WrongInitializationPrices.selector);
-    //     ReClammPoolMock(newPool).checkInitializationPrices(
-    //         realBalances,
-    //         theoreticalVirtualBalanceA,
-    //         theoreticalVirtualBalanceB
-    //     );
-    // }
-
     function testInitializationTokenErrors() public {
         string memory name = "ReClamm Pool";
         string memory symbol = "RECLAMM_POOL";
