@@ -273,13 +273,8 @@ describe('ReClammPool', function () {
   it('should move virtual balances correctly (out of range < center)', async () => {
     // Very big swap, putting the pool right at the edge.
     const exactAmountOut = INITIAL_BALANCE_A - MIN_POOL_BALANCE - 1n;
-    const maxAmountIn = MAX_UINT256;
-    const deadline = MAX_UINT256;
-    const wethIsEth = false;
 
-    await router
-      .connect(bob)
-      .swapSingleTokenExactOut(pool, tokenB, tokenA, exactAmountOut, maxAmountIn, deadline, wethIsEth, '0x');
+    await doSwapExactOutAndCheckVirtualBalancesAndSpotPrice(tokenB, tokenA, exactAmountOut);
 
     const [, , , poolBalancesAfterSwap] = await vault.getPoolTokenInfo(pool);
     const virtualBalancesAfterSwap = await pool.computeCurrentVirtualBalances();
@@ -306,33 +301,22 @@ describe('ReClammPool', function () {
       }
     );
 
-    expect(expectedFinalVirtualBalances[tokenAIdx]).to.be.lessThan(virtualBalancesAfterSwap.currentVirtualBalanceA);
-    expect(expectedFinalVirtualBalances[tokenBIdx]).to.be.greaterThan(virtualBalancesAfterSwap.currentVirtualBalanceB);
+    expect(expectedFinalVirtualBalances[tokenAIdx]).to.be.lessThan(virtualBalancesAfterSwap[tokenAIdx]);
+    expect(expectedFinalVirtualBalances[tokenBIdx]).to.be.greaterThan(virtualBalancesAfterSwap[tokenBIdx]);
 
     // Swap in the other direction.
-    await router
-      .connect(bob)
-      .swapSingleTokenExactOut(
-        pool,
-        tokenA,
-        tokenB,
-        initialBalances[tokenBIdx],
-        MAX_UINT256,
-        deadline,
-        wethIsEth,
-        '0x'
-      );
+    await doSwapExactOutAndCheckVirtualBalancesAndSpotPrice(tokenA, tokenB, initialBalances[tokenBIdx]);
 
     // Check whether the virtual balances are close to their expected values.
     const actualFinalVirtualBalances = await pool.computeCurrentVirtualBalances();
 
     expectEqualWithError(
-      actualFinalVirtualBalances.currentVirtualBalanceA,
+      actualFinalVirtualBalances[tokenAIdx],
       expectedFinalVirtualBalances[tokenAIdx],
       virtualBalancesError
     );
     expectEqualWithError(
-      actualFinalVirtualBalances.currentVirtualBalanceB,
+      actualFinalVirtualBalances[tokenBIdx],
       expectedFinalVirtualBalances[tokenBIdx],
       virtualBalancesError
     );
@@ -359,17 +343,7 @@ describe('ReClammPool', function () {
       // Very big swap, putting the pool right at the edge.
       const [, , poolBalancesBeforeSwapRaw] = await vault.getPoolTokenInfo(pool);
       const exactAmountOut = fpMulDown(poolBalancesBeforeSwapRaw[tokenAIdx], fp(0.99));
-      const maxAmountIn = MAX_UINT256;
-      const deadline = MAX_UINT256;
-      const wethIsEth = false;
-
-      const virtualBalancesBeforeSwap = await pool.computeCurrentVirtualBalances();
-
-      await router
-        .connect(bob)
-        .swapSingleTokenExactOut(pool, tokenB, tokenA, exactAmountOut, maxAmountIn, deadline, wethIsEth, '0x');
-
-      await checkSpotPriceAfterSwap(virtualBalancesBeforeSwap);
+      await doSwapExactOutAndCheckVirtualBalancesAndSpotPrice(tokenB, tokenA, exactAmountOut);
 
       const [, , , poolBalancesAfterSwap] = await vault.getPoolTokenInfo(pool);
 
@@ -483,21 +457,8 @@ describe('ReClammPool', function () {
         }
       );
 
-      const virtualBalancesBeforeFinalSwap = await pool.computeCurrentVirtualBalances();
-
       // Swap in the other direction.
-      await router
-        .connect(bob)
-        .swapSingleTokenExactOut(
-          pool,
-          tokenA,
-          tokenB,
-          initialBalances[tokenBIdx],
-          MAX_UINT256,
-          deadline,
-          wethIsEth,
-          '0x'
-        );
+      await doSwapExactOutAndCheckVirtualBalancesAndSpotPrice(tokenA, tokenB, initialBalances[tokenBIdx]);
 
       // Check whether the virtual balances are close to their expected values.
       const actualFinalVirtualBalances = await pool.computeCurrentVirtualBalances();
@@ -512,8 +473,6 @@ describe('ReClammPool', function () {
         expectedFinalVirtualBalances[tokenBIdx],
         virtualBalancesError
       );
-
-      await checkSpotPriceAfterSwap(virtualBalancesBeforeFinalSwap);
 
       // Prices should not changed from the last check.
       await checkPoolPrices(
@@ -543,17 +502,7 @@ describe('ReClammPool', function () {
       // Very big swap, putting the pool right at the edge.
       const [, , poolBalancesBeforeSwapRaw] = await vault.getPoolTokenInfo(pool);
       const exactAmountOut = fpMulDown(poolBalancesBeforeSwapRaw[tokenBIdx], fp(0.9));
-      const maxAmountIn = MAX_UINT256;
-      const deadline = MAX_UINT256;
-      const wethIsEth = false;
-
-      const virtualBalancesBeforeSwap = await pool.computeCurrentVirtualBalances();
-
-      await router
-        .connect(bob)
-        .swapSingleTokenExactOut(pool, tokenA, tokenB, exactAmountOut, maxAmountIn, deadline, wethIsEth, '0x');
-
-      await checkSpotPriceAfterSwap(virtualBalancesBeforeSwap);
+      await doSwapExactOutAndCheckVirtualBalancesAndSpotPrice(tokenA, tokenB, exactAmountOut);
 
       const [, , , poolBalancesAfterSwap] = await vault.getPoolTokenInfo(pool);
 
@@ -664,12 +613,7 @@ describe('ReClammPool', function () {
         }
       );
 
-      const virtualBalancesBeforeFinalSwap = await pool.computeCurrentVirtualBalances();
-
-      // Swap in the other direction.
-      await router
-        .connect(bob)
-        .swapSingleTokenExactIn(pool, tokenB, tokenA, exactAmountOut, 0, deadline, wethIsEth, '0x');
+      await doSwapExactOutAndCheckVirtualBalancesAndSpotPrice(tokenB, tokenA, initialBalances[tokenAIdx]);
 
       // Check whether the virtual balances are close to their expected values.
       const actualFinalVirtualBalances = await pool.computeCurrentVirtualBalances();
@@ -684,8 +628,6 @@ describe('ReClammPool', function () {
         expectedFinalVirtualBalances[tokenBIdx],
         virtualBalancesError
       );
-
-      await checkSpotPriceAfterSwap(virtualBalancesBeforeFinalSwap);
 
       // Prices should not changed from the last check.
       await checkPoolPrices(
@@ -715,17 +657,7 @@ describe('ReClammPool', function () {
       // Very big swap, putting the pool right at the edge.
       const [, , poolBalancesBeforeSwapRaw] = await vault.getPoolTokenInfo(pool);
       const exactAmountOut = fpMulDown(poolBalancesBeforeSwapRaw[tokenAIdx], fp(0.99));
-      const maxAmountIn = MAX_UINT256;
-      const deadline = MAX_UINT256;
-      const wethIsEth = false;
-
-      const virtualBalancesBeforeSwap = await pool.computeCurrentVirtualBalances();
-
-      await router
-        .connect(bob)
-        .swapSingleTokenExactOut(pool, tokenB, tokenA, exactAmountOut, maxAmountIn, deadline, wethIsEth, '0x');
-
-      await checkSpotPriceAfterSwap(virtualBalancesBeforeSwap);
+      await doSwapExactOutAndCheckVirtualBalancesAndSpotPrice(tokenB, tokenA, exactAmountOut);
 
       const [, , , poolBalancesAfterSwap] = await vault.getPoolTokenInfo(pool);
 
@@ -839,21 +771,7 @@ describe('ReClammPool', function () {
         }
       );
 
-      const virtualBalancesBeforeFinalSwap = await pool.computeCurrentVirtualBalances();
-
-      // Swap in the other direction.
-      await router
-        .connect(bob)
-        .swapSingleTokenExactOut(
-          pool,
-          tokenA,
-          tokenB,
-          initialBalances[tokenBIdx],
-          MAX_UINT256,
-          deadline,
-          wethIsEth,
-          '0x'
-        );
+      await doSwapExactOutAndCheckVirtualBalancesAndSpotPrice(tokenA, tokenB, initialBalances[tokenBIdx]);
 
       // Check whether the virtual balances are close to their expected values.
       const actualFinalVirtualBalances = await pool.computeCurrentVirtualBalances();
@@ -868,8 +786,6 @@ describe('ReClammPool', function () {
         expectedFinalVirtualBalances[tokenBIdx],
         virtualBalancesError
       );
-
-      await checkSpotPriceAfterSwap(virtualBalancesBeforeFinalSwap);
 
       // Prices should not changed from the last check.
       await checkPoolPrices(
@@ -899,17 +815,7 @@ describe('ReClammPool', function () {
       // Very big swap, putting the pool right at the edge.
       const [, , poolBalancesBeforeSwapRaw] = await vault.getPoolTokenInfo(pool);
       const exactAmountOut = fpMulDown(poolBalancesBeforeSwapRaw[tokenBIdx], fp(0.9));
-      const maxAmountIn = MAX_UINT256;
-      const deadline = MAX_UINT256;
-      const wethIsEth = false;
-
-      const virtualBalancesBeforeSwap = await pool.computeCurrentVirtualBalances();
-
-      await router
-        .connect(bob)
-        .swapSingleTokenExactOut(pool, tokenA, tokenB, exactAmountOut, maxAmountIn, deadline, wethIsEth, '0x');
-
-      await checkSpotPriceAfterSwap(virtualBalancesBeforeSwap);
+      await doSwapExactOutAndCheckVirtualBalancesAndSpotPrice(tokenA, tokenB, exactAmountOut);
 
       const [, , , poolBalancesAfterSwap] = await vault.getPoolTokenInfo(pool);
 
@@ -1020,12 +926,7 @@ describe('ReClammPool', function () {
         }
       );
 
-      const virtualBalancesBeforeFinalSwap = await pool.computeCurrentVirtualBalances();
-
-      // Swap in the other direction.
-      await router
-        .connect(bob)
-        .swapSingleTokenExactIn(pool, tokenB, tokenA, exactAmountOut, 0, deadline, wethIsEth, '0x');
+      await doSwapExactOutAndCheckVirtualBalancesAndSpotPrice(tokenB, tokenA, initialBalances[tokenAIdx]);
 
       // Check whether the virtual balances are close to their expected values.
       const actualFinalVirtualBalances = await pool.computeCurrentVirtualBalances();
@@ -1040,8 +941,6 @@ describe('ReClammPool', function () {
         expectedFinalVirtualBalances[tokenBIdx],
         virtualBalancesError
       );
-
-      await checkSpotPriceAfterSwap(virtualBalancesBeforeFinalSwap);
 
       // Prices should not changed from the last check.
       await checkPoolPrices(
@@ -1134,30 +1033,64 @@ describe('ReClammPool', function () {
   }
 
   /**
-   * @dev This function checks that the spot price is very close to the one right after the swap, and that the virtual
-   * balances are not changing abruptly.
+   * @dev This function executes a swap exact out, checks that the spot price is very close to the one right after the
+   * swap, and that the virtual balances are not changing abruptly.
    */
-  async function checkSpotPriceAfterSwap(virtualBalancesBeforeSwap: bigint[]) {
-    const [, , poolBalancesAfterSwapRaw] = await vault.getPoolTokenInfo(pool);
+  async function doSwapExactOutAndCheckVirtualBalancesAndSpotPrice(
+    tokenIn: ERC20TestToken,
+    tokenOut: ERC20TestToken,
+    exactAmountOut: bigint
+  ) {
+    const maxAmountIn = MAX_UINT256;
+    const deadline = MAX_UINT256;
+    const wethIsEth = false;
 
-    // Warps 1 second, so the current timestamp won't match the last timestamp and the current virtual balances will
-    // be recomputed.
-    await advanceTime(1n);
-    const virtualBalancesWithPoolOnEdge = await pool.computeCurrentVirtualBalances();
+    const virtualBalancesBeforeSwap = await pool.computeCurrentVirtualBalances();
+
+    // Makes sure swap and virtual balances transactions are batched in the same block, so the timestamp does not
+    // change.
+    await ethers.provider.send('evm_setAutomine', [false]);
+
+    await router
+      .connect(bob)
+      .swapSingleTokenExactOut(pool, tokenIn, tokenOut, exactAmountOut, maxAmountIn, deadline, wethIsEth, '0x');
+
+    const virtualBalancesAfterSwap = await pool.computeCurrentVirtualBalances();
+
+    await ethers.provider.send('evm_setAutomine', [true]);
 
     // During a swap, the invariant should be constant. It means, the swap itself only changes the real balances and
     // do not affect the virtual ones. What affect the virtual balances is the time passing if the pool is
     // out-of-range or with price ratio updating. Therefore, if we compute the virtual balances before the swap, or
     // after the swap but in the same timestamp, the virtual balances should be the same.
-    const spotPriceAfterSwap = computeSpotPrice(poolBalancesAfterSwapRaw, virtualBalancesBeforeSwap);
+    expect(virtualBalancesBeforeSwap[0]).to.be.equal(virtualBalancesAfterSwap[0]);
+    expect(virtualBalancesBeforeSwap[1]).to.be.equal(virtualBalancesAfterSwap[1]);
+
+    // If the virtual balances are the same, the spot price should be the same.
+    await checkSpotPriceAfterSwap();
+  }
+
+  /**
+   * @dev This function checks that the spot price is very close to the one right after the swap.
+   */
+  async function checkSpotPriceAfterSwap() {
+    const [, , poolBalancesAfterSwapRaw] = await vault.getPoolTokenInfo(pool);
+    const virtualBalancesAfterSwap = await pool.computeCurrentVirtualBalances();
+
+    // Warps 1 second, so the current timestamp won't match the last timestamp and the current virtual balances will
+    // be recomputed.
+    await advanceTime(1n);
+    const recomputedVirtualBalances = await pool.computeCurrentVirtualBalances();
+
+    const spotPriceAfterSwap = computeSpotPrice(poolBalancesAfterSwapRaw, virtualBalancesAfterSwap);
     // After 1 second, if the pool is out-of-range or updating price ratio, the virtual balances should have changed,
-    // but respecting the price shift daily rate. It means, even though the virtual balances are different, the spot
-    // price is still very close.
-    const spotPriceAfterSwapAndTimeWarp = computeSpotPrice(poolBalancesAfterSwapRaw, virtualBalancesWithPoolOnEdge);
+    // but respecting the price shift daily rate and the update of price ratio. It means, even though the virtual
+    // balances are different, the spot price is still very close.
+    const spotPriceAfterTimeWarp = computeSpotPrice(poolBalancesAfterSwapRaw, recomputedVirtualBalances);
 
     // If the spot price is not very close from the one right after the swap, it means that the virtual balances
     // changed abruptly.
-    expectEqualWithError(spotPriceAfterSwap, spotPriceAfterSwapAndTimeWarp, pricesSmallError);
+    expectEqualWithError(spotPriceAfterSwap, spotPriceAfterTimeWarp, pricesSmallError);
   }
 
   function computeSpotPrice(poolBalances: bigint[], virtualBalances: bigint[]): bigint {
