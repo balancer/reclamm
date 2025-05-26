@@ -16,6 +16,7 @@ import { CastingHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpe
 
 import { ReClammMath, a, b } from "../../../contracts/lib/ReClammMath.sol";
 import { ReClammPoolFactory } from "../../../contracts/ReClammPoolFactory.sol";
+import { ReClammPriceParams } from "../../../contracts/lib/ReClammPoolFactoryLib.sol";
 import { ReClammPoolFactoryMock } from "../../../contracts/test/ReClammPoolFactoryMock.sol";
 import { ReClammPoolParams } from "../../../contracts/interfaces/IReClammPool.sol";
 /**
@@ -100,7 +101,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
         IVaultMock _vault = vault;
         string memory _label = label;
 
-        ReClammPoolFactory.ReClammPriceParams memory priceParams = ReClammPoolFactory.ReClammPriceParams({
+        ReClammPriceParams memory priceParams = ReClammPriceParams({
             initialMinPrice: defaultParams.defaultMinPrice,
             initialMaxPrice: defaultParams.defaultMaxPrice,
             initialTargetPrice: defaultParams.defaultTargetPrice,

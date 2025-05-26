@@ -321,7 +321,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256 minPriceScaled18;
         uint256 maxPriceScaled18;
         uint256 targetPriceScaled18;
-        uint256[] theoreticalRealBalances;
+        uint256[] theoreticalBalances;
         uint256 theoreticalVirtualBalanceA;
         uint256 theoreticalVirtualBalanceB;
         uint256 fourthRootPriceRatio;
@@ -342,7 +342,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         ) = _getPriceSettingsAdjustedByRates(locals.rateA, locals.rateB);
 
         (
-            locals.theoreticalRealBalances,
+            locals.theoreticalBalances,
             locals.theoreticalVirtualBalanceA,
             locals.theoreticalVirtualBalanceB,
             locals.fourthRootPriceRatio
@@ -352,9 +352,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             locals.targetPriceScaled18
         );
 
-        _checkInitializationBalanceRatio(balancesScaled18, locals.theoreticalRealBalances);
+        _checkInitializationBalanceRatio(balancesScaled18, locals.theoreticalBalances);
 
-        uint256 scale = balancesScaled18[a].divDown(locals.theoreticalRealBalances[a]);
+        uint256 scale = balancesScaled18[a].divDown(locals.theoreticalBalances[a]);
 
         uint256 virtualBalanceA = locals.theoreticalVirtualBalanceA.mulDown(scale);
         uint256 virtualBalanceB = locals.theoreticalVirtualBalanceB.mulDown(scale);
@@ -487,15 +487,13 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         initialBalancesRaw = new uint256[](2);
         initialBalancesRaw[referenceTokenIdx] = referenceAmountInRaw;
 
-        initialBalancesRaw[otherTokenIdx] = referenceTokenIdx == a
-            ? referenceAmountInScaled18.mulDown(balanceRatio).toRawUndoRateRoundDown(
-                10 ** (_MAX_TOKEN_DECIMALS - decimalsOtherToken),
-                rateOtherToken
-            )
-            : referenceAmountInScaled18.divDown(balanceRatio).toRawUndoRateRoundDown(
-                10 ** (_MAX_TOKEN_DECIMALS - decimalsOtherToken),
-                rateOtherToken
-            );
+        function(uint256, uint256) pure returns (uint256) _mulOrDiv = referenceTokenIdx == a
+            ? FixedPoint.mulDown
+            : FixedPoint.divDown;
+        initialBalancesRaw[otherTokenIdx] = _mulOrDiv(referenceAmountInScaled18, balanceRatio).toRawUndoRateRoundDown(
+            10 ** (_MAX_TOKEN_DECIMALS - decimalsOtherToken),
+            rateOtherToken
+        );
     }
 
     /// @inheritdoc IReClammPool
@@ -1020,10 +1018,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     /// @dev Checks that the current balance ratio is within the initialization balance ratio tolerance.
     function _checkInitializationBalanceRatio(
         uint256[] memory balancesScaled18,
-        uint256[] memory theoreticalRealBalances
+        uint256[] memory theoreticalBalances
     ) internal pure {
         uint256 realBalanceRatio = balancesScaled18[b].divDown(balancesScaled18[a]);
-        uint256 theoreticalBalanceRatio = theoreticalRealBalances[b].divDown(theoreticalRealBalances[a]);
+        uint256 theoreticalBalanceRatio = theoreticalBalances[b].divDown(theoreticalBalances[a]);
 
         uint256 ratioLowerBound = theoreticalBalanceRatio.mulDown(FixedPoint.ONE - _BALANCE_RATIO_AND_PRICE_TOLERANCE);
         uint256 ratioUpperBound = theoreticalBalanceRatio.mulDown(FixedPoint.ONE + _BALANCE_RATIO_AND_PRICE_TOLERANCE);
@@ -1116,12 +1114,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         rateB = _getTokenRate(tokenInfo[b]);
     }
 
-    function _getTokenRate(TokenInfo memory tokenInfo) internal view returns (uint256 tokenRate) {
-        if (tokenInfo.tokenType == TokenType.WITH_RATE) {
-            tokenRate = IRateProvider(tokenInfo.rateProvider).getRate();
-        } else {
-            tokenRate = FixedPoint.ONE;
-        }
+    function _getTokenRate(TokenInfo memory tokenInfo) internal view returns (uint256) {
+        return tokenInfo.tokenType == TokenType.WITH_RATE ? tokenInfo.rateProvider.getRate() : FixedPoint.ONE;
     }
 
     function _getPriceSettingsAdjustedByRates(

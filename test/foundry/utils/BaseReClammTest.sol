@@ -24,6 +24,7 @@ import { ReClammPoolContractsDeployer } from "./ReClammPoolContractsDeployer.sol
 import { ReClammPool } from "../../../contracts/ReClammPool.sol";
 import { a, b } from "../../../contracts/lib/ReClammMath.sol";
 import { ReClammPoolFactory } from "../../../contracts/ReClammPoolFactory.sol";
+import { ReClammPriceParams } from "../../../contracts/lib/ReClammPoolFactoryLib.sol";
 import { ReClammPoolParams } from "../../../contracts/interfaces/IReClammPool.sol";
 import { ReClammPoolMock } from "../../../contracts/test/ReClammPoolMock.sol";
 import { ReClammPoolFactoryMock } from "../../../contracts/test/ReClammPoolFactoryMock.sol";
@@ -122,7 +123,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
 
         roleAccounts = PoolRoleAccounts({ pauseManager: address(0), swapFeeManager: admin, poolCreator: address(0) });
 
-        ReClammPoolFactoryMock.ReClammPriceParams memory priceParams = ReClammPoolFactoryMock.ReClammPriceParams({
+        ReClammPriceParams memory priceParams = ReClammPriceParams({
             initialMinPrice: _initialMinPrice,
             initialMaxPrice: _initialMaxPrice,
             initialTargetPrice: _initialTargetPrice,

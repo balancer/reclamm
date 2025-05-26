@@ -20,6 +20,7 @@ import { InputHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 
 import { PriceRatioState, ReClammMath, a, b } from "../../contracts/lib/ReClammMath.sol";
+import { ReClammPriceParams } from "../../contracts/lib/ReClammPoolFactoryLib.sol";
 import { ReClammPoolFactoryMock } from "../../contracts/test/ReClammPoolFactoryMock.sol";
 import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
 import { ReClammMathMock } from "../../contracts/test/ReClammMathMock.sol";
@@ -1283,7 +1284,7 @@ contract ReClammPoolTest is BaseReClammTest {
         PoolRoleAccounts memory roleAccounts;
 
         // Standard tokens, one includes rate in the price.
-        ReClammPoolFactoryMock.ReClammPriceParams memory priceParams = ReClammPoolFactoryMock.ReClammPriceParams({
+        ReClammPriceParams memory priceParams = ReClammPriceParams({
             initialMinPrice: _initialMinPrice,
             initialMaxPrice: _initialMaxPrice,
             initialTargetPrice: _initialTargetPrice,
@@ -1305,7 +1306,7 @@ contract ReClammPoolTest is BaseReClammTest {
         );
 
         // Repeat for the other one.
-        priceParams = ReClammPoolFactoryMock.ReClammPriceParams({
+        priceParams = ReClammPriceParams({
             initialMinPrice: _initialMinPrice,
             initialMaxPrice: _initialMaxPrice,
             initialTargetPrice: _initialTargetPrice,
@@ -1464,7 +1465,7 @@ contract ReClammPoolTest is BaseReClammTest {
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens.asIERC20());
         PoolRoleAccounts memory roleAccounts;
 
-        ReClammPoolFactoryMock.ReClammPriceParams memory priceParams = ReClammPoolFactoryMock.ReClammPriceParams({
+        ReClammPriceParams memory priceParams = ReClammPriceParams({
             initialMinPrice: _initialMinPrice,
             initialMaxPrice: _initialMaxPrice,
             initialTargetPrice: _initialTargetPrice,

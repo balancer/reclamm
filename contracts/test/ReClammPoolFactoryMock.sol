@@ -14,27 +14,13 @@ import { Version } from "@balancer-labs/v3-solidity-utils/contracts/helpers/Vers
 
 import { ReClammPoolMock } from "./ReClammPoolMock.sol";
 import { ReClammPoolParams } from "../interfaces/IReClammPool.sol";
+import { ReClammPoolFactoryLib, ReClammPriceParams } from "../lib/ReClammPoolFactoryLib.sol";
 
 /// @notice ReClammPool Mock factory.
 contract ReClammPoolFactoryMock is IPoolVersion, BasePoolFactory, Version {
     using SafeCast for uint256;
 
     string private _poolVersion;
-
-    /**
-     * @param initialMinPrice The initial minimum price of token A in terms of token B
-     * @param initialMaxPrice The initial maximum price of token A in terms of token B
-     * @param initialTargetPrice The initial target price of token A in terms of token B
-     * @param tokenAPriceIncludesRate Whether the amount of token A is scaled by the rate when calculating the price
-     * @param tokenBPriceIncludesRate Whether the amount of token B is scaled by the rate when calculating the price
-     */
-    struct ReClammPriceParams {
-        uint256 initialMinPrice;
-        uint256 initialMaxPrice;
-        uint256 initialTargetPrice;
-        bool tokenAPriceIncludesRate;
-        bool tokenBPriceIncludesRate;
-    }
 
     constructor(
         IVault vault,
@@ -77,17 +63,7 @@ contract ReClammPoolFactoryMock is IPoolVersion, BasePoolFactory, Version {
             revert StandardPoolWithCreator();
         }
 
-        // The ReClammPool only supports 2 tokens.
-        if (tokens.length > 2) {
-            revert IVaultErrors.MaxTokens();
-        }
-
-        if (priceParams.tokenAPriceIncludesRate && tokens[0].tokenType != TokenType.WITH_RATE) {
-            revert IVaultErrors.InvalidTokenType();
-        }
-        if (priceParams.tokenBPriceIncludesRate && tokens[1].tokenType != TokenType.WITH_RATE) {
-            revert IVaultErrors.InvalidTokenType();
-        }
+        ReClammPoolFactoryLib.validateTokenConfig(tokens, priceParams);
 
         LiquidityManagement memory liquidityManagement = getDefaultLiquidityManagement();
         liquidityManagement.enableDonation = false;
