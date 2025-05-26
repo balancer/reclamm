@@ -1129,6 +1129,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256 rateA,
         uint256 rateB
     ) internal view returns (uint256 minPrice, uint256 maxPrice, uint256 targetPrice) {
+        rateA = _TOKEN_A_PRICE_INCLUDES_RATE ? rateA : FixedPoint.ONE;
+        rateB = _TOKEN_B_PRICE_INCLUDES_RATE ? rateB : FixedPoint.ONE;
+
         minPrice = (_INITIAL_MIN_PRICE * rateA) / rateB;
         maxPrice = (_INITIAL_MAX_PRICE * rateA) / rateB;
         targetPrice = (_INITIAL_TARGET_PRICE * rateA) / rateB;
