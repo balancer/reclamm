@@ -468,7 +468,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         }
 
         (uint256 rateA, uint256 rateB) = _getTokenRates();
-        uint256 balanceRatio = _computeInitialBalanceRatio(rateA, rateB);
+        uint256 balanceRatioScaled18 = _computeInitialBalanceRatioScaled18(rateA, rateB);
         (uint256 rateReferenceToken, uint256 rateOtherToken) = tokens[a] == referenceToken
             ? (rateA, rateB)
             : (rateB, rateA);
@@ -490,10 +490,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         function(uint256, uint256) pure returns (uint256) _mulOrDiv = referenceTokenIdx == a
             ? FixedPoint.mulDown
             : FixedPoint.divDown;
-        initialBalancesRaw[otherTokenIdx] = _mulOrDiv(referenceAmountInScaled18, balanceRatio).toRawUndoRateRoundDown(
-            10 ** (_MAX_TOKEN_DECIMALS - decimalsOtherToken),
-            rateOtherToken
-        );
+        initialBalancesRaw[otherTokenIdx] = _mulOrDiv(referenceAmountInScaled18, balanceRatioScaled18)
+            .toRawUndoRateRoundDown(10 ** (_MAX_TOKEN_DECIMALS - decimalsOtherToken), rateOtherToken);
     }
 
     /// @inheritdoc IReClammPool
@@ -1087,7 +1085,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         }
     }
 
-    function _computeInitialBalanceRatio(uint256 rateA, uint256 rateB) internal view returns (uint256) {
+    function _computeInitialBalanceRatioScaled18(uint256 rateA, uint256 rateB) internal view returns (uint256) {
         (
             uint256 minPriceScaled18,
             uint256 maxPriceScaled18,
@@ -1125,6 +1123,12 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         rateA = _TOKEN_A_PRICE_INCLUDES_RATE ? rateA : FixedPoint.ONE;
         rateB = _TOKEN_B_PRICE_INCLUDES_RATE ? rateB : FixedPoint.ONE;
 
+        // Example: a pool waUSDC/waWETH, where the price is given in terms of the underlying tokens.
+        // So, the price USDC/ETH is 2000. (USDC is the token B, ETH is the token A).
+        // If waUSDC has a rate of 2 (1 waUSDC = 2 USDC), the price of waUSDC/ETH is 1000, which is
+        // obtained by dividing the price by the rate of waUSDC, which is token B.
+        // Now, if the rate of waWETH is 1.5 (1 waWETH = 1.5 ETH), waUSDC/waWETH = 1500, which is
+        // obtained by multiplying the price by the rate of waWETH, which is token A.
         minPrice = (_INITIAL_MIN_PRICE * rateA) / rateB;
         maxPrice = (_INITIAL_MAX_PRICE * rateA) / rateB;
         targetPrice = (_INITIAL_TARGET_PRICE * rateA) / rateB;
