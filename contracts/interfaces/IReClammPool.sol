@@ -247,18 +247,18 @@ interface IReClammPool is IBasePool {
     ********************************************************/
 
     /**
-     * @notice Computes the ratio between the token balances (B/A).
+     * @notice Computes the ratio between the initial token balances (B/A) using FP-18 values.
      * @dev To keep the pool within the target price range after initialization, the initial pool balances need to be
-     * close to the value returned by this function. For example, if this returned 200, the initial balance of tokenB
-     * should be 200 times the initial balance of tokenA.
+     * close to the value returned by this function. For example, if this returned 200, the initial scaled-18 balance
+     * of tokenB should be 200 times the initial scaled-18 balance of tokenA.
      *
-     * The ratio is computed with raw amounts, and has 18 decimals. It means, if the pool has a token with a rate,
-     * and the rate is considered to calculate the price, the price will be converted to raw first, and then the ratio
-     * will be calculated.
+     * The ratio is computed with scaled-18 amounts, and has 18 decimals. It means, if the pool has a token with a rate,
+     * and the rate is considered to calculate the price, the price will be converted to scaled-18 first, and then the
+     * ratio will be calculated.
      *
-     * @return balanceRatioRaw The balance ratio that must be respected during initialization
+     * @return balanceRatio The balance ratio that must be respected during initialization
      */
-    function computeInitialBalanceRatioRaw() external view returns (uint256 balanceRatioRaw);
+    function computeInitialBalanceRatio() external view returns (uint256 balanceRatio);
 
     /**
      * @notice Compute the initialization amounts, given a reference token and amount.

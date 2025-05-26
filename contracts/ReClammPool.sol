@@ -457,9 +457,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     ********************************************************/
 
     /// @inheritdoc IReClammPool
-    function computeInitialBalanceRatioRaw() external view returns (uint256) {
+    function computeInitialBalanceRatio() external view returns (uint256) {
         (uint256 rateA, uint256 rateB) = _getTokenRates();
-        return _computeInitialBalanceRatioRaw(rateA, rateB);
+        return _computeInitialBalanceRatio(rateA, rateB);
     }
 
     /// @inheritdoc IReClammPool
@@ -476,7 +476,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         }
 
         (uint256 rateA, uint256 rateB) = _getTokenRates();
-        uint256 balanceRatio = _computeInitialBalanceRatioRaw(rateA, rateB);
+        uint256 balanceRatio = _computeInitialBalanceRatio(rateA, rateB);
         (uint256 rateReferenceToken, uint256 rateOtherToken) = tokens[a] == referenceToken
             ? (rateA, rateB)
             : (rateB, rateA);
@@ -1097,7 +1097,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         }
     }
 
-    function _computeInitialBalanceRatioRaw(uint256 rateA, uint256 rateB) internal view returns (uint256) {
+    function _computeInitialBalanceRatio(uint256 rateA, uint256 rateB) internal view returns (uint256) {
         (
             uint256 minPriceScaled18,
             uint256 maxPriceScaled18,

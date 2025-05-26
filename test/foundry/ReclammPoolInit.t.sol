@@ -79,7 +79,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         // If the ratio is 1, this isn't testing anything.
         assertNotEq(bOverA, FixedPoint.ONE, "Ratio is 1");
 
-        assertEq(ReClammPool(pool).computeInitialBalanceRatioRaw(), bOverA, "Wrong initial balance ratio");
+        assertEq(ReClammPool(pool).computeInitialBalanceRatio(), bOverA, "Wrong initial balance ratio");
 
         IERC20[] memory tokens = vault.getPoolTokens(pool);
 
@@ -106,7 +106,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         );
 
         assertFalse(vault.isPoolInitialized(pool), "Pool is initialized");
-        uint256 initialBalanceRatio = ReClammPool(pool).computeInitialBalanceRatioRaw();
+        uint256 initialBalanceRatio = ReClammPool(pool).computeInitialBalanceRatio();
 
         uint256[] memory initialBalancesRaw = ReClammPool(pool).computeInitialBalancesRaw(
             sortedTokens[a],
@@ -139,7 +139,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         assertFalse(vault.isPoolInitialized(pool), "Pool is initialized");
 
         // Calculate the balance ratio without rate.
-        ReClammPool(pool).computeInitialBalanceRatioRaw();
+        ReClammPool(pool).computeInitialBalanceRatio();
 
         // Calculate initial balances with rate.
         _rateProviderA.mockRate(rateA);
@@ -175,7 +175,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         assertFalse(vault.isPoolInitialized(pool), "Pool is initialized");
 
         // Calculate the balance ratio without rate.
-        ReClammPool(pool).computeInitialBalanceRatioRaw();
+        ReClammPool(pool).computeInitialBalanceRatio();
 
         // Calculate initial balances with rate.
         _rateProviderB.mockRate(rateB);
@@ -213,7 +213,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         assertFalse(vault.isPoolInitialized(pool), "Pool is initialized");
 
         // Calculate the balance ratio without rate.
-        ReClammPool(pool).computeInitialBalanceRatioRaw();
+        ReClammPool(pool).computeInitialBalanceRatio();
 
         // Calculate initial balances with rate.
         _rateProviderA.mockRate(rateA);
@@ -246,7 +246,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         );
 
         assertFalse(vault.isPoolInitialized(pool), "Pool is initialized");
-        ReClammPool(pool).computeInitialBalanceRatioRaw();
+        ReClammPool(pool).computeInitialBalanceRatio();
 
         uint256[] memory initialBalancesRaw = ReClammPool(pool).computeInitialBalancesRaw(
             sortedTokens[b],
@@ -280,7 +280,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         assertFalse(vault.isPoolInitialized(pool), "Pool is initialized");
 
         // Calculate the balance ratio without rate.
-        ReClammPool(pool).computeInitialBalanceRatioRaw();
+        ReClammPool(pool).computeInitialBalanceRatio();
 
         // Calculate initial balances with rate.
         _rateProviderA.mockRate(rateA);
@@ -332,7 +332,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         assertFalse(vault.isPoolInitialized(pool), "Pool is initialized");
 
         // Calculate the balance ratio without rate.
-        ReClammPool(pool).computeInitialBalanceRatioRaw();
+        ReClammPool(pool).computeInitialBalanceRatio();
 
         // Calculate initial balances with rate.
         _rateProviderB.mockRate(rateB);
@@ -386,7 +386,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         assertFalse(vault.isPoolInitialized(pool), "Pool is initialized");
 
         // Calculate the balance ratio without rate.
-        ReClammPool(pool).computeInitialBalanceRatioRaw();
+        ReClammPool(pool).computeInitialBalanceRatio();
 
         // Calculate initial balances with rate.
         _rateProviderA.mockRate(rateA);

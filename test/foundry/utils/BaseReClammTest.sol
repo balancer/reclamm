@@ -172,7 +172,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     function initPool() internal virtual override {
         (daiIdx, usdcIdx) = getSortedIndexes(address(dai), address(usdc));
 
-        uint256 balanceRatio = ReClammPool(pool).computeInitialBalanceRatioRaw();
+        uint256 balanceRatio = ReClammPool(pool).computeInitialBalanceRatio();
 
         _initialBalances = new uint256[](2);
 
