@@ -89,8 +89,8 @@ describe('ReClammMath', function () {
     });
   });
 
-  context('computePriceRange', () => {
-    it('should return the correct value', async () => {
+  describe('computePriceRange', () => {
+    it('returns the correct value', async () => {
       const balances = [bn(100e18), bn(100e18)];
       const virtualBalances = [bn(90e18), bn(110e18)];
 
@@ -101,7 +101,7 @@ describe('ReClammMath', function () {
       expect(contractPriceRange[1]).to.equal(jsPriceRange[1]);
     });
 
-    it('balancesScaled18[0] == 0', async () => {
+    it('returns the correct value when balancesScaled18[0] == 0', async () => {
       const balances = [bn(0), bn(100e18)];
       const virtualBalances = [bn(90e18), bn(110e18)];
 
@@ -112,7 +112,7 @@ describe('ReClammMath', function () {
       expect(contractPriceRange[1]).to.equal(jsPriceRange[1]);
     });
 
-    it('balancesScaled18[1] == 0', async () => {
+    it('returns the correct value when balancesScaled18[1] == 0', async () => {
       const balances = [bn(100e18), bn(0)];
       const virtualBalances = [bn(90e18), bn(110e18)];
 
@@ -124,8 +124,8 @@ describe('ReClammMath', function () {
     });
   });
 
-  context('computePriceRatio', () => {
-    it('should return the correct value', async () => {
+  describe('computePriceRatio', () => {
+    it('returns the correct value', async () => {
       const balances = [bn(100e18), bn(100e18)];
       const virtualBalances = [bn(2e18), bn(1024e18)];
 
@@ -135,7 +135,7 @@ describe('ReClammMath', function () {
       expect(contractPriceRatio).to.equal(jsPriceRatio);
     });
 
-    it('balancesScaled18[0] == 0', async () => {
+    it('returns the correct value when balancesScaled18[0] == 0', async () => {
       const balances = [bn(0), bn(100e18)];
       const virtualBalances = [bn(2e18), bn(1024e18)];
 
@@ -145,7 +145,7 @@ describe('ReClammMath', function () {
       expect(contractPriceRatio).to.equal(jsPriceRatio);
     });
 
-    it('balancesScaled18[1] == 0', async () => {
+    it('returns the correct value when balancesScaled18[1] == 0', async () => {
       const balances = [bn(100e18), bn(0)];
       const virtualBalances = [bn(2e18), bn(1024e18)];
 
