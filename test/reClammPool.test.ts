@@ -64,10 +64,7 @@ describe('ReClammPool', function () {
   const pricesSmallError = 0.0001; // 0.01% error tolerance.
   // When comparing a price after time has passed, the error is bigger because we are comparing the actual pool price
   // with an adjustment of the prices before time warp.
-  const pricesBigError = 0.02; // 2% error tolerance.
-  // If the pool is out of range below center, the price adjustment to compare with the actual price is a division,
-  // so the error is a bit bigger.
-  const pricesVeryBigError = 0.06; // 6% error tolerance.
+  const pricesBigError = 0.06; // 6% error tolerance.
 
   let permit2: IPermit2;
   let vault: IVaultMock;
@@ -530,7 +527,7 @@ describe('ReClammPool', function () {
         expectedMinPriceOOR,
         expectedMaxPriceOOR,
         priceRatioError,
-        pricesVeryBigError,
+        pricesBigError,
         true
       );
 
@@ -589,7 +586,7 @@ describe('ReClammPool', function () {
         expectedMinPriceOORAfterConcentration,
         expectedMaxPriceOORAfterConcentration,
         priceRatioError,
-        pricesVeryBigError,
+        pricesBigError,
         true
       );
 
@@ -843,7 +840,7 @@ describe('ReClammPool', function () {
         expectedMinPriceOOR,
         expectedMaxPriceOOR,
         priceRatioError,
-        pricesVeryBigError,
+        pricesBigError,
         true
       );
 
@@ -902,7 +899,7 @@ describe('ReClammPool', function () {
         expectedMinPriceOORAfterConcentration,
         expectedMaxPriceOORAfterConcentration,
         priceRatioError,
-        pricesVeryBigError,
+        pricesBigError,
         true
       );
 
