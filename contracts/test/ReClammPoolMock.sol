@@ -50,6 +50,11 @@ contract ReClammPoolMock is ReClammPool {
         _updateTimestamp();
     }
 
+    function computeInitialBalanceRatio() external view returns (uint256) {
+        (uint256 rateA, uint256 rateB) = _getTokenRates();
+        return _computeInitialBalanceRatio(rateA, rateB);
+    }
+
     function computeCurrentVirtualBalances(
         uint256[] memory balancesScaled18
     ) external view returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) {
@@ -64,13 +69,13 @@ contract ReClammPoolMock is ReClammPool {
         _setLastVirtualBalances(newLastVirtualBalances[0], newLastVirtualBalances[1]);
     }
 
-    function checkInitializationPrices(
-        uint256[] memory balancesScaled18,
-        uint256 virtualBalanceA,
-        uint256 virtualBalanceB
-    ) external view {
-        _checkInitializationPrices(balancesScaled18, virtualBalanceA, virtualBalanceB);
-    }
+    // function checkInitializationPrices(
+    //     uint256[] memory balancesScaled18,
+    //     uint256 virtualBalanceA,
+    //     uint256 virtualBalanceB
+    // ) external view {
+    //     _checkInitializationPrices(balancesScaled18, virtualBalanceA, virtualBalanceB);
+    // }
 
     function manualSetCenterednessMargin(uint256 newCenterednessMargin) external {
         _centerednessMargin = newCenterednessMargin.toUint64();

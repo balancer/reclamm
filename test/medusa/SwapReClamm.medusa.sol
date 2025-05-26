@@ -15,6 +15,7 @@ import "@balancer-labs/v3-vault/test/foundry/utils/BaseMedusaTest.sol";
 import { ReClammPoolFactory } from "../../contracts/ReClammPoolFactory.sol";
 import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
+import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
 
 /**
  * @notice Medusa test for the ReClamm pool.
@@ -70,7 +71,7 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
         );
 
         // Compute the initial balance ratio so that the target price of the pool is respected.
-        initialBalances[1] = initialBalances[0].mulDown(ReClammPool(newPool).computeInitialBalanceRatioRaw());
+        initialBalances[1] = initialBalances[0].mulDown(ReClammPoolMock(newPool).computeInitialBalanceRatio());
 
         // Initialize liquidity of new pool.
         medusa.prank(lp);
