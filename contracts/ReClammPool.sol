@@ -473,11 +473,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             rateReferenceToken
         );
 
-        console2.log("Reference amount in raw: ", referenceAmountInRaw);
-        console2.log("Reference amount in scaled18: ", referenceAmountInScaled18);
-        console2.log("decimals reference token: ", decimalsReferenceToken);
-        console2.log("decimals other token: ", decimalsOtherToken);
-
         // Since the ratio is defined as b/a, multiply if we're given a, and divide if we're given b.
         // If the theoretical virtual balances were a=50 and b=100, then the ratio would be 100/50 = 2.
         // If we're given 100 a tokens, b = a * 2 = 200. If we're given 200 b tokens, a = b / 2 = 100.
@@ -493,8 +488,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                 10 ** (_MAX_TOKEN_DECIMALS - decimalsOtherToken),
                 rateOtherToken
             );
-
-        console2.log("Other amount in raw: ", initialBalancesRaw[otherTokenIdx]);
     }
 
     /// @inheritdoc IReClammPool
@@ -1086,8 +1079,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     function _computeInitialBalanceRatioRaw(uint256 rateA, uint256 rateB) internal view returns (uint256) {
-        console2.log("A INCLUDES RATE: ", _TOKEN_A_PRICE_INCLUDES_RATE);
-        console2.log("B INCLUDES RATE: ", _TOKEN_B_PRICE_INCLUDES_RATE);
         rateA = _TOKEN_A_PRICE_INCLUDES_RATE ? rateA : FixedPoint.ONE;
         rateB = _TOKEN_B_PRICE_INCLUDES_RATE ? rateB : FixedPoint.ONE;
         uint256 minPriceScaled18 = (_INITIAL_MIN_PRICE * rateA) / rateB;

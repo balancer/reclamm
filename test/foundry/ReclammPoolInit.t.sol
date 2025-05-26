@@ -106,7 +106,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         );
 
         assertFalse(vault.isPoolInitialized(pool), "Pool is initialized");
-        uint256 initialBalanceRatio = ReClammPool(pool).computeInitialBalanceRatioRaw();
+        ReClammPool(pool).computeInitialBalanceRatioRaw();
 
         uint256[] memory initialBalancesRaw = ReClammPool(pool).computeInitialBalancesRaw(
             sortedTokens[a],
@@ -139,7 +139,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         assertFalse(vault.isPoolInitialized(pool), "Pool is initialized");
 
         // Calculate the balance ratio without rate.
-        uint256 initialBalanceRatio = ReClammPool(pool).computeInitialBalanceRatioRaw();
+        ReClammPool(pool).computeInitialBalanceRatioRaw();
 
         // Calculate initial balances with rate.
         _rateProviderA.mockRate(rateA);
@@ -280,7 +280,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         assertFalse(vault.isPoolInitialized(pool), "Pool is initialized");
 
         // Calculate the balance ratio without rate.
-        uint256 initialBalanceRatio = ReClammPool(pool).computeInitialBalanceRatioRaw();
+        ReClammPool(pool).computeInitialBalanceRatioRaw();
 
         // Calculate initial balances with rate.
         _rateProviderA.mockRate(rateA);
@@ -332,7 +332,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         assertFalse(vault.isPoolInitialized(pool), "Pool is initialized");
 
         // Calculate the balance ratio without rate.
-        uint256 initialBalanceRatio = ReClammPool(pool).computeInitialBalanceRatioRaw();
+        ReClammPool(pool).computeInitialBalanceRatioRaw();
 
         // Calculate initial balances with rate.
         _rateProviderB.mockRate(rateB);
@@ -386,7 +386,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         assertFalse(vault.isPoolInitialized(pool), "Pool is initialized");
 
         // Calculate the balance ratio without rate.
-        uint256 initialBalanceRatio = ReClammPool(pool).computeInitialBalanceRatioRaw();
+        ReClammPool(pool).computeInitialBalanceRatioRaw();
 
         // Calculate initial balances with rate.
         _rateProviderA.mockRate(rateA);
@@ -438,15 +438,9 @@ contract ReClammPoolInitTest is BaseReClammTest {
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(
             [address(usdc6Decimals), address(wbtc8Decimals)].toMemoryArray().asIERC20()
         );
-        if (sortedTokens[a] == usdc6Decimals) {
-            console.log("TOKEN A IS USDC; WBTC/USDC");
-        } else {
-            console.log("TOKEN B IS USDC; USDC/WBTC");
-        }
         _tokenAPriceIncludesRate = tokenAWithRate;
         _tokenBPriceIncludesRate = tokenBWithRate;
         initialAmount = initialAmount / 10 ** (18 - IERC20Metadata(address(sortedTokens[b])).decimals());
-        console2.log("initial amount: ", initialAmount);
 
         (address newPool, ) = _createPool(sortedTokens.asAddress(), "BeforeInitTest");
 
@@ -455,8 +449,6 @@ contract ReClammPoolInitTest is BaseReClammTest {
         // Calculate initial balances with rate.
         _rateProviderA.mockRate(rateA);
         _rateProviderB.mockRate(rateB);
-
-        console2.log("initial balance ratio raw:", ReClammPool(newPool).computeInitialBalanceRatioRaw());
 
         uint256[] memory initialBalancesRaw = ReClammPool(newPool).computeInitialBalancesRaw(
             sortedTokens[b],
@@ -566,10 +558,6 @@ contract ReClammPoolInitTest is BaseReClammTest {
         uint256 spotPrice2 = ReClammPool(newPool).computeCurrentSpotPrice();
         assertApproxEqRel(spotPrice1, spotPrice2, 0.01e16, "Spot prices are not equal");
         assertApproxEqRel(spotPrice1, _initialTargetPrice, 0.01e16, "Spot prices differ from initial target price");
-
-        console2.log("Initial balance USDC: ", initialBalancesRaw[usdcIndex]);
-        console2.log("Initial balance waWETH: ", initialBalancesRaw[wethIndex]);
-        console2.log("spot price: ", spotPrice2);
     }
 
     function testComputeInitialBalancesUsdcWstEth() public {
@@ -599,9 +587,6 @@ contract ReClammPoolInitTest is BaseReClammTest {
             sortedTokens[usdcIndex],
             initialAmount
         );
-
-        console2.log("Initial balance USDC: ", initialBalancesRaw[usdcIndex]);
-        console2.log("Initial balance waWETH: ", initialBalancesRaw[wethIndex]);
 
         // The reference token initial balance should always equal the initial amount passed in.
         assertEq(initialBalancesRaw[usdcIndex], initialAmount, "Invalid initial balance for usdc index");
@@ -642,7 +627,6 @@ contract ReClammPoolInitTest is BaseReClammTest {
         assertApproxEqRel(spotPrice1, spotPrice2, 0.1e16, "Spot prices are not equal");
         // Both flags were false on pool creation, so the actual spot price matches the one specified at creation time.
         assertApproxEqRel(spotPrice1, _initialTargetPrice, 0.01e16, "Spot prices differ from initial target price");
-        console2.log("spot price: ", spotPrice2);
     }
 
     function testComputeInitialBalancesUsdcWaEth() public {
@@ -669,9 +653,6 @@ contract ReClammPoolInitTest is BaseReClammTest {
             sortedTokens[usdcIndex],
             initialAmount
         );
-
-        console2.log("Initial balance USDC: ", initialBalancesRaw[usdcIndex]);
-        console2.log("Initial balance waWETH: ", initialBalancesRaw[wethIndex]);
 
         // The reference token initial balance should always equal the initial amount passed in.
         assertEq(initialBalancesRaw[usdcIndex], initialAmount, "Invalid initial balance for usdc index");
@@ -718,7 +699,6 @@ contract ReClammPoolInitTest is BaseReClammTest {
             0.01e16,
             "Spot prices differ from initial target price"
         );
-        console2.log("spot price: ", spotPrice2);
     }
 
     function _validatePostInitConditions() private view {
