@@ -340,7 +340,7 @@ describe('ReClammPool', function () {
         false
       );
 
-      // Very big swap, putting the pool right at the edge.
+      // Very big swap, putting the pool right at the edge (Out of range, below the center - more tokens B than A).
       const [, , poolBalancesBeforeSwapRaw] = await vault.getPoolTokenInfo(pool);
       const exactAmountOut = fpMulDown(poolBalancesBeforeSwapRaw[tokenAIdx], fp(0.99));
       await doSwapExactOutAndCheckVirtualBalancesAndSpotPrice(tokenB, tokenA, exactAmountOut);
@@ -499,7 +499,7 @@ describe('ReClammPool', function () {
         false
       );
 
-      // Very big swap, putting the pool right at the edge.
+      // Very big swap, putting the pool right at the edge (Out of range, above the center - more tokens A than B).
       const [, , poolBalancesBeforeSwapRaw] = await vault.getPoolTokenInfo(pool);
       const exactAmountOut = fpMulDown(poolBalancesBeforeSwapRaw[tokenBIdx], fp(0.9));
       await doSwapExactOutAndCheckVirtualBalancesAndSpotPrice(tokenA, tokenB, exactAmountOut);
@@ -654,7 +654,7 @@ describe('ReClammPool', function () {
         false
       );
 
-      // Very big swap, putting the pool right at the edge.
+      // Very big swap, putting the pool right at the edge (Out of range, below the center - more tokens B than A).
       const [, , poolBalancesBeforeSwapRaw] = await vault.getPoolTokenInfo(pool);
       const exactAmountOut = fpMulDown(poolBalancesBeforeSwapRaw[tokenAIdx], fp(0.99));
       await doSwapExactOutAndCheckVirtualBalancesAndSpotPrice(tokenB, tokenA, exactAmountOut);
@@ -812,7 +812,7 @@ describe('ReClammPool', function () {
         false
       );
 
-      // Very big swap, putting the pool right at the edge.
+      // Very big swap, putting the pool right at the edge (Out of range, above the center - more tokens A than B).
       const [, , poolBalancesBeforeSwapRaw] = await vault.getPoolTokenInfo(pool);
       const exactAmountOut = fpMulDown(poolBalancesBeforeSwapRaw[tokenBIdx], fp(0.9));
       await doSwapExactOutAndCheckVirtualBalancesAndSpotPrice(tokenA, tokenB, exactAmountOut);
