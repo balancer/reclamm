@@ -1133,6 +1133,10 @@ describe('ReClammPool', function () {
     return { minPrice, maxPrice };
   }
 
+  /**
+   * @dev This function checks that the spot price is very close to the one right after the swap, and that the virtual
+   * balances are not changing abruptly.
+   */
   async function checkSpotPriceAfterSwap(virtualBalancesBeforeSwap: bigint[]) {
     const [, , poolBalancesAfterSwapRaw] = await vault.getPoolTokenInfo(pool);
 
