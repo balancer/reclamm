@@ -1037,8 +1037,8 @@ contract ReClammPoolTest is BaseReClammTest {
 
         // Should still be the initial values as nothing has changed.
         (uint256 minPrice, uint256 maxPrice) = ReClammPool(pool).computeCurrentPriceRange();
-        assertApproxEqAbs(minPrice, _DEFAULT_MIN_PRICE, 2e6);
-        assertApproxEqAbs(maxPrice, _DEFAULT_MAX_PRICE, 2e6);
+        assertApproxEqRel(minPrice, _DEFAULT_MIN_PRICE, 0.01e16, "Incorrect min price");
+        assertApproxEqRel(maxPrice, _DEFAULT_MAX_PRICE, 0.01e16, "Incorrect max price");
     }
 
     function testCreateWithInvalidMinPrice() public {

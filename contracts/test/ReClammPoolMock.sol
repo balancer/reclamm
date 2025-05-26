@@ -50,6 +50,11 @@ contract ReClammPoolMock is ReClammPool {
         _updateTimestamp();
     }
 
+    function computeInitialBalanceRatio() external view returns (uint256) {
+        (uint256 rateA, uint256 rateB) = _getTokenRates();
+        return _computeInitialBalanceRatio(rateA, rateB);
+    }
+
     function computeCurrentVirtualBalances(
         uint256[] memory balancesScaled18
     ) external view returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) {

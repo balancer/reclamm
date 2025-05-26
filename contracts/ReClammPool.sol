@@ -457,12 +457,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     ********************************************************/
 
     /// @inheritdoc IReClammPool
-    function computeInitialBalanceRatio() external view returns (uint256) {
-        (uint256 rateA, uint256 rateB) = _getTokenRates();
-        return _computeInitialBalanceRatio(rateA, rateB);
-    }
-
-    /// @inheritdoc IReClammPool
     function computeInitialBalancesRaw(
         IERC20 referenceToken,
         uint256 referenceAmountInRaw
@@ -1053,7 +1047,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256 targetPrice,
         uint256 virtualBalanceA,
         uint256 virtualBalanceB
-    ) internal view {
+    ) internal pure {
         // Compare current spot price with initialization target price.
         uint256 spotPrice = (balancesScaled18[b] + virtualBalanceB).divDown(balancesScaled18[a] + virtualBalanceA);
         _comparePrice(spotPrice, targetPrice);

@@ -172,21 +172,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     function initPool() internal virtual override {
         (daiIdx, usdcIdx) = getSortedIndexes(address(dai), address(usdc));
 
-        uint256 balanceRatio = ReClammPool(pool).computeInitialBalanceRatio();
-
-        _initialBalances = new uint256[](2);
-
-        if (daiIdx < usdcIdx) {
-            _initialBalances[daiIdx] = poolInitAmount;
-            vm.assume(dai.balanceOf(lp) > _initialBalances[daiIdx]);
-            _initialBalances[usdcIdx] = poolInitAmount.mulDown(balanceRatio);
-            vm.assume(usdc.balanceOf(lp) > _initialBalances[usdcIdx]);
-        } else {
-            _initialBalances[usdcIdx] = poolInitAmount;
-            vm.assume(usdc.balanceOf(lp) > _initialBalances[usdcIdx]);
-            _initialBalances[daiIdx] = poolInitAmount.mulDown(balanceRatio);
-            vm.assume(dai.balanceOf(lp) > _initialBalances[daiIdx]);
-        }
+        _initialBalances = ReClammPool(pool).computeInitialBalancesRaw(tokens[0], poolInitAmount);
 
         vm.startPrank(lp);
         _initPool(pool, _initialBalances, 0);
