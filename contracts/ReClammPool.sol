@@ -349,10 +349,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             locals.theoreticalVirtualBalanceB,
             locals.fourthRootPriceRatio
         ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
-                locals.minPriceScaled18,
-                locals.maxPriceScaled18,
-                locals.targetPriceScaled18
-            );
+            locals.minPriceScaled18,
+            locals.maxPriceScaled18,
+            locals.targetPriceScaled18
+        );
 
         _checkInitializationBalanceRatio(balancesScaled18, locals.theoreticalRealBalances);
 
@@ -361,7 +361,14 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256 virtualBalanceA = locals.theoreticalVirtualBalanceA.mulDown(scale);
         uint256 virtualBalanceB = locals.theoreticalVirtualBalanceB.mulDown(scale);
 
-        _checkInitializationPrices(balancesScaled18, locals.minPriceScaled18, locals.maxPriceScaled18, locals.targetPriceScaled18, virtualBalanceA, virtualBalanceB);
+        _checkInitializationPrices(
+            balancesScaled18,
+            locals.minPriceScaled18,
+            locals.maxPriceScaled18,
+            locals.targetPriceScaled18,
+            virtualBalanceA,
+            virtualBalanceB
+        );
 
         if (ReClammMath.computeCenteredness(balancesScaled18, virtualBalanceA, virtualBalanceB) < _centerednessMargin) {
             revert PoolCenterednessTooLow();
