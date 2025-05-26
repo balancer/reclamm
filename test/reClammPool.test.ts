@@ -1136,12 +1136,23 @@ describe('ReClammPool', function () {
   async function checkSpotPriceAfterSwap(virtualBalancesBeforeSwap: bigint[]) {
     const [, , poolBalancesAfterSwapRaw] = await vault.getPoolTokenInfo(pool);
 
+    // Warps 1 second, so the current timestamp won't match the last timestamp and the current virtual balances will
+    // be recomputed.
     await advanceTime(1n);
     const virtualBalancesWithPoolOnEdge = await pool.computeCurrentVirtualBalances();
 
+    // During a swap, the invariant should be constant. It means, the swap itself only changes the real balances and
+    // do not affect the virtual ones. What affect the virtual balances is the time passing if the pool is
+    // out-of-range or with price ratio updating. Therefore, if we compute the virtual balances before the swap, or
+    // after the swap but in the same timestamp, the virtual balances should be the same.
     const spotPriceAfterSwap = computeSpotPrice(poolBalancesAfterSwapRaw, virtualBalancesBeforeSwap);
+    // After 1 second, if the pool is out-of-range or updating price ratio, the virtual balances should have changed,
+    // but respecting the price shift daily rate. It means, even though the virtual balances are different, the spot
+    // price is still very close.
     const spotPriceAfterSwapAndTimeWarp = computeSpotPrice(poolBalancesAfterSwapRaw, virtualBalancesWithPoolOnEdge);
 
+    // If the spot price is not very close from the one right after the swap, it means that the virtual balances
+    // changed abruptly.
     expectEqualWithError(spotPriceAfterSwap, spotPriceAfterSwapAndTimeWarp, pricesSmallError);
   }
 
