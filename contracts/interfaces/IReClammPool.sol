@@ -18,6 +18,8 @@ struct ReClammPoolParams {
     uint256 initialMinPrice;
     uint256 initialMaxPrice;
     uint256 initialTargetPrice;
+    bool tokenAPriceIncludesRate;
+    bool tokenBPriceIncludesRate;
 }
 
 /**
@@ -25,20 +27,17 @@ struct ReClammPoolParams {
  * @dev Note that the initial prices are used only during pool initialization. After the initialization, the prices
  * will shift according to price ratio and pool centeredness.
  *
- * Base Pool:
  * @param tokens Pool tokens, sorted in token registration order
  * @param decimalScalingFactors Adjust for token decimals to retain calculation precision. FP(1) for 18-decimal tokens
+ * @param tokenAPriceIncludesRate True if the prices incorporate a rate for token A
+ * @param tokenBPriceIncludesRate True if the prices incorporate a rate for token B
  * @param minSwapFeePercentage The minimum allowed static swap fee percentage; mitigates precision loss due to rounding
  * @param maxSwapFeePercentage The maximum allowed static swap fee percentage
- *
- * Initialization:
- * @param initialMinPrice The initial minimum price of the pool
- * @param initialMaxPrice The initial maximum price of the pool
- * @param initialTargetPrice The initial target price of the pool
- * @param initialDailyPriceShiftExponent The initial daily price shift exponent (speed of the range update)
+ * @param initialMinPrice The initial minimum price of token A in terms of token B (possibly applying rates)
+ * @param initialMaxPrice The initial maximum price of token A in terms of token B (possibly applying rates)
+ * @param initialTargetPrice The initial target price of token A in terms of token B (possibly applying rates)
+ * @param initialDailyPriceShiftExponent The initial daily price shift exponent
  * @param initialCenterednessMargin The initial centeredness margin (threshold for initiating a range update)
- *
- * Operating Limits:
  * @param maxCenterednessMargin The maximum centeredness margin for the pool, as an 18-decimal FP percentage
  * @param minTokenBalanceScaled18 The minimum token balance for the pool, scaled to 18 decimals
  * @param minPoolCenteredness The minimum pool centeredness for the pool, as an 18-decimal FP percentage
@@ -52,6 +51,8 @@ struct ReClammPoolImmutableData {
     // Base Pool
     IERC20[] tokens;
     uint256[] decimalScalingFactors;
+    bool tokenAPriceIncludesRate;
+    bool tokenBPriceIncludesRate;
     uint256 minSwapFeePercentage;
     uint256 maxSwapFeePercentage;
     // Initialization
@@ -246,27 +247,20 @@ interface IReClammPool is IBasePool {
     ********************************************************/
 
     /**
-     * @notice Computes the ratio between the token balances (B/A).
-     * @dev To keep the pool within the target price range after initialization, the initial pool balances need to be
-     * close to the value returned by this function. For example, if this returned 200, the initial balance of tokenB
-     * should be 200 times the initial balance of tokenA.
-     *
-     * @return balanceRatio The balance ratio that must be respected during initialization
-     */
-    function computeInitialBalanceRatio() external view returns (uint256 balanceRatio);
-
-    /**
      * @notice Compute the initialization amounts, given a reference token and amount.
-     * @dev Convenience function to calculate the initial funding amount for the second token, given the first.
+     * @dev Convenience function to compute the initial funding amount for the second token, given the first. It
+     * returns the amount of tokens in raw amounts, which can be used as-is to initialize the pool using a standard
+     * router.
+     *
      * @param referenceToken The token whose amount is known
-     * @param referenceAmountIn The amount of the reference token to be used for initialization
-     * @return initialBalances Initialization balances sorted in token registration order, including the given amount
-     * and a calculated amount for the other token
+     * @param referenceAmountInRaw The amount of the reference token to be used for initialization, in raw amounts
+     * @return initialBalancesRaw Initialization raw balances sorted in token registration order, including the given
+     * amount and a calculated raw amount for the other token
      */
-    function computeInitialBalances(
+    function computeInitialBalancesRaw(
         IERC20 referenceToken,
-        uint256 referenceAmountIn
-    ) external view returns (uint256[] memory initialBalances);
+        uint256 referenceAmountInRaw
+    ) external view returns (uint256[] memory initialBalancesRaw);
 
     /**
      * @notice Computes the current total price range.
@@ -303,6 +297,12 @@ interface IReClammPool is IBasePool {
         external
         view
         returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed);
+
+    /**
+     * @notice Computes the current target price. This is the ratio of the total (i.e., real + virtual) balances (B/A).
+     * @return currentTargetPrice Target price at the current pool state (real and virtual balances)
+     */
+    function computeCurrentSpotPrice() external view returns (uint256 currentTargetPrice);
 
     /**
      * @notice Getter for the timestamp of the last user interaction.

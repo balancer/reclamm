@@ -106,11 +106,7 @@ contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest {
         uint256 minBptOut
     ) internal override returns (uint256) {
         (IERC20[] memory tokens, , , ) = vault.getPoolTokenInfo(poolToInit);
-        uint256 balanceRatio = ReClammPool(poolToInit).computeInitialBalanceRatio();
-
-        uint256[] memory initialBalances = new uint256[](2);
-        initialBalances[0] = amountsIn[0];
-        initialBalances[1] = amountsIn[0].mulDown(balanceRatio);
+        uint256[] memory initialBalances = ReClammPool(poolToInit).computeInitialBalancesRaw(tokens[0], amountsIn[0]);
 
         return router.initialize(poolToInit, tokens, initialBalances, minBptOut, false, bytes(""));
     }
