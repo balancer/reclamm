@@ -198,7 +198,7 @@ contract ReClammMathTest is BaseReClammTest {
             virtualBalances[a],
             virtualBalances[b]
         );
-        assertEq(isInRange, centeredness >= centerednessMargin);
+        assertEq(isInRange, centeredness >= centerednessMargin, "In range flag does not match calculation");
     }
 
     function testComputeCenteredness__Fuzz(
