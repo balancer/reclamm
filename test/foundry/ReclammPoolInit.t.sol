@@ -682,6 +682,151 @@ contract ReClammPoolInitTest is BaseReClammTest {
         );
     }
 
+    function testComputeInitialBalancesWaUsdcWaEth() public {
+        require(address(usdc6Decimals) > address(weth), "Incorrect token order");
+        uint256 waWethRate = 1.2e18;
+        uint256 waUsdcRate = 1.5e18;
+
+        // Spot price is 2.5k for ETH/USDC --> spot price for waETH/waUSDC is 2.5k * 1.2 / 1.5
+        IERC20[] memory sortedTokens = [address(weth), address(usdc6Decimals)].toMemoryArray().asIERC20();
+        (uint256 wethIndex, uint256 usdcIndex) = (a, b);
+
+        // We'll specify the spot price in terms of ETH/USDC, both flags to true.
+        // waWeth has a rate with respect to ETH, and waUSDC has a rate with respect to USDC.
+        _tokenAPriceIncludesRate = true;
+        _tokenBPriceIncludesRate = true;
+        _rateProviderA.mockRate(waWethRate);
+        _rateProviderB.mockRate(waUsdcRate);
+        uint256 initialAmount = 100e6;
+
+        (address newPool, ) = _createPool(sortedTokens.asAddress(), "BeforeInitTest");
+
+        assertFalse(vault.isPoolInitialized(newPool), "Pool is initialized");
+
+        uint256[] memory initialBalancesRaw = ReClammPool(newPool).computeInitialBalancesRaw(
+            sortedTokens[usdcIndex],
+            initialAmount
+        );
+
+        // The reference token initial balance should always equal the initial amount passed in.
+        assertEq(initialBalancesRaw[usdcIndex], initialAmount, "Invalid initial balance for usdc index");
+
+        uint256[] memory inverseInitialBalances = ReClammPool(newPool).computeInitialBalancesRaw(
+            sortedTokens[wethIndex],
+            initialBalancesRaw[wethIndex]
+        );
+
+        // We should get the same result either way.
+        assertApproxEqRel(
+            initialBalancesRaw[usdcIndex],
+            inverseInitialBalances[usdcIndex],
+            0.01e16,
+            "Wrong inverse initialization balance (usdc)"
+        );
+
+        assertApproxEqRel(
+            initialBalancesRaw[wethIndex],
+            inverseInitialBalances[wethIndex],
+            0.01e16,
+            "Wrong inverse initialization balance (weth)"
+        );
+
+        // Does not revert either way.
+        vm.startPrank(lp);
+
+        uint256 snapshotId = vm.snapshot();
+        _initPool(newPool, initialBalancesRaw, 0);
+        _validatePostInitConditions();
+
+        uint256 spotPrice1 = ReClammPool(newPool).computeCurrentSpotPrice();
+
+        vm.revertTo(snapshotId);
+        _initPool(newPool, inverseInitialBalances, 0);
+        _validatePostInitConditions();
+        uint256 spotPrice2 = ReClammPool(newPool).computeCurrentSpotPrice();
+        assertApproxEqRel(spotPrice1, spotPrice2, 0.1e16, "Spot prices are not equal");
+        // The actual spot price after initialization corresponds to waWeth/waUSDC, so it is different to the one
+        // specified at creation time because of the rate between waWeth and ETH and the rate between waUSDC and USDC.
+        assertApproxEqRel(
+            spotPrice1,
+            (_initialTargetPrice * waWethRate) / waUsdcRate,
+            0.01e16,
+            "Spot prices differ from initial target price"
+        );
+    }
+
+    function testComputeInitialBalancesWstEthsDai() public {
+        require(address(usdc6Decimals) > address(weth), "Incorrect token order");
+        uint256 waWethRate = 1.2e18;
+        uint256 waUsdcRate = 1.5e18;
+
+        _initialTargetPrice = _initialTargetPrice.mulDown(waWethRate).divDown(waUsdcRate);
+        // Spot price is 2.5k for ETH/USDC --> spot price for waETH/waUSDC is 2.5k * 1.2 / 1.5 = 2000
+        IERC20[] memory sortedTokens = [address(weth), address(usdc6Decimals)].toMemoryArray().asIERC20();
+        (uint256 wethIndex, uint256 usdcIndex) = (a, b);
+
+        // We'll specify the spot price in terms of wstEth/sDAI so we'll set both flags to false
+        _tokenAPriceIncludesRate = false;
+        _tokenBPriceIncludesRate = false;
+        _rateProviderA.mockRate(waWethRate);
+        _rateProviderB.mockRate(waUsdcRate);
+        uint256 initialAmount = 100e6;
+
+        (address newPool, ) = _createPool(sortedTokens.asAddress(), "BeforeInitTest");
+
+        assertFalse(vault.isPoolInitialized(newPool), "Pool is initialized");
+
+        uint256[] memory initialBalancesRaw = ReClammPool(newPool).computeInitialBalancesRaw(
+            sortedTokens[usdcIndex],
+            initialAmount
+        );
+
+        // The reference token initial balance should always equal the initial amount passed in.
+        assertEq(initialBalancesRaw[usdcIndex], initialAmount, "Invalid initial balance for usdc index");
+
+        uint256[] memory inverseInitialBalances = ReClammPool(newPool).computeInitialBalancesRaw(
+            sortedTokens[wethIndex],
+            initialBalancesRaw[wethIndex]
+        );
+
+        // We should get the same result either way.
+        assertApproxEqRel(
+            initialBalancesRaw[usdcIndex],
+            inverseInitialBalances[usdcIndex],
+            0.01e16,
+            "Wrong inverse initialization balance (usdc)"
+        );
+
+        assertApproxEqRel(
+            initialBalancesRaw[wethIndex],
+            inverseInitialBalances[wethIndex],
+            0.01e16,
+            "Wrong inverse initialization balance (weth)"
+        );
+
+        // Does not revert either way.
+        vm.startPrank(lp);
+
+        uint256 snapshotId = vm.snapshot();
+        _initPool(newPool, initialBalancesRaw, 0);
+        _validatePostInitConditions();
+
+        uint256 spotPrice1 = ReClammPool(newPool).computeCurrentSpotPrice();
+
+        vm.revertTo(snapshotId);
+        _initPool(newPool, inverseInitialBalances, 0);
+        _validatePostInitConditions();
+        uint256 spotPrice2 = ReClammPool(newPool).computeCurrentSpotPrice();
+        assertApproxEqRel(spotPrice1, spotPrice2, 0.1e16, "Spot prices are not equal");
+        // Same spot price as the one specified at creation time, since both flags were false.
+        assertApproxEqRel(
+            spotPrice1,
+            _initialTargetPrice,
+            0.01e16,
+            "Spot prices differ from initial target price"
+        );
+    }
+
     function _validatePostInitConditions() private view {
         assertTrue(vault.isPoolInitialized(pool), "Pool is not initialized");
 
