@@ -347,7 +347,6 @@ contract ReClammPoolTest is BaseReClammTest {
         // Ensure that the max centeredness margin parameter fits in uint64.
         assertEq(data.maxCenterednessMargin, uint64(data.maxCenterednessMargin), "Max centeredness margin not uint64");
         assertEq(data.minTokenBalanceScaled18, _MIN_TOKEN_BALANCE, "Invalid min token balance");
-        assertEq(data.minPoolCenteredness, _MIN_POOL_CENTEREDNESS, "Invalid min pool centeredness");
         assertEq(
             data.maxDailyPriceShiftExponent,
             _MAX_DAILY_PRICE_SHIFT_EXPONENT,

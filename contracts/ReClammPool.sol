@@ -55,10 +55,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     //
     // As the real balance of either token approaches zero, the centeredness measure likewise approaches zero. Since
     // centeredness is the divisor in many calculations, zero values would revert, and even near-zero values are
-    // problematic. Imposing this limit on centeredness (i.e., reverting if an operation would cause the centeredness
-    // to decrease below this threshold) keeps the math well-behaved.
+    // problematic.
     uint256 internal constant _MIN_TOKEN_BALANCE_SCALED18 = 1e12;
-    uint256 internal constant _MIN_POOL_CENTEREDNESS = 1e3;
 
     // The daily price shift exponent is a percentage that defines the speed at which the virtual balances will change
     // over the course of one day. A value of 100% (i.e, FP 1) means that the min and max prices will double (or halve)
@@ -649,7 +647,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         // Operating Limits
         data.maxCenterednessMargin = _MAX_CENTEREDNESS_MARGIN;
         data.minTokenBalanceScaled18 = _MIN_TOKEN_BALANCE_SCALED18;
-        data.minPoolCenteredness = _MIN_POOL_CENTEREDNESS;
         data.maxDailyPriceShiftExponent = _MAX_DAILY_PRICE_SHIFT_EXPONENT;
         data.maxDailyPriceRatioUpdateRate = _MAX_DAILY_PRICE_RATIO_UPDATE_RATE;
         data.minPriceRatioUpdateDuration = _MIN_PRICE_RATIO_UPDATE_DURATION;
