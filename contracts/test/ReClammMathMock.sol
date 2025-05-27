@@ -3,6 +3,7 @@
 pragma solidity ^0.8.24;
 
 import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
+
 import { PriceRatioState, ReClammMath, a, b } from "../lib/ReClammMath.sol";
 
 contract ReClammMathMock {

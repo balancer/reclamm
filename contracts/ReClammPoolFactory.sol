@@ -17,9 +17,9 @@ import {
 import { BasePoolFactory } from "@balancer-labs/v3-pool-utils/contracts/BasePoolFactory.sol";
 import { Version } from "@balancer-labs/v3-solidity-utils/contracts/helpers/Version.sol";
 
-import { ReClammPool } from "./ReClammPool.sol";
-import { ReClammPoolParams } from "./interfaces/IReClammPool.sol";
 import { ReClammPoolFactoryLib, ReClammPriceParams } from "./lib/ReClammPoolFactoryLib.sol";
+import { ReClammPoolParams } from "./interfaces/IReClammPool.sol";
+import { ReClammPool } from "./ReClammPool.sol";
 
 /// @notice ReClammPool factory.
 contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
