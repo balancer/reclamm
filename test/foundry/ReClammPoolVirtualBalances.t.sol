@@ -27,7 +27,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     using SafeCast for *;
     using Math for *;
 
-    uint256 private constant _INITIAL_PARAMS_ERROR = 1e6;
+    uint256 private constant _INITIAL_PARAMS_ERROR = 0.0001e16; // 0.001%
     uint256 private constant a = 0;
     uint256 private constant b = 1;
 

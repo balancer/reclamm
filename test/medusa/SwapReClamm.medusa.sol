@@ -14,7 +14,9 @@ import "@balancer-labs/v3-vault/test/foundry/utils/BaseMedusaTest.sol";
 
 import { ReClammPoolFactory } from "../../contracts/ReClammPoolFactory.sol";
 import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
+import { ReClammPriceParams } from "../../../contracts/lib/ReClammPoolFactoryLib.sol";
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
+import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
 
 /**
  * @notice Medusa test for the ReClamm pool.
@@ -48,6 +50,14 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
             "ReClammPoolFactory"
         );
 
+        ReClammPriceParams memory priceParams = ReClammPriceParams({
+            initialMinPrice: 1000e18, // 1000 min price
+            initialMaxPrice: 4000e18, // 4000 max price
+            initialTargetPrice: 3000e18, // 3000 target price
+            tokenAPriceIncludesRate: false, // Do not consider rates in the price calculation for token A
+            tokenBPriceIncludesRate: false // Do not consider rates in the price calculation for token B
+        });
+
         PoolRoleAccounts memory roleAccounts;
         address newPool = ReClammPoolFactory(factory).create(
             "ReClamm Pool",
@@ -55,16 +65,14 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
             vault.buildTokenConfig(tokens),
             roleAccounts,
             0,
-            1000e18, // 1000 min price
-            4000e18, // 4000 max price
-            3000e18, // 3000 target price
+            priceParams,
             1e18, // 100% daily price shift exponent
             10e16, // 10% margin
             ""
         );
 
         // Compute the initial balance ratio so that the target price of the pool is respected.
-        initialBalances[1] = initialBalances[0].mulDown(ReClammPool(newPool).computeInitialBalanceRatio());
+        initialBalances[1] = initialBalances[0].mulDown(ReClammPoolMock(newPool).computeInitialBalanceRatio());
 
         // Initialize liquidity of new pool.
         medusa.prank(lp);

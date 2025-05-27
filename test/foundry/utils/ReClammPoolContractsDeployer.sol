@@ -14,7 +14,9 @@ import { IRateProvider } from "@balancer-labs/v3-interfaces/contracts/solidity-u
 import { BaseContractsDeployer } from "@balancer-labs/v3-solidity-utils/test/foundry/utils/BaseContractsDeployer.sol";
 import { CastingHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/CastingHelpers.sol";
 
+import { ReClammMath, a, b } from "../../../contracts/lib/ReClammMath.sol";
 import { ReClammPoolFactory } from "../../../contracts/ReClammPoolFactory.sol";
+import { ReClammPriceParams } from "../../../contracts/lib/ReClammPoolFactoryLib.sol";
 import { ReClammPoolFactoryMock } from "../../../contracts/test/ReClammPoolFactoryMock.sol";
 import { ReClammPoolParams } from "../../../contracts/interfaces/IReClammPool.sol";
 /**
@@ -23,6 +25,7 @@ import { ReClammPoolParams } from "../../../contracts/interfaces/IReClammPool.so
  */
 contract ReClammPoolContractsDeployer is BaseContractsDeployer {
     using CastingHelpers for address[];
+    using SafeCast for uint256;
 
     struct DefaultDeployParams {
         string name;
@@ -30,6 +33,8 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
         uint256 defaultMinPrice;
         uint256 defaultMaxPrice;
         uint256 defaultTargetPrice;
+        bool defaultTokenAPriceIncludesRate;
+        bool defaultTokenBPriceIncludesRate;
         uint256 defaultDailyPriceShiftExponent;
         uint256 defaultCenterednessMargin;
         string poolVersion;
@@ -50,6 +55,8 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
             defaultMinPrice: 0.5e18,
             defaultMaxPrice: 2e18,
             defaultTargetPrice: 1e18,
+            defaultTokenAPriceIncludesRate: false,
+            defaultTokenBPriceIncludesRate: false,
             defaultDailyPriceShiftExponent: 100e16, // 100%
             defaultCenterednessMargin: 10e16, // 10%
             poolVersion: "ReClamm Pool v1",
@@ -92,24 +99,30 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
         IERC20[] memory _tokens = tokens.asIERC20();
         IRateProvider[] memory _rateProviders = rateProviders;
         IVaultMock _vault = vault;
-        string memory _lable = label;
+        string memory _label = label;
 
-        newPool = poolFactory.create(
+        ReClammPriceParams memory priceParams = ReClammPriceParams({
+            initialMinPrice: defaultParams.defaultMinPrice,
+            initialMaxPrice: defaultParams.defaultMaxPrice,
+            initialTargetPrice: defaultParams.defaultTargetPrice,
+            tokenAPriceIncludesRate: defaultParams.defaultTokenAPriceIncludesRate,
+            tokenBPriceIncludesRate: defaultParams.defaultTokenBPriceIncludesRate
+        });
+
+        newPool = ReClammPoolFactory(address(poolFactory)).create(
             defaultParams.name,
             defaultParams.symbol,
             _rateProviders.length == 0
                 ? _vault.buildTokenConfig(_tokens)
                 : _vault.buildTokenConfig(_tokens, _rateProviders),
             roleAccounts,
-            1e16, // 1% fee
-            defaultParams.defaultMinPrice,
-            defaultParams.defaultMaxPrice,
-            defaultParams.defaultTargetPrice,
+            0.001e16, // minimum swap fee
+            priceParams,
             defaultParams.defaultDailyPriceShiftExponent,
-            SafeCast.toUint64(defaultParams.defaultCenterednessMargin),
+            defaultParams.defaultCenterednessMargin.toUint64(),
             bytes32(_saltIndex++)
         );
-        vm.label(newPool, _lable);
+        vm.label(newPool, _label);
 
         // Force the swap fee percentage, even if it's outside the allowed limits.
         // Tests are expected to set the fee percentage for specific purposes.
@@ -123,11 +136,13 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
                 name: defaultParams.name,
                 symbol: defaultParams.symbol,
                 version: defaultParams.poolVersion,
-                initialMinPrice: defaultParams.defaultMinPrice,
-                initialMaxPrice: defaultParams.defaultMaxPrice,
-                initialTargetPrice: defaultParams.defaultTargetPrice,
+                initialMinPrice: priceParams.initialMinPrice,
+                initialMaxPrice: priceParams.initialMaxPrice,
+                initialTargetPrice: priceParams.initialTargetPrice,
+                tokenAPriceIncludesRate: priceParams.tokenAPriceIncludesRate,
+                tokenBPriceIncludesRate: priceParams.tokenBPriceIncludesRate,
                 dailyPriceShiftExponent: defaultParams.defaultDailyPriceShiftExponent,
-                centerednessMargin: SafeCast.toUint64(defaultParams.defaultCenterednessMargin)
+                centerednessMargin: defaultParams.defaultCenterednessMargin.toUint64()
             }),
             _vault
         );
