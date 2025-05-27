@@ -372,7 +372,6 @@ library ReClammMath {
             lastTimestamp < priceRatioState.priceRatioUpdateEndTime
         ) {
             isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalanceA, lastVirtualBalanceB).toEnum();
-
             (currentVirtualBalanceA, currentVirtualBalanceB) = computeVirtualBalancesUpdatingPriceRatio(
                 currentFourthRootPriceRatio,
                 balancesScaled18,
@@ -403,7 +402,6 @@ library ReClammMath {
             uint32 _lastTimestamp = lastTimestamp;
 
             (currentVirtualBalanceA, currentVirtualBalanceB) = computeVirtualBalancesUpdatingPriceRange(
-                currentFourthRootPriceRatio,
                 _balancesScaled18,
                 currentVirtualBalanceA,
                 currentVirtualBalanceB,
@@ -484,7 +482,6 @@ library ReClammMath {
      * @dev This function will track the market price by moving the price interval. Note that it will increase the
      * pool centeredness and change the token prices.
      *
-     * @param currentFourthRootPriceRatio The current fourth root of price ratio of the pool
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param virtualBalanceA The last virtual balance of token A
      * @param virtualBalanceB The last virtual balance of token B
@@ -496,7 +493,6 @@ library ReClammMath {
      * @return newVirtualBalanceB The new virtual balance of token B
      */
     function computeVirtualBalancesUpdatingPriceRange(
-        uint256 currentFourthRootPriceRatio,
         uint256[] memory balancesScaled18,
         uint256 virtualBalanceA,
         uint256 virtualBalanceB,
@@ -505,8 +501,9 @@ library ReClammMath {
         uint32 currentTimestamp,
         uint32 lastTimestamp
     ) internal pure returns (uint256 newVirtualBalanceA, uint256 newVirtualBalanceB) {
-        // Round up price ratio, to round virtual balances down.
-        uint256 priceRatio = currentFourthRootPriceRatio.mulUp(currentFourthRootPriceRatio);
+        uint256 sqrtPriceRatio = Math.sqrt(
+            computePriceRatio(balancesScaled18, virtualBalanceA, virtualBalanceB) * FixedPoint.ONE
+        );
 
         // The overvalued token is the one with a lower token balance (therefore, rarer and more valuable).
         (uint256 balancesScaledUndervalued, uint256 balancesScaledOvervalued) = isPoolAboveCenter
@@ -524,7 +521,7 @@ library ReClammMath {
         // Va = (Ra * (Vb + Rb)) / (((priceRatio - 1) * Vb) - Rb)
         virtualBalanceUndervalued =
             (balancesScaledUndervalued * (virtualBalanceOvervalued + balancesScaledOvervalued)) /
-            ((priceRatio - FixedPoint.ONE).mulDown(virtualBalanceOvervalued) - balancesScaledOvervalued);
+            ((sqrtPriceRatio - FixedPoint.ONE).mulDown(virtualBalanceOvervalued) - balancesScaledOvervalued);
 
         (newVirtualBalanceA, newVirtualBalanceB) = isPoolAboveCenter
             ? (virtualBalanceUndervalued, virtualBalanceOvervalued)
@@ -618,6 +615,64 @@ library ReClammMath {
         return
             ((uint256(startFourthRootPriceRatio) * LogExpMath.pow(endFourthRootPriceRatio, exponent)) /
                 LogExpMath.pow(startFourthRootPriceRatio, exponent)).toUint96();
+    }
+
+    /**
+     * @notice Compute the price ratio of the pool by dividing the maximum price by the minimum price.
+     * @dev The price ratio is calculated as maxPrice/minPrice, where maxPrice and minPrice are obtained
+     * from computePriceRange.
+     *
+     * @param balancesScaled18 Current pool balances, sorted in token registration order
+     * @param virtualBalanceA Virtual balance of token A
+     * @param virtualBalanceB Virtual balance of token B
+     * @return priceRatio The ratio between the maximum and minimum prices of the pool
+     */
+    function computePriceRatio(
+        uint256[] memory balancesScaled18,
+        uint256 virtualBalanceA,
+        uint256 virtualBalanceB
+    ) internal pure returns (uint256 priceRatio) {
+        (uint256 minPrice, uint256 maxPrice) = computePriceRange(balancesScaled18, virtualBalanceA, virtualBalanceB);
+
+        return maxPrice.divUp(minPrice);
+    }
+
+    /**
+     * @notice Compute the minimum and maximum prices for the pool based on virtual balances and current invariant.
+     * @dev The minimum price is calculated as Vb^2/invariant, where Vb is the virtual balance of token B.
+     * The maximum price is calculated as invariant/Va^2, where Va is the virtual balance of token A.
+     * These calculations are derived from the invariant equation: invariant = (Ra + Va)(Rb + Vb),
+     * where Ra and Rb are the real balances of tokens A and B respectively.
+     *
+     * @param balancesScaled18 Current pool balances, sorted in token registration order
+     * @param virtualBalanceA Virtual balance of token A
+     * @param virtualBalanceB Virtual balance of token B
+     * @return minPrice The minimum price of token A in terms of token B
+     * @return maxPrice The maximum price of token A in terms of token B
+     */
+    function computePriceRange(
+        uint256[] memory balancesScaled18,
+        uint256 virtualBalanceA,
+        uint256 virtualBalanceB
+    ) internal pure returns (uint256 minPrice, uint256 maxPrice) {
+        uint256 currentInvariant = ReClammMath.computeInvariant(
+            balancesScaled18,
+            virtualBalanceA,
+            virtualBalanceB,
+            Rounding.ROUND_DOWN
+        );
+
+        // P_min(a) = Vb / (Va + Ra_max)
+        // We don't have Ra_max, but: invariant=(Ra_max + Va)(Vb)
+        // Then, (Va + Ra_max) = invariant/Vb, and:
+        // P_min(a) = Vb^2 / invariant
+        minPrice = (virtualBalanceB * virtualBalanceB) / currentInvariant;
+
+        // Similarly, P_max(a) = (Rb_max + Vb)/Va
+        // We don't have Rb_max, but: invariant=(Rb_max + Vb)(Va)
+        // Then, (Rb_max + Vb) = invariant/Va, and:
+        // P_max(a) = invariant / Va^2
+        maxPrice = currentInvariant.divDown(virtualBalanceA.mulDown(virtualBalanceA));
     }
 
     /**
