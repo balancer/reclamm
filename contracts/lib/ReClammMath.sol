@@ -681,33 +681,6 @@ library ReClammMath {
     }
 
     /**
-     * @notice Check whether the pool is above center.
-     * @dev The pool is above center if the ratio of the real balances is greater than the ratio of the virtual
-     * balances.
-     *
-     * @param balancesScaled18 Current pool balances, sorted in token registration order
-     * @param virtualBalanceA The last virtual balance of token A
-     * @param virtualBalanceB The last virtual balance of token B
-     * @return isAboveCenter Whether the pool is above center
-     */
-    function isAboveCenter(
-        uint256[] memory balancesScaled18,
-        uint256 virtualBalanceA,
-        uint256 virtualBalanceB
-    ) internal pure returns (bool) {
-        if (balancesScaled18[b] == 0) {
-            return true;
-        } else {
-            return balancesScaled18[a].divDown(balancesScaled18[b]) > virtualBalanceA.divDown(virtualBalanceB);
-        }
-    }
-
-    /// @notice Convert a boolean value to a PoolAboveCenter enum (only TRUE or FALSE).
-    function toEnum(bool value) internal pure returns (PoolAboveCenter) {
-        return PoolAboveCenter(value.toUint());
-    }
-
-    /**
      * @notice Convert from the external to the internal representation of the daily price shift exponent.
      * @param dailyPriceShiftExponent The daily price shift exponent as an 18-decimal FP
      * @return dailyPriceShiftBase Internal representation of the daily price shift exponent

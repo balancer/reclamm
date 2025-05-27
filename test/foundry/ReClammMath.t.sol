@@ -573,4 +573,58 @@ contract ReClammMathTest is BaseReClammTest {
 
         return totalBalances[tokenOutIndex] - tokenOutPoolAmount;
     }
+
+    function testIsAboveCenter__Fuzz(
+        uint256 balanceA,
+        uint256 balanceB,
+        uint256 virtualBalanceA,
+        uint256 virtualBalanceB
+    ) public pure {
+        balanceA = bound(balanceA, 1, _MAX_TOKEN_BALANCE);
+        balanceB = bound(balanceB, 1, _MAX_TOKEN_BALANCE);
+        virtualBalanceA = bound(virtualBalanceA, 1, _MAX_TOKEN_BALANCE);
+        virtualBalanceB = bound(virtualBalanceB, 1, _MAX_TOKEN_BALANCE);
+
+        uint256[] memory balancesScaled18 = new uint256[](2);
+        balancesScaled18[a] = balanceA;
+        balancesScaled18[b] = balanceB;
+
+        (, bool isAboveCenter) = ReClammMath.computeCenteredness(
+            balancesScaled18,
+            virtualBalanceA,
+            virtualBalanceB
+        );
+
+        uint256 numerator = balancesScaled18[a] * virtualBalanceB;
+        uint256 denominator = virtualBalanceA * balancesScaled18[b];
+    
+        assertEq(isAboveCenter, numerator > denominator, "Incorrect isAboveCenter definition");
+    }
+
+    function testIsAboveCenterZeroBalances(
+    ) public pure {
+        uint256 virtualBalanceA = 6.02e23;
+        uint256 virtualBalanceB = 3.1415e18;
+
+        uint256[] memory balancesScaled18 = new uint256[](2);
+        balancesScaled18[a] = 0;
+        balancesScaled18[b] = 1;
+
+        (, bool isAboveCenter) = ReClammMath.computeCenteredness(
+            balancesScaled18,
+            virtualBalanceA,
+            virtualBalanceB
+        );
+        assertTrue(isAboveCenter, "Not above center with A = 0");
+
+        balancesScaled18[a] = 1;
+        balancesScaled18[b] = 0;
+
+        (, isAboveCenter) = ReClammMath.computeCenteredness(
+            balancesScaled18,
+            virtualBalanceA,
+            virtualBalanceB
+        );
+        assertTrue(isAboveCenter, "Not above center with B = 0");
+    }
 }
