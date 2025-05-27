@@ -29,15 +29,15 @@ contract ReClammPoolMock is ReClammPool {
         uint256 centerednessMargin
     ) external returns (uint256 virtualBalanceA, uint256 virtualBalanceB) {
         (
-            uint256[] memory theoreticalRealBalances,
+            uint256[] memory theoreticalBalances,
             uint256 theoreticalVirtualBalanceA,
             uint256 theoreticalVirtualBalanceB,
             uint256 fourthRootPriceRatio
         ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(minPrice, maxPrice, targetPrice);
 
-        _checkInitializationBalanceRatio(balancesScaled18, theoreticalRealBalances);
+        _checkInitializationBalanceRatio(balancesScaled18, theoreticalBalances);
 
-        uint256 scale = balancesScaled18[a].divDown(theoreticalRealBalances[a]);
+        uint256 scale = balancesScaled18[a].divDown(theoreticalBalances[a]);
 
         virtualBalanceA = theoreticalVirtualBalanceA.mulDown(scale);
         virtualBalanceB = theoreticalVirtualBalanceB.mulDown(scale);
@@ -48,6 +48,11 @@ contract ReClammPoolMock is ReClammPool {
         _dailyPriceShiftBase = initialPriceShiftDailyRate;
         _setCenterednessMargin(centerednessMargin);
         _updateTimestamp();
+    }
+
+    function computeInitialBalanceRatio() external view returns (uint256) {
+        (uint256 rateA, uint256 rateB) = _getTokenRates();
+        return _computeInitialBalanceRatioScaled18(rateA, rateB);
     }
 
     function computeCurrentVirtualBalances(
@@ -62,14 +67,6 @@ contract ReClammPoolMock is ReClammPool {
 
     function setLastVirtualBalances(uint256[] memory newLastVirtualBalances) external {
         _setLastVirtualBalances(newLastVirtualBalances[0], newLastVirtualBalances[1]);
-    }
-
-    function checkInitializationPrices(
-        uint256[] memory balancesScaled18,
-        uint256 virtualBalanceA,
-        uint256 virtualBalanceB
-    ) external view {
-        _checkInitializationPrices(balancesScaled18, virtualBalanceA, virtualBalanceB);
     }
 
     function manualSetCenterednessMargin(uint256 newCenterednessMargin) external {

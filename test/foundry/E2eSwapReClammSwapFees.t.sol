@@ -8,6 +8,7 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+import { ProtocolFeeControllerMock } from "@balancer-labs/v3-vault/contracts/test/ProtocolFeeControllerMock.sol";
 import { ERC20TestToken } from "@balancer-labs/v3-solidity-utils/contracts/test/ERC20TestToken.sol";
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
@@ -21,7 +22,7 @@ import { ReClammMath, a, b } from "../../contracts/lib/ReClammMath.sol";
 import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
 import { E2eSwapFuzzPoolParamsHelper } from "./utils/E2eSwapFuzzPoolParamsHelper.sol";
 
-contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest {
+contract E2eSwapReClammSwapFeesTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest {
     using ArrayHelpers for *;
     using FixedPoint for uint256;
 
@@ -76,6 +77,43 @@ contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest {
         setPoolBalances(poolInitAmountTokenA, poolInitAmountTokenB);
         calculateMinAndMaxSwapAmounts();
 
+        // Set swap fee to 99%, increasing the price ratio of the pool.
+        vault.manualUnsafeSetStaticSwapFeePercentage(pool, 99e16); // 99% swap fee
+        vm.prank(poolCreator);
+        // Set pool creator fee to 10%, so part of the fees are collected by the pool.
+        ProtocolFeeControllerMock(address(feeController)).manualSetPoolCreatorSwapFeePercentage(pool, uint256(10e16));
+
+        uint256 amountIn = poolInitAmountTokenA / 3;
+
+        vm.startPrank(alice);
+        for (uint256 i = 0; i < 50; i++) {
+            router.swapSingleTokenExactIn(pool, tokenA, tokenB, amountIn, 0, MAX_UINT256, false, bytes(""));
+            router.swapSingleTokenExactOut(
+                pool,
+                tokenB,
+                tokenA,
+                // Since the swap fee is 99%, an amount out of 1% of amount in will make sure that the amount in of
+                // token B is equivalent to the previous swap. We can't use "exact in" since the balances are
+                // different, so the tokens may have different values.
+                amountIn / 100,
+                MAX_UINT256,
+                MAX_UINT256,
+                false,
+                bytes("")
+            );
+        }
+        vm.stopPrank();
+
+        // Collect any fees generated during pool setup, so the E2E test will only check the fees from the test.
+        feeController.collectAggregateFees(pool);
+
+        // Warp 6 hours, so the pool can feel the impact of fees (specially if it's out of range).
+        vm.warp(block.timestamp + 6 hours);
+
+        vm.prank(poolCreator);
+        // Set pool creator fee to 100%, so E2E tests assumptions do not break.
+        ProtocolFeeControllerMock(address(feeController)).manualSetPoolCreatorSwapFeePercentage(pool, FixedPoint.ONE);
+
         return true;
     }
 
@@ -106,8 +144,7 @@ contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest {
         uint256 minBptOut
     ) internal override returns (uint256) {
         (IERC20[] memory tokens, , , ) = vault.getPoolTokenInfo(poolToInit);
-        uint256[] memory initialBalances = ReClammPool(poolToInit).computeInitialBalancesRaw(tokens[0], amountsIn[0]);
-
+        uint256[] memory initialBalances = ReClammPool(pool).computeInitialBalancesRaw(tokens[0], amountsIn[0]);
         return router.initialize(poolToInit, tokens, initialBalances, minBptOut, false, bytes(""));
     }
 }

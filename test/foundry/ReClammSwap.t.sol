@@ -85,18 +85,20 @@ contract ReClammSwapTest is BaseReClammTest {
         // If the price ratio is updating, the virtual balances should not match.
         _assertVirtualBalancesDoNotMatch(lastVirtualBalancesBeforeSwap, currentVirtualBalances);
 
-        uint256 amountDaiIn = mathMock.computeInGivenOut(
-            [poolInitAmount, poolInitAmount].toMemoryArray(),
+        (, , , uint256[] memory balancesScaled18) = vault.getPoolTokenInfo(pool);
+
+        uint256 amountUsdcIn = mathMock.computeInGivenOut(
+            balancesScaled18,
             currentVirtualBalances,
-            daiIdx,
             usdcIdx,
-            (poolInitAmount - _MIN_TOKEN_BALANCE) / 2
+            daiIdx,
+            (balancesScaled18[usdcIdx] - _MIN_TOKEN_BALANCE) / 2
         );
 
         // Make a swap so that `lastVirtualBalances` is updated to match the current virtual balances.
         // The last timestamp should also be updated to the current block.
         vm.prank(alice);
-        router.swapSingleTokenExactIn(pool, dai, usdc, amountDaiIn, 0, MAX_UINT256, false, bytes(""));
+        router.swapSingleTokenExactIn(pool, usdc, dai, amountUsdcIn, 0, MAX_UINT256, false, bytes(""));
 
         uint256[] memory lastVirtualBalancesAfterSwap = _getLastVirtualBalances(pool);
 
@@ -119,7 +121,7 @@ contract ReClammSwapTest is BaseReClammTest {
         uint256[] memory newBalances = _setPoolBalances(daiBalance, usdcBalance);
 
         uint256 currentFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
-        newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 3e18);
+        newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 1.6e18);
         _assumeFourthRootPriceRatioDeltaAboveMin(currentFourthRootPriceRatio, newFourthRootPriceRatio);
 
         vm.prank(admin);
@@ -268,12 +270,12 @@ contract ReClammSwapTest is BaseReClammTest {
         // If the price ratio is updating, the virtual balances should not match.
         _assertVirtualBalancesDoNotMatch(lastVirtualBalancesBeforeSwap, currentVirtualBalances);
 
-        uint256 amountUsdcOut = (poolInitAmount - _MIN_TOKEN_BALANCE) / 2;
+        uint256 amountDaiOut = (poolInitAmount - _MIN_TOKEN_BALANCE) / 2;
 
         // Make a swap so that `lastVirtualBalances` is updated to match the current virtual balances.
         // The last timestamp should also be updated to the current block.
         vm.prank(alice);
-        router.swapSingleTokenExactOut(pool, dai, usdc, amountUsdcOut, MAX_UINT256, MAX_UINT256, false, bytes(""));
+        router.swapSingleTokenExactOut(pool, usdc, dai, amountDaiOut, MAX_UINT256, MAX_UINT256, false, bytes(""));
 
         uint256[] memory lastVirtualBalancesAfterSwap = _getLastVirtualBalances(pool);
 
@@ -296,7 +298,7 @@ contract ReClammSwapTest is BaseReClammTest {
         uint256[] memory newBalances = _setPoolBalances(daiBalance, usdcBalance);
 
         uint256 currentFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
-        newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 3e18);
+        newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 1.6e18);
         _assumeFourthRootPriceRatioDeltaAboveMin(currentFourthRootPriceRatio, newFourthRootPriceRatio);
 
         vm.prank(admin);

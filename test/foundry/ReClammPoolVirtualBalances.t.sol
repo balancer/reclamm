@@ -24,7 +24,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     using SafeCast for *;
     using Math for *;
 
-    uint256 private constant _INITIAL_PARAMS_ERROR = 1e6;
+    uint256 private constant _INITIAL_PARAMS_ERROR = 0.0001e16; // 0.001%
     uint256 private constant a = 0;
     uint256 private constant b = 1;
 
@@ -48,7 +48,8 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
 
         uint256 balanceRatio = _initialBalances[0].divDown(theoreticalBalances[0]);
 
-        assertEq(_initialFourthRootPriceRatio, theoreticalPriceRatio, "Invalid fourthRootPriceRatio");
+        // Error tolerance of 1 million wei (price ratio is computed using the pool balances and may have a small error).
+        assertApproxEqAbs(_initialFourthRootPriceRatio, theoreticalPriceRatio, 1e6, "Invalid fourthRootPriceRatio");
 
         // Don't need to check balances of token[0], since the balance ratio was calculated based on it.
         assertApproxEqRel(

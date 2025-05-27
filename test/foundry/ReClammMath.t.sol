@@ -309,8 +309,8 @@ contract ReClammMathTest is BaseReClammTest {
         lastVirtualBalances[a] = virtualBalanceA;
         lastVirtualBalances[b] = virtualBalanceB;
 
-        vm.assume(_calculateCurrentPriceRatio(balancesScaled18, lastVirtualBalances) >= 1.1e18);
-        vm.assume(_calculateCurrentPriceRatio(balancesScaled18, lastVirtualBalances) <= 10e18);
+        vm.assume(_calculateCurrentSqrtPriceRatio(balancesScaled18, lastVirtualBalances) >= 1.1e18);
+        vm.assume(_calculateCurrentSqrtPriceRatio(balancesScaled18, lastVirtualBalances) <= 10e18);
 
         vm.assume(balancesScaled18[a].mulDown(lastVirtualBalances[b]) > 0);
         vm.assume(balancesScaled18[b].mulDown(lastVirtualBalances[a]) > 0);
@@ -346,7 +346,7 @@ contract ReClammMathTest is BaseReClammTest {
         );
 
         // Check if price ratio matches the new price ratio
-        uint256 actualRootPriceRatio = _calculatePriceRatio(balancesScaled18, newVirtualBalances);
+        uint256 actualRootPriceRatio = _calculateCurrentPriceRatio(balancesScaled18, newVirtualBalances);
 
         uint256 expectedPriceRatio = expectedFourthRootPriceRatio
             .mulDown(expectedFourthRootPriceRatio)
@@ -520,7 +520,30 @@ contract ReClammMathTest is BaseReClammTest {
         assertEq(mathPow4, fpPow4, "Pow4 value mismatch");
     }
 
-    function _calculatePriceRatio(
+    function testComputePriceRange__Fuzz(uint256 minPrice, uint256 maxPrice, uint256 targetPrice) public pure {
+        minPrice = bound(minPrice, _MIN_PRICE, _MAX_PRICE.divDown(_MIN_PRICE_RATIO));
+        maxPrice = bound(maxPrice, minPrice.mulUp(_MIN_PRICE_RATIO), _MAX_PRICE);
+        targetPrice = bound(
+            targetPrice,
+            minPrice + minPrice.mulDown((_MIN_PRICE_RATIO - FixedPoint.ONE) / 2),
+            maxPrice - minPrice.mulDown((_MIN_PRICE_RATIO - FixedPoint.ONE) / 2)
+        );
+
+        (uint256[] memory realBalances, uint256 virtualBalanceA, uint256 virtualBalanceB, ) = ReClammMath
+            .computeTheoreticalPriceRatioAndBalances(minPrice, maxPrice, targetPrice);
+
+        (uint256 computedMinPrice, uint256 computedMaxPrice) = ReClammMath.computePriceRange(
+            realBalances,
+            virtualBalanceA,
+            virtualBalanceB
+        );
+
+        // 0.00000001% error tolerance.
+        assertApproxEqRel(computedMinPrice, minPrice, 1e8, "Min price does not match");
+        assertApproxEqRel(computedMaxPrice, maxPrice, 1e8, "Max price does not match");
+    }
+
+    function _calculateCurrentPriceRatio(
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances
     ) private pure returns (uint256 priceRatio) {
@@ -529,7 +552,7 @@ contract ReClammMathTest is BaseReClammTest {
             (virtualBalances[a].mulDown(virtualBalances[b]));
     }
 
-    function _calculateCurrentPriceRatio(
+    function _calculateCurrentSqrtPriceRatio(
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances
     ) private pure returns (uint256 newSqrtPriceRatio) {

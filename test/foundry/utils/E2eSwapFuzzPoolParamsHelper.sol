@@ -35,7 +35,8 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
     uint256 internal constant _MAX_TOKEN_BALANCE = 1e9 * 1e18;
     uint256 internal constant _MIN_PRICE = 1e14; // 0.0001
     uint256 internal constant _MAX_PRICE = 1e24; // 1_000_000
-    uint256 internal constant _MIN_PRICE_RATIO = 1.1e18;
+    uint256 internal constant _MIN_PRICE_RATIO = 1.01e18;
+    uint256 internal constant _POOL_SPECIFIC_PARAMS_SIZE = 5;
 
     struct TestParams {
         uint256[] initialBalances;
@@ -56,7 +57,7 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
      */
     function _fuzzPoolParams(
         ReClammPoolMock pool,
-        uint256[5] memory params,
+        uint256[_POOL_SPECIFIC_PARAMS_SIZE] memory params,
         uint256 rateTokenA,
         uint256 rateTokenB,
         uint256 decimalsTokenA,
@@ -78,13 +79,13 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
         );
 
         {
-            (uint256[] memory theoreticalRealBalances, , , ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
+            (uint256[] memory theoreticalBalances, , , ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
                 testParams.minPrice,
                 testParams.maxPrice,
                 testParams.targetPrice
             );
 
-            uint256 balanceRatio = theoreticalRealBalances[b].divDown(theoreticalRealBalances[a]);
+            uint256 balanceRatio = theoreticalBalances[b].divDown(theoreticalBalances[a]);
             // Both tokens must be kept below _MAX_TOKEN_BALANCE. The balance ratio can be anything, so we need
             // to cap the initialBalance[a] keeping in mind that initialBalance[b] also needs to be below the abs max.
             uint256 maxBalance = Math.min(
