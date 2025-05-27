@@ -176,9 +176,11 @@ contract ReClammPoolTest is BaseReClammTest {
     function testGetPriceRatioState() public {
         PriceRatioState memory priceRatioState = ReClammPool(pool).getPriceRatioState();
         assertEq(priceRatioState.startFourthRootPriceRatio, 0, "Invalid default startFourthRootPriceRatio");
-        assertEq(
+        // Error tolerance of 1 million wei (price ratio is computed using the pool balances and may have a small error).
+        assertApproxEqAbs(
             priceRatioState.endFourthRootPriceRatio,
             _initialFourthRootPriceRatio,
+            1e6,
             "Invalid default endFourthRootPriceRatio"
         );
         assertEq(
@@ -188,11 +190,12 @@ contract ReClammPoolTest is BaseReClammTest {
         );
         assertEq(priceRatioState.priceRatioUpdateEndTime, block.timestamp, "Invalid default priceRatioUpdateEndTime");
 
-        uint256 oldFourthRootPriceRatio = priceRatioState.endFourthRootPriceRatio;
-        uint256 newPriceRatio = 16e18;
-        uint256 newFourthRootPriceRatio = 2e18; // 4th root of 16
+        uint256 oldFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
+        uint256 newFourthRootPriceRatio = oldFourthRootPriceRatio.mulDown(90e16);
+        uint256 newPriceRatio = mathMock.pow4(newFourthRootPriceRatio);
         uint256 newPriceRatioUpdateStartTime = block.timestamp;
         uint256 newPriceRatioUpdateEndTime = block.timestamp + 1 days;
+
         vm.prank(admin);
         ReClammPool(pool).setPriceRatioState(newPriceRatio, newPriceRatioUpdateStartTime, newPriceRatioUpdateEndTime);
 
@@ -248,13 +251,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         vm.warp(block.timestamp + 6 hours);
 
-        uint96 currentFourthRootPriceRatio = mathMock.computeFourthRootPriceRatio(
-            block.timestamp.toUint32(),
-            state.startFourthRootPriceRatio,
-            state.endFourthRootPriceRatio,
-            state.priceRatioUpdateStartTime,
-            state.priceRatioUpdateEndTime
-        );
+        uint96 currentFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
 
         // Get initial dynamic data.
         ReClammPoolDynamicData memory data = ReClammPool(pool).getReClammPoolDynamicData();
@@ -489,11 +486,25 @@ contract ReClammPoolTest is BaseReClammTest {
             priceRatioUpdateEndTime
         );
 
-        assertEq(fourthRootPriceRatio, mathFourthRootPriceRatio, "FourthRootPriceRatio not updated correctly");
+        // Allows a 5 wei error, since the current fourth root price ratio of the pool is computed using the pool
+        // current balances and virtual balances.
+        assertApproxEqAbs(
+            fourthRootPriceRatio,
+            mathFourthRootPriceRatio,
+            5,
+            "FourthRootPriceRatio not updated correctly"
+        );
 
         skip(duration / 2 + 1);
         fourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
-        assertEq(fourthRootPriceRatio, endFourthRootPriceRatio, "FourthRootPriceRatio does not match new value");
+        // Allows a 5 wei error, since the current fourth root price ratio of the pool is computed using the pool
+        // current balances and virtual balances.
+        assertApproxEqAbs(
+            fourthRootPriceRatio,
+            endFourthRootPriceRatio,
+            5,
+            "FourthRootPriceRatio does not match new value"
+        );
     }
 
     /// @dev Trigger a price ratio update while another one is ongoing.
@@ -550,7 +561,14 @@ contract ReClammPoolTest is BaseReClammTest {
             priceRatioUpdateEndTime
         );
 
-        assertEq(fourthRootPriceRatio, mathFourthRootPriceRatio, "FourthRootPriceRatio not updated correctly");
+        // Allows a 5 wei error, since the current fourth root price ratio of the pool is computed using the pool
+        // current balances and virtual balances, and the mathFourthRootPriceRatio is an interpolation.
+        assertApproxEqAbs(
+            fourthRootPriceRatio,
+            mathFourthRootPriceRatio,
+            5,
+            "FourthRootPriceRatio not updated correctly"
+        );
 
         // While the update is ongoing, we'll trigger a second one.
         // This one will update virtual balances too.
@@ -610,7 +628,14 @@ contract ReClammPoolTest is BaseReClammTest {
 
         vm.warp(priceRatioUpdateEndTime + 1);
         fourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
-        assertEq(fourthRootPriceRatio, endFourthRootPriceRatio, "FourthRootPriceRatio does not match new value");
+        // Allows a 15 wei error, since the current fourth root price ratio of the pool is computed using the pool
+        // current balances and virtual balances.
+        assertApproxEqAbs(
+            fourthRootPriceRatio,
+            endFourthRootPriceRatio,
+            15,
+            "FourthRootPriceRatio does not match new value"
+        );
     }
 
     function testStopPriceRatioUpdatePermissioned() public {
@@ -661,7 +686,14 @@ contract ReClammPoolTest is BaseReClammTest {
             priceRatioUpdateEndTime
         );
 
-        assertEq(fourthRootPriceRatio, mathFourthRootPriceRatio, "FourthRootPriceRatio not updated correctly");
+        // Allows a 5 wei error, since the current fourth root price ratio of the pool is computed using the pool
+        // current balances and virtual balances, and the mathFourthRootPriceRatio is an interpolation.
+        assertApproxEqAbs(
+            fourthRootPriceRatio,
+            mathFourthRootPriceRatio,
+            5,
+            "FourthRootPriceRatio not updated correctly"
+        );
 
         (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = ReClammPool(pool)
             .computeCurrentVirtualBalances();
@@ -956,16 +988,19 @@ contract ReClammPoolTest is BaseReClammTest {
 
         ReClammPoolMock(pool).setLastVirtualBalances(newLastVirtualBalances);
 
+        assertFalse(ReClammPool(pool).isPoolWithinTargetRange(), "Actual value still in range");
+
         // Must advance time, or it will return the last virtual balances. If the calculation used the last virtual
         // balances, it would return false (per calculation above).
         //
-        // Since it is *not* using the last balances, it should still return true.
+        // Since it is using the current price ratio, it should return false and the virtual balances should be
+        // updated.
         vm.warp(block.timestamp + 100);
         (bool resultWithAlternateGetter, bool virtualBalancesChanged) = ReClammPool(pool)
             .isPoolWithinTargetRangeUsingCurrentVirtualBalances();
 
-        assertTrue(resultWithAlternateGetter, "Actual value not in range with alternate getter");
-        assertTrue(virtualBalancesChanged, "Last == current virtual balances");
+        assertFalse(resultWithAlternateGetter, "Actual value still in range with alternate getter");
+        assertTrue(virtualBalancesChanged, "Last != current virtual balances");
     }
 
     function testInRangeUpdatingVirtualBalancesSetCenterednessMargin() public {
