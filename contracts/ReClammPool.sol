@@ -500,24 +500,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
             (uint256 virtualBalanceA, uint256 virtualBalanceB, ) = _computeCurrentVirtualBalances(balancesScaled18);
 
-            uint256 currentInvariant = ReClammMath.computeInvariant(
-                balancesScaled18,
-                virtualBalanceA,
-                virtualBalanceB,
-                Rounding.ROUND_DOWN
-            );
-
-            // Similarly, P_min(a) = Vb / (Va + Ra_max)
-            // We don't have Ra_max, but: invariant=(Ra_max + Va)(Vb)
-            // Then, (Va + Ra_max) = invariant/Vb, and:
-            // P_min(a) = Vb^2 / invariant
-            minPrice = (virtualBalanceB * virtualBalanceB) / currentInvariant;
-
-            // P_max(a) = (Rb_max + Vb)/Va
-            // We don't have Rb_max, but: invariant=(Rb_max + Vb)(Va)
-            // Then, (Rb_max + Vb) = invariant/Va, and:
-            // P_max(a) = invariant / Va^2
-            maxPrice = _computeMaxPrice(currentInvariant, virtualBalanceA);
+            (minPrice, maxPrice) = ReClammMath.computePriceRange(balancesScaled18, virtualBalanceA, virtualBalanceB);
         } else {
             minPrice = _INITIAL_MIN_PRICE;
             maxPrice = _INITIAL_MAX_PRICE;
@@ -591,7 +574,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IReClammPool
     function computeCurrentFourthRootPriceRatio() external view returns (uint256) {
-        return _computeCurrentFourthRootPriceRatio(_priceRatioState);
+        return _computeCurrentFourthRootPriceRatio();
     }
 
     /// @inheritdoc IReClammPool
@@ -640,7 +623,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.dailyPriceShiftExponent = data.dailyPriceShiftBase.toDailyPriceShiftExponent();
         data.centerednessMargin = _centerednessMargin;
 
-        data.currentFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio(_priceRatioState);
+        data.currentFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio();
 
         PriceRatioState memory state = _priceRatioState;
         data.startFourthRootPriceRatio = state.startFourthRootPriceRatio;
@@ -751,7 +734,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             revert PriceRatioNotUpdating();
         }
 
-        uint256 currentFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio(priceRatioState);
+        uint256 currentFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio();
+
         _startPriceRatioUpdate(currentFourthRootPriceRatio, block.timestamp, block.timestamp);
     }
 
@@ -820,7 +804,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         PriceRatioState memory priceRatioState = _priceRatioState;
 
-        startFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio(priceRatioState);
+        startFourthRootPriceRatio = priceRatioState.endFourthRootPriceRatio;
+
+        if (_vault.isPoolInitialized(address(this))) {
+            startFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio();
+        }
 
         fourthRootPriceRatioDelta = SignedMath.abs(
             startFourthRootPriceRatio.toInt256() - endFourthRootPriceRatio.toInt256()
@@ -981,22 +969,22 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /**
-     * @notice Returns the current fourth root of price ratio.
-     * @dev This function uses the current timestamp and full price ratio state to compute the current fourth root
-     * price ratio value by linear interpolation between the start and end times and values.
+     * @notice Computes the fourth root of the current price ratio.
+     * @dev The function calculates the price ratio between tokens A and B using their real and virtual balances,
+     * then takes the fourth root of this ratio. The multiplication by FixedPoint.ONE before each sqrt operation
+     * is done to maintain precision in the fixed-point calculations.
      *
-     * @return currentFourthRootPriceRatio The current fourth root of price ratio
+     * @return The fourth root of the current price ratio, maintaining precision through fixed-point arithmetic
      */
-    function _computeCurrentFourthRootPriceRatio(
-        PriceRatioState memory priceRatioState
-    ) internal view returns (uint256) {
+    function _computeCurrentFourthRootPriceRatio() internal view returns (uint256) {
+        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
+        (uint256 virtualBalanceA, uint256 virtualBalanceB, ) = _computeCurrentVirtualBalances(balancesScaled18);
+
         return
-            ReClammMath.computeFourthRootPriceRatio(
-                block.timestamp.toUint32(),
-                priceRatioState.startFourthRootPriceRatio,
-                priceRatioState.endFourthRootPriceRatio,
-                priceRatioState.priceRatioUpdateStartTime,
-                priceRatioState.priceRatioUpdateEndTime
+            ReClammMath.sqrtScaled18(
+                ReClammMath.sqrtScaled18(
+                    ReClammMath.computePriceRatio(balancesScaled18, virtualBalanceA, virtualBalanceB)
+                )
             );
     }
 

@@ -170,4 +170,20 @@ contract ReClammMathMock {
     function pow4(uint256 rootValue) external pure returns (uint256) {
         return ReClammMath.pow4(rootValue);
     }
+
+    function computePriceRange(
+        uint256[] memory balancesScaled18,
+        uint256 virtualBalanceA,
+        uint256 virtualBalanceB
+    ) external pure returns (uint256, uint256) {
+        return ReClammMath.computePriceRange(balancesScaled18, virtualBalanceA, virtualBalanceB);
+    }
+
+    function computePriceRatio(
+        uint256[] memory balancesScaled18,
+        uint256 virtualBalanceA,
+        uint256 virtualBalanceB
+    ) external pure returns (uint256) {
+        return ReClammMath.computePriceRatio(balancesScaled18, virtualBalanceA, virtualBalanceB);
+    }
 }

@@ -18,6 +18,8 @@ import {
   Rounding,
   PriceRatioState,
   computeTheoreticalPriceRatioAndBalances,
+  computePriceRange,
+  computePriceRatio,
 } from './utils/reClammMath';
 import { expectEqualWithError } from './utils/relativeError';
 
@@ -52,7 +54,7 @@ describe('ReClammMath', function () {
     mathLib = await deploy('ReClammMathMock');
   });
 
-  context('toDailyPriceShiftBase', () => {
+  describe('toDailyPriceShiftBase', () => {
     it('should return the correct value', async () => {
       const dailyPriceShiftExponent = bn(1000e18);
       const contractResult = await mathLib.toDailyPriceShiftBase(dailyPriceShiftExponent);
@@ -61,7 +63,7 @@ describe('ReClammMath', function () {
     });
   });
 
-  context('isAboveCenter', () => {
+  describe('isAboveCenter', () => {
     it('balancesScaled18[1] == 0', async () => {
       const balances = [bn(300e18), bn(0)];
       const virtualBalances = [bn(100e18), bn(200e18)];
@@ -87,37 +89,104 @@ describe('ReClammMath', function () {
     });
   });
 
-  context('computeCenteredness', () => {
-    it('balancesScaled18[0] == 0', async () => {
-      const balances = [bn(0), bn(100e18)];
-      const virtualBalances = [bn(100e18), bn(100e18)];
-
-      const res = await mathLib.computeCenteredness(balances, virtualBalances);
-      expect(res).to.equal(await computeCenteredness(balances, virtualBalances));
-      expect(res).to.equal(0n);
-    });
-
-    it('balancesScaled18[1] == 0', async () => {
-      const balances = [bn(100e18), bn(0)];
-      const virtualBalances = [bn(100e18), bn(100e18)];
-
-      const res = await mathLib.computeCenteredness(balances, virtualBalances);
-      expect(res).to.equal(await computeCenteredness(balances, virtualBalances));
-      expect(res).to.equal(0n);
-    });
-
-    it('balancesScaled18[1] != 0 && isAboveCenter', async () => {
+  describe('computePriceRange', () => {
+    it('returns the correct value', async () => {
       const balances = [bn(100e18), bn(100e18)];
-      const virtualBalances = [bn(90e18), bn(100e18)];
+      const virtualBalances = [bn(90e18), bn(110e18)];
+
+      const contractPriceRange = await mathLib.computePriceRange(balances, virtualBalances[0], virtualBalances[1]);
+      const jsPriceRange = computePriceRange(balances, virtualBalances[0], virtualBalances[1]);
+
+      expect(contractPriceRange[0]).to.equal(jsPriceRange[0]);
+      expect(contractPriceRange[1]).to.equal(jsPriceRange[1]);
+    });
+
+    it('returns the correct value when balancesScaled18[0] == 0', async () => {
+      const balances = [bn(0), bn(100e18)];
+      const virtualBalances = [bn(90e18), bn(110e18)];
+
+      const contractPriceRange = await mathLib.computePriceRange(balances, virtualBalances[0], virtualBalances[1]);
+      const jsPriceRange = computePriceRange(balances, virtualBalances[0], virtualBalances[1]);
+
+      expect(contractPriceRange[0]).to.equal(jsPriceRange[0]);
+      expect(contractPriceRange[1]).to.equal(jsPriceRange[1]);
+    });
+
+    it('returns the correct value when balancesScaled18[1] == 0', async () => {
+      const balances = [bn(100e18), bn(0)];
+      const virtualBalances = [bn(90e18), bn(110e18)];
+
+      const contractPriceRange = await mathLib.computePriceRange(balances, virtualBalances[0], virtualBalances[1]);
+      const jsPriceRange = computePriceRange(balances, virtualBalances[0], virtualBalances[1]);
+
+      expect(contractPriceRange[0]).to.equal(jsPriceRange[0]);
+      expect(contractPriceRange[1]).to.equal(jsPriceRange[1]);
+    });
+  });
+
+  describe('computePriceRatio', () => {
+    it('returns the correct value', async () => {
+      const balances = [bn(100e18), bn(100e18)];
+      const virtualBalances = [bn(2e18), bn(1024e18)];
+
+      const contractPriceRatio = await mathLib.computePriceRatio(balances, virtualBalances[0], virtualBalances[1]);
+      const jsPriceRatio = computePriceRatio(balances, virtualBalances[0], virtualBalances[1]);
+
+      expect(contractPriceRatio).to.equal(jsPriceRatio);
+    });
+
+    it('returns the correct value when balancesScaled18[0] == 0', async () => {
+      const balances = [bn(0), bn(100e18)];
+      const virtualBalances = [bn(2e18), bn(1024e18)];
+
+      const contractPriceRatio = await mathLib.computePriceRatio(balances, virtualBalances[0], virtualBalances[1]);
+      const jsPriceRatio = computePriceRatio(balances, virtualBalances[0], virtualBalances[1]);
+
+      expect(contractPriceRatio).to.equal(jsPriceRatio);
+    });
+
+    it('returns the correct value when balancesScaled18[1] == 0', async () => {
+      const balances = [bn(100e18), bn(0)];
+      const virtualBalances = [bn(2e18), bn(1024e18)];
+
+      const contractPriceRatio = await mathLib.computePriceRatio(balances, virtualBalances[0], virtualBalances[1]);
+      const jsPriceRatio = computePriceRatio(balances, virtualBalances[0], virtualBalances[1]);
+
+      expect(contractPriceRatio).to.equal(jsPriceRatio);
+    });
+  });
+
+  describe('computeCenteredness', () => {
+    it('returns the correct value when balancesScaled18[0] == 0', async () => {
+      const balances = [bn(0), bn(100e18)];
+      const virtualBalances = [bn(2e18), bn(1024e18)];
+
+      const res = await mathLib.computeCenteredness(balances, virtualBalances);
+      expect(res).to.equal(await computeCenteredness(balances, virtualBalances));
+      expect(res).to.equal(0n);
+    });
+
+    it('returns the correct value when balancesScaled18[1] == 0', async () => {
+      const balances = [bn(100e18), bn(0)];
+      const virtualBalances = [bn(2e18), bn(1024e18)];
+
+      const res = await mathLib.computeCenteredness(balances, virtualBalances);
+      expect(res).to.equal(await computeCenteredness(balances, virtualBalances));
+      expect(res).to.equal(0n);
+    });
+
+    it('returns the correct value when balancesScaled18[1] != 0 && isAboveCenter', async () => {
+      const balances = [bn(100e18), bn(100e18)];
+      const virtualBalances = [bn(2e18), bn(1024e18)];
 
       const res = await mathLib.computeCenteredness(balances, virtualBalances);
       expect(res).to.equal(await computeCenteredness(balances, virtualBalances));
       expect(res).to.not.equal(0n);
     });
 
-    it('balancesScaled18[1] != 0 && isAboveCenter == false', async () => {
+    it('returns the correct value when balancesScaled18[1] != 0 && isAboveCenter == false', async () => {
       const balances = [bn(100e18), bn(100e18)];
-      const virtualBalances = [bn(110e18), bn(100e18)];
+      const virtualBalances = [bn(2e18), bn(1024e18)];
 
       const res = await mathLib.computeCenteredness(balances, virtualBalances);
       expect(res).to.equal(await computeCenteredness(balances, virtualBalances));
@@ -125,7 +194,7 @@ describe('ReClammMath', function () {
     });
   });
 
-  context('isPoolWithinTargetRange', () => {
+  describe('isPoolWithinTargetRange', () => {
     it('centeredness >= centerednessMargin', async () => {
       const balances = [bn(100e18), bn(100e18)];
       const virtualBalances = [bn(90e18), bn(100e18)];
@@ -145,7 +214,7 @@ describe('ReClammMath', function () {
     });
   });
 
-  context('computeTheoreticalPriceRatioAndBalances', () => {
+  describe('computeTheoreticalPriceRatioAndBalances', () => {
     it('should return the correct value', async () => {
       const minPrice = fp(1000);
       const maxPrice = fp(4000);
@@ -168,7 +237,7 @@ describe('ReClammMath', function () {
     });
   });
 
-  context('calculateInGivenOut', () => {
+  describe('calculateInGivenOut', () => {
     it('should return the correct value', async () => {
       const balancesScaled18 = [bn(200e18), bn(300e18)];
       const virtualBalances = [bn(100e18), bn(100e18)];
@@ -189,7 +258,7 @@ describe('ReClammMath', function () {
     });
   });
 
-  context('calculateOutGivenIn', () => {
+  describe('calculateOutGivenIn', () => {
     it('should return the correct value', async () => {
       const balancesScaled18 = [bn(200e18), bn(300e18)];
       const virtualBalances = [bn(100e18), bn(100e18)];
@@ -210,7 +279,7 @@ describe('ReClammMath', function () {
     });
   });
 
-  context('computeFourthRootPriceRatio', () => {
+  describe('computeFourthRootPriceRatio', () => {
     it('should return endFourthRootPriceRatioFp when currentTime > endTime', async () => {
       const currentTime = 100;
       const startFourthRootPriceRatioFp = bn(100e18);
@@ -317,7 +386,7 @@ describe('ReClammMath', function () {
     });
   });
 
-  context('computeCurrentVirtualBalances', () => {
+  describe('computeCurrentVirtualBalances', () => {
     const computeCheckAndReturnContractVirtualBalances = async (
       balancesScaled18: bigint[],
       lastVirtualBalances: bigint[],
@@ -453,7 +522,7 @@ describe('ReClammMath', function () {
     });
   });
 
-  context('pureComputeInvariant', () => {
+  describe('pureComputeInvariant', () => {
     it('should return the correct value (roundUp)', async () => {
       const balancesScaled18 = [bn(200e18), bn(300e18)];
       const virtualBalances = [bn(100e18), bn(100e18)];
@@ -473,7 +542,7 @@ describe('ReClammMath', function () {
     });
   });
 
-  context('computeInvariant', () => {
+  describe('computeInvariant', () => {
     it('should return the correct value (roundUp)', async () => {
       // Price ratio is updating. (priceRatioState.endTime > currentTimestamp)
       const priceRatioState = await getPriceRatioState(1000);
