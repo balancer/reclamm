@@ -6,23 +6,22 @@ import "forge-std/Test.sol";
 
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { IAuthentication } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/helpers/IAuthentication.sol";
 import { IVaultEvents } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultEvents.sol";
 import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultErrors.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
-import {
-    AddLiquidityKind,
-    PoolSwapParams,
-    RemoveLiquidityKind
-} from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
+import "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { CastingHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/CastingHelpers.sol";
 import { InputHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/InputHelpers.sol";
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 
 import { PriceRatioState, ReClammMath, a, b } from "../../contracts/lib/ReClammMath.sol";
+import { ReClammPriceParams } from "../../contracts/lib/ReClammPoolFactoryLib.sol";
+import { ReClammPoolFactoryMock } from "../../contracts/test/ReClammPoolFactoryMock.sol";
 import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
 import { ReClammMathMock } from "../../contracts/test/ReClammMathMock.sol";
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
@@ -35,24 +34,26 @@ import {
 } from "../../contracts/interfaces/IReClammPool.sol";
 
 contract ReClammPoolTest is BaseReClammTest {
-    using CastingHelpers for IERC20[];
     using FixedPoint for uint256;
+    using CastingHelpers for *;
     using ArrayHelpers for *;
     using SafeCast for *;
 
     uint256 private constant _NEW_CENTEREDNESS_MARGIN = 30e16;
     uint256 private constant _INITIAL_AMOUNT = 1000e18;
 
+    // Tokens with decimals introduces some rounding imprecisions, so we need to be more tolerant with the inverse
+    // initialization error.
+    uint256 private constant _INVERSE_INITIALIZATION_ERROR = 1e12;
     uint256 private constant _MIN_SWAP_FEE_PERCENTAGE = 0.001e16; // 0.001%
     uint256 private constant _MAX_SWAP_FEE_PERCENTAGE = 10e16; // 10%
 
-    uint256 private constant _MIN_CENTEREDNESS_MARGIN = 0;
     uint256 private constant _MAX_CENTEREDNESS_MARGIN = 50e16; // 50%
 
     uint256 private constant _MIN_TOKEN_BALANCE_SCALED18 = 1e12;
 
     uint256 private constant _MIN_PRICE_RATIO_UPDATE_DURATION = 1 days;
-    uint256 private constant _BALANCE_RATIO_AND_PRICE_TOLERANCE = 1e14; // 0.01%
+    uint256 private constant _BALANCE_RATIO_AND_PRICE_TOLERANCE = 0.01e16; // 0.01%
 
     ReClammMathMock mathMock = new ReClammMathMock();
 
@@ -329,6 +330,9 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(data.decimalScalingFactors.length, 2, "Invalid number of decimal scaling factors");
         assertEq(data.decimalScalingFactors[daiIdx], 1, "Invalid DAI decimal scaling factor");
         assertEq(data.decimalScalingFactors[usdcIdx], 1, "Invalid USDC decimal scaling factor");
+
+        assertFalse(data.tokenAPriceIncludesRate, "Token A priced with rate");
+        assertFalse(data.tokenBPriceIncludesRate, "Token B priced with rate");
 
         // Check initialization parameters.
         assertEq(data.initialMinPrice, _DEFAULT_MIN_PRICE, "Invalid initial minimum price");
@@ -1013,61 +1017,6 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(lastVirtualBalances[usdcIdx], virtualBalancesBefore[usdcIdx], "USDC virtual balance does not match");
     }
 
-    function testComputeInitialBalancesTokenA() public {
-        IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens);
-
-        (address pool, ) = _createPool(
-            [address(sortedTokens[a]), address(sortedTokens[b])].toMemoryArray(),
-            "BeforeInitTest"
-        );
-
-        assertFalse(vault.isPoolInitialized(pool), "Pool is initialized");
-        uint256 initialBalanceRatio = ReClammPool(pool).computeInitialBalanceRatio();
-
-        uint256[] memory initialBalances = ReClammPool(pool).computeInitialBalances(sortedTokens[a], _INITIAL_AMOUNT);
-        assertEq(initialBalances[a], _INITIAL_AMOUNT, "Invalid initial balance for token A");
-        assertEq(
-            initialBalances[b],
-            _INITIAL_AMOUNT.mulDown(initialBalanceRatio),
-            "Invalid initial balance for token B"
-        );
-
-        // Does not revert
-        vm.startPrank(lp);
-        _initPool(pool, initialBalances, 0);
-        assertTrue(vault.isPoolInitialized(pool), "Pool is not initialized");
-    }
-
-    function testComputeInitialBalancesTokenB() public {
-        IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens);
-
-        (address pool, ) = _createPool(
-            [address(sortedTokens[a]), address(sortedTokens[b])].toMemoryArray(),
-            "BeforeInitTest"
-        );
-
-        assertFalse(vault.isPoolInitialized(pool), "Pool is initialized");
-        uint256 initialBalanceRatio = ReClammPool(pool).computeInitialBalanceRatio();
-
-        uint256[] memory initialBalances = ReClammPool(pool).computeInitialBalances(sortedTokens[b], _INITIAL_AMOUNT);
-        assertEq(initialBalances[b], _INITIAL_AMOUNT, "Invalid initial balance for token B");
-        assertEq(
-            initialBalances[a],
-            _INITIAL_AMOUNT.divDown(initialBalanceRatio),
-            "Invalid initial balance for token A"
-        );
-
-        // Does not revert
-        vm.startPrank(lp);
-        _initPool(pool, initialBalances, 0);
-        assertTrue(vault.isPoolInitialized(pool), "Pool is not initialized");
-    }
-
-    function testComputeInitialBalancesInvalidToken() public {
-        vm.expectRevert(IVaultErrors.InvalidToken.selector);
-        ReClammPool(pool).computeInitialBalances(wsteth, _INITIAL_AMOUNT);
-    }
-
     function testComputePriceRangeBeforeInitialized() public {
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens);
 
@@ -1089,8 +1038,8 @@ contract ReClammPoolTest is BaseReClammTest {
 
         // Should still be the initial values as nothing has changed.
         (uint256 minPrice, uint256 maxPrice) = ReClammPool(pool).computeCurrentPriceRange();
-        assertApproxEqAbs(minPrice, _DEFAULT_MIN_PRICE, 2e6);
-        assertApproxEqAbs(maxPrice, _DEFAULT_MAX_PRICE, 2e6);
+        assertApproxEqRel(minPrice, _DEFAULT_MIN_PRICE, 0.01e16, "Incorrect min price");
+        assertApproxEqRel(maxPrice, _DEFAULT_MAX_PRICE, 0.01e16, "Incorrect max price");
     }
 
     function testCreateWithInvalidMinPrice() public {
@@ -1102,7 +1051,9 @@ contract ReClammPoolTest is BaseReClammTest {
             centerednessMargin: 0.2e18,
             initialMinPrice: 0,
             initialMaxPrice: 2000e18,
-            initialTargetPrice: 1500e18
+            initialTargetPrice: 1500e18,
+            tokenAPriceIncludesRate: false,
+            tokenBPriceIncludesRate: false
         });
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
@@ -1118,7 +1069,9 @@ contract ReClammPoolTest is BaseReClammTest {
             centerednessMargin: 0.2e18,
             initialMinPrice: 1750e18,
             initialMaxPrice: 2000e18,
-            initialTargetPrice: 1500e18
+            initialTargetPrice: 1500e18,
+            tokenAPriceIncludesRate: false,
+            tokenBPriceIncludesRate: false
         });
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
@@ -1134,7 +1087,9 @@ contract ReClammPoolTest is BaseReClammTest {
             centerednessMargin: 0.2e18,
             initialMinPrice: 1000e18,
             initialMaxPrice: 0,
-            initialTargetPrice: 1500e18
+            initialTargetPrice: 1500e18,
+            tokenAPriceIncludesRate: false,
+            tokenBPriceIncludesRate: false
         });
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
@@ -1150,7 +1105,9 @@ contract ReClammPoolTest is BaseReClammTest {
             centerednessMargin: 0.2e18,
             initialMinPrice: 1000e18,
             initialMaxPrice: 2000e18,
-            initialTargetPrice: 3500e18
+            initialTargetPrice: 3500e18,
+            tokenAPriceIncludesRate: false,
+            tokenBPriceIncludesRate: false
         });
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
@@ -1166,7 +1123,9 @@ contract ReClammPoolTest is BaseReClammTest {
             centerednessMargin: 0.2e18,
             initialMinPrice: 1000e18,
             initialMaxPrice: 2000e18,
-            initialTargetPrice: 0
+            initialTargetPrice: 0,
+            tokenAPriceIncludesRate: false,
+            tokenBPriceIncludesRate: false
         });
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
@@ -1314,42 +1273,58 @@ contract ReClammPoolTest is BaseReClammTest {
         router.initialize(newPool, tokens, lowRatioAmounts, 0, false, bytes(""));
     }
 
-    function testInitializationPriceErrors() public {
-        (address newPool, ) = _createPool([address(usdc), address(dai)].toMemoryArray(), "New Test Pool");
+    function testInitializationTokenErrors() public {
+        string memory name = "ReClamm Pool";
+        string memory symbol = "RECLAMM_POOL";
 
-        ReClammPoolImmutableData memory data = ReClammPool(newPool).getReClammPoolImmutableData();
+        address[] memory tokens = [address(usdc), address(dai)].toMemoryArray();
+        IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens.asIERC20());
+        TokenConfig[] memory tokenConfig = vault.buildTokenConfig(sortedTokens);
 
-        (
-            uint256[] memory theoreticalRealBalances,
-            uint256 theoreticalVirtualBalanceA,
-            uint256 theoreticalVirtualBalanceB,
+        PoolRoleAccounts memory roleAccounts;
 
-        ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
-                data.initialMinPrice,
-                data.initialMaxPrice,
-                data.initialTargetPrice
-            );
+        // Standard tokens, one includes rate in the price.
+        ReClammPriceParams memory priceParams = ReClammPriceParams({
+            initialMinPrice: _initialMinPrice,
+            initialMaxPrice: _initialMaxPrice,
+            initialTargetPrice: _initialTargetPrice,
+            tokenAPriceIncludesRate: true,
+            tokenBPriceIncludesRate: false
+        });
 
-        uint256[] memory realBalances = theoreticalRealBalances;
-        realBalances[a] = 0;
-
-        // Trigger on upper bound.
-        vm.expectRevert(IReClammPool.WrongInitializationPrices.selector);
-        ReClammPoolMock(newPool).checkInitializationPrices(
-            realBalances,
-            theoreticalVirtualBalanceA,
-            theoreticalVirtualBalanceB
+        vm.expectRevert(IVaultErrors.InvalidTokenType.selector);
+        ReClammPoolFactoryMock(poolFactory).create(
+            name,
+            symbol,
+            tokenConfig,
+            roleAccounts,
+            _DEFAULT_SWAP_FEE,
+            priceParams,
+            _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
+            _DEFAULT_CENTEREDNESS_MARGIN,
+            bytes32(saltNumber++)
         );
 
-        realBalances[a] = theoreticalRealBalances[a];
-        realBalances[b] = 0;
+        // Repeat for the other one.
+        priceParams = ReClammPriceParams({
+            initialMinPrice: _initialMinPrice,
+            initialMaxPrice: _initialMaxPrice,
+            initialTargetPrice: _initialTargetPrice,
+            tokenAPriceIncludesRate: false,
+            tokenBPriceIncludesRate: true
+        });
 
-        // Trigger on lower bound.
-        vm.expectRevert(IReClammPool.WrongInitializationPrices.selector);
-        ReClammPoolMock(newPool).checkInitializationPrices(
-            realBalances,
-            theoreticalVirtualBalanceA,
-            theoreticalVirtualBalanceB
+        vm.expectRevert(IVaultErrors.InvalidTokenType.selector);
+        ReClammPoolFactoryMock(poolFactory).create(
+            name,
+            symbol,
+            tokenConfig,
+            roleAccounts,
+            _DEFAULT_SWAP_FEE,
+            priceParams,
+            _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
+            _DEFAULT_CENTEREDNESS_MARGIN,
+            bytes32(saltNumber++)
         );
     }
 
@@ -1389,36 +1364,6 @@ contract ReClammPoolTest is BaseReClammTest {
             priceRatioUpdateStartTime,
             priceRatioUpdateEndTime
         );
-    }
-
-    function testInitialBalanceRatioAndBalances() public view {
-        ReClammPoolImmutableData memory data = ReClammPool(pool).getReClammPoolImmutableData();
-
-        (uint256[] memory realBalances, , , ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
-            data.initialMinPrice,
-            data.initialMaxPrice,
-            data.initialTargetPrice
-        );
-
-        uint256 bOverA = realBalances[b].divDown(realBalances[a]);
-        // If the ratio is 1, this isn't testing anything.
-        assertNotEq(bOverA, FixedPoint.ONE, "Ratio is 1");
-
-        assertEq(ReClammPool(pool).computeInitialBalanceRatio(), bOverA, "Wrong initial balance ratio");
-
-        IERC20[] memory tokens = vault.getPoolTokens(pool);
-
-        // Compute balances given A.
-        uint256[] memory initialBalances = ReClammPool(pool).computeInitialBalances(tokens[a], _INITIAL_AMOUNT);
-        assertEq(initialBalances[a], _INITIAL_AMOUNT, "Initial amount doesn't match given amount (A)");
-        uint256 expectedAmount = _INITIAL_AMOUNT.mulDown(bOverA);
-        assertEq(initialBalances[b], expectedAmount, "Wrong other token amount (B)");
-
-        // Compute balances given B.
-        initialBalances = ReClammPool(pool).computeInitialBalances(tokens[b], _INITIAL_AMOUNT);
-        assertEq(initialBalances[b], _INITIAL_AMOUNT, "Initial amount doesn't match given amount (B)");
-        expectedAmount = _INITIAL_AMOUNT.divDown(bOverA);
-        assertEq(initialBalances[a], expectedAmount, "Wrong other token amount (A)");
     }
 
     function testDailyPriceShiftExponentHighPrice__Fuzz(uint256 exponent) public {
@@ -1506,5 +1451,39 @@ contract ReClammPoolTest is BaseReClammTest {
         // Allow for some rounding error
         assertApproxEqRel(minPriceAfter, expectedMinPrice, 1e14, "Min price did not move as expected");
         assertApproxEqRel(maxPriceAfter, expectedMaxPrice, 1e14, "Max price did not move as expected");
+    }
+
+    function _createStandardPool(
+        bool tokenAPriceIncludesRate,
+        bool tokenBPriceIncludesRate,
+        string memory label
+    ) internal returns (address newPool) {
+        string memory name = "ReClamm Pool";
+        string memory symbol = "RECLAMM_POOL";
+
+        address[] memory tokens = [address(usdc), address(dai)].toMemoryArray();
+        IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens.asIERC20());
+        PoolRoleAccounts memory roleAccounts;
+
+        ReClammPriceParams memory priceParams = ReClammPriceParams({
+            initialMinPrice: _initialMinPrice,
+            initialMaxPrice: _initialMaxPrice,
+            initialTargetPrice: _initialTargetPrice,
+            tokenAPriceIncludesRate: tokenAPriceIncludesRate,
+            tokenBPriceIncludesRate: tokenBPriceIncludesRate
+        });
+
+        newPool = ReClammPoolFactoryMock(poolFactory).create(
+            name,
+            symbol,
+            vault.buildTokenConfig(sortedTokens),
+            roleAccounts,
+            _DEFAULT_SWAP_FEE,
+            priceParams,
+            _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
+            _DEFAULT_CENTEREDNESS_MARGIN,
+            bytes32(saltNumber++)
+        );
+        vm.label(newPool, label);
     }
 }

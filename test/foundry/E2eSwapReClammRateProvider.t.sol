@@ -3,8 +3,10 @@
 pragma solidity ^0.8.24;
 
 import "forge-std/Test.sol";
-import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { IRateProvider } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/helpers/IRateProvider.sol";
 import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
@@ -58,6 +60,18 @@ contract E2eSwapReClammRateProvider is E2eSwapFuzzPoolParamsHelper, E2eSwapRateP
         (newPool, poolArgs) = createReClammPool(tokens, rateProviders, label, vault, lp);
     }
 
+    function _initPool(
+        address poolToInit,
+        uint256[] memory amountsIn,
+        uint256 minBptOut
+    ) internal override returns (uint256) {
+        (IERC20[] memory tokens, , , ) = vault.getPoolTokenInfo(poolToInit);
+
+        uint256[] memory initialBalances = ReClammPool(poolToInit).computeInitialBalancesRaw(tokens[0], amountsIn[0]);
+
+        return router.initialize(poolToInit, tokens, initialBalances, minBptOut, false, bytes(""));
+    }
+
     function fuzzPoolParams(
         uint256[POOL_SPECIFIC_PARAMS_SIZE] memory params
     ) internal override returns (bool overrideSwapLimits) {
@@ -103,5 +117,23 @@ contract E2eSwapReClammRateProvider is E2eSwapFuzzPoolParamsHelper, E2eSwapRateP
                 PRODUCTION_MIN_TRADE_AMOUNT
             );
         }
+    }
+
+    /// Skip non-specific tests that do not fuzz pool internal parameters.
+
+    function testDoUndoExactInFees__Fuzz(uint256) public override {
+        vm.skip(true);
+    }
+
+    function testDoUndoExactInSwapAmount__Fuzz(uint256) public override {
+        vm.skip(true);
+    }
+
+    function testDoUndoExactOutFees__Fuzz(uint256) public override {
+        vm.skip(true);
+    }
+
+    function testDoUndoExactOutSwapAmount__Fuzz(uint256) public override {
+        vm.skip(true);
     }
 }
