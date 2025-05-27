@@ -1124,7 +1124,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         rateB = _TOKEN_B_PRICE_INCLUDES_RATE ? rateB : FixedPoint.ONE;
 
         // Example: a pool waUSDC/waWETH, where the price is given in terms of the underlying tokens.
-        // So, the price USDC/ETH is 2000. (USDC is the token B, ETH is the token A).
+        // Consider a USDC/ETH pool where the price is 2000. Token A is ETH (waWETH); token B is USDC (waUSDC).
         // If waUSDC has a rate of 2 (1 waUSDC = 2 USDC), the price of waUSDC/ETH is 1000, which is
         // obtained by dividing the price by the rate of waUSDC, which is token B.
         // Now, if the rate of waWETH is 1.5 (1 waWETH = 1.5 ETH), waUSDC/waWETH = 1500, which is

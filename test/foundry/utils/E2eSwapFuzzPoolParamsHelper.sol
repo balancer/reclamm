@@ -78,13 +78,13 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
         );
 
         {
-            (uint256[] memory theoreticalRealBalances, , , ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
+            (uint256[] memory theoreticalBalances, , , ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
                 testParams.minPrice,
                 testParams.maxPrice,
                 testParams.targetPrice
             );
 
-            uint256 balanceRatio = theoreticalRealBalances[b].divDown(theoreticalRealBalances[a]);
+            uint256 balanceRatio = theoreticalBalances[b].divDown(theoreticalBalances[a]);
             // Both tokens must be kept below _MAX_TOKEN_BALANCE. The balance ratio can be anything, so we need
             // to cap the initialBalance[a] keeping in mind that initialBalance[b] also needs to be below the abs max.
             uint256 maxBalance = Math.min(
