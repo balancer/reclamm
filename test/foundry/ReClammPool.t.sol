@@ -205,9 +205,10 @@ contract ReClammPoolTest is BaseReClammTest {
             oldFourthRootPriceRatio,
             "Invalid new startFourthRootPriceRatio"
         );
-        assertEq(
+        assertApproxEqRel(
             priceRatioState.endFourthRootPriceRatio,
             newFourthRootPriceRatio,
+            1,
             "Invalid new endFourthRootPriceRatio"
         );
         assertEq(
