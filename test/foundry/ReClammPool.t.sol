@@ -176,11 +176,11 @@ contract ReClammPoolTest is BaseReClammTest {
     function testGetPriceRatioState() public {
         PriceRatioState memory priceRatioState = ReClammPool(pool).getPriceRatioState();
         assertEq(priceRatioState.startFourthRootPriceRatio, 0, "Invalid default startFourthRootPriceRatio");
-        // Error tolerance of 100 wei (price ratio is computed using the pool balances and may have a small error).
-        assertApproxEqRel(
+        // Error tolerance of 1 million wei (price ratio is computed using the pool balances and may have a small error).
+        assertApproxEqAbs(
             priceRatioState.endFourthRootPriceRatio,
             _initialFourthRootPriceRatio,
-            100,
+            1e6,
             "Invalid default endFourthRootPriceRatio"
         );
         assertEq(
@@ -492,11 +492,25 @@ contract ReClammPoolTest is BaseReClammTest {
             priceRatioUpdateEndTime
         );
 
-        assertEq(fourthRootPriceRatio, mathFourthRootPriceRatio, "FourthRootPriceRatio not updated correctly");
+        // Allows a 5 wei error, since the current fourth root price ratio of the pool is computed using the pool
+        // current balances and virtual balances.
+        assertApproxEqAbs(
+            fourthRootPriceRatio,
+            mathFourthRootPriceRatio,
+            5,
+            "FourthRootPriceRatio not updated correctly"
+        );
 
         skip(duration / 2 + 1);
         fourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
-        assertEq(fourthRootPriceRatio, endFourthRootPriceRatio, "FourthRootPriceRatio does not match new value");
+        // Allows a 5 wei error, since the current fourth root price ratio of the pool is computed using the pool
+        // current balances and virtual balances.
+        assertApproxEqAbs(
+            fourthRootPriceRatio,
+            endFourthRootPriceRatio,
+            5,
+            "FourthRootPriceRatio does not match new value"
+        );
     }
 
     /// @dev Trigger a price ratio update while another one is ongoing.
@@ -552,7 +566,14 @@ contract ReClammPoolTest is BaseReClammTest {
             priceRatioUpdateEndTime
         );
 
-        assertEq(fourthRootPriceRatio, mathFourthRootPriceRatio, "FourthRootPriceRatio not updated correctly");
+        // Allows a 5 wei error, since the current fourth root price ratio of the pool is computed using the pool
+        // current balances and virtual balances, and the mathFourthRootPriceRatio is an interpolation.
+        assertApproxEqAbs(
+            fourthRootPriceRatio,
+            mathFourthRootPriceRatio,
+            5,
+            "FourthRootPriceRatio not updated correctly"
+        );
 
         // While the update is ongoing, we'll trigger a second one.
         // This one will update virtual balances too.
@@ -611,7 +632,14 @@ contract ReClammPoolTest is BaseReClammTest {
 
         vm.warp(priceRatioUpdateEndTime + 1);
         fourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
-        assertEq(fourthRootPriceRatio, endFourthRootPriceRatio, "FourthRootPriceRatio does not match new value");
+        // Allows a 15 wei error, since the current fourth root price ratio of the pool is computed using the pool
+        // current balances and virtual balances.
+        assertApproxEqAbs(
+            fourthRootPriceRatio,
+            endFourthRootPriceRatio,
+            15,
+            "FourthRootPriceRatio does not match new value"
+        );
     }
 
     function testStopPriceRatioUpdatePermissioned() public {
@@ -661,7 +689,14 @@ contract ReClammPoolTest is BaseReClammTest {
             priceRatioUpdateEndTime
         );
 
-        assertEq(fourthRootPriceRatio, mathFourthRootPriceRatio, "FourthRootPriceRatio not updated correctly");
+        // Allows a 5 wei error, since the current fourth root price ratio of the pool is computed using the pool
+        // current balances and virtual balances, and the mathFourthRootPriceRatio is an interpolation.
+        assertApproxEqAbs(
+            fourthRootPriceRatio,
+            mathFourthRootPriceRatio,
+            5,
+            "FourthRootPriceRatio not updated correctly"
+        );
 
         (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = ReClammPool(pool)
             .computeCurrentVirtualBalances();
