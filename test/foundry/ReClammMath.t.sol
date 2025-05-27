@@ -299,7 +299,8 @@ contract ReClammMathTest is BaseReClammTest {
         balanceB = bound(balanceB, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
         virtualBalanceA = bound(virtualBalanceA, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
         virtualBalanceB = bound(virtualBalanceB, _MIN_TOKEN_BALANCE, _MAX_TOKEN_BALANCE);
-        expectedFourthRootPriceRatio = SafeCast.toUint96(bound(expectedFourthRootPriceRatio, 1.1e18, 10e18));
+        // Max price ratio is > 1000 with these bounds.
+        expectedFourthRootPriceRatio = SafeCast.toUint96(bound(expectedFourthRootPriceRatio, 1.1e18, 6e18));
 
         uint256[] memory balancesScaled18 = new uint256[](2);
         balancesScaled18[a] = balanceA;
@@ -310,7 +311,7 @@ contract ReClammMathTest is BaseReClammTest {
         lastVirtualBalances[b] = virtualBalanceB;
 
         vm.assume(_calculateCurrentSqrtPriceRatio(balancesScaled18, lastVirtualBalances) >= 1.1e18);
-        vm.assume(_calculateCurrentSqrtPriceRatio(balancesScaled18, lastVirtualBalances) <= 10e18);
+        vm.assume(_calculateCurrentSqrtPriceRatio(balancesScaled18, lastVirtualBalances) <= 50e18);
 
         vm.assume(balancesScaled18[a].mulDown(lastVirtualBalances[b]) > 0);
         vm.assume(balancesScaled18[b].mulDown(lastVirtualBalances[a]) > 0);
@@ -346,7 +347,7 @@ contract ReClammMathTest is BaseReClammTest {
         );
 
         // Check if price ratio matches the new price ratio
-        uint256 actualRootPriceRatio = _calculateCurrentPriceRatio(balancesScaled18, newVirtualBalances);
+        uint256 actualRootPriceRatio = _calculateCurrentSqrtPriceRatio(balancesScaled18, newVirtualBalances);
 
         uint256 expectedPriceRatio = expectedFourthRootPriceRatio
             .mulDown(expectedFourthRootPriceRatio)
@@ -543,22 +544,13 @@ contract ReClammMathTest is BaseReClammTest {
         assertApproxEqRel(computedMaxPrice, maxPrice, 1e8, "Max price does not match");
     }
 
-    function _calculateCurrentPriceRatio(
-        uint256[] memory balancesScaled18,
-        uint256[] memory virtualBalances
-    ) private pure returns (uint256 priceRatio) {
-        priceRatio =
-            ((balancesScaled18[a] + virtualBalances[a]) * (balancesScaled18[b] + virtualBalances[b])) /
-            (virtualBalances[a].mulDown(virtualBalances[b]));
-    }
-
     function _calculateCurrentSqrtPriceRatio(
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances
-    ) private pure returns (uint256 newSqrtPriceRatio) {
-        newSqrtPriceRatio = Math
-            .sqrt((balancesScaled18[a] + virtualBalances[a]) * (balancesScaled18[b] + virtualBalances[b]))
-            .divDown(Math.sqrt(virtualBalances[a] * virtualBalances[b]));
+    ) private pure returns (uint256 sqrtPriceRatio) {
+        sqrtPriceRatio =
+            ((balancesScaled18[a] + virtualBalances[a]) * (balancesScaled18[b] + virtualBalances[b])) /
+            (virtualBalances[a].mulDown(virtualBalances[b]));
     }
 
     function _computeOutGivenInAllowError(
