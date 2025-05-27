@@ -1030,8 +1030,8 @@ describe('ReClammPool', function () {
   }
 
   /**
-   * @dev This function executes a swap exact out, checks that the spot price is very close to the one right after the
-   * swap, and that the virtual balances are not changing abruptly.
+   * This function executes a swap exact out, checks that the spot price is very close to the one right after the swap,
+   * and that the virtual balances are not changing abruptly.
    */
   async function doSwapExactOutAndCheckVirtualBalancesAndSpotPrice(
     tokenIn: ERC20TestToken,
