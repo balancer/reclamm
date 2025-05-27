@@ -589,20 +589,15 @@ contract ReClammMathTest is BaseReClammTest {
         balancesScaled18[a] = balanceA;
         balancesScaled18[b] = balanceB;
 
-        (, bool isAboveCenter) = ReClammMath.computeCenteredness(
-            balancesScaled18,
-            virtualBalanceA,
-            virtualBalanceB
-        );
+        (, bool isAboveCenter) = ReClammMath.computeCenteredness(balancesScaled18, virtualBalanceA, virtualBalanceB);
 
         uint256 numerator = balancesScaled18[a] * virtualBalanceB;
         uint256 denominator = virtualBalanceA * balancesScaled18[b];
-    
+
         assertEq(isAboveCenter, numerator > denominator, "Incorrect isAboveCenter definition");
     }
 
-    function testIsAboveCenterZeroBalances(
-    ) public pure {
+    function testIsAboveCenterZeroBalances() public pure {
         uint256 virtualBalanceA = 6.02e23;
         uint256 virtualBalanceB = 3.1415e18;
 
@@ -610,21 +605,13 @@ contract ReClammMathTest is BaseReClammTest {
         balancesScaled18[a] = 0;
         balancesScaled18[b] = 1;
 
-        (, bool isAboveCenter) = ReClammMath.computeCenteredness(
-            balancesScaled18,
-            virtualBalanceA,
-            virtualBalanceB
-        );
+        (, bool isAboveCenter) = ReClammMath.computeCenteredness(balancesScaled18, virtualBalanceA, virtualBalanceB);
         assertTrue(isAboveCenter, "Not above center with A = 0");
 
         balancesScaled18[a] = 1;
         balancesScaled18[b] = 0;
 
-        (, isAboveCenter) = ReClammMath.computeCenteredness(
-            balancesScaled18,
-            virtualBalanceA,
-            virtualBalanceB
-        );
+        (, isAboveCenter) = ReClammMath.computeCenteredness(balancesScaled18, virtualBalanceA, virtualBalanceB);
         assertTrue(isAboveCenter, "Not above center with B = 0");
     }
 }

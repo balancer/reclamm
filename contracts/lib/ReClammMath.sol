@@ -28,13 +28,6 @@ library ReClammMath {
     using SafeCast for *;
     using ReClammMath for bool;
 
-    /// @notice Determines whether the pool is above center or not, or if the computation has not taken place yet.
-    enum PoolAboveCenter {
-        FALSE,
-        TRUE,
-        UNKNOWN
-    }
-
     /// @notice The swap result is greater than the real balance of the token (i.e., the balance would drop below zero).
     error AmountOutGreaterThanBalance();
 
@@ -307,6 +300,13 @@ library ReClammMath {
             virtualBalanceAScaled18.mulDown(targetPriceScaled18)).divDown(targetPriceScaled18);
     }
 
+    struct VirtualBalancesLocals {
+        uint32 currentTimestamp;
+        uint256 currentFourthRootPriceRatio;
+        uint256 centeredness;
+        bool isPoolAboveCenter;
+    }
+
     /**
      * @notice Calculate the current virtual balances of the pool.
      * @dev If the pool is within the target range, or the price ratio is not updating, the virtual balances do not
@@ -339,11 +339,12 @@ library ReClammMath {
         uint64 centerednessMargin,
         PriceRatioState storage storedPriceRatioState
     ) internal view returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) {
-        uint32 currentTimestamp = block.timestamp.toUint32();
+        VirtualBalancesLocals memory locals;
+        locals.currentTimestamp = block.timestamp.toUint32();
 
         // If the last timestamp is the same as the current timestamp, virtual balances were already reviewed in the
         // current block.
-        if (lastTimestamp == currentTimestamp) {
+        if (lastTimestamp == locals.currentTimestamp) {
             return (lastVirtualBalanceA, lastVirtualBalanceB, false);
         }
 
@@ -352,8 +353,8 @@ library ReClammMath {
 
         PriceRatioState memory priceRatioState = storedPriceRatioState;
 
-        uint256 currentFourthRootPriceRatio = computeFourthRootPriceRatio(
-            currentTimestamp,
+        locals.currentFourthRootPriceRatio = computeFourthRootPriceRatio(
+            locals.currentTimestamp,
             priceRatioState.startFourthRootPriceRatio,
             priceRatioState.endFourthRootPriceRatio,
             priceRatioState.priceRatioUpdateStartTime,
@@ -364,11 +365,11 @@ library ReClammMath {
         // Skip the update if the start and end price ratio are the same, because the virtual balances are already
         // calculated.
         if (
-            currentTimestamp > priceRatioState.priceRatioUpdateStartTime &&
+            locals.currentTimestamp > priceRatioState.priceRatioUpdateStartTime &&
             lastTimestamp < priceRatioState.priceRatioUpdateEndTime
         ) {
             (currentVirtualBalanceA, currentVirtualBalanceB) = computeVirtualBalancesUpdatingPriceRatio(
-                currentFourthRootPriceRatio,
+                locals.currentFourthRootPriceRatio,
                 balancesScaled18,
                 lastVirtualBalanceA,
                 lastVirtualBalanceB
@@ -377,34 +378,22 @@ library ReClammMath {
             changed = true;
         }
 
+        (locals.centeredness, locals.isPoolAboveCenter) = computeCenteredness(
+            balancesScaled18,
+            currentVirtualBalanceA,
+            currentVirtualBalanceB
+        );
+
         // If the pool is outside the target range, track the market price by moving the price interval.
-        if (
-            isPoolWithinTargetRange(
-                balancesScaled18,
-                currentVirtualBalanceA,
-                currentVirtualBalanceB,
-                centerednessMargin
-            ) == false
-        ) {
-            (, bool isPoolAboveCenter) = computeCenteredness(
-                balancesScaled18,
-                lastVirtualBalanceA,
-                lastVirtualBalanceB
-            );
-
-            // stack-too-deep
-            uint256 _dailyPriceShiftBase = dailyPriceShiftBase;
-            uint256[] memory _balancesScaled18 = balancesScaled18;
-            uint32 _lastTimestamp = lastTimestamp;
-
+        if (locals.centeredness < centerednessMargin) {
             (currentVirtualBalanceA, currentVirtualBalanceB) = computeVirtualBalancesUpdatingPriceRange(
-                _balancesScaled18,
+                balancesScaled18,
                 currentVirtualBalanceA,
                 currentVirtualBalanceB,
-                isPoolAboveCenter,
-                _dailyPriceShiftBase,
-                currentTimestamp,
-                _lastTimestamp
+                locals.isPoolAboveCenter,
+                dailyPriceShiftBase,
+                locals.currentTimestamp,
+                lastTimestamp
             );
 
             changed = true;
