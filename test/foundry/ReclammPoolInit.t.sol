@@ -819,12 +819,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         uint256 spotPrice2 = ReClammPool(newPool).computeCurrentSpotPrice();
         assertApproxEqRel(spotPrice1, spotPrice2, 0.1e16, "Spot prices are not equal");
         // Same spot price as the one specified at creation time, since both flags were false.
-        assertApproxEqRel(
-            spotPrice1,
-            _initialTargetPrice,
-            0.01e16,
-            "Spot prices differ from initial target price"
-        );
+        assertApproxEqRel(spotPrice1, _initialTargetPrice, 0.01e16, "Spot prices differ from initial target price");
     }
 
     function _validatePostInitConditions() private view {
