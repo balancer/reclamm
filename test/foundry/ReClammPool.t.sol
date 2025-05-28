@@ -347,7 +347,6 @@ contract ReClammPoolTest is BaseReClammTest {
         // Ensure that the max centeredness margin parameter fits in uint64.
         assertEq(data.maxCenterednessMargin, uint64(data.maxCenterednessMargin), "Max centeredness margin not uint64");
         assertEq(data.minTokenBalanceScaled18, _MIN_TOKEN_BALANCE, "Invalid min token balance");
-        assertEq(data.minPoolCenteredness, _MIN_POOL_CENTEREDNESS, "Invalid min pool centeredness");
         assertEq(
             data.maxDailyPriceShiftExponent,
             _MAX_DAILY_PRICE_SHIFT_EXPONENT,
@@ -943,8 +942,10 @@ contract ReClammPoolTest is BaseReClammTest {
 
         // Exactly at boundary is still in range.
         assertTrue(ReClammPoolMock(pool).isPoolWithinTargetRange(), "Pool is out of range");
+        (uint256 centeredness, ) = ReClammPoolMock(pool).computeCurrentPoolCenteredness();
+
         assertApproxEqRel(
-            ReClammPoolMock(pool).computeCurrentPoolCenteredness(),
+            centeredness,
             _DEFAULT_CENTEREDNESS_MARGIN,
             1e16,
             "Pool centeredness is not close from margin"
@@ -1166,29 +1167,6 @@ contract ReClammPoolTest is BaseReClammTest {
         new ReClammPool(params, vault);
     }
 
-    function testToPoolCenterAboveEnum() public pure {
-        assertEq(
-            uint256(ReClammMath.toEnum(false)),
-            uint256(ReClammMath.PoolAboveCenter.FALSE),
-            "Invalid enum value (false)"
-        );
-        assertEq(
-            uint256(ReClammMath.toEnum(true)),
-            uint256(ReClammMath.PoolAboveCenter.TRUE),
-            "Invalid enum value (true)"
-        );
-        assertNotEq(
-            uint256(ReClammMath.toEnum(false)),
-            uint256(ReClammMath.PoolAboveCenter.TRUE),
-            "Invalid enum value (false/true)"
-        );
-        assertNotEq(
-            uint256(ReClammMath.toEnum(true)),
-            uint256(ReClammMath.PoolAboveCenter.FALSE),
-            "Invalid enum value (true/false)"
-        );
-    }
-
     function testOnBeforeInitializeEvents() public {
         (address newPool, ) = _createPool([address(usdc), address(dai)].toMemoryArray(), "New Test Pool");
         (IERC20[] memory tokens, , , ) = vault.getPoolTokenInfo(newPool);
@@ -1360,17 +1338,6 @@ contract ReClammPoolTest is BaseReClammTest {
             _DEFAULT_CENTEREDNESS_MARGIN,
             bytes32(saltNumber++)
         );
-    }
-
-    function testInitializationCenteredness() public {
-        (address newPool, ) = _createPool([address(usdc), address(dai)].toMemoryArray(), "New Test Pool");
-        (IERC20[] memory tokens, , , ) = vault.getPoolTokenInfo(newPool);
-
-        ReClammPoolMock(newPool).manualSetCenterednessMargin(FixedPoint.ONE);
-
-        vm.expectRevert(IReClammPool.PoolCenterednessTooLow.selector);
-        vm.prank(alice);
-        router.initialize(newPool, tokens, _initialBalances, 0, false, bytes(""));
     }
 
     function testInvalidStartTime() public {
