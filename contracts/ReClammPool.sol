@@ -55,10 +55,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     //
     // As the real balance of either token approaches zero, the centeredness measure likewise approaches zero. Since
     // centeredness is the divisor in many calculations, zero values would revert, and even near-zero values are
-    // problematic. Imposing this limit on centeredness (i.e., reverting if an operation would cause the centeredness
-    // to decrease below this threshold) keeps the math well-behaved.
+    // problematic.
     uint256 internal constant _MIN_TOKEN_BALANCE_SCALED18 = 1e12;
-    uint256 internal constant _MIN_POOL_CENTEREDNESS = 1e3;
 
     // The daily price shift exponent is a percentage that defines the speed at which the virtual balances will change
     // over the course of one day. A value of 100% (i.e, FP 1) means that the min and max prices will double (or halve)
@@ -233,8 +231,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
             _ensureValidPoolStateAfterSwap(
                 request.balancesScaled18,
-                currentVirtualBalanceA,
-                currentVirtualBalanceB,
                 request.amountGivenScaled18,
                 amountCalculatedScaled18,
                 request.indexIn,
@@ -252,8 +248,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
             _ensureValidPoolStateAfterSwap(
                 request.balancesScaled18,
-                currentVirtualBalanceA,
-                currentVirtualBalanceB,
                 amountCalculatedScaled18,
                 request.amountGivenScaled18,
                 request.indexIn,
@@ -368,12 +362,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             virtualBalanceB
         );
 
-        if (ReClammMath.computeCenteredness(balancesScaled18, virtualBalanceA, virtualBalanceB) < _centerednessMargin) {
-            revert PoolCenterednessTooLow();
-        }
-
         _setLastVirtualBalances(virtualBalanceA, virtualBalanceB);
-        _setPriceRatioState(locals.fourthRootPriceRatio, block.timestamp, block.timestamp);
+        _startPriceRatioUpdate(locals.fourthRootPriceRatio, block.timestamp, block.timestamp);
         // Set dynamic parameters.
         _setDailyPriceShiftExponent(_INITIAL_DAILY_PRICE_SHIFT_EXPONENT);
         _setCenterednessMargin(_INITIAL_CENTEREDNESS_MARGIN);
@@ -605,7 +595,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function computeCurrentPoolCenteredness() external view returns (uint256) {
+    function computeCurrentPoolCenteredness() external view returns (uint256, bool) {
         (, , , uint256[] memory currentBalancesScaled18) = _vault.getPoolTokenInfo(address(this));
         return ReClammMath.computeCenteredness(currentBalancesScaled18, _lastVirtualBalanceA, _lastVirtualBalanceB);
     }
@@ -657,7 +647,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         // Operating Limits
         data.maxCenterednessMargin = _MAX_CENTEREDNESS_MARGIN;
         data.minTokenBalanceScaled18 = _MIN_TOKEN_BALANCE_SCALED18;
-        data.minPoolCenteredness = _MIN_POOL_CENTEREDNESS;
         data.maxDailyPriceShiftExponent = _MAX_DAILY_PRICE_SHIFT_EXPONENT;
         data.maxDailyPriceRatioUpdateRate = _MAX_DAILY_PRICE_RATIO_UPDATE_RATE;
         data.minPriceRatioUpdateDuration = _MIN_PRICE_RATIO_UPDATE_DURATION;
@@ -670,7 +659,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     ********************************************************/
 
     /// @inheritdoc IReClammPool
-    function setPriceRatioState(
+    function startPriceRatioUpdate(
         uint256 endPriceRatio,
         uint256 priceRatioUpdateStartTime,
         uint256 priceRatioUpdateEndTime
@@ -695,7 +684,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _updateVirtualBalances();
 
         uint256 endFourthRootPriceRatio = ReClammMath.sqrtScaled18(ReClammMath.sqrtScaled18(endPriceRatio));
-        (uint256 fourthRootPriceRatioDelta, uint256 startFourthRootPriceRatio) = _setPriceRatioState(
+        (uint256 fourthRootPriceRatioDelta, uint256 startFourthRootPriceRatio) = _startPriceRatioUpdate(
             endFourthRootPriceRatio,
             actualPriceRatioUpdateStartTime,
             priceRatioUpdateEndTime
@@ -737,7 +726,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         uint256 currentFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio();
 
-        _setPriceRatioState(currentFourthRootPriceRatio, block.timestamp, block.timestamp);
+        _startPriceRatioUpdate(currentFourthRootPriceRatio, block.timestamp, block.timestamp);
     }
 
     /// @inheritdoc IReClammPool
@@ -794,7 +783,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _vault.emitAuxiliaryEvent("VirtualBalancesUpdated", abi.encode(virtualBalanceA, virtualBalanceB));
     }
 
-    function _setPriceRatioState(
+    function _startPriceRatioUpdate(
         uint256 endFourthRootPriceRatio,
         uint256 priceRatioUpdateStartTime,
         uint256 priceRatioUpdateEndTime
@@ -927,13 +916,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     /**
      * @notice Ensures the pool state is valid after a swap.
      * @dev This function ensures that the balance of each token is greater than the minimum balance after a swap.
-     * It further verifies that the pool does not end up too unbalanced, by ensuring the pool centeredness is above
-     * the minimum. A unbalanced pool, with balances near the minimum/maximum price points, can result in large
-     * rounding errors in the swap calculations.
      *
      * @param currentBalancesScaled18 The current balances of the pool, sorted in token registration order
-     * @param currentVirtualBalanceA The current virtual balance of token A
-     * @param currentVirtualBalanceB The current virtual balance of token B
      * @param amountInScaled18 Amount of tokenIn (entering the Vault)
      * @param amountOutScaled18 Amount of tokenOut (leaving the Vault)
      * @param indexIn The zero-based index of tokenIn
@@ -941,8 +925,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
      */
     function _ensureValidPoolStateAfterSwap(
         uint256[] memory currentBalancesScaled18,
-        uint256 currentVirtualBalanceA,
-        uint256 currentVirtualBalanceB,
         uint256 amountInScaled18,
         uint256 amountOutScaled18,
         uint256 indexIn,
@@ -958,14 +940,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         if (currentBalancesScaled18[indexOut] < _MIN_TOKEN_BALANCE_SCALED18) {
             // If one of the token balances is below the minimum, the price ratio update is unreliable.
             revert TokenBalanceTooLow();
-        }
-
-        if (
-            ReClammMath.computeCenteredness(currentBalancesScaled18, currentVirtualBalanceA, currentVirtualBalanceB) <
-            _MIN_POOL_CENTEREDNESS
-        ) {
-            // If the pool centeredness is below the minimum, the price ratio update is unreliable.
-            revert PoolCenterednessTooLow();
         }
     }
 

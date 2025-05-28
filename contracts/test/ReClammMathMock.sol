@@ -9,7 +9,7 @@ import { PriceRatioState, ReClammMath, a, b } from "../lib/ReClammMath.sol";
 contract ReClammMathMock {
     PriceRatioState private _priceRatioState;
 
-    function setPriceRatioState(PriceRatioState memory priceRatioState) external {
+    function startPriceRatioUpdate(PriceRatioState memory priceRatioState) external {
         _priceRatioState = priceRatioState;
     }
 
@@ -129,7 +129,12 @@ contract ReClammMathMock {
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances
     ) external pure returns (uint256) {
-        return ReClammMath.computeCenteredness(balancesScaled18, virtualBalances[a], virtualBalances[b]);
+        (uint256 centeredness, ) = ReClammMath.computeCenteredness(
+            balancesScaled18,
+            virtualBalances[a],
+            virtualBalances[b]
+        );
+        return centeredness;
     }
 
     function computeFourthRootPriceRatio(
@@ -152,8 +157,12 @@ contract ReClammMathMock {
     function isAboveCenter(
         uint256[] memory balancesScaled18,
         uint256[] memory virtualBalances
-    ) external pure returns (bool) {
-        return ReClammMath.isAboveCenter(balancesScaled18, virtualBalances[a], virtualBalances[b]);
+    ) external pure returns (bool isPoolAboveCenter) {
+        (, isPoolAboveCenter) = ReClammMath.computeCenteredness(
+            balancesScaled18,
+            virtualBalances[a],
+            virtualBalances[b]
+        );
     }
 
     function toDailyPriceShiftBase(uint256 dailyPriceShiftExponent) external pure returns (uint256) {

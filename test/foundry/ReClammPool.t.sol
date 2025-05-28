@@ -34,7 +34,7 @@ import {
 } from "../../contracts/interfaces/IReClammPool.sol";
 
 contract ReClammPoolTest is BaseReClammTest {
-    using FixedPoint for uint256;
+    using FixedPoint for *;
     using CastingHelpers for *;
     using ArrayHelpers for *;
     using SafeCast for *;
@@ -197,7 +197,7 @@ contract ReClammPoolTest is BaseReClammTest {
         uint256 newPriceRatioUpdateEndTime = block.timestamp + 1 days;
 
         vm.prank(admin);
-        ReClammPool(pool).setPriceRatioState(newPriceRatio, newPriceRatioUpdateStartTime, newPriceRatioUpdateEndTime);
+        ReClammPool(pool).startPriceRatioUpdate(newPriceRatio, newPriceRatioUpdateStartTime, newPriceRatioUpdateEndTime);
 
         priceRatioState = ReClammPool(pool).getPriceRatioState();
         assertEq(
@@ -240,7 +240,7 @@ contract ReClammPoolTest is BaseReClammTest {
         (uint256[] memory currentVirtualBalances, ) = _computeCurrentVirtualBalances(pool);
 
         vm.startPrank(admin);
-        ReClammPool(pool).setPriceRatioState(
+        ReClammPool(pool).startPriceRatioUpdate(
             endPriceRatio,
             state.priceRatioUpdateStartTime,
             state.priceRatioUpdateEndTime
@@ -347,7 +347,6 @@ contract ReClammPoolTest is BaseReClammTest {
         // Ensure that the max centeredness margin parameter fits in uint64.
         assertEq(data.maxCenterednessMargin, uint64(data.maxCenterednessMargin), "Max centeredness margin not uint64");
         assertEq(data.minTokenBalanceScaled18, _MIN_TOKEN_BALANCE, "Invalid min token balance");
-        assertEq(data.minPoolCenteredness, _MIN_POOL_CENTEREDNESS, "Invalid min pool centeredness");
         assertEq(
             data.maxDailyPriceShiftExponent,
             _MAX_DAILY_PRICE_SHIFT_EXPONENT,
@@ -376,7 +375,7 @@ contract ReClammPoolTest is BaseReClammTest {
     function testSetFourthRootPriceRatioPermissioned() public {
         vm.expectRevert(IAuthentication.SenderNotAllowed.selector);
         vm.prank(alice);
-        ReClammPool(pool).setPriceRatioState(1, block.timestamp, block.timestamp);
+        ReClammPool(pool).startPriceRatioUpdate(1, block.timestamp, block.timestamp);
     }
 
     function testSetFourthRootPriceRatioPoolNotInitialized() public {
@@ -384,7 +383,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         vm.expectRevert(IReClammPool.PoolNotInitialized.selector);
         vm.prank(admin);
-        ReClammPool(pool).setPriceRatioState(1, block.timestamp, block.timestamp);
+        ReClammPool(pool).startPriceRatioUpdate(1, block.timestamp, block.timestamp);
     }
 
     function testSetFourthRootPriceRatioShortDuration() public {
@@ -396,7 +395,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         vm.expectRevert(IReClammPool.PriceRatioUpdateDurationTooShort.selector);
         vm.prank(admin);
-        ReClammPool(pool).setPriceRatioState(endPriceRatio, priceRatioUpdateStartTime, priceRatioUpdateEndTime);
+        ReClammPool(pool).startPriceRatioUpdate(endPriceRatio, priceRatioUpdateStartTime, priceRatioUpdateEndTime);
     }
 
     function testSetFourthRootPriceRatioSmallDelta() public {
@@ -407,21 +406,16 @@ contract ReClammPoolTest is BaseReClammTest {
         uint32 duration = 1 days;
         uint32 priceRatioUpdateEndTime = priceRatioUpdateStartTime + duration;
 
-        (uint256 fourthRootPriceRatioDelta, ) = ReClammPoolMock(pool).manualSetPriceRatioState(
-            endFourthRootPriceRatio,
+        uint256 endPriceRatio = endFourthRootPriceRatio.mulDown(endFourthRootPriceRatio);
+        endPriceRatio = endPriceRatio.mulDown(endPriceRatio);
+
+        vm.expectRevert(abi.encodeWithSelector(IReClammPool.FourthRootPriceRatioDeltaBelowMin.selector, delta - 1));
+        vm.prank(admin);
+        ReClammPool(pool).startPriceRatioUpdate(
+            endPriceRatio,
             priceRatioUpdateStartTime,
             priceRatioUpdateEndTime
         );
-
-        // The error in `pow` is greater than the very small delta, so there's no way to make this fail in the main
-        // function that passes in the raw price ratio. We can't increase the size of the delta for the test because
-        // it's a constant that is read directly in the code. Mocking the exception is a bit silly, since it's not
-        // testing the actual code.
-        //
-        // So I think the best we can do is verify that the actual code reproduces the delta, since that value is
-        // directly compared to the limit in the code to trigger the exception. Since it is returning a number less
-        // than the minimum, we can see by inspection that the main function would revert.
-        assertEq(fourthRootPriceRatioDelta, delta, "Wrong delta");
     }
 
     function testSetFourthRootPriceRatioTooFast() public {
@@ -435,7 +429,7 @@ contract ReClammPoolTest is BaseReClammTest {
         // do is set a large update that would be too fast, and show that the error is triggered.
         vm.expectRevert(IReClammPool.PriceRatioUpdateTooFast.selector);
         vm.prank(admin);
-        ReClammPool(pool).setPriceRatioState(newPriceRatio, priceRatioUpdateStartTime, priceRatioUpdateEndTime);
+        ReClammPool(pool).startPriceRatioUpdate(newPriceRatio, priceRatioUpdateStartTime, priceRatioUpdateEndTime);
     }
 
     function testSetFourthRootPriceRatio() public {
@@ -470,7 +464,7 @@ contract ReClammPoolTest is BaseReClammTest {
         );
 
         vm.prank(admin);
-        uint256 actualPriceRatioUpdateStartTime = ReClammPool(pool).setPriceRatioState(
+        uint256 actualPriceRatioUpdateStartTime = ReClammPool(pool).startPriceRatioUpdate(
             endPriceRatio,
             priceRatioUpdateStartTime,
             priceRatioUpdateEndTime
@@ -545,7 +539,7 @@ contract ReClammPoolTest is BaseReClammTest {
         );
 
         vm.prank(admin);
-        uint256 actualPriceRatioUpdateStartTime = ReClammPool(pool).setPriceRatioState(
+        uint256 actualPriceRatioUpdateStartTime = ReClammPool(pool).startPriceRatioUpdate(
             endPriceRatio,
             priceRatioUpdateStartTime,
             priceRatioUpdateEndTime
@@ -621,7 +615,7 @@ contract ReClammPoolTest is BaseReClammTest {
         );
 
         vm.prank(admin);
-        actualPriceRatioUpdateStartTime = ReClammPool(pool).setPriceRatioState(
+        actualPriceRatioUpdateStartTime = ReClammPool(pool).startPriceRatioUpdate(
             endPriceRatio,
             priceRatioUpdateStartTime,
             priceRatioUpdateEndTime
@@ -671,7 +665,7 @@ contract ReClammPoolTest is BaseReClammTest {
         uint96 startFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
 
         vm.prank(admin);
-        uint256 actualPriceRatioUpdateStartTime = ReClammPool(pool).setPriceRatioState(
+        uint256 actualPriceRatioUpdateStartTime = ReClammPool(pool).startPriceRatioUpdate(
             endPriceRatio,
             priceRatioUpdateStartTime,
             priceRatioUpdateEndTime
@@ -941,8 +935,10 @@ contract ReClammPoolTest is BaseReClammTest {
 
         // Exactly at boundary is still in range.
         assertTrue(ReClammPoolMock(pool).isPoolWithinTargetRange(), "Pool is out of range");
+        (uint256 centeredness, ) = ReClammPoolMock(pool).computeCurrentPoolCenteredness();
+
         assertApproxEqRel(
-            ReClammPoolMock(pool).computeCurrentPoolCenteredness(),
+            centeredness,
             _DEFAULT_CENTEREDNESS_MARGIN,
             1e16,
             "Pool centeredness is not close from margin"
@@ -1007,7 +1003,7 @@ contract ReClammPoolTest is BaseReClammTest {
     function testInRangeUpdatingVirtualBalancesSetCenterednessMargin() public {
         vm.prank(admin);
         // Start updating virtual balances.
-        ReClammPool(pool).setPriceRatioState(16e18, block.timestamp, block.timestamp + 1 days);
+        ReClammPool(pool).startPriceRatioUpdate(16e18, block.timestamp, block.timestamp + 1 days);
 
         vm.warp(block.timestamp + 6 hours);
 
@@ -1162,29 +1158,6 @@ contract ReClammPoolTest is BaseReClammTest {
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
         new ReClammPool(params, vault);
-    }
-
-    function testToPoolCenterAboveEnum() public pure {
-        assertEq(
-            uint256(ReClammMath.toEnum(false)),
-            uint256(ReClammMath.PoolAboveCenter.FALSE),
-            "Invalid enum value (false)"
-        );
-        assertEq(
-            uint256(ReClammMath.toEnum(true)),
-            uint256(ReClammMath.PoolAboveCenter.TRUE),
-            "Invalid enum value (true)"
-        );
-        assertNotEq(
-            uint256(ReClammMath.toEnum(false)),
-            uint256(ReClammMath.PoolAboveCenter.TRUE),
-            "Invalid enum value (false/true)"
-        );
-        assertNotEq(
-            uint256(ReClammMath.toEnum(true)),
-            uint256(ReClammMath.PoolAboveCenter.FALSE),
-            "Invalid enum value (true/false)"
-        );
     }
 
     function testOnBeforeInitializeEvents() public {
@@ -1360,17 +1333,6 @@ contract ReClammPoolTest is BaseReClammTest {
         );
     }
 
-    function testInitializationCenteredness() public {
-        (address newPool, ) = _createPool([address(usdc), address(dai)].toMemoryArray(), "New Test Pool");
-        (IERC20[] memory tokens, , , ) = vault.getPoolTokenInfo(newPool);
-
-        ReClammPoolMock(newPool).manualSetCenterednessMargin(FixedPoint.ONE);
-
-        vm.expectRevert(IReClammPool.PoolCenterednessTooLow.selector);
-        vm.prank(alice);
-        router.initialize(newPool, tokens, _initialBalances, 0, false, bytes(""));
-    }
-
     function testInvalidStartTime() public {
         ReClammPoolDynamicData memory data = IReClammPool(pool).getReClammPoolDynamicData();
 
@@ -1379,7 +1341,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         // Fail `priceRatioUpdateStartTime > priceRatioUpdateEndTime`.
         vm.expectRevert(IReClammPool.InvalidStartTime.selector);
-        ReClammPoolMock(pool).manualSetPriceRatioState(
+        ReClammPoolMock(pool).manualStartPriceRatioUpdate(
             data.endFourthRootPriceRatio,
             priceRatioUpdateStartTime,
             priceRatioUpdateEndTime
@@ -1391,7 +1353,7 @@ contract ReClammPoolTest is BaseReClammTest {
         vm.warp(priceRatioUpdateStartTime + 1);
 
         vm.expectRevert(IReClammPool.InvalidStartTime.selector);
-        ReClammPoolMock(pool).manualSetPriceRatioState(
+        ReClammPoolMock(pool).manualStartPriceRatioUpdate(
             data.endFourthRootPriceRatio,
             priceRatioUpdateStartTime,
             priceRatioUpdateEndTime

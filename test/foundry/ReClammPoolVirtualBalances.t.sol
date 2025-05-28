@@ -22,7 +22,7 @@ import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
 
 contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
-    using FixedPoint for uint256;
+    using FixedPoint for *;
     using ArrayHelpers for *;
     using SafeCast for *;
     using Math for *;
@@ -137,11 +137,11 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
 
         uint32 currentTimestamp = uint32(block.timestamp);
 
-        ReClammPoolMock(pool).manualSetPriceRatioState(
-            endFourthRootPriceRatio,
-            currentTimestamp,
-            currentTimestamp + duration
-        );
+        uint256 endPriceRatio = endFourthRootPriceRatio.mulDown(endFourthRootPriceRatio);
+        endPriceRatio = endPriceRatio.mulDown(endPriceRatio);
+
+        vm.prank(admin);
+        ReClammPool(pool).startPriceRatioUpdate(endPriceRatio, currentTimestamp, currentTimestamp + duration);
         skip(duration);
 
         (uint256[] memory poolVirtualBalancesAfter, ) = _computeCurrentVirtualBalances(pool);
@@ -325,7 +325,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         (uint256[] memory balances, uint256 virtualBalanceA, uint256 virtualBalanceB, ) = ReClammMath
             .computeTheoreticalPriceRatioAndBalances(newMinPrice, newMaxPrice, newTargetPrice);
 
-        uint256 centeredness = ReClammMath.computeCenteredness(balances, virtualBalanceA, virtualBalanceB);
+        (uint256 centeredness, ) = ReClammMath.computeCenteredness(balances, virtualBalanceA, virtualBalanceB);
         vm.assume(centeredness > _DEFAULT_CENTEREDNESS_MARGIN);
     }
 }

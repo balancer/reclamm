@@ -43,7 +43,7 @@ contract ReClammPoolMock is ReClammPool {
         virtualBalanceB = theoreticalVirtualBalanceB.mulDown(scale);
 
         _setLastVirtualBalances(virtualBalanceA, virtualBalanceB);
-        _setPriceRatioState(fourthRootPriceRatio, block.timestamp, block.timestamp);
+        _startPriceRatioUpdate(fourthRootPriceRatio, block.timestamp, block.timestamp);
 
         _dailyPriceShiftBase = initialPriceShiftDailyRate;
         _setCenterednessMargin(centerednessMargin);
@@ -73,11 +73,11 @@ contract ReClammPoolMock is ReClammPool {
         _centerednessMargin = newCenterednessMargin.toUint64();
     }
 
-    function manualSetPriceRatioState(
+    function manualStartPriceRatioUpdate(
         uint256 endFourthRootPriceRatio,
         uint256 priceRatioUpdateStartTime,
         uint256 priceRatioUpdateEndTime
     ) external returns (uint256 fourthRootPriceRatioDelta, uint256 startFourthRootPriceRatio) {
-        return _setPriceRatioState(endFourthRootPriceRatio, priceRatioUpdateStartTime, priceRatioUpdateEndTime);
+        return _startPriceRatioUpdate(endFourthRootPriceRatio, priceRatioUpdateStartTime, priceRatioUpdateEndTime);
     }
 }

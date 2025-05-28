@@ -40,7 +40,6 @@ struct ReClammPoolParams {
  * @param initialCenterednessMargin The initial centeredness margin (threshold for initiating a range update)
  * @param maxCenterednessMargin The maximum centeredness margin for the pool, as an 18-decimal FP percentage
  * @param minTokenBalanceScaled18 The minimum token balance for the pool, scaled to 18 decimals
- * @param minPoolCenteredness The minimum pool centeredness for the pool, as an 18-decimal FP percentage
  * @param maxDailyPriceShiftExponent The maximum exponent for the pool's price shift, as an 18-decimal FP percentage
  * @param maxDailyPriceRatioUpdateRate The maximum percentage the price range can expand/contract per day
  * @param minPriceRatioUpdateDuration The minimum duration for the price ratio update, expressed in seconds
@@ -64,7 +63,6 @@ struct ReClammPoolImmutableData {
     // Operating Limits
     uint256 maxCenterednessMargin;
     uint256 minTokenBalanceScaled18;
-    uint256 minPoolCenteredness;
     uint256 maxDailyPriceShiftExponent;
     uint256 maxDailyPriceRatioUpdateRate;
     uint256 minPriceRatioUpdateDuration;
@@ -185,9 +183,6 @@ interface IReClammPool is IBasePool {
 
     /// @notice The token balance is too low after a user operation.
     error TokenBalanceTooLow();
-
-    /// @notice The pool centeredness is too low after a swap.
-    error PoolCenterednessTooLow();
 
     /// @notice The centeredness margin is outside the valid numerical range.
     error InvalidCenterednessMargin();
@@ -397,7 +392,7 @@ interface IReClammPool is IBasePool {
         returns (bool isWithinTargetRange, bool virtualBalancesChanged);
 
     /**
-     * @notice Compute the current pool centeredness (a measure of how pool imbalance).
+     * @notice Compute the current pool centeredness (a measure of how unbalanced the pool is).
      * @dev A value of 0 means the pool is at the edge of the price range (i.e., one of the real balances is zero).
      * A value of FixedPoint.ONE means the balances (and market price) are exactly in the middle of the range.
      *
@@ -406,8 +401,9 @@ interface IReClammPool is IBasePool {
      * side effect is undesired (does not apply to off-chain calls).
      *
      * @return poolCenteredness The current centeredness margin (as a 18-decimal FP value)
+     * @return isPoolAboveCenter True if the pool is above the center, false otherwise
      */
-    function computeCurrentPoolCenteredness() external view returns (uint256 poolCenteredness);
+    function computeCurrentPoolCenteredness() external view returns (uint256 poolCenteredness, bool isPoolAboveCenter);
 
     /**
      * @notice Get dynamic pool data relevant to swap/add/remove calculations.
@@ -426,7 +422,7 @@ interface IReClammPool is IBasePool {
     ********************************************************/
 
     /**
-     * @notice Resets the price ratio update by setting a new ending price ratio and time interval.
+     * @notice Initiates a price ratio update by setting a new ending price ratio and time interval.
      * @dev The price ratio is calculated by interpolating between the start and end times. The start price ratio will
      * be set to the current fourth root price ratio of the pool. This is a permissioned function.
      *
@@ -435,7 +431,7 @@ interface IReClammPool is IBasePool {
      * @param priceRatioUpdateEndTime The timestamp when the price ratio update will end
      * @return actualPriceRatioUpdateStartTime The actual start time for the price ratio update (min: block.timestamp).
      */
-    function setPriceRatioState(
+    function startPriceRatioUpdate(
         uint256 endPriceRatio,
         uint256 priceRatioUpdateStartTime,
         uint256 priceRatioUpdateEndTime

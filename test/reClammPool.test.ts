@@ -157,7 +157,7 @@ describe('ReClammPool', function () {
   });
 
   sharedBeforeEach('grant permission', async () => {
-    // Permission to set the pool swap fee
+    // Permission to set the pool swap fee.
     const setPoolSwapFeeAction = await actionId(vault, 'setStaticSwapFeePercentage');
 
     const authorizerAddress = await vault.getAuthorizer();
@@ -167,8 +167,8 @@ describe('ReClammPool', function () {
 
     await vault.connect(bob).setStaticSwapFeePercentage(pool, POOL_SWAP_FEE);
 
-    // Permission to set the price ratio
-    const setPriceRatioAction = await actionId(pool, 'setPriceRatioState');
+    // Permission to start a price ratio update.
+    const setPriceRatioAction = await actionId(pool, 'startPriceRatioUpdate');
     await authorizer.grantRole(setPriceRatioAction, bob.address);
   });
 
@@ -374,17 +374,17 @@ describe('ReClammPool', function () {
       );
 
       // Concentrating liquidity
-      // Since the price move introduces some rounding, store the price ratio before the setPriceRatioState call.
+      // Since the price move introduces some rounding, store the price ratio before the startPriceRatioUpdate call.
       // Notice that "checkPoolPrices" already checked that initialFourthRootPriceRatio matches the current price ratio,
       // so the values are close.
       const startFourthRootPriceRatio = await pool.computeCurrentFourthRootPriceRatio();
       const updateStartTimestamp = (await currentTimestamp()) + 1n;
       const updateEndTimestamp = updateStartTimestamp + 1n * BigInt(DAY) + 1n;
       const endFourthRootPriceRatio = fpDivDown(initialFourthRootPriceRatio, fp(1.1));
-      await pool.connect(bob).setPriceRatioState(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
+      await pool.connect(bob).startPriceRatioUpdate(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
 
       // Virtual balances were updated, but prices should not move yet.
-      const { minPrice: minPriceAfterSetPriceRatioState } = await checkPoolPrices(
+      const { minPrice: minPriceAfterStartPriceRatioUpdate } = await checkPoolPrices(
         pool,
         initialFourthRootPriceRatio,
         minPriceOOR,
@@ -413,7 +413,7 @@ describe('ReClammPool', function () {
       // `centerednessPrice / minPrice = maxPrice / centerednessPrice`. Since priceRatio is maxPrice / minPrice,
       // centerednessPrice = sqrt(priceRatio) * minPrice. (or maxPrice / sqrt(priceRatio)).
       const sqrtInitialPriceRatio = fpMulDown(initialFourthRootPriceRatio, initialFourthRootPriceRatio);
-      const centerednessPrice = fpMulDown(minPriceAfterSetPriceRatioState, sqrtInitialPriceRatio);
+      const centerednessPrice = fpMulDown(minPriceAfterStartPriceRatioUpdate, sqrtInitialPriceRatio);
       const sqrtPriceRatioAfterConcentration = fpMulDown(
         expectedPriceRatioAfterConcentration,
         expectedPriceRatioAfterConcentration
@@ -536,10 +536,10 @@ describe('ReClammPool', function () {
       const updateStartTimestamp = (await currentTimestamp()) + 1n;
       const updateEndTimestamp = updateStartTimestamp + 1n * BigInt(DAY) + 1n;
       const endFourthRootPriceRatio = fpDivDown(initialFourthRootPriceRatio, fp(1.1));
-      await pool.connect(bob).setPriceRatioState(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
+      await pool.connect(bob).startPriceRatioUpdate(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
 
       // Virtual balances were updated, but prices should not move yet.
-      const { minPrice: minPriceAfterSetPriceRatioState } =
+      const { minPrice: minPriceAfterStartPriceRatioUpdate } =
         await checkPoolPrices(
           pool,
           initialFourthRootPriceRatio,
@@ -569,7 +569,7 @@ describe('ReClammPool', function () {
       // `centerednessPrice / minPrice = maxPrice / centerednessPrice`. Since priceRatio is maxPrice / minPrice,
       // centerednessPrice = sqrt(priceRatio) * minPrice. (or maxPrice / sqrt(priceRatio)).
       const sqrtInitialPriceRatio = fpMulDown(initialFourthRootPriceRatio, initialFourthRootPriceRatio);
-      const centerednessPrice = fpMulDown(minPriceAfterSetPriceRatioState, sqrtInitialPriceRatio);
+      const centerednessPrice = fpMulDown(minPriceAfterStartPriceRatioUpdate, sqrtInitialPriceRatio);
       const sqrtPriceRatioAfterConcentration = fpMulDown(
         expectedPriceRatioAfterConcentration,
         expectedPriceRatioAfterConcentration
@@ -688,17 +688,17 @@ describe('ReClammPool', function () {
       );
 
       // Deconcentrating liquidity
-      // Since the price move introduces some rounding, store the price ratio before the setPriceRatioState call.
+      // Since the price move introduces some rounding, store the price ratio before the startPriceRatioUpdate call.
       // Notice that "checkPoolPrices" already checked that initialFourthRootPriceRatio matches the current price ratio,
       // so the values are close.
       const startFourthRootPriceRatio = await pool.computeCurrentFourthRootPriceRatio();
       const updateStartTimestamp = (await currentTimestamp()) + 1n;
       const updateEndTimestamp = updateStartTimestamp + 1n * BigInt(DAY) + 1n;
       const endFourthRootPriceRatio = fpMulDown(initialFourthRootPriceRatio, fp(1.1));
-      await pool.connect(bob).setPriceRatioState(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
+      await pool.connect(bob).startPriceRatioUpdate(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
 
       // Virtual balances were updated, but prices should not move yet.
-      const { minPrice: minPriceAfterSetPriceRatioState } = await checkPoolPrices(
+      const { minPrice: minPriceAfterStartPriceRatioUpdate} = await checkPoolPrices(
         pool,
         initialFourthRootPriceRatio,
         minPriceOOR,
@@ -727,7 +727,7 @@ describe('ReClammPool', function () {
       // `centerednessPrice / minPrice = maxPrice / centerednessPrice`. Since priceRatio is maxPrice / minPrice,
       // centerednessPrice = sqrt(priceRatio) * minPrice. (or maxPrice / sqrt(priceRatio)).
       const sqrtInitialPriceRatio = fpMulDown(initialFourthRootPriceRatio, initialFourthRootPriceRatio);
-      const centerednessPrice = fpMulDown(minPriceAfterSetPriceRatioState, sqrtInitialPriceRatio);
+      const centerednessPrice = fpMulDown(minPriceAfterStartPriceRatioUpdate, sqrtInitialPriceRatio);
       const sqrtPriceRatioAfterConcentration = fpMulDown(
         expectedPriceRatioAfterConcentration,
         expectedPriceRatioAfterConcentration
@@ -797,7 +797,7 @@ describe('ReClammPool', function () {
       );
     });
 
-    it('should move virtual balances correctly (out of range > center and price ratio deconcentrating)', async () => {
+    it('should move virtual balances correctly (out of range > center and price ratio de-concentrating)', async () => {
       const initialFourthRootPriceRatio = await pool.computeCurrentFourthRootPriceRatio();
 
       const { minPrice: minPriceBeforeBigSwap, maxPrice: maxPriceBeforeBigSwap } = await checkPoolPrices(
@@ -849,10 +849,10 @@ describe('ReClammPool', function () {
       const updateStartTimestamp = (await currentTimestamp()) + 1n;
       const updateEndTimestamp = updateStartTimestamp + 1n * BigInt(DAY) + 1n;
       const endFourthRootPriceRatio = fpMulDown(initialFourthRootPriceRatio, fp(1.1));
-      await pool.connect(bob).setPriceRatioState(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
+      await pool.connect(bob).startPriceRatioUpdate(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
 
       // Virtual balances were updated, but prices should not move yet.
-      const { minPrice: minPriceAfterSetPriceRatioState } =
+      const { minPrice: minPriceAfterStartPriceRatioUpdate } =
         await checkPoolPrices(
           pool,
           initialFourthRootPriceRatio,
@@ -882,7 +882,7 @@ describe('ReClammPool', function () {
       // `centerednessPrice / minPrice = maxPrice / centerednessPrice`. Since priceRatio is maxPrice / minPrice,
       // centerednessPrice = sqrt(priceRatio) * minPrice. (or maxPrice / sqrt(priceRatio)).
       const sqrtInitialPriceRatio = fpMulDown(initialFourthRootPriceRatio, initialFourthRootPriceRatio);
-      const centerednessPrice = fpMulDown(minPriceAfterSetPriceRatioState, sqrtInitialPriceRatio);
+      const centerednessPrice = fpMulDown(minPriceAfterStartPriceRatioUpdate, sqrtInitialPriceRatio);
       const sqrtPriceRatioAfterConcentration = fpMulDown(
         expectedPriceRatioAfterConcentration,
         expectedPriceRatioAfterConcentration

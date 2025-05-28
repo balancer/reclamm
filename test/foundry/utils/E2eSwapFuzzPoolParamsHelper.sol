@@ -110,7 +110,7 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
             5e17
         );
 
-        uint256 currentCentredness = ReClammMath.computeCenteredness(
+        (uint256 currentCentredness, ) = ReClammMath.computeCenteredness(
             testParams.initialBalances,
             virtualBalanceA,
             virtualBalanceB
@@ -218,7 +218,7 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
 
         uint256[] memory balancesScaled18_ = balancesScaled18;
 
-        // Reduce 5% to avoid TokenBalanceTooLow.
+        // Reduce 8% to avoid TokenBalanceTooLow.
         maxSwapAmountTokenA = _toAmountRaw(
             ReClammMath.computeInGivenOut(
                 balancesScaled18_,
@@ -230,11 +230,11 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
             ),
             testParams.rateTokenA,
             testParams.decimalsTokenA
-        ).mulDown(95e16);
+        ).mulDown(92e16);
 
-        // Reduce 5% to avoid TokenBalanceTooLow.
+        // Reduce 8% to avoid TokenBalanceTooLow.
         maxSwapAmountTokenB = _toAmountRaw(balancesScaled18_[b], testParams.rateTokenB, testParams.decimalsTokenB)
-            .mulDown(95e16);
+            .mulDown(92e16);
     }
 
     function _toAmountRaw(uint256 amountScaled18, uint256 rate, uint256 decimals) internal pure returns (uint256) {
