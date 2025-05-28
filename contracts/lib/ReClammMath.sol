@@ -28,13 +28,6 @@ library ReClammMath {
     using SafeCast for *;
     using ReClammMath for bool;
 
-    /// @notice Determines whether the pool is above center or not, or if the computation has not taken place yet.
-    enum PoolAboveCenter {
-        FALSE,
-        TRUE,
-        UNKNOWN
-    }
-
     /// @notice The swap result is greater than the real balance of the token (i.e., the balance would drop below zero).
     error AmountOutGreaterThanBalance();
 
@@ -350,65 +343,50 @@ library ReClammMath {
         currentVirtualBalanceA = lastVirtualBalanceA;
         currentVirtualBalanceB = lastVirtualBalanceB;
 
-        PriceRatioState memory priceRatioState = storedPriceRatioState;
+        {
+            // stack-too-deep
+            PriceRatioState memory priceRatioState = storedPriceRatioState;
 
-        uint256 currentFourthRootPriceRatio = computeFourthRootPriceRatio(
-            currentTimestamp,
-            priceRatioState.startFourthRootPriceRatio,
-            priceRatioState.endFourthRootPriceRatio,
-            priceRatioState.priceRatioUpdateStartTime,
-            priceRatioState.priceRatioUpdateEndTime
-        );
-
-        // Postponing the calculation of isPoolAboveCenter saves gas when the pool is within the target range and the
-        // price ratio is not updating.
-        PoolAboveCenter isPoolAboveCenter = PoolAboveCenter.UNKNOWN;
-
-        // If the price ratio is updating, shrink/expand the price interval by recalculating the virtual balances.
-        // Skip the update if the start and end price ratio are the same, because the virtual balances are already
-        // calculated.
-        if (
-            currentTimestamp > priceRatioState.priceRatioUpdateStartTime &&
-            lastTimestamp < priceRatioState.priceRatioUpdateEndTime
-        ) {
-            isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalanceA, lastVirtualBalanceB).toEnum();
-            (currentVirtualBalanceA, currentVirtualBalanceB) = computeVirtualBalancesUpdatingPriceRatio(
-                currentFourthRootPriceRatio,
-                balancesScaled18,
-                lastVirtualBalanceA,
-                lastVirtualBalanceB,
-                isPoolAboveCenter == PoolAboveCenter.TRUE
+            uint256 currentFourthRootPriceRatio = computeFourthRootPriceRatio(
+                currentTimestamp,
+                priceRatioState.startFourthRootPriceRatio,
+                priceRatioState.endFourthRootPriceRatio,
+                priceRatioState.priceRatioUpdateStartTime,
+                priceRatioState.priceRatioUpdateEndTime
             );
 
-            changed = true;
+            // If the price ratio is updating, shrink/expand the price interval by recalculating the virtual balances.
+            if (
+                currentTimestamp > priceRatioState.priceRatioUpdateStartTime &&
+                lastTimestamp < priceRatioState.priceRatioUpdateEndTime
+            ) {
+                (currentVirtualBalanceA, currentVirtualBalanceB) = computeVirtualBalancesUpdatingPriceRatio(
+                    currentFourthRootPriceRatio,
+                    balancesScaled18,
+                    lastVirtualBalanceA,
+                    lastVirtualBalanceB
+                );
+
+                changed = true;
+            }
         }
 
+        (uint256 centeredness, bool isPoolAboveCenter) = computeCenteredness(
+            balancesScaled18,
+            currentVirtualBalanceA,
+            currentVirtualBalanceB
+        );
+
         // If the pool is outside the target range, track the market price by moving the price interval.
-        if (
-            isPoolWithinTargetRange(
+        if (centeredness < centerednessMargin) {
+            (currentVirtualBalanceA, currentVirtualBalanceB) = computeVirtualBalancesUpdatingPriceRange(
                 balancesScaled18,
                 currentVirtualBalanceA,
                 currentVirtualBalanceB,
-                centerednessMargin
-            ) == false
-        ) {
-            if (isPoolAboveCenter == PoolAboveCenter.UNKNOWN) {
-                isPoolAboveCenter = isAboveCenter(balancesScaled18, lastVirtualBalanceA, lastVirtualBalanceB).toEnum();
-            }
-
-            // stack-too-deep
-            uint256 _dailyPriceShiftBase = dailyPriceShiftBase;
-            uint256[] memory _balancesScaled18 = balancesScaled18;
-            uint32 _lastTimestamp = lastTimestamp;
-
-            (currentVirtualBalanceA, currentVirtualBalanceB) = computeVirtualBalancesUpdatingPriceRange(
-                _balancesScaled18,
-                currentVirtualBalanceA,
-                currentVirtualBalanceB,
-                isPoolAboveCenter == PoolAboveCenter.TRUE,
-                _dailyPriceShiftBase,
+                isPoolAboveCenter,
+                dailyPriceShiftBase,
                 currentTimestamp,
-                _lastTimestamp
+                lastTimestamp
             );
 
             changed = true;
@@ -432,7 +410,6 @@ library ReClammMath {
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param lastVirtualBalanceA The last virtual balance of token A
      * @param lastVirtualBalanceB The last virtual balance of token B
-     * @param isPoolAboveCenter Whether the pool is above or below the center
      * @return virtualBalanceA The virtual balance of token A
      * @return virtualBalanceB The virtual balance of token B
      */
@@ -440,16 +417,23 @@ library ReClammMath {
         uint256 currentFourthRootPriceRatio,
         uint256[] memory balancesScaled18,
         uint256 lastVirtualBalanceA,
-        uint256 lastVirtualBalanceB,
-        bool isPoolAboveCenter
+        uint256 lastVirtualBalanceB
     ) internal pure returns (uint256 virtualBalanceA, uint256 virtualBalanceB) {
-        // The overvalued token is the one with a lower token balance (therefore, rarer and more valuable).
-        (uint256 indexTokenUndervalued, uint256 indexTokenOvervalued) = isPoolAboveCenter ? (a, b) : (b, a);
-        uint256 balanceTokenUndervalued = balancesScaled18[indexTokenUndervalued];
-        uint256 balanceTokenOvervalued = balancesScaled18[indexTokenOvervalued];
-
         // Compute the current pool centeredness, which will remain constant.
-        uint256 poolCenteredness = computeCenteredness(balancesScaled18, lastVirtualBalanceA, lastVirtualBalanceB);
+        (uint256 poolCenteredness, bool isPoolAboveCenter) = computeCenteredness(
+            balancesScaled18,
+            lastVirtualBalanceA,
+            lastVirtualBalanceB
+        );
+
+        // The overvalued token is the one with a lower token balance (therefore, rarer and more valuable).
+        (
+            uint256 balanceTokenUndervalued,
+            uint256 lastVirtualBalanceUndervalued,
+            uint256 lastVirtualBalanceOvervalued
+        ) = isPoolAboveCenter
+                ? (balancesScaled18[a], lastVirtualBalanceA, lastVirtualBalanceB)
+                : (balancesScaled18[b], lastVirtualBalanceB, lastVirtualBalanceA);
 
         // The original formula was a quadratic equation, with terms:
         // a = Q0 - 1
@@ -459,7 +443,7 @@ library ReClammMath {
         // centeredness. Applying Bhaskara, we'd have: Vu = (-b + sqrt(b^2 - 4ac)) / 2a.
         // The Bhaskara above can be simplified by replacing a, b and c with the terms above, which leads to:
         // Vu = Ru(1 + C + sqrt(1 + C (C + 4 Q0 - 2))) / 2(Q0 - 1)
-        uint256 sqrtPriceRatio = currentFourthRootPriceRatio.mulUp(currentFourthRootPriceRatio);
+        uint256 sqrtPriceRatio = currentFourthRootPriceRatio.mulDown(currentFourthRootPriceRatio);
 
         // Using FixedPoint math as little as possible to improve the precision of the result.
         // Note: The input of Math.sqrt must be a 36-decimal number, so that the final result is 18 decimals.
@@ -469,8 +453,8 @@ library ReClammMath {
                 Math.sqrt(poolCenteredness * (poolCenteredness + 4 * sqrtPriceRatio - 2e18) + 1e36))) /
             (2 * (sqrtPriceRatio - FixedPoint.ONE));
 
-        uint256 virtualBalanceOvervalued = ((balanceTokenOvervalued * virtualBalanceUndervalued) /
-            balanceTokenUndervalued).divDown(poolCenteredness);
+        uint256 virtualBalanceOvervalued = (virtualBalanceUndervalued * lastVirtualBalanceOvervalued) /
+            lastVirtualBalanceUndervalued;
 
         (virtualBalanceA, virtualBalanceB) = isPoolAboveCenter
             ? (virtualBalanceUndervalued, virtualBalanceOvervalued)
@@ -544,7 +528,7 @@ library ReClammMath {
         uint256 virtualBalanceB,
         uint256 centerednessMargin
     ) internal pure returns (bool) {
-        uint256 centeredness = computeCenteredness(balancesScaled18, virtualBalanceA, virtualBalanceB);
+        (uint256 centeredness, ) = computeCenteredness(balancesScaled18, virtualBalanceA, virtualBalanceB);
         return centeredness >= centerednessMargin;
     }
 
@@ -558,14 +542,18 @@ library ReClammMath {
      * @param virtualBalanceA The last virtual balances of token A
      * @param virtualBalanceB The last virtual balances of token B
      * @return poolCenteredness The centeredness of the pool
+     * @return isPoolAboveCenter True if the pool is above the center, false otherwise
      */
     function computeCenteredness(
         uint256[] memory balancesScaled18,
         uint256 virtualBalanceA,
         uint256 virtualBalanceB
-    ) internal pure returns (uint256 poolCenteredness) {
-        if (balancesScaled18[a] == 0 || balancesScaled18[b] == 0) {
-            return 0;
+    ) internal pure returns (uint256 poolCenteredness, bool isPoolAboveCenter) {
+        if (balancesScaled18[a] == 0) {
+            // Also return false if both are 0 to be consistent with the logic below.
+            return (0, false);
+        } else if (balancesScaled18[b] == 0) {
+            return (0, true);
         }
 
         uint256 numerator = balancesScaled18[a] * virtualBalanceB;
@@ -573,13 +561,15 @@ library ReClammMath {
 
         // The centeredness is defined between 0 and 1. If the numerator is greater than the denominator, we compute
         // the inverse ratio.
-        if (numerator < denominator) {
+        if (numerator <= denominator) {
             poolCenteredness = numerator.divDown(denominator);
+            isPoolAboveCenter = false;
         } else {
             poolCenteredness = denominator.divDown(numerator);
+            isPoolAboveCenter = true;
         }
 
-        return poolCenteredness;
+        return (poolCenteredness, isPoolAboveCenter);
     }
 
     /**
@@ -673,33 +663,6 @@ library ReClammMath {
         // Then, (Rb_max + Vb) = invariant/Va, and:
         // P_max(a) = invariant / Va^2
         maxPrice = currentInvariant.divDown(virtualBalanceA.mulDown(virtualBalanceA));
-    }
-
-    /**
-     * @notice Check whether the pool is above center.
-     * @dev The pool is above center if the ratio of the real balances is greater than the ratio of the virtual
-     * balances.
-     *
-     * @param balancesScaled18 Current pool balances, sorted in token registration order
-     * @param virtualBalanceA The last virtual balance of token A
-     * @param virtualBalanceB The last virtual balance of token B
-     * @return isAboveCenter Whether the pool is above center
-     */
-    function isAboveCenter(
-        uint256[] memory balancesScaled18,
-        uint256 virtualBalanceA,
-        uint256 virtualBalanceB
-    ) internal pure returns (bool) {
-        if (balancesScaled18[b] == 0) {
-            return true;
-        } else {
-            return balancesScaled18[a].divDown(balancesScaled18[b]) > virtualBalanceA.divDown(virtualBalanceB);
-        }
-    }
-
-    /// @notice Convert a boolean value to a PoolAboveCenter enum (only TRUE or FALSE).
-    function toEnum(bool value) internal pure returns (PoolAboveCenter) {
-        return PoolAboveCenter(value.toUint());
     }
 
     /**
