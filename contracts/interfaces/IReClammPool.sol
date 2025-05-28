@@ -38,7 +38,6 @@ struct ReClammPoolParams {
  * @param initialTargetPrice The initial target price of token A in terms of token B (possibly applying rates)
  * @param initialDailyPriceShiftExponent The initial daily price shift exponent
  * @param initialCenterednessMargin The initial centeredness margin (threshold for initiating a range update)
- * @param maxCenterednessMargin The maximum centeredness margin for the pool, as an 18-decimal FP percentage
  * @param minTokenBalanceScaled18 The minimum token balance for the pool, scaled to 18 decimals
  * @param maxDailyPriceShiftExponent The maximum exponent for the pool's price shift, as an 18-decimal FP percentage
  * @param maxDailyPriceRatioUpdateRate The maximum percentage the price range can expand/contract per day
@@ -61,7 +60,6 @@ struct ReClammPoolImmutableData {
     uint256 initialDailyPriceShiftExponent;
     uint256 initialCenterednessMargin;
     // Operating Limits
-    uint256 maxCenterednessMargin;
     uint256 minTokenBalanceScaled18;
     uint256 maxDailyPriceShiftExponent;
     uint256 maxDailyPriceRatioUpdateRate;
@@ -184,7 +182,7 @@ interface IReClammPool is IBasePool {
     /// @notice The token balance is too low after a user operation.
     error TokenBalanceTooLow();
 
-    /// @notice The centeredness margin is outside the valid numerical range.
+    /// @notice The centeredness margin is above 100% (Fixed point 1).
     error InvalidCenterednessMargin();
 
     /// @notice The vault is not locked, so the pool balances are manipulable.

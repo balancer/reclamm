@@ -46,9 +46,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 private constant _MIN_SWAP_FEE_PERCENTAGE = 0.001e16; // 0.001%
     uint256 internal constant _MAX_SWAP_FEE_PERCENTAGE = 10e16; // 10%
 
-    // The maximum pool centeredness allowed to consider the pool within the target range.
-    uint256 internal constant _MAX_CENTEREDNESS_MARGIN = 50e16; // 50%
-
     // A pool is "centered" when it holds equal (non-zero) value in both real token balances. In this state, the ratio
     // of the real balances equals the ratio of the virtual balances, and the value of the centeredness measure is
     // FixedPoint.ONE.
@@ -645,7 +642,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.initialCenterednessMargin = _INITIAL_CENTEREDNESS_MARGIN;
 
         // Operating Limits
-        data.maxCenterednessMargin = _MAX_CENTEREDNESS_MARGIN;
         data.minTokenBalanceScaled18 = _MIN_TOKEN_BALANCE_SCALED18;
         data.maxDailyPriceShiftExponent = _MAX_DAILY_PRICE_SHIFT_EXPONENT;
         data.maxDailyPriceRatioUpdateRate = _MAX_DAILY_PRICE_RATIO_UPDATE_RATE;
@@ -878,7 +874,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
      * @param centerednessMargin The new centerednessMargin value, which must be within the target range
      */
     function _setCenterednessMargin(uint256 centerednessMargin) internal {
-        if (centerednessMargin > _MAX_CENTEREDNESS_MARGIN) {
+        if (centerednessMargin > FixedPoint.ONE) {
             revert InvalidCenterednessMargin();
         }
 
