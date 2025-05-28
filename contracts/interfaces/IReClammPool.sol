@@ -392,7 +392,7 @@ interface IReClammPool is IBasePool {
         returns (bool isWithinTargetRange, bool virtualBalancesChanged);
 
     /**
-     * @notice Compute the current pool centeredness (a measure of how imbalanced the pool is).
+     * @notice Compute the current pool centeredness (a measure of how unbalanced the pool is).
      * @dev A value of 0 means the pool is at the edge of the price range (i.e., one of the real balances is zero).
      * A value of FixedPoint.ONE means the balances (and market price) are exactly in the middle of the range.
      *

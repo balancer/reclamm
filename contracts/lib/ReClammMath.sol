@@ -356,8 +356,6 @@ library ReClammMath {
             );
 
             // If the price ratio is updating, shrink/expand the price interval by recalculating the virtual balances.
-            // Skip the update if the start and end price ratio are the same, because the virtual balances are already
-            // calculated.
             if (
                 currentTimestamp > priceRatioState.priceRatioUpdateStartTime &&
                 lastTimestamp < priceRatioState.priceRatioUpdateEndTime
