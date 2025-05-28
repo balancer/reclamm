@@ -43,7 +43,7 @@ struct ReClammPoolParams {
  * @param maxDailyPriceShiftExponent The maximum exponent for the pool's price shift, as an 18-decimal FP percentage
  * @param maxDailyPriceRatioUpdateRate The maximum percentage the price range can expand/contract per day
  * @param minPriceRatioUpdateDuration The minimum duration for the price ratio update, expressed in seconds
- * @param minFourthRootPriceRatioDelta The minimum absolute difference between current and new fourth root price ratio
+ * @param minPriceRatioDelta The minimum absolute difference between current and new fourth root price ratio
  * @param balanceRatioAndPriceTolerance The maximum amount initialized pool parameters can deviate from ideal values
  */
 struct ReClammPoolImmutableData {
@@ -66,7 +66,7 @@ struct ReClammPoolImmutableData {
     uint256 maxDailyPriceShiftExponent;
     uint256 maxDailyPriceRatioUpdateRate;
     uint256 minPriceRatioUpdateDuration;
-    uint256 minFourthRootPriceRatioDelta;
+    uint256 minPriceRatioDelta;
     uint256 balanceRatioAndPriceTolerance;
 }
 
@@ -209,7 +209,7 @@ interface IReClammPool is IBasePool {
     error PriceRatioUpdateTooFast();
 
     /// @dev The price ratio being set is too close to the current one.
-    error FourthRootPriceRatioDeltaBelowMin(uint256 fourthRootPriceRatioDelta);
+    error PriceRatioDeltaBelowMin(uint256 fourthRootPriceRatioDelta);
 
     /// @dev An attempt was made to stop the price ratio update while no update was in progress.
     error PriceRatioNotUpdating();
@@ -345,12 +345,21 @@ interface IReClammPool is IBasePool {
 
     /**
      * @notice Computes the current fourth root of price ratio.
-     * @dev The current fourth root of price ratio is an interpolation of the price ratio between the start and end
-     * values in the price ratio state, using the percentage elapsed between the start and end times.
+     * @dev The price ratio is the quotient between the max price and min price, according to current real and virtual
+     * balances. This function returns its fourth root.
      *
      * @return currentFourthRootPriceRatio The current fourth root of price ratio
      */
     function computeCurrentFourthRootPriceRatio() external view returns (uint256 currentFourthRootPriceRatio);
+
+    /**
+     * @notice Computes the current price ratio.
+     * @dev The price ratio is the quotient between the max price and min price, according to current real and virtual
+     * balances.
+     *
+     * @return currentPriceRatio The current price ratio
+     */
+    function computeCurrentPriceRatio() external view returns (uint256 currentPriceRatio);
 
     /**
      * @notice Compute whether the pool is within the target price range.

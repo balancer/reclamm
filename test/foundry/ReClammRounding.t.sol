@@ -9,7 +9,7 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
-import { PriceRatioState } from "../../contracts/lib/ReClammMath.sol";
+import { PriceRatioState, ReClammMath } from "../../contracts/lib/ReClammMath.sol";
 import { ReClammMathMock } from "../../contracts/test/ReClammMathMock.sol";
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
 
@@ -69,8 +69,9 @@ contract ReClammRoundingTest is BaseReClammTest {
             maxPrice - minPrice.mulDown((_MIN_PRICE_RATIO - FixedPoint.ONE) / 2)
         );
 
-        (uint256[] memory balances, uint256[] memory virtualBalances, uint256 fourthRootPriceRatio) = mathMock
+        (uint256[] memory balances, uint256[] memory virtualBalances, uint256 priceRatio) = mathMock
             .computeTheoreticalPriceRatioAndBalances(minPrice, maxPrice, targetPrice);
+        uint256 fourthRootPriceRatio = ReClammMath.fourthRootScaled18(priceRatio);
 
         (uint256 tokenInIndex, uint256 tokenOutIndex) = isTokenAIn ? (0, 1) : (1, 0);
 
@@ -144,8 +145,9 @@ contract ReClammRoundingTest is BaseReClammTest {
             maxPrice - minPrice.mulDown((_MIN_PRICE_RATIO - FixedPoint.ONE) / 2)
         );
 
-        (uint256[] memory balances, uint256[] memory virtualBalances, uint256 fourthRootPriceRatio) = mathMock
+        (uint256[] memory balances, uint256[] memory virtualBalances, uint256 priceRatio) = mathMock
             .computeTheoreticalPriceRatioAndBalances(minPrice, maxPrice, targetPrice);
+        uint256 fourthRootPriceRatio = ReClammMath.fourthRootScaled18(priceRatio);
 
         (uint256 tokenInIndex, uint256 tokenOutIndex) = isTokenAIn ? (0, 1) : (1, 0);
 
