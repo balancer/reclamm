@@ -258,7 +258,7 @@ library ReClammMath {
      * @return realBalancesScaled18 Array of theoretical initial token balances [tokenA, tokenB]
      * @return virtualBalanceAScaled18 The theoretical initial virtual balance of token A [virtualA]
      * @return virtualBalanceBScaled18 The theoretical initial virtual balance of token B [virtualB]
-     * @return priceRatio The maxPrice/minPrice ratio
+     * @return priceRatio The ratio of the max price to the min price
      */
     function computeTheoreticalPriceRatioAndBalances(
         uint256 minPriceScaled18,
