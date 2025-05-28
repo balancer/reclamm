@@ -604,7 +604,13 @@ contract ReClammMathTest is BaseReClammTest {
         balancesScaled18[b] = 1;
 
         (, bool isAboveCenter) = ReClammMath.computeCenteredness(balancesScaled18, virtualBalanceA, virtualBalanceB);
-        assertTrue(isAboveCenter, "Not above center with A = 0");
+        assertFalse(isAboveCenter, "Above center with A = 0");
+
+        balancesScaled18[a] = 0;
+        balancesScaled18[b] = 0;
+
+        (, isAboveCenter) = ReClammMath.computeCenteredness(balancesScaled18, virtualBalanceA, virtualBalanceB);
+        assertFalse(isAboveCenter, "Above center with A = 0 and B = 0");
 
         balancesScaled18[a] = 1;
         balancesScaled18[b] = 0;

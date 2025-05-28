@@ -549,7 +549,10 @@ library ReClammMath {
         uint256 virtualBalanceA,
         uint256 virtualBalanceB
     ) internal pure returns (uint256 poolCenteredness, bool isPoolAboveCenter) {
-        if (balancesScaled18[a] == 0 || balancesScaled18[b] == 0) {
+        if (balancesScaled18[a] == 0) {
+            // Also return false if both are 0 to be consistent with the logic below.
+            return (0, false);
+        } else if (balancesScaled18[b] == 0) {
             return (0, true);
         }
 
