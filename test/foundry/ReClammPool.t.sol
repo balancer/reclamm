@@ -197,7 +197,11 @@ contract ReClammPoolTest is BaseReClammTest {
         uint256 newPriceRatioUpdateEndTime = block.timestamp + 1 days;
 
         vm.prank(admin);
-        ReClammPool(pool).startPriceRatioUpdate(newPriceRatio, newPriceRatioUpdateStartTime, newPriceRatioUpdateEndTime);
+        ReClammPool(pool).startPriceRatioUpdate(
+            newPriceRatio,
+            newPriceRatioUpdateStartTime,
+            newPriceRatioUpdateEndTime
+        );
 
         priceRatioState = ReClammPool(pool).getPriceRatioState();
         assertEq(
@@ -411,11 +415,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         vm.expectRevert(abi.encodeWithSelector(IReClammPool.FourthRootPriceRatioDeltaBelowMin.selector, delta - 1));
         vm.prank(admin);
-        ReClammPool(pool).startPriceRatioUpdate(
-            endPriceRatio,
-            priceRatioUpdateStartTime,
-            priceRatioUpdateEndTime
-        );
+        ReClammPool(pool).startPriceRatioUpdate(endPriceRatio, priceRatioUpdateStartTime, priceRatioUpdateEndTime);
     }
 
     function testSetFourthRootPriceRatioTooFast() public {
