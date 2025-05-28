@@ -364,11 +364,7 @@ contract ReClammPoolTest is BaseReClammTest {
             _MIN_PRICE_RATIO_UPDATE_DURATION,
             "Invalid min price ratio update duration"
         );
-        assertEq(
-            data.minPriceRatioDelta,
-            _MIN_PRICE_RATIO_DELTA,
-            "Invalid min fourth root price ratio delta"
-        );
+        assertEq(data.minPriceRatioDelta, _MIN_PRICE_RATIO_DELTA, "Invalid min fourth root price ratio delta");
         assertEq(
             data.balanceRatioAndPriceTolerance,
             _BALANCE_RATIO_AND_PRICE_TOLERANCE,
