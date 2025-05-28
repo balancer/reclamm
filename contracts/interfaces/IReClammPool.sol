@@ -345,7 +345,7 @@ interface IReClammPool is IBasePool {
 
     /**
      * @notice Computes the current fourth root of price ratio.
-     * @dev The price ratio is the quotient between the max price and min price, according to current real and virtual
+     * @dev The price ratio is the ratio of the max price to the min price, according to current real and virtual
      * balances. This function returns its fourth root.
      *
      * @return currentFourthRootPriceRatio The current fourth root of price ratio
@@ -354,7 +354,7 @@ interface IReClammPool is IBasePool {
 
     /**
      * @notice Computes the current price ratio.
-     * @dev The price ratio is the quotient between the max price and min price, according to current real and virtual
+     * @dev The price ratio is the ratio of the max price to the min price, according to current real and virtual
      * balances.
      *
      * @return currentPriceRatio The current price ratio
