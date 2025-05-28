@@ -364,11 +364,7 @@ contract ReClammPoolTest is BaseReClammTest {
             _MIN_PRICE_RATIO_UPDATE_DURATION,
             "Invalid min price ratio update duration"
         );
-        assertEq(
-            data.minFourthRootPriceRatioDelta,
-            _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA,
-            "Invalid min fourth root price ratio delta"
-        );
+        assertEq(data.minPriceRatioDelta, _MIN_PRICE_RATIO_DELTA, "Invalid min fourth root price ratio delta");
         assertEq(
             data.balanceRatioAndPriceTolerance,
             _BALANCE_RATIO_AND_PRICE_TOLERANCE,
@@ -403,17 +399,14 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function testSetFourthRootPriceRatioSmallDelta() public {
-        uint256 delta = _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA - 1;
-        uint96 startFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
-        uint96 endFourthRootPriceRatio = startFourthRootPriceRatio + delta.toUint96();
+        uint256 delta = _MIN_PRICE_RATIO_DELTA - 1;
+        uint96 startPriceRatio = ReClammPool(pool).computeCurrentPriceRatio().toUint96();
+        uint96 endPriceRatio = startPriceRatio + delta.toUint96();
         uint32 priceRatioUpdateStartTime = uint32(block.timestamp);
         uint32 duration = 1 days;
         uint32 priceRatioUpdateEndTime = priceRatioUpdateStartTime + duration;
 
-        uint256 endPriceRatio = endFourthRootPriceRatio.mulDown(endFourthRootPriceRatio);
-        endPriceRatio = endPriceRatio.mulDown(endPriceRatio);
-
-        vm.expectRevert(abi.encodeWithSelector(IReClammPool.FourthRootPriceRatioDeltaBelowMin.selector, delta - 1));
+        vm.expectRevert(abi.encodeWithSelector(IReClammPool.PriceRatioDeltaBelowMin.selector, delta));
         vm.prank(admin);
         ReClammPool(pool).startPriceRatioUpdate(endPriceRatio, priceRatioUpdateStartTime, priceRatioUpdateEndTime);
     }
@@ -1166,11 +1159,13 @@ contract ReClammPoolTest is BaseReClammTest {
 
         ReClammPoolImmutableData memory data = ReClammPool(newPool).getReClammPoolImmutableData();
 
-        (, , , uint256 fourthRootPriceRatio) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
+        (, , , uint256 priceRatio) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
             data.initialMinPrice,
             data.initialMaxPrice,
             data.initialTargetPrice
         );
+
+        uint256 fourthRootPriceRatio = ReClammMath.fourthRootScaled18(priceRatio);
 
         uint128 dailyPriceShiftBase = ReClammMath
             .toDailyPriceShiftBase(data.initialDailyPriceShiftExponent)

@@ -82,13 +82,9 @@ contract ReClammMathMock {
         uint256 minPrice,
         uint256 maxPrice,
         uint256 targetPrice
-    )
-        external
-        pure
-        returns (uint256[] memory realBalances, uint256[] memory virtualBalances, uint256 fourthRootPriceRatio)
-    {
+    ) external pure returns (uint256[] memory realBalances, uint256[] memory virtualBalances, uint256 priceRatio) {
         virtualBalances = new uint256[](2);
-        (realBalances, virtualBalances[a], virtualBalances[b], fourthRootPriceRatio) = ReClammMath
+        (realBalances, virtualBalances[a], virtualBalances[b], priceRatio) = ReClammMath
             .computeTheoreticalPriceRatioAndBalances(minPrice, maxPrice, targetPrice);
     }
 
