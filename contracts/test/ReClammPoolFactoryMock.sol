@@ -11,9 +11,9 @@ import "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 import { BasePoolFactory } from "@balancer-labs/v3-pool-utils/contracts/BasePoolFactory.sol";
 import { Version } from "@balancer-labs/v3-solidity-utils/contracts/helpers/Version.sol";
 
-import { ReClammPoolMock } from "./ReClammPoolMock.sol";
-import { ReClammPoolParams } from "../interfaces/IReClammPool.sol";
 import { ReClammPoolFactoryLib, ReClammPriceParams } from "../lib/ReClammPoolFactoryLib.sol";
+import { ReClammPoolParams } from "../interfaces/IReClammPool.sol";
+import { ReClammPoolMock } from "./ReClammPoolMock.sol";
 
 /// @notice ReClammPool Mock factory.
 contract ReClammPoolFactoryMock is IPoolVersion, BasePoolFactory, Version {

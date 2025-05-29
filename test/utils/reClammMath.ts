@@ -19,7 +19,7 @@ export enum Rounding {
 export type BalancesAndPriceRatio = {
   realBalances: bigint[];
   virtualBalances: bigint[];
-  fourthRootPriceRatio: bigint;
+  priceRatio: bigint;
 };
 
 export type PriceRatioState = {
@@ -227,8 +227,8 @@ export function computeTheoreticalPriceRatioAndBalances(
   maxPrice: bigint,
   targetPrice: bigint
 ): BalancesAndPriceRatio {
-  const sqrtPriceRatio: bigint = bn(Math.sqrt(Number(fpDivDown(maxPrice, minPrice) * FP_ONE)));
-  const fourthRootPriceRatio: bigint = bn(Math.sqrt(Number(sqrtPriceRatio * FP_ONE)));
+  const priceRatio: bigint = fpDivDown(maxPrice, minPrice);
+  const sqrtPriceRatio: bigint = bn(Math.sqrt(Number(priceRatio * FP_ONE)));
 
   const virtualBalances: bigint[] = [];
   virtualBalances[0] = fpDivDown(_INITIALIZATION_MAX_BALANCE_A, sqrtPriceRatio - FP_ONE);
@@ -248,7 +248,7 @@ export function computeTheoreticalPriceRatioAndBalances(
     targetPrice
   );
 
-  return { realBalances, virtualBalances, fourthRootPriceRatio };
+  return { realBalances, virtualBalances, priceRatio };
 }
 
 export function isPoolWithinTargetRange(
