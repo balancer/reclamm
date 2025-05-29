@@ -294,12 +294,12 @@ contract ReClammLiquidityTest is BaseReClammTest {
         uint256 proportion = exactBptAmountIn.divUp(totalSupply);
         assertEq(
             virtualBalancesAfter[daiIdx],
-            virtualBalancesBefore[daiIdx].mulDown(FixedPoint.ONE - proportion),
+            virtualBalancesBefore[daiIdx].mulDown(totalSupply - exactBptAmountIn).divDown(totalSupply),
             "DAI virtual balances do not match"
         );
         assertEq(
             virtualBalancesAfter[usdcIdx],
-            virtualBalancesBefore[usdcIdx].mulDown(FixedPoint.ONE - proportion),
+            virtualBalancesBefore[usdcIdx].mulDown(totalSupply - exactBptAmountIn).divDown(totalSupply),
             "USDC virtual balances do not match"
         );
 
