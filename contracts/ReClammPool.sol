@@ -392,14 +392,13 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = _computeCurrentVirtualBalances(
             balancesScaled18
         );
+
+        uint256 bptDelta = poolTotalSupply - maxBptAmountIn;
+
         // When adding/removing liquidity, round down the virtual balances. This favors the vault in swap operations.
         // The virtual balances are not used in proportional add/remove calculations.
-        currentVirtualBalanceA = currentVirtualBalanceA.mulDown(poolTotalSupply - maxBptAmountIn).divDown(
-            poolTotalSupply
-        );
-        currentVirtualBalanceB = currentVirtualBalanceB.mulDown(poolTotalSupply - maxBptAmountIn).divDown(
-            poolTotalSupply
-        );
+        currentVirtualBalanceA = currentVirtualBalanceA.mulDown(bptDelta).divDown(poolTotalSupply);
+        currentVirtualBalanceB = currentVirtualBalanceB.mulDown(bptDelta).divDown(poolTotalSupply);
 
         _setLastVirtualBalances(currentVirtualBalanceA, currentVirtualBalanceB);
         _updateTimestamp();
