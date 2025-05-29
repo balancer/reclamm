@@ -601,9 +601,20 @@ library ReClammMath {
             priceRatioUpdateEndTime - priceRatioUpdateStartTime
         );
 
+        uint96 currentFourthRootPriceRatio = (
+            uint256(startFourthRootPriceRatio).mulDown(
+                (uint256(endFourthRootPriceRatio).divDown(uint256(startFourthRootPriceRatio))).powDown(exponent)
+            )
+        ).toUint96();
+
+        uint96 minimumFourthRootPriceRatio = startFourthRootPriceRatio < endFourthRootPriceRatio
+            ? startFourthRootPriceRatio
+            : endFourthRootPriceRatio;
+
         return
-            ((uint256(startFourthRootPriceRatio) * uint256(endFourthRootPriceRatio).powDown(exponent)) /
-                uint256(startFourthRootPriceRatio).powDown(exponent)).toUint96();
+            minimumFourthRootPriceRatio > currentFourthRootPriceRatio
+                ? minimumFourthRootPriceRatio
+                : currentFourthRootPriceRatio;
     }
 
     /**

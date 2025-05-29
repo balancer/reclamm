@@ -286,8 +286,6 @@ export function computeFourthRootPriceRatio(
     return bn(startFourthRootPriceRatio);
   } else if (currentTime >= priceRatioUpdateEndTime) {
     return bn(endFourthRootPriceRatio);
-  } else if (startFourthRootPriceRatio == endFourthRootPriceRatio) {
-    return bn(endFourthRootPriceRatio);
   }
 
   const exponent = fpDivDown(
@@ -295,10 +293,16 @@ export function computeFourthRootPriceRatio(
     priceRatioUpdateEndTime - priceRatioUpdateStartTime
   );
 
-  return (
-    (startFourthRootPriceRatio * powDown(endFourthRootPriceRatio, exponent)) /
-    powDown(startFourthRootPriceRatio, exponent)
+  const currentFourthRootPriceRatio = fpMulDown(
+    startFourthRootPriceRatio,
+    powDown(fpDivDown(endFourthRootPriceRatio, startFourthRootPriceRatio), exponent)
   );
+
+  const minimumFourthRootPriceRatio =
+    startFourthRootPriceRatio < endFourthRootPriceRatio ? startFourthRootPriceRatio : endFourthRootPriceRatio;
+  return minimumFourthRootPriceRatio > currentFourthRootPriceRatio
+    ? minimumFourthRootPriceRatio
+    : currentFourthRootPriceRatio;
 }
 
 export function isAboveCenter(balancesScaled18: bigint[], virtualBalances: bigint[]): boolean {
