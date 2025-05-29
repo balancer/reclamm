@@ -218,7 +218,7 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
 
         uint256[] memory balancesScaled18_ = balancesScaled18;
 
-        // Reduce 8% to avoid TokenBalanceTooLow.
+        // Reduce 1% to avoid AmountOutGreaterThanBalance.
         maxSwapAmountTokenA = _toAmountRaw(
             ReClammMath.computeInGivenOut(
                 balancesScaled18_,
@@ -230,11 +230,11 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
             ),
             testParams.rateTokenA,
             testParams.decimalsTokenA
-        ).mulDown(92e16);
+        ).mulDown(99e16);
 
-        // Reduce 8% to avoid TokenBalanceTooLow.
+        // Reduce 1% to avoid AmountOutGreaterThanBalance.
         maxSwapAmountTokenB = _toAmountRaw(balancesScaled18_[b], testParams.rateTokenB, testParams.decimalsTokenB)
-            .mulDown(92e16);
+            .mulDown(99e16);
     }
 
     function _toAmountRaw(uint256 amountScaled18, uint256 rate, uint256 decimals) internal pure returns (uint256) {

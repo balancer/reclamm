@@ -46,15 +46,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 private constant _MIN_SWAP_FEE_PERCENTAGE = 0.001e16; // 0.001%
     uint256 internal constant _MAX_SWAP_FEE_PERCENTAGE = 10e16; // 10%
 
-    // A pool is "centered" when it holds equal (non-zero) value in both real token balances. In this state, the ratio
-    // of the real balances equals the ratio of the virtual balances, and the value of the centeredness measure is
-    // FixedPoint.ONE.
-    //
-    // As the real balance of either token approaches zero, the centeredness measure likewise approaches zero. Since
-    // centeredness is the divisor in many calculations, zero values would revert, and even near-zero values are
-    // problematic.
-    uint256 internal constant _MIN_TOKEN_BALANCE_SCALED18 = 1e12;
-
     // The daily price shift exponent is a percentage that defines the speed at which the virtual balances will change
     // over the course of one day. A value of 100% (i.e, FP 1) means that the min and max prices will double (or halve)
     // every day, until the pool price is within the range defined by the margin. This constant defines the maximum
@@ -225,14 +216,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                 request.indexOut,
                 request.amountGivenScaled18
             );
-
-            _ensureValidPoolStateAfterSwap(
-                request.balancesScaled18,
-                request.amountGivenScaled18,
-                amountCalculatedScaled18,
-                request.indexIn,
-                request.indexOut
-            );
         } else {
             amountCalculatedScaled18 = ReClammMath.computeInGivenOut(
                 request.balancesScaled18,
@@ -241,14 +224,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                 request.indexIn,
                 request.indexOut,
                 request.amountGivenScaled18
-            );
-
-            _ensureValidPoolStateAfterSwap(
-                request.balancesScaled18,
-                amountCalculatedScaled18,
-                request.amountGivenScaled18,
-                request.indexIn,
-                request.indexOut
             );
         }
     }
@@ -413,26 +388,20 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         // after removing liquidity. This is needed to keep the pool centeredness and price ratio constant.
 
         uint256 poolTotalSupply = _vault.totalSupply(pool);
-        // Rounding proportion up, which will round the virtual balances down.
-        uint256 proportion = maxBptAmountIn.divUp(poolTotalSupply);
 
         (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = _computeCurrentVirtualBalances(
             balancesScaled18
         );
+
+        uint256 bptDelta = poolTotalSupply - maxBptAmountIn;
+
         // When adding/removing liquidity, round down the virtual balances. This favors the vault in swap operations.
         // The virtual balances are not used in proportional add/remove calculations.
-        currentVirtualBalanceA = currentVirtualBalanceA.mulDown(FixedPoint.ONE - proportion);
-        currentVirtualBalanceB = currentVirtualBalanceB.mulDown(FixedPoint.ONE - proportion);
+        currentVirtualBalanceA = currentVirtualBalanceA.mulDown(bptDelta).divDown(poolTotalSupply);
+        currentVirtualBalanceB = currentVirtualBalanceB.mulDown(bptDelta).divDown(poolTotalSupply);
+
         _setLastVirtualBalances(currentVirtualBalanceA, currentVirtualBalanceB);
         _updateTimestamp();
-
-        if (
-            balancesScaled18[a].mulDown(proportion.complement()) < _MIN_TOKEN_BALANCE_SCALED18 ||
-            balancesScaled18[b].mulDown(proportion.complement()) < _MIN_TOKEN_BALANCE_SCALED18
-        ) {
-            // If a token balance fell below the minimum balance, the price ratio update would lose precision.
-            revert TokenBalanceTooLow();
-        }
 
         return true;
     }
@@ -647,7 +616,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.initialCenterednessMargin = _INITIAL_CENTEREDNESS_MARGIN;
 
         // Operating Limits
-        data.minTokenBalanceScaled18 = _MIN_TOKEN_BALANCE_SCALED18;
         data.maxDailyPriceShiftExponent = _MAX_DAILY_PRICE_SHIFT_EXPONENT;
         data.maxDailyPriceRatioUpdateRate = _MAX_DAILY_PRICE_RATIO_UPDATE_RATE;
         data.minPriceRatioUpdateDuration = _MIN_PRICE_RATIO_UPDATE_DURATION;
@@ -910,36 +878,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         emit LastTimestampUpdated(lastTimestamp32);
 
         _vault.emitAuxiliaryEvent("LastTimestampUpdated", abi.encode(lastTimestamp32));
-    }
-
-    /**
-     * @notice Ensures the pool state is valid after a swap.
-     * @dev This function ensures that the balance of each token is greater than the minimum balance after a swap.
-     *
-     * @param currentBalancesScaled18 The current balances of the pool, sorted in token registration order
-     * @param amountInScaled18 Amount of tokenIn (entering the Vault)
-     * @param amountOutScaled18 Amount of tokenOut (leaving the Vault)
-     * @param indexIn The zero-based index of tokenIn
-     * @param indexOut The zero-based index of tokenOut
-     */
-    function _ensureValidPoolStateAfterSwap(
-        uint256[] memory currentBalancesScaled18,
-        uint256 amountInScaled18,
-        uint256 amountOutScaled18,
-        uint256 indexIn,
-        uint256 indexOut
-    ) internal pure {
-        currentBalancesScaled18[indexIn] += amountInScaled18;
-        // The swap functions `computeOutGivenIn` and `computeInGivenOut` ensure that the amountOutScaled18 is
-        // never greater than the balance of the token being swapped out. Therefore, the math below will never
-        // underflow. Nevertheless, since these considerations involve code outside this function, it is safest
-        // to still use checked math here.
-        currentBalancesScaled18[indexOut] -= amountOutScaled18;
-
-        if (currentBalancesScaled18[indexOut] < _MIN_TOKEN_BALANCE_SCALED18) {
-            // If one of the token balances is below the minimum, the price ratio update is unreliable.
-            revert TokenBalanceTooLow();
-        }
     }
 
     /**

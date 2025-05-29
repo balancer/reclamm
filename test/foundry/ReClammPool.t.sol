@@ -48,8 +48,6 @@ contract ReClammPoolTest is BaseReClammTest {
     uint256 private constant _MIN_SWAP_FEE_PERCENTAGE = 0.001e16; // 0.001%
     uint256 private constant _MAX_SWAP_FEE_PERCENTAGE = 10e16; // 10%
 
-    uint256 private constant _MIN_TOKEN_BALANCE_SCALED18 = 1e12;
-
     uint256 private constant _MIN_PRICE_RATIO_UPDATE_DURATION = 1 days;
     uint256 private constant _BALANCE_RATIO_AND_PRICE_TOLERANCE = 0.01e16; // 0.01%
 
@@ -344,7 +342,6 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(data.initialCenterednessMargin, _DEFAULT_CENTEREDNESS_MARGIN, "Invalid initial centeredness margin");
 
         // Check operating limit parameters.
-        assertEq(data.minTokenBalanceScaled18, _MIN_TOKEN_BALANCE, "Invalid min token balance");
         assertEq(
             data.maxDailyPriceShiftExponent,
             _MAX_DAILY_PRICE_SHIFT_EXPONENT,
@@ -796,7 +793,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
     function testSetDailyPriceShiftExponentUpdatingVirtualBalance() public {
         // Move the pool to the edge of the price interval, so the virtual balances will change over time.
-        _setPoolBalances(_MIN_TOKEN_BALANCE, 100e18);
+        _setPoolBalances(0, 100e18);
         ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
 
         vm.warp(block.timestamp + 6 hours);
@@ -896,7 +893,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
     function testOutOfRangeBeforeSetCenterednessMargin() public {
         // Move the pool to the edge of the price interval, so it's out of range.
-        _setPoolBalances(_MIN_TOKEN_BALANCE, 100e18);
+        _setPoolBalances(0, 100e18);
         ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
 
         vm.warp(block.timestamp + 6 hours);
@@ -1365,7 +1362,7 @@ contract ReClammPoolTest is BaseReClammTest {
             pool,
             tokens[b],
             tokens[a],
-            balances[a] - _MIN_TOKEN_BALANCE,
+            balances[a],
             MAX_UINT256,
             MAX_UINT256,
             false,
@@ -1407,7 +1404,7 @@ contract ReClammPoolTest is BaseReClammTest {
             pool,
             tokens[a],
             tokens[b],
-            balances[b] - _MIN_TOKEN_BALANCE,
+            balances[b],
             MAX_UINT256,
             MAX_UINT256,
             false,
