@@ -9,7 +9,6 @@ import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
-import { LogExpMath } from "@balancer-labs/v3-solidity-utils/contracts/math/LogExpMath.sol";
 
 struct PriceRatioState {
     uint96 startFourthRootPriceRatio;
@@ -500,7 +499,7 @@ library ReClammMath {
         // Vb = Vb * (1 - tau)^(T_curr - T_last)
         // Vb = Vb * (dailyPriceShiftBase)^(T_curr - T_last)
         virtualBalanceOvervalued = virtualBalanceOvervalued.mulDown(
-            LogExpMath.pow(dailyPriceShiftBase, (currentTimestamp - lastTimestamp) * FixedPoint.ONE)
+            dailyPriceShiftBase.powDown((currentTimestamp - lastTimestamp) * FixedPoint.ONE)
         );
         // Va = (Ra * (Vb + Rb)) / (((priceRatio - 1) * Vb) - Rb)
         virtualBalanceUndervalued =
@@ -602,9 +601,13 @@ library ReClammMath {
             priceRatioUpdateEndTime - priceRatioUpdateStartTime
         );
 
-        return
-            ((uint256(startFourthRootPriceRatio) * LogExpMath.pow(endFourthRootPriceRatio, exponent)) /
-                LogExpMath.pow(startFourthRootPriceRatio, exponent)).toUint96();
+        uint256 currentFourthRootPriceRatio = uint256(startFourthRootPriceRatio).mulDown(
+            (uint256(endFourthRootPriceRatio).divDown(uint256(startFourthRootPriceRatio))).powDown(exponent)
+        );
+
+        // Since we're rounding current fourth root price ratio down, we only need to check the lower boundary.
+        uint256 minimumFourthRootPriceRatio = Math.min(startFourthRootPriceRatio, endFourthRootPriceRatio);
+        return Math.max(minimumFourthRootPriceRatio, currentFourthRootPriceRatio).toUint96();
     }
 
     /**

@@ -76,18 +76,17 @@ export function computeCurrentVirtualBalances(
   if (isPoolWithinTargetRange(balancesScaled18, virtualBalances, centerednessMargin) == false) {
     const sqrtPriceRatio = bn(Math.sqrt(Number(computeCurrentPriceRatio(balancesScaled18, virtualBalances) * FP_ONE)));
 
-    const base = fromFp(dailyPriceShiftBase);
-    const exponent = fromFp(fp(currentTimestamp - lastTimestamp));
-    const powResult = base.pow(exponent);
+    const exponent = fp(currentTimestamp - lastTimestamp);
+    const powResult = powDown(dailyPriceShiftBase, exponent);
 
     if (isPoolAboveCenter) {
-      virtualBalances[1] = fpMulDown(virtualBalances[1], fp(powResult));
+      virtualBalances[1] = fpMulDown(virtualBalances[1], powResult);
       virtualBalances[0] = fpDivDown(
         fpMulDown(balancesScaled18[0], virtualBalances[1] + balancesScaled18[1]),
         fpMulDown(sqrtPriceRatio - FP_ONE, virtualBalances[1]) - balancesScaled18[1]
       );
     } else {
-      virtualBalances[0] = fpMulDown(virtualBalances[0], fp(powResult));
+      virtualBalances[0] = fpMulDown(virtualBalances[0], powResult);
       virtualBalances[1] = fpDivDown(
         fpMulDown(balancesScaled18[1], virtualBalances[0] + balancesScaled18[0]),
         fpMulDown(sqrtPriceRatio - FP_ONE, virtualBalances[0]) - balancesScaled18[0]
@@ -278,8 +277,8 @@ export function computeCenteredness(balancesScaled18: bigint[], virtualBalances:
 
 export function computeFourthRootPriceRatio(
   currentTime: number,
-  startFourthRootPriceRatio: BigNumberish,
-  endFourthRootPriceRatio: BigNumberish,
+  startFourthRootPriceRatio: bigint,
+  endFourthRootPriceRatio: bigint,
   priceRatioUpdateStartTime: number,
   priceRatioUpdateEndTime: number
 ): bigint {
@@ -287,18 +286,23 @@ export function computeFourthRootPriceRatio(
     return bn(startFourthRootPriceRatio);
   } else if (currentTime >= priceRatioUpdateEndTime) {
     return bn(endFourthRootPriceRatio);
-  } else if (startFourthRootPriceRatio == endFourthRootPriceRatio) {
-    return bn(endFourthRootPriceRatio);
   }
 
-  const exponent = fromFp(
-    fpDivDown(currentTime - priceRatioUpdateStartTime, priceRatioUpdateEndTime - priceRatioUpdateStartTime)
+  const exponent = fpDivDown(
+    currentTime - priceRatioUpdateStartTime,
+    priceRatioUpdateEndTime - priceRatioUpdateStartTime
   );
 
-  return fpDivDown(
-    fpMulDown(startFourthRootPriceRatio, fp(fromFp(endFourthRootPriceRatio).pow(exponent))),
-    fp(fromFp(startFourthRootPriceRatio).pow(exponent))
+  const currentFourthRootPriceRatio = fpMulDown(
+    startFourthRootPriceRatio,
+    powDown(fpDivDown(endFourthRootPriceRatio, startFourthRootPriceRatio), exponent)
   );
+
+  const minimumFourthRootPriceRatio =
+    startFourthRootPriceRatio < endFourthRootPriceRatio ? startFourthRootPriceRatio : endFourthRootPriceRatio;
+  return minimumFourthRootPriceRatio > currentFourthRootPriceRatio
+    ? minimumFourthRootPriceRatio
+    : currentFourthRootPriceRatio;
 }
 
 export function isAboveCenter(balancesScaled18: bigint[], virtualBalances: bigint[]): boolean {
@@ -314,7 +318,7 @@ export function toDailyPriceShiftBase(dailyPriceShiftExponent: bigint): bigint {
 }
 
 export function pow4(value: bigint): bigint {
-  return fpMulDown(fpMulDown(value, value), fpMulDown(value, value));
+  return powDown(value, fp(4));
 }
 
 export function fourthRoot(value: bigint): bigint {
@@ -341,4 +345,26 @@ export function computePriceRatio(
 ): bigint {
   const [minPrice, maxPrice] = computePriceRange(balancesScaled18, virtualBalanceA, virtualBalanceB);
   return fpDivUp(maxPrice, minPrice);
+}
+
+function powDown(x: bigint, y: bigint): bigint {
+  const MAX_POW_RELATIVE_ERROR = 10000n;
+  // Optimize for when y equals 1.0, 2.0 or 4.0, as those are very simple to implement.
+  if (y == fp(1)) {
+    return x;
+  } else if (y == fp(2)) {
+    return fpMulDown(x, x);
+  } else if (y == fp(4)) {
+    const square = fpMulDown(x, x);
+    return fpMulDown(square, square);
+  } else {
+    const raw = fp(fromFp(x).pow(fromFp(y)));
+    const maxError = fpMulUp(raw, MAX_POW_RELATIVE_ERROR) + 1n;
+
+    if (raw < maxError) {
+      return fp(0);
+    } else {
+      return raw - maxError;
+    }
+  }
 }
