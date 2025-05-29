@@ -597,6 +597,23 @@ library ReClammMath {
             return startFourthRootPriceRatio;
         }
 
+        // +-------------------------------------------------+
+        // |                       /  Tc - Ts  \             |
+        // |                       (  -------  )             |
+        // |                       \  Te - Ts  /             |
+        // |                ( Pe )^                          |
+        // |      Pc = Ps * (----)                           |
+        // |                ( Ps )                           |
+        // +-------------------------------------------------+
+        // |  Where:                                         |
+        // |    Pc = Current fourth root price ratio         |
+        // |    Ps = Starting fourth root price ratio        |
+        // |    Pe = Ending fourth root price ratio          |
+        // |    Tc = Current time                            |
+        // |    Ts = Start time                              |
+        // |    Te = End time                                |
+        // +-------------------------------------------------+
+
         uint256 exponent = uint256(currentTime - priceRatioUpdateStartTime).divDown(
             priceRatioUpdateEndTime - priceRatioUpdateStartTime
         );
