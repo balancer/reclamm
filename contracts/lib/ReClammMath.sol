@@ -601,21 +601,13 @@ library ReClammMath {
             priceRatioUpdateEndTime - priceRatioUpdateStartTime
         );
 
-        uint96 currentFourthRootPriceRatio = (
-            uint256(startFourthRootPriceRatio).mulDown(
-                (uint256(endFourthRootPriceRatio).divDown(uint256(startFourthRootPriceRatio))).powDown(exponent)
-            )
-        ).toUint96();
+        uint256 currentFourthRootPriceRatio = uint256(startFourthRootPriceRatio).mulDown(
+            (uint256(endFourthRootPriceRatio).divDown(uint256(startFourthRootPriceRatio))).powDown(exponent)
+        );
 
         // Since we're rounding current fourth root price ratio down, we only need to check the lower boundary.
-        uint96 minimumFourthRootPriceRatio = startFourthRootPriceRatio < endFourthRootPriceRatio
-            ? startFourthRootPriceRatio
-            : endFourthRootPriceRatio;
-
-        return
-            minimumFourthRootPriceRatio > currentFourthRootPriceRatio
-                ? minimumFourthRootPriceRatio
-                : currentFourthRootPriceRatio;
+        uint256 minimumFourthRootPriceRatio = Math.min(startFourthRootPriceRatio, endFourthRootPriceRatio);
+        return Math.max(minimumFourthRootPriceRatio, currentFourthRootPriceRatio).toUint96();
     }
 
     /**
