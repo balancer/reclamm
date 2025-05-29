@@ -303,16 +303,12 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
 
         assertLt(invariantAfter, invariantBefore, "Invariant should decrease");
 
-        assertEq(
-            balancesAfter[daiIdx],
-            balancesBefore[daiIdx].mulUp(currentTotalSupply - exactBptAmountIn).divUp(currentTotalSupply),
-            "DAI balances do not match"
-        );
-        assertEq(
-            balancesAfter[usdcIdx],
-            balancesBefore[usdcIdx].mulUp(currentTotalSupply - exactBptAmountIn).divUp(currentTotalSupply),
-            "USDC balances do not match"
-        );
+        uint256[] memory amountsOut = new uint256[](2);
+        amountsOut[daiIdx] = (balancesBefore[daiIdx] * exactBptAmountIn) / currentTotalSupply;
+        amountsOut[usdcIdx] = (balancesBefore[usdcIdx] * exactBptAmountIn) / currentTotalSupply;
+
+        assertEq(balancesAfter[daiIdx], balancesBefore[daiIdx] - amountsOut[daiIdx], "DAI balances do not match");
+        assertEq(balancesAfter[usdcIdx], balancesBefore[usdcIdx] - amountsOut[usdcIdx], "USDC balances do not match");
 
         assertEq(
             lastVirtualBalances[daiIdx],
