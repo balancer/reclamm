@@ -5,7 +5,7 @@ import { sharedBeforeEach } from '@balancer-labs/v3-common/sharedBeforeEach';
 import { Router } from '@balancer-labs/v3-vault/typechain-types/contracts/Router';
 import { ERC20TestToken } from '@balancer-labs/v3-solidity-utils/typechain-types/contracts/test/ERC20TestToken';
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/dist/src/signer-with-address';
-import { FP_ONE, FP_ZERO, bn, fp, fpDivDown, fpMulDown } from '@balancer-labs/v3-helpers/src/numbers';
+import { FP_ZERO, bn, fp, fpDivDown, fpMulDown } from '@balancer-labs/v3-helpers/src/numbers';
 import {
   MAX_UINT256,
   MAX_UINT160,
@@ -32,6 +32,7 @@ import {
   pureComputeInvariant,
   toDailyPriceShiftBase,
   fourthRoot,
+  pow4
 } from './utils/reClammMath';
 import { expectEqualWithError } from './utils/relativeError';
 
@@ -380,7 +381,7 @@ describe('ReClammPool', function () {
       const updateStartTimestamp = (await currentTimestamp()) + 1n;
       const updateEndTimestamp = updateStartTimestamp + 1n * BigInt(DAY) + 1n;
       const endFourthRootPriceRatio = fpDivDown(initialFourthRootPriceRatio, fp(1.1));
-      await pool.connect(bob).startPriceRatioUpdate(endFourthRootPriceRatio, updateStartTimestamp, updateEndTimestamp);
+      await pool.connect(bob).startPriceRatioUpdate(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
 
       // Virtual balances were updated, but prices should not move yet.
       const { minPrice: minPriceAfterStartPriceRatioUpdate } = await checkPoolPrices(
@@ -535,7 +536,7 @@ describe('ReClammPool', function () {
       const updateStartTimestamp = (await currentTimestamp()) + 1n;
       const updateEndTimestamp = updateStartTimestamp + 1n * BigInt(DAY) + 1n;
       const endFourthRootPriceRatio = fpDivDown(initialFourthRootPriceRatio, fp(1.1));
-      await pool.connect(bob).startPriceRatioUpdate(endFourthRootPriceRatio, updateStartTimestamp, updateEndTimestamp);
+      await pool.connect(bob).startPriceRatioUpdate(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
 
       // Virtual balances were updated, but prices should not move yet.
       const { minPrice: minPriceAfterStartPriceRatioUpdate } =
@@ -694,7 +695,7 @@ describe('ReClammPool', function () {
       const updateStartTimestamp = (await currentTimestamp()) + 1n;
       const updateEndTimestamp = updateStartTimestamp + 1n * BigInt(DAY) + 1n;
       const endFourthRootPriceRatio = fpMulDown(initialFourthRootPriceRatio, fp(1.1));
-      await pool.connect(bob).startPriceRatioUpdate(endFourthRootPriceRatio, updateStartTimestamp, updateEndTimestamp);
+      await pool.connect(bob).startPriceRatioUpdate(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
 
       // Virtual balances were updated, but prices should not move yet.
       const { minPrice: minPriceAfterStartPriceRatioUpdate} = await checkPoolPrices(
@@ -848,7 +849,7 @@ describe('ReClammPool', function () {
       const updateStartTimestamp = (await currentTimestamp()) + 1n;
       const updateEndTimestamp = updateStartTimestamp + 1n * BigInt(DAY) + 1n;
       const endFourthRootPriceRatio = fpMulDown(initialFourthRootPriceRatio, fp(1.1));
-      await pool.connect(bob).startPriceRatioUpdate(endFourthRootPriceRatio, updateStartTimestamp, updateEndTimestamp);
+      await pool.connect(bob).startPriceRatioUpdate(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
 
       // Virtual balances were updated, but prices should not move yet.
       const { minPrice: minPriceAfterStartPriceRatioUpdate } =

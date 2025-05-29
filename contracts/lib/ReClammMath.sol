@@ -258,7 +258,7 @@ library ReClammMath {
      * @return realBalancesScaled18 Array of theoretical initial token balances [tokenA, tokenB]
      * @return virtualBalanceAScaled18 The theoretical initial virtual balance of token A [virtualA]
      * @return virtualBalanceBScaled18 The theoretical initial virtual balance of token B [virtualB]
-     * @return fourthRootPriceRatio The fourth root of maxPrice/minPrice ratio
+     * @return priceRatio The ratio of the max price to the min price
      */
     function computeTheoreticalPriceRatioAndBalances(
         uint256 minPriceScaled18,
@@ -271,14 +271,14 @@ library ReClammMath {
             uint256[] memory realBalancesScaled18,
             uint256 virtualBalanceAScaled18,
             uint256 virtualBalanceBScaled18,
-            uint256 fourthRootPriceRatio
+            uint256 priceRatio
         )
     {
+        priceRatio = maxPriceScaled18.divDown(minPriceScaled18);
         // In the formulas below, Ra_max is a random number that defines the maximum real balance of token A, and
         // consequently a random initial liquidity. We will scale all balances according to the actual amount of
         // liquidity provided during initialization.
-        uint256 sqrtPriceRatio = sqrtScaled18(maxPriceScaled18.divDown(minPriceScaled18));
-        fourthRootPriceRatio = sqrtScaled18(sqrtPriceRatio);
+        uint256 sqrtPriceRatio = sqrtScaled18(priceRatio);
 
         // Va = Ra_max / (sqrtPriceRatio - 1)
         virtualBalanceAScaled18 = _INITIALIZATION_MAX_BALANCE_A.divDown(sqrtPriceRatio - FixedPoint.ONE);
@@ -691,6 +691,15 @@ library ReClammMath {
      */
     function sqrtScaled18(uint256 valueScaled18) internal pure returns (uint256) {
         return Math.sqrt(valueScaled18 * FixedPoint.ONE);
+    }
+
+    /**
+     * @notice Calculate the fourth root of a value scaled by 18 decimals.
+     * @param valueScaled18 The value to calculate the fourth root of, scaled by 18 decimals
+     * @return fourthRootValueScaled18 The fourth root of the value scaled by 18 decimals
+     */
+    function fourthRootScaled18(uint256 valueScaled18) internal pure returns (uint256) {
+        return Math.sqrt(Math.sqrt(valueScaled18 * FixedPoint.ONE) * FixedPoint.ONE);
     }
 
     /**

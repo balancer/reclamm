@@ -18,9 +18,9 @@ import "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { BasePoolAuthentication } from "@balancer-labs/v3-pool-utils/contracts/BasePoolAuthentication.sol";
 import { GradualValueChange } from "@balancer-labs/v3-pool-weighted/contracts/lib/GradualValueChange.sol";
+import { ScalingHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/ScalingHelpers.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { BalancerPoolToken } from "@balancer-labs/v3-vault/contracts/BalancerPoolToken.sol";
-import { ScalingHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/ScalingHelpers.sol";
 import { Version } from "@balancer-labs/v3-solidity-utils/contracts/helpers/Version.sol";
 import { PoolInfo } from "@balancer-labs/v3-pool-utils/contracts/PoolInfo.sol";
 import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
@@ -70,7 +70,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 internal immutable _MAX_DAILY_PRICE_RATIO_UPDATE_RATE;
 
     // There is also a minimum delta, to keep the math well-behaved.
-    uint256 internal constant _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA = 1e3;
+    uint256 internal constant _MIN_PRICE_RATIO_DELTA = 1e6;
 
     uint256 internal constant _MAX_TOKEN_DECIMALS = 18;
     // This represents the maximum deviation from the ideal state (i.e., at target price and near centered) after
@@ -318,7 +318,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256[] theoreticalBalances;
         uint256 theoreticalVirtualBalanceA;
         uint256 theoreticalVirtualBalanceB;
-        uint256 fourthRootPriceRatio;
+        uint256 priceRatio;
     }
 
     /// @inheritdoc IHooks
@@ -339,7 +339,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             locals.theoreticalBalances,
             locals.theoreticalVirtualBalanceA,
             locals.theoreticalVirtualBalanceB,
-            locals.fourthRootPriceRatio
+            locals.priceRatio
         ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
             locals.minPriceScaled18,
             locals.maxPriceScaled18,
@@ -363,7 +363,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         );
 
         _setLastVirtualBalances(virtualBalanceA, virtualBalanceB);
-        _startPriceRatioUpdate(locals.fourthRootPriceRatio, block.timestamp, block.timestamp);
+        _startPriceRatioUpdate(locals.priceRatio, block.timestamp, block.timestamp);
         // Set dynamic parameters.
         _setDailyPriceShiftExponent(_INITIAL_DAILY_PRICE_SHIFT_EXPONENT);
         _setCenterednessMargin(_INITIAL_CENTEREDNESS_MARGIN);
@@ -564,7 +564,12 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IReClammPool
     function computeCurrentFourthRootPriceRatio() external view returns (uint256) {
-        return _computeCurrentFourthRootPriceRatio();
+        return ReClammMath.fourthRootScaled18(_computeCurrentPriceRatio());
+    }
+
+    /// @inheritdoc IReClammPool
+    function computeCurrentPriceRatio() external view returns (uint256) {
+        return _computeCurrentPriceRatio();
     }
 
     /// @inheritdoc IReClammPool
@@ -613,7 +618,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.dailyPriceShiftExponent = data.dailyPriceShiftBase.toDailyPriceShiftExponent();
         data.centerednessMargin = _centerednessMargin;
 
-        data.currentFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio();
+        data.currentFourthRootPriceRatio = ReClammMath.fourthRootScaled18(_computeCurrentPriceRatio());
 
         PriceRatioState memory state = _priceRatioState;
         data.startFourthRootPriceRatio = state.startFourthRootPriceRatio;
@@ -650,7 +655,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.maxDailyPriceShiftExponent = _MAX_DAILY_PRICE_SHIFT_EXPONENT;
         data.maxDailyPriceRatioUpdateRate = _MAX_DAILY_PRICE_RATIO_UPDATE_RATE;
         data.minPriceRatioUpdateDuration = _MIN_PRICE_RATIO_UPDATE_DURATION;
-        data.minFourthRootPriceRatioDelta = _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA;
+        data.minPriceRatioDelta = _MIN_PRICE_RATIO_DELTA;
         data.balanceRatioAndPriceTolerance = _BALANCE_RATIO_AND_PRICE_TOLERANCE;
     }
 
@@ -660,7 +665,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IReClammPool
     function startPriceRatioUpdate(
-        uint256 endFourthRootPriceRatio,
+        uint256 endPriceRatio,
         uint256 priceRatioUpdateStartTime,
         uint256 priceRatioUpdateEndTime
     )
@@ -682,19 +687,18 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         }
 
         _updateVirtualBalances();
-        (uint256 fourthRootPriceRatioDelta, uint256 startFourthRootPriceRatio) = _startPriceRatioUpdate(
-            endFourthRootPriceRatio,
+
+        uint256 startPriceRatio = _startPriceRatioUpdate(
+            endPriceRatio,
             actualPriceRatioUpdateStartTime,
             priceRatioUpdateEndTime
         );
 
-        if (fourthRootPriceRatioDelta < _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA) {
-            revert FourthRootPriceRatioDeltaBelowMin(fourthRootPriceRatioDelta);
-        }
+        uint256 priceRatioDelta = SignedMath.abs(endPriceRatio.toInt256() - startPriceRatio.toInt256());
 
-        // Now check that the rate of change is not too fast. First recover the actual ratios from the roots.
-        uint256 startPriceRatio = ReClammMath.pow4(startFourthRootPriceRatio);
-        uint256 endPriceRatio = ReClammMath.pow4(endFourthRootPriceRatio);
+        if (priceRatioDelta < _MIN_PRICE_RATIO_DELTA) {
+            revert PriceRatioDeltaBelowMin(priceRatioDelta);
+        }
 
         // Compute the rate of change, as a multiple of the present value per day. For example, if the initial price
         // range was 1,000 - 4,000, with a target price of 2,000, the raw ratio would be 4 (`startPriceRatio` ~ 1.414).
@@ -723,9 +727,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             revert PriceRatioNotUpdating();
         }
 
-        uint256 currentFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio();
+        uint256 currentPriceRatio = _computeCurrentPriceRatio();
 
-        _startPriceRatioUpdate(currentFourthRootPriceRatio, block.timestamp, block.timestamp);
+        _startPriceRatioUpdate(currentPriceRatio, block.timestamp, block.timestamp);
     }
 
     /// @inheritdoc IReClammPool
@@ -783,25 +787,25 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     function _startPriceRatioUpdate(
-        uint256 endFourthRootPriceRatio,
+        uint256 endPriceRatio,
         uint256 priceRatioUpdateStartTime,
         uint256 priceRatioUpdateEndTime
-    ) internal returns (uint256 fourthRootPriceRatioDelta, uint256 startFourthRootPriceRatio) {
+    ) internal returns (uint256 startPriceRatio) {
         if (priceRatioUpdateStartTime > priceRatioUpdateEndTime || priceRatioUpdateStartTime < block.timestamp) {
             revert InvalidStartTime();
         }
 
         PriceRatioState memory priceRatioState = _priceRatioState;
 
-        startFourthRootPriceRatio = priceRatioState.endFourthRootPriceRatio;
-
+        uint256 startFourthRootPriceRatio;
         if (_vault.isPoolInitialized(address(this))) {
-            startFourthRootPriceRatio = _computeCurrentFourthRootPriceRatio();
+            startPriceRatio = _computeCurrentPriceRatio();
+            startFourthRootPriceRatio = ReClammMath.fourthRootScaled18(startPriceRatio);
+        } else {
+            startFourthRootPriceRatio = priceRatioState.endFourthRootPriceRatio;
+            startPriceRatio = endPriceRatio;
         }
-
-        fourthRootPriceRatioDelta = SignedMath.abs(
-            startFourthRootPriceRatio.toInt256() - endFourthRootPriceRatio.toInt256()
-        );
+        uint256 endFourthRootPriceRatio = ReClammMath.fourthRootScaled18(endPriceRatio);
 
         priceRatioState.startFourthRootPriceRatio = startFourthRootPriceRatio.toUint96();
         priceRatioState.endFourthRootPriceRatio = endFourthRootPriceRatio.toUint96();
@@ -950,16 +954,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
      *
      * @return The fourth root of the current price ratio, maintaining precision through fixed-point arithmetic
      */
-    function _computeCurrentFourthRootPriceRatio() internal view returns (uint256) {
+    function _computeCurrentPriceRatio() internal view returns (uint256) {
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
         (uint256 virtualBalanceA, uint256 virtualBalanceB, ) = _computeCurrentVirtualBalances(balancesScaled18);
 
-        return
-            ReClammMath.sqrtScaled18(
-                ReClammMath.sqrtScaled18(
-                    ReClammMath.computePriceRatio(balancesScaled18, virtualBalanceA, virtualBalanceB)
-                )
-            );
+        return ReClammMath.computePriceRatio(balancesScaled18, virtualBalanceA, virtualBalanceB);
     }
 
     /// @dev This function relies on the pool balance, which can be manipulated if the vault is unlocked.

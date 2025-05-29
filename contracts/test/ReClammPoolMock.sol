@@ -7,9 +7,9 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
 
-import { ReClammPool } from "../ReClammPool.sol";
-import { ReClammMath, a } from "../lib/ReClammMath.sol";
 import { ReClammPoolParams } from "../interfaces/IReClammPool.sol";
+import { ReClammMath, a } from "../lib/ReClammMath.sol";
+import { ReClammPool } from "../ReClammPool.sol";
 
 contract ReClammPoolMock is ReClammPool {
     using SafeCast for uint256;
@@ -32,7 +32,7 @@ contract ReClammPoolMock is ReClammPool {
             uint256[] memory theoreticalBalances,
             uint256 theoreticalVirtualBalanceA,
             uint256 theoreticalVirtualBalanceB,
-            uint256 fourthRootPriceRatio
+            uint256 priceRatio
         ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(minPrice, maxPrice, targetPrice);
 
         _checkInitializationBalanceRatio(balancesScaled18, theoreticalBalances);
@@ -43,7 +43,7 @@ contract ReClammPoolMock is ReClammPool {
         virtualBalanceB = theoreticalVirtualBalanceB.mulDown(scale);
 
         _setLastVirtualBalances(virtualBalanceA, virtualBalanceB);
-        _startPriceRatioUpdate(fourthRootPriceRatio, block.timestamp, block.timestamp);
+        _startPriceRatioUpdate(priceRatio, block.timestamp, block.timestamp);
 
         _dailyPriceShiftBase = initialPriceShiftDailyRate;
         _setCenterednessMargin(centerednessMargin);
@@ -74,10 +74,10 @@ contract ReClammPoolMock is ReClammPool {
     }
 
     function manualStartPriceRatioUpdate(
-        uint256 endFourthRootPriceRatio,
+        uint256 endPriceRatio,
         uint256 priceRatioUpdateStartTime,
         uint256 priceRatioUpdateEndTime
-    ) external {
-        _startPriceRatioUpdate(endFourthRootPriceRatio, priceRatioUpdateStartTime, priceRatioUpdateEndTime);
+    ) external returns (uint256 startPriceRatio) {
+        return _startPriceRatioUpdate(endPriceRatio, priceRatioUpdateStartTime, priceRatioUpdateEndTime);
     }
 }

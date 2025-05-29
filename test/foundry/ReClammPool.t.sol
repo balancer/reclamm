@@ -34,7 +34,7 @@ import {
 } from "../../contracts/interfaces/IReClammPool.sol";
 
 contract ReClammPoolTest is BaseReClammTest {
-    using FixedPoint for uint256;
+    using FixedPoint for *;
     using CastingHelpers for *;
     using ArrayHelpers for *;
     using SafeCast for *;
@@ -192,11 +192,13 @@ contract ReClammPoolTest is BaseReClammTest {
 
         uint256 oldFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
         uint256 newFourthRootPriceRatio = oldFourthRootPriceRatio.mulDown(90e16);
+        uint256 newPriceRatio = mathMock.pow4(newFourthRootPriceRatio);
         uint256 newPriceRatioUpdateStartTime = block.timestamp;
         uint256 newPriceRatioUpdateEndTime = block.timestamp + 1 days;
+
         vm.prank(admin);
         ReClammPool(pool).startPriceRatioUpdate(
-            newFourthRootPriceRatio,
+            newPriceRatio,
             newPriceRatioUpdateStartTime,
             newPriceRatioUpdateEndTime
         );
@@ -207,9 +209,10 @@ contract ReClammPoolTest is BaseReClammTest {
             oldFourthRootPriceRatio,
             "Invalid new startFourthRootPriceRatio"
         );
-        assertEq(
+        assertApproxEqRel(
             priceRatioState.endFourthRootPriceRatio,
             newFourthRootPriceRatio,
+            1,
             "Invalid new endFourthRootPriceRatio"
         );
         assertEq(
@@ -227,6 +230,7 @@ contract ReClammPoolTest is BaseReClammTest {
     function testGetReClammPoolDynamicData() public {
         // Modify values using setters
         uint256 newDailyPriceShiftExponent = 200e16;
+        uint256 endPriceRatio = 16e18;
         uint256 endFourthRootPriceRatio = 2e18;
         uint256 newStaticSwapFeePercentage = 5e16;
 
@@ -241,7 +245,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         vm.startPrank(admin);
         ReClammPool(pool).startPriceRatioUpdate(
-            state.endFourthRootPriceRatio,
+            endPriceRatio,
             state.priceRatioUpdateStartTime,
             state.priceRatioUpdateEndTime
         );
@@ -360,11 +364,7 @@ contract ReClammPoolTest is BaseReClammTest {
             _MIN_PRICE_RATIO_UPDATE_DURATION,
             "Invalid min price ratio update duration"
         );
-        assertEq(
-            data.minFourthRootPriceRatioDelta,
-            _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA,
-            "Invalid min fourth root price ratio delta"
-        );
+        assertEq(data.minPriceRatioDelta, _MIN_PRICE_RATIO_DELTA, "Invalid min fourth root price ratio delta");
         assertEq(
             data.balanceRatioAndPriceTolerance,
             _BALANCE_RATIO_AND_PRICE_TOLERANCE,
@@ -387,7 +387,7 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function testSetFourthRootPriceRatioShortDuration() public {
-        uint96 endFourthRootPriceRatio = 2e18;
+        uint96 endPriceRatio = 16e18;
         uint32 timeOffset = 1 hours;
         uint32 priceRatioUpdateStartTime = uint32(block.timestamp) - timeOffset;
         uint32 duration = 1 days;
@@ -395,55 +395,38 @@ contract ReClammPoolTest is BaseReClammTest {
 
         vm.expectRevert(IReClammPool.PriceRatioUpdateDurationTooShort.selector);
         vm.prank(admin);
-        ReClammPool(pool).startPriceRatioUpdate(
-            endFourthRootPriceRatio,
-            priceRatioUpdateStartTime,
-            priceRatioUpdateEndTime
-        );
+        ReClammPool(pool).startPriceRatioUpdate(endPriceRatio, priceRatioUpdateStartTime, priceRatioUpdateEndTime);
     }
 
     function testSetFourthRootPriceRatioSmallDelta() public {
-        uint256 delta = _MIN_FOURTH_ROOT_PRICE_RATIO_DELTA - 1;
-        uint96 startFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
-        uint96 endFourthRootPriceRatio = startFourthRootPriceRatio + delta.toUint96();
+        uint256 delta = _MIN_PRICE_RATIO_DELTA - 1;
+        uint96 startPriceRatio = ReClammPool(pool).computeCurrentPriceRatio().toUint96();
+        uint96 endPriceRatio = startPriceRatio + delta.toUint96();
         uint32 priceRatioUpdateStartTime = uint32(block.timestamp);
         uint32 duration = 1 days;
         uint32 priceRatioUpdateEndTime = priceRatioUpdateStartTime + duration;
 
-        vm.expectRevert(abi.encodeWithSelector(IReClammPool.FourthRootPriceRatioDeltaBelowMin.selector, delta));
+        vm.expectRevert(abi.encodeWithSelector(IReClammPool.PriceRatioDeltaBelowMin.selector, delta));
         vm.prank(admin);
-        ReClammPool(pool).startPriceRatioUpdate(
-            endFourthRootPriceRatio,
-            priceRatioUpdateStartTime,
-            priceRatioUpdateEndTime
-        );
+        ReClammPool(pool).startPriceRatioUpdate(endPriceRatio, priceRatioUpdateStartTime, priceRatioUpdateEndTime);
     }
 
     function testSetFourthRootPriceRatioTooFast() public {
-        uint96 startFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
-        ReClammPoolImmutableData memory data = ReClammPool(pool).getReClammPoolImmutableData();
+        uint256 newPriceRatio = 64e18;
+        uint256 priceRatioUpdateStartTime = block.timestamp;
+        uint256 priceRatioUpdateEndTime = block.timestamp + 1 days;
 
-        // Recover the original start price, and multiply by the maximum rate to compute the maximum end price.
-        uint256 startPriceRatio = mathMock.pow4(startFourthRootPriceRatio);
-        uint256 maxEndPriceRatio = startPriceRatio.mulDown(data.maxDailyPriceRatioUpdateRate);
-
-        // Take the fourth root to get its maximum ending value, and add 2 wei to trigger the exception.
-        uint96 maxEndPriceRatioFourthRoot = mathMock.sqrtScaled18(mathMock.sqrtScaled18(maxEndPriceRatio)).toUint96();
-
-        uint96 endFourthRootPriceRatio = maxEndPriceRatioFourthRoot + 2;
-        uint32 priceRatioUpdateStartTime = uint32(block.timestamp);
-        uint32 priceRatioUpdateEndTime = priceRatioUpdateStartTime + 1 days;
-
+        // The previous approach (calculating the exact point where it would be too fast) no longer works when we're
+        // passing in the actual price ratio, since the error in pow >> 1-2 wei delta that would meaningfully check the
+        // boundary. And the error is only raised in the external function, so we can't use the mock here. Best we can
+        // do is set a large update that would be too fast, and show that the error is triggered.
         vm.expectRevert(IReClammPool.PriceRatioUpdateTooFast.selector);
         vm.prank(admin);
-        ReClammPool(pool).startPriceRatioUpdate(
-            endFourthRootPriceRatio,
-            priceRatioUpdateStartTime,
-            priceRatioUpdateEndTime
-        );
+        ReClammPool(pool).startPriceRatioUpdate(newPriceRatio, priceRatioUpdateStartTime, priceRatioUpdateEndTime);
     }
 
     function testSetFourthRootPriceRatio() public {
+        uint96 endPriceRatio = 16e18;
         uint96 endFourthRootPriceRatio = 2e18;
         uint32 timeOffset = 1 hours;
         uint32 priceRatioUpdateStartTime = uint32(block.timestamp) - timeOffset;
@@ -475,7 +458,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         vm.prank(admin);
         uint256 actualPriceRatioUpdateStartTime = ReClammPool(pool).startPriceRatioUpdate(
-            endFourthRootPriceRatio,
+            endPriceRatio,
             priceRatioUpdateStartTime,
             priceRatioUpdateEndTime
         );
@@ -514,6 +497,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
     /// @dev Trigger a price ratio update while another one is ongoing.
     function testSetFourthRootPriceRatioOverride() public {
+        uint96 endPriceRatio = 16e18;
         uint96 endFourthRootPriceRatio = 2e18;
         uint32 timeOffset = 1 hours;
         uint32 priceRatioUpdateStartTime = uint32(block.timestamp) - timeOffset;
@@ -549,7 +533,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         vm.prank(admin);
         uint256 actualPriceRatioUpdateStartTime = ReClammPool(pool).startPriceRatioUpdate(
-            endFourthRootPriceRatio,
+            endPriceRatio,
             priceRatioUpdateStartTime,
             priceRatioUpdateEndTime
         );
@@ -576,6 +560,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         // While the update is ongoing, we'll trigger a second one.
         // This one will update virtual balances too.
+        endPriceRatio = 81e18;
         endFourthRootPriceRatio = 3e18;
         timeOffset = 1 hours;
         priceRatioUpdateStartTime = uint32(block.timestamp) - timeOffset;
@@ -624,7 +609,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         vm.prank(admin);
         actualPriceRatioUpdateStartTime = ReClammPool(pool).startPriceRatioUpdate(
-            endFourthRootPriceRatio,
+            endPriceRatio,
             priceRatioUpdateStartTime,
             priceRatioUpdateEndTime
         );
@@ -663,6 +648,7 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function testStopPriceRatioUpdate() public {
+        uint96 endPriceRatio = 16e18;
         uint96 endFourthRootPriceRatio = 2e18;
         uint32 timeOffset = 1 hours;
         uint32 priceRatioUpdateStartTime = uint32(block.timestamp) - timeOffset;
@@ -673,7 +659,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         vm.prank(admin);
         uint256 actualPriceRatioUpdateStartTime = ReClammPool(pool).startPriceRatioUpdate(
-            endFourthRootPriceRatio,
+            endPriceRatio,
             priceRatioUpdateStartTime,
             priceRatioUpdateEndTime
         );
@@ -1010,7 +996,7 @@ contract ReClammPoolTest is BaseReClammTest {
     function testInRangeUpdatingVirtualBalancesSetCenterednessMargin() public {
         vm.prank(admin);
         // Start updating virtual balances.
-        ReClammPool(pool).startPriceRatioUpdate(2e18, block.timestamp, block.timestamp + 1 days);
+        ReClammPool(pool).startPriceRatioUpdate(16e18, block.timestamp, block.timestamp + 1 days);
 
         vm.warp(block.timestamp + 6 hours);
 
@@ -1173,11 +1159,13 @@ contract ReClammPoolTest is BaseReClammTest {
 
         ReClammPoolImmutableData memory data = ReClammPool(newPool).getReClammPoolImmutableData();
 
-        (, , , uint256 fourthRootPriceRatio) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
+        (, , , uint256 priceRatio) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
             data.initialMinPrice,
             data.initialMaxPrice,
             data.initialTargetPrice
         );
+
+        uint256 fourthRootPriceRatio = ReClammMath.fourthRootScaled18(priceRatio);
 
         uint128 dailyPriceShiftBase = ReClammMath
             .toDailyPriceShiftBase(data.initialDailyPriceShiftExponent)

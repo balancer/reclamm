@@ -220,12 +220,12 @@ describe('ReClammMath', function () {
       const maxPrice = fp(4000);
       const targetPrice = fp(2500);
 
-      const [theoreticalBalancesSol, virtualBalancesSol, fourthRootPriceRatioSol] =
+      const [theoreticalBalancesSol, virtualBalancesSol, priceRatioSol] =
         await mathLib.computeTheoreticalPriceRatioAndBalances(minPrice, maxPrice, targetPrice);
       const {
         realBalances: theoreticalBalancesJs,
         virtualBalances: virtualBalancesJs,
-        fourthRootPriceRatio: fourthRootPriceRatioJs,
+        priceRatio: priceRatioJs,
       } = computeTheoreticalPriceRatioAndBalances(minPrice, maxPrice, targetPrice);
 
       // Error of 0.0001%, because the sqrt libraries behave a bit differently
@@ -233,7 +233,7 @@ describe('ReClammMath', function () {
       expectEqualWithError(theoreticalBalancesSol[1], theoreticalBalancesJs[1], 0.000001);
       expectEqualWithError(virtualBalancesSol[0], virtualBalancesJs[0], 0.000001);
       expectEqualWithError(virtualBalancesSol[1], virtualBalancesJs[1], 0.000001);
-      expectEqualWithError(fourthRootPriceRatioSol, fourthRootPriceRatioJs, 0.000001);
+      expectEqualWithError(priceRatioSol, priceRatioJs, 0.000001);
     });
   });
 
