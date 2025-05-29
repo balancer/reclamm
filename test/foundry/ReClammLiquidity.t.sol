@@ -211,6 +211,7 @@ contract ReClammLiquidityTest is BaseReClammTest {
         _setPoolBalances(initialDaiBalance, initialUsdcBalance);
 
         uint256 totalSupply = vault.totalSupply(pool);
+        // Do not remove the whole liquidity, since the price would change more than the tolerance.
         exactBptAmountIn = bound(exactBptAmountIn, 1e6, (9 * totalSupply) / 10);
 
         uint256[] memory minAmountsOut = new uint256[](2);
@@ -230,12 +231,12 @@ contract ReClammLiquidityTest is BaseReClammTest {
         uint256 proportion = exactBptAmountIn.divUp(totalSupply);
         assertEq(
             virtualBalancesAfter[daiIdx],
-            virtualBalancesBefore[daiIdx].mulDown(FixedPoint.ONE - proportion),
+            virtualBalancesBefore[daiIdx].mulDown(totalSupply - exactBptAmountIn).divDown(totalSupply),
             "DAI virtual balances do not match"
         );
         assertEq(
             virtualBalancesAfter[usdcIdx],
-            virtualBalancesBefore[usdcIdx].mulDown(FixedPoint.ONE - proportion),
+            virtualBalancesBefore[usdcIdx].mulDown(totalSupply - exactBptAmountIn).divDown(totalSupply),
             "USDC virtual balances do not match"
         );
 
@@ -315,22 +316,6 @@ contract ReClammLiquidityTest is BaseReClammTest {
             virtualBalancesAfter,
             FixedPoint.ONE - proportion
         );
-    }
-
-    function testRemoveLiquidityBelowMinTokenBalance() public {
-        _setPoolBalances(100 * _MIN_TOKEN_BALANCE, 100 * _MIN_TOKEN_BALANCE);
-
-        uint256 totalSupply = vault.totalSupply(pool);
-        // 99.1% of the total supply, so the LP is leaving less than _MIN_TOKEN_BALANCE in the pool.
-        uint256 exactBptAmountIn = (991 * totalSupply) / 1000;
-
-        uint256[] memory minAmountsOut = new uint256[](2);
-        minAmountsOut[daiIdx] = 0;
-        minAmountsOut[usdcIdx] = 0;
-
-        vm.prank(lp);
-        vm.expectRevert(IReClammPool.TokenBalanceTooLow.selector);
-        router.removeLiquidityProportional(pool, exactBptAmountIn, minAmountsOut, false, "");
     }
 
     function testRemoveLiquiditySingleTokenExactOut() public {

@@ -267,51 +267,61 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     }
 
     function testRemoveLiquidity__Fuzz(uint256 exactBptAmountIn) public {
-        // Leave at least 10% of tokens in the pool to don't trigger the error TokenBalanceTooLow().
-        exactBptAmountIn = bound(exactBptAmountIn, 1e8, (9 * ReClammPool(pool).balanceOf(lp)) / 10);
+        exactBptAmountIn = bound(exactBptAmountIn, 1e8, ReClammPool(pool).balanceOf(lp));
 
         uint256 currentTotalSupply = ReClammPool(pool).totalSupply();
 
+        uint256[] memory virtualBalances = new uint256[](2);
+        {
+            (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = ReClammPool(pool)
+                .computeCurrentVirtualBalances();
+            virtualBalances[daiIdx] = daiIdx < usdcIdx ? currentVirtualBalanceA : currentVirtualBalanceB;
+            virtualBalances[usdcIdx] = daiIdx < usdcIdx ? currentVirtualBalanceB : currentVirtualBalanceA;
+        }
+
         uint256 invariantBefore = _getCurrentInvariant();
+        (, , uint256[] memory balancesBefore, ) = vault.getPoolTokenInfo(pool);
 
         vm.prank(lp);
         router.removeLiquidityProportional(
             pool,
             exactBptAmountIn,
-            [uint256(1), 1].toMemoryArray(),
+            [uint256(0), uint256(0)].toMemoryArray(),
             false,
             new bytes(0)
         );
 
         uint256 invariantAfter = _getCurrentInvariant();
         (, , uint256[] memory balancesAfter, ) = vault.getPoolTokenInfo(pool);
-        (uint256[] memory virtualBalancesAfter, ) = _computeCurrentVirtualBalances(pool);
+
+        uint256[] memory lastVirtualBalances = new uint256[](2);
+        {
+            (uint256 lastVirtualBalanceA, uint256 lastVirtualBalanceB) = ReClammPool(pool).getLastVirtualBalances();
+            lastVirtualBalances[daiIdx] = daiIdx < usdcIdx ? lastVirtualBalanceA : lastVirtualBalanceB;
+            lastVirtualBalances[usdcIdx] = daiIdx < usdcIdx ? lastVirtualBalanceB : lastVirtualBalanceA;
+        }
 
         assertLt(invariantAfter, invariantBefore, "Invariant should decrease");
 
-        assertApproxEqRel(
+        assertEq(
             balancesAfter[daiIdx],
-            _initialBalances[daiIdx].mulDown(FixedPoint.ONE - exactBptAmountIn.divDown(currentTotalSupply)),
-            _INITIAL_PARAMS_ERROR,
+            balancesBefore[daiIdx].mulUp(currentTotalSupply - exactBptAmountIn).divUp(currentTotalSupply),
             "DAI balances do not match"
         );
-        assertApproxEqRel(
+        assertEq(
             balancesAfter[usdcIdx],
-            _initialBalances[usdcIdx].mulDown(FixedPoint.ONE - exactBptAmountIn.divDown(currentTotalSupply)),
-            _INITIAL_PARAMS_ERROR,
+            balancesBefore[usdcIdx].mulUp(currentTotalSupply - exactBptAmountIn).divUp(currentTotalSupply),
             "USDC balances do not match"
         );
 
-        assertApproxEqRel(
-            virtualBalancesAfter[daiIdx],
-            _initialVirtualBalances[daiIdx].mulDown(FixedPoint.ONE - exactBptAmountIn.divDown(currentTotalSupply)),
-            _INITIAL_PARAMS_ERROR,
+        assertEq(
+            lastVirtualBalances[daiIdx],
+            virtualBalances[daiIdx].mulDown(currentTotalSupply - exactBptAmountIn).divDown(currentTotalSupply),
             "DAI virtual balances do not match"
         );
-        assertApproxEqRel(
-            virtualBalancesAfter[usdcIdx],
-            _initialVirtualBalances[usdcIdx].mulDown(FixedPoint.ONE - exactBptAmountIn.divDown(currentTotalSupply)),
-            _INITIAL_PARAMS_ERROR,
+        assertEq(
+            lastVirtualBalances[usdcIdx],
+            virtualBalances[usdcIdx].mulDown(currentTotalSupply - exactBptAmountIn).divDown(currentTotalSupply),
             "USDC virtual balances do not match"
         );
     }
