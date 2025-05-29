@@ -8,18 +8,21 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
-import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
-import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
+
+import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
+import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
+
+import { ReClammMathMock } from "../../contracts/test/ReClammMathMock.sol";
+import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
+import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
+import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
 
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
-import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
-import { ReClammMathMock } from "../../contracts/test/ReClammMathMock.sol";
-import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
 
 contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
-    using FixedPoint for uint256;
+    using FixedPoint for *;
     using ArrayHelpers for *;
     using SafeCast for *;
     using Math for *;
@@ -46,10 +49,16 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
                 _DEFAULT_TARGET_PRICE
             );
 
+        uint256 theoreticalFourthRootPriceRatio = ReClammMath.fourthRootScaled18(theoreticalPriceRatio);
         uint256 balanceRatio = _initialBalances[0].divDown(theoreticalBalances[0]);
 
         // Error tolerance of 1 million wei (price ratio is computed using the pool balances and may have a small error).
-        assertApproxEqAbs(_initialFourthRootPriceRatio, theoreticalPriceRatio, 1e6, "Invalid fourthRootPriceRatio");
+        assertApproxEqAbs(
+            _initialFourthRootPriceRatio,
+            theoreticalFourthRootPriceRatio,
+            1e6,
+            "Invalid fourthRootPriceRatio"
+        );
 
         // Don't need to check balances of token[0], since the balance ratio was calculated based on it.
         assertApproxEqRel(
@@ -134,8 +143,11 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
 
         uint32 currentTimestamp = uint32(block.timestamp);
 
+        uint256 endPriceRatio = endFourthRootPriceRatio.mulDown(endFourthRootPriceRatio);
+        endPriceRatio = endPriceRatio.mulDown(endPriceRatio);
+
         vm.prank(admin);
-        ReClammPool(pool).startPriceRatioUpdate(endFourthRootPriceRatio, currentTimestamp, currentTimestamp + duration);
+        ReClammPool(pool).startPriceRatioUpdate(endPriceRatio, currentTimestamp, currentTimestamp + duration);
         skip(duration);
 
         (uint256[] memory poolVirtualBalancesAfter, ) = _computeCurrentVirtualBalances(pool);
