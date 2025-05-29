@@ -607,6 +607,7 @@ library ReClammMath {
             )
         ).toUint96();
 
+        // Since we're rounding current fourth root price ratio down, we only need to check the lower boundary.
         uint96 minimumFourthRootPriceRatio = startFourthRootPriceRatio < endFourthRootPriceRatio
             ? startFourthRootPriceRatio
             : endFourthRootPriceRatio;
