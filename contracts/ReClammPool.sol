@@ -597,7 +597,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         // If the pool is not initialized, virtual balances will be zero and `_computeCurrentPriceRatio` would revert.
         if (data.isPoolInitialized) {
-            data.currentFourthRootPriceRatio = ReClammMath.fourthRootScaled18(_computeCurrentPriceRatio());
+            data.currentPriceRatio = _computeCurrentPriceRatio();
+            data.currentFourthRootPriceRatio = ReClammMath.fourthRootScaled18(data.currentPriceRatio);
         }
     }
 

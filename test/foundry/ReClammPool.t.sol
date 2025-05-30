@@ -252,6 +252,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         vm.warp(block.timestamp + 6 hours);
 
+        uint256 currentPriceRatio = ReClammPool(pool).computeCurrentPriceRatio();
         uint96 currentFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
 
         // Get initial dynamic data.
@@ -274,6 +275,11 @@ contract ReClammPoolTest is BaseReClammTest {
 
         // Check pool specific parameters.
         assertEq(data.lastTimestamp, block.timestamp - 6 hours, "Invalid last timestamp");
+        assertEq(
+            data.currentPriceRatio,
+            currentPriceRatio,
+            "Invalid current price ratio"
+        );
         assertEq(
             data.currentFourthRootPriceRatio,
             currentFourthRootPriceRatio,
