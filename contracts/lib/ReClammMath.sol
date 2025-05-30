@@ -434,14 +434,20 @@ library ReClammMath {
                 ? (balancesScaled18[a], lastVirtualBalanceA, lastVirtualBalanceB)
                 : (balancesScaled18[b], lastVirtualBalanceB, lastVirtualBalanceA);
 
-        // The original formula was a quadratic equation, with terms:
+        // The original formula for Vu (Virtual balance undervalued) was a quadratic equation, with terms:
         // a = Q0 - 1
         // b = - Ru (1 + C)
         // c = - Ru^2 C
         // where Q0 is the square root of the price ratio, Ru is the undervalued token balance, and C is the
         // centeredness. Applying Bhaskara, we'd have: Vu = (-b + sqrt(b^2 - 4ac)) / 2a.
         // The Bhaskara above can be simplified by replacing a, b and c with the terms above, which leads to:
-        // Vu = Ru(1 + C + sqrt(1 + C (C + 4 Q0 - 2))) / 2(Q0 - 1)
+        // +--------------------------------------------------------+
+        // |                                                        |
+        // |           Ru * (1 + C + √(1 + C (C + 4 * Q0 - 2)))     |
+        // |      Vu = ----------------------------------------     |
+        // |                      2 * (Q0 - 1)                      |
+        // |                                                        |
+        // +--------------------------------------------------------+
         uint256 sqrtPriceRatio = currentFourthRootPriceRatio.mulDown(currentFourthRootPriceRatio);
 
         // Using FixedPoint math as little as possible to improve the precision of the result.
@@ -496,12 +502,30 @@ library ReClammMath {
             ? (virtualBalanceA, virtualBalanceB)
             : (virtualBalanceB, virtualBalanceA);
 
-        // Vb = Vb * (1 - tau)^(T_curr - T_last)
-        // Vb = Vb * (dailyPriceShiftBase)^(T_curr - T_last)
+        // +-----------------------------------------+
+        // |                      (Tc - Tl)          |
+        // |      Vo = Vo * (Psb)^                   |
+        // +-----------------------------------------+
+        // |  Where:                                 |
+        // |    Vo = Virtual balance overvalued      |
+        // |    Psb = Price shift daily rate base    |
+        // |    Tc = Current timestamp               |
+        // |    Tl = Last timestamp                  |
+        // +-----------------------------------------+
+        // |               Ru * (Vo + Bo)            |
+        // |      Vu = ----------------------        |
+        // |             (Qo - 1) * Vo - Bo          |
+        // +-----------------------------------------+
+        // |  Where:                                 |
+        // |    Vu = Virtual balance undervalued     |
+        // |    Vo = Virtual balance overvalued      |
+        // |    Ru = Real balance undervalued        |
+        // |    Bo = Virtual balance overvalued      |
+        // |    Qo = Square root of price ratio      |
+        // +-----------------------------------------+
         virtualBalanceOvervalued = virtualBalanceOvervalued.mulDown(
             dailyPriceShiftBase.powDown((currentTimestamp - lastTimestamp) * FixedPoint.ONE)
         );
-        // Va = (Ra * (Vb + Rb)) / (((priceRatio - 1) * Vb) - Rb)
         virtualBalanceUndervalued =
             (balancesScaledUndervalued * (virtualBalanceOvervalued + balancesScaledOvervalued)) /
             ((sqrtPriceRatio - FixedPoint.ONE).mulDown(virtualBalanceOvervalued) - balancesScaledOvervalued);
@@ -597,6 +621,23 @@ library ReClammMath {
             return startFourthRootPriceRatio;
         }
 
+        // +-------------------------------------------------+
+        // |                       /  Tc - Ts  \             |
+        // |                       (  -------  )             |
+        // |                       \  Te - Ts  /             |
+        // |                ( Pe )^                          |
+        // |      Pc = Ps * (----)                           |
+        // |                ( Ps )                           |
+        // +-------------------------------------------------+
+        // |  Where:                                         |
+        // |    Pc = Current fourth root price ratio         |
+        // |    Ps = Starting fourth root price ratio        |
+        // |    Pe = Ending fourth root price ratio          |
+        // |    Tc = Current time                            |
+        // |    Ts = Start time                              |
+        // |    Te = End time                                |
+        // +-------------------------------------------------+
+
         uint256 exponent = uint256(currentTime - priceRatioUpdateStartTime).divDown(
             priceRatioUpdateEndTime - priceRatioUpdateStartTime
         );
@@ -656,14 +697,14 @@ library ReClammMath {
         );
 
         // P_min(a) = Vb / (Va + Ra_max)
-        // We don't have Ra_max, but: invariant=(Ra_max + Va)(Vb)
-        // Then, (Va + Ra_max) = invariant/Vb, and:
+        // We don't have Ra_max, but: invariant = (Ra_max + Va) * Vb
+        // Then, (Va + Ra_max) = invariant / Vb, and:
         // P_min(a) = Vb^2 / invariant
         minPrice = (virtualBalanceB * virtualBalanceB) / currentInvariant;
 
-        // Similarly, P_max(a) = (Rb_max + Vb)/Va
-        // We don't have Rb_max, but: invariant=(Rb_max + Vb)(Va)
-        // Then, (Rb_max + Vb) = invariant/Va, and:
+        // Similarly, P_max(a) = (Rb_max + Vb) / Va
+        // We don't have Rb_max, but: invariant = (Rb_max + Vb) * Va
+        // Then, (Rb_max + Vb) = invariant / Va, and:
         // P_max(a) = invariant / Va^2
         maxPrice = currentInvariant.divDown(virtualBalanceA.mulDown(virtualBalanceA));
     }
@@ -671,7 +712,7 @@ library ReClammMath {
     /**
      * @notice Convert from the external to the internal representation of the daily price shift exponent.
      * @param dailyPriceShiftExponent The daily price shift exponent as an 18-decimal FP
-     * @return dailyPriceShiftBase Internal representation of the daily price shift exponent
+     * @return dailyPriceShiftBase Internal time constant used to update virtual balances (1 - tau)
      */
     function toDailyPriceShiftBase(uint256 dailyPriceShiftExponent) internal pure returns (uint256) {
         return FixedPoint.ONE - dailyPriceShiftExponent / _PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT;
