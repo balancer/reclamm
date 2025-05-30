@@ -20,7 +20,7 @@ const overrides = {
       evmVersion: 'cancun',
       optimizer: {
         enabled: true,
-        runs: 1500,
+        runs: 500,
         details: {
           yulDetails: {
             optimizerSteps: hardhatBaseConfig.DEFAULT_OPTIMIZER_STEPS,
@@ -36,7 +36,7 @@ const overrides = {
       evmVersion: 'cancun',
       optimizer: {
         enabled: true,
-        runs: 1500,
+        runs: 500,
         details: {
           yulDetails: {
             optimizerSteps: hardhatBaseConfig.DEFAULT_OPTIMIZER_STEPS,
