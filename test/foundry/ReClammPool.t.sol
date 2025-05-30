@@ -1029,6 +1029,18 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(lastVirtualBalances[usdcIdx], virtualBalancesBefore[usdcIdx], "USDC virtual balance does not match");
     }
 
+    function testDynamicGetterBeforeInitialized() public {
+        IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens);
+
+        (address pool, ) = _createPool(
+            [address(sortedTokens[a]), address(sortedTokens[b])].toMemoryArray(),
+            "BeforeInitTest"
+        );
+
+        // Should not revert.
+        ReClammPool(pool).getReClammPoolDynamicData();
+    }
+
     function testComputePriceRangeBeforeInitialized() public {
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens);
 

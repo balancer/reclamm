@@ -584,8 +584,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.dailyPriceShiftExponent = data.dailyPriceShiftBase.toDailyPriceShiftExponent();
         data.centerednessMargin = _centerednessMargin;
 
-        data.currentFourthRootPriceRatio = ReClammMath.fourthRootScaled18(_computeCurrentPriceRatio());
-
         PriceRatioState memory state = _priceRatioState;
         data.startFourthRootPriceRatio = state.startFourthRootPriceRatio;
         data.endFourthRootPriceRatio = state.endFourthRootPriceRatio;
@@ -596,6 +594,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.isPoolInitialized = poolConfig.isPoolInitialized;
         data.isPoolPaused = poolConfig.isPoolPaused;
         data.isPoolInRecoveryMode = poolConfig.isPoolInRecoveryMode;
+
+        // If the pool is not initialized, virtual balances will be zero and `_computeCurrentPriceRatio` would revert.
+        if (data.isPoolInitialized) {
+            data.currentFourthRootPriceRatio = ReClammMath.fourthRootScaled18(_computeCurrentPriceRatio());
+        }
     }
 
     /// @inheritdoc IReClammPool
