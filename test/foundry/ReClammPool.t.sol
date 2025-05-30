@@ -252,6 +252,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         vm.warp(block.timestamp + 6 hours);
 
+        uint256 currentPriceRatio = ReClammPool(pool).computeCurrentPriceRatio();
         uint96 currentFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
 
         // Get initial dynamic data.
@@ -274,6 +275,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         // Check pool specific parameters.
         assertEq(data.lastTimestamp, block.timestamp - 6 hours, "Invalid last timestamp");
+        assertEq(data.currentPriceRatio, currentPriceRatio, "Invalid current price ratio");
         assertEq(
             data.currentFourthRootPriceRatio,
             currentFourthRootPriceRatio,
@@ -1027,6 +1029,18 @@ contract ReClammPoolTest is BaseReClammTest {
         uint256[] memory lastVirtualBalances = _getLastVirtualBalances(pool);
         assertEq(lastVirtualBalances[daiIdx], virtualBalancesBefore[daiIdx], "DAI virtual balance does not match");
         assertEq(lastVirtualBalances[usdcIdx], virtualBalancesBefore[usdcIdx], "USDC virtual balance does not match");
+    }
+
+    function testDynamicGetterBeforeInitialized() public {
+        IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens);
+
+        (address pool, ) = _createPool(
+            [address(sortedTokens[a]), address(sortedTokens[b])].toMemoryArray(),
+            "BeforeInitTest"
+        );
+
+        // Should not revert.
+        ReClammPool(pool).getReClammPoolDynamicData();
     }
 
     function testComputePriceRangeBeforeInitialized() public {
