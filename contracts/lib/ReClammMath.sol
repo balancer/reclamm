@@ -443,9 +443,9 @@ library ReClammMath {
         // The Bhaskara above can be simplified by replacing a, b and c with the terms above, which leads to:
         // +--------------------------------------------------------+
         // |                                                        |
-        // |           Ru * (1 + C + √(1 + C (C + 4 Q0 - 2)))       |
+        // |           Ru * (1 + C + √(1 + C (C + 4 * Q0 - 2)))     |
         // |      Vu = ----------------------------------------     |
-        // |                      2(Q0 - 1)                         |
+        // |                      2 * (Q0 - 1)                      |
         // |                                                        |
         // +--------------------------------------------------------+
         uint256 sqrtPriceRatio = currentFourthRootPriceRatio.mulDown(currentFourthRootPriceRatio);
