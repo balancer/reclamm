@@ -275,11 +275,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         // Check pool specific parameters.
         assertEq(data.lastTimestamp, block.timestamp - 6 hours, "Invalid last timestamp");
-        assertEq(
-            data.currentPriceRatio,
-            currentPriceRatio,
-            "Invalid current price ratio"
-        );
+        assertEq(data.currentPriceRatio, currentPriceRatio, "Invalid current price ratio");
         assertEq(
             data.currentFourthRootPriceRatio,
             currentFourthRootPriceRatio,
