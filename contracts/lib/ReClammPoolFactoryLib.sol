@@ -13,9 +13,9 @@ import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaul
  * should be false. If the price is given in terms of the underlying, we do need to apply the rate when computing
  * the initialization balances.
  *
- * @param initialMinPrice The initial minimum price of token A in terms of token B
- * @param initialMaxPrice The initial maximum price of token A in terms of token B
- * @param initialTargetPrice The initial target price of token A in terms of token B
+ * @param initialMinPrice The initial minimum price of token A in terms of token B as a 18-decimal FP value
+ * @param initialMaxPrice The initial maximum price of token A in terms of token B as a 18-decimal FP value
+ * @param initialTargetPrice The initial target price of token A in terms of token B as a 18-decimal FP value
  * @param tokenAPriceIncludesRate Whether the amount of token A is scaled by the rate when calculating the price
  * @param tokenBPriceIncludesRate Whether the amount of token B is scaled by the rate when calculating the price
  */

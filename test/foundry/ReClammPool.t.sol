@@ -188,7 +188,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         uint256 oldFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
         uint256 newFourthRootPriceRatio = oldFourthRootPriceRatio.mulDown(90e16);
-        uint256 newPriceRatio = mathMock.pow4(newFourthRootPriceRatio);
+        uint256 newPriceRatio = _pow4(newFourthRootPriceRatio);
         uint256 newPriceRatioUpdateStartTime = block.timestamp;
         uint256 newPriceRatioUpdateEndTime = block.timestamp + 1 days;
 

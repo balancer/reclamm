@@ -94,7 +94,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     // Internal representation of the speed at which the pool moves the virtual balances when outside the target range.
     uint128 internal _dailyPriceShiftBase;
 
-    // Used to define the target price range of the pool (i.e., where the pool centeredness > centeredness margin).
+    // Used to define the target price range of the pool (i.e., where the pool centeredness >= centeredness margin).
     uint64 internal _centerednessMargin;
 
     // The virtual balances at the time of the last user interaction.
@@ -144,7 +144,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             params.initialMaxPrice == 0 ||
             params.initialTargetPrice == 0 ||
             params.initialTargetPrice < params.initialMinPrice ||
-            params.initialTargetPrice > params.initialMaxPrice
+            params.initialTargetPrice > params.initialMaxPrice ||
+            params.initialMinPrice == params.initialMaxPrice
         ) {
             // If any of these prices were 0, pool initialization would revert with a numerical error.
             // For good measure, we also ensure the target is within the range.
