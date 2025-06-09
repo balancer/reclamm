@@ -351,7 +351,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         address pool,
         AddLiquidityKind,
         uint256[] memory,
-        uint256 minBptAmountOut,
+        uint256 exactBptAmountOut,
         uint256[] memory balancesScaled18,
         bytes memory
     ) public override onlyVault returns (bool) {
@@ -359,16 +359,15 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         // after adding liquidity. This is needed to keep the pool centeredness and price ratio constant.
 
         uint256 poolTotalSupply = _vault.totalSupply(pool);
-        // Rounding proportion down, which will round the virtual balances down.
-        uint256 proportion = minBptAmountOut.divDown(poolTotalSupply);
+        uint256 newPoolTotalSupply = exactBptAmountOut + poolTotalSupply;
 
         (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = _computeCurrentVirtualBalances(
             balancesScaled18
         );
         // When adding/removing liquidity, round down the virtual balances. This favors the vault in swap operations.
         // The virtual balances are not used in proportional add/remove calculations.
-        currentVirtualBalanceA = currentVirtualBalanceA.mulDown(FixedPoint.ONE + proportion);
-        currentVirtualBalanceB = currentVirtualBalanceB.mulDown(FixedPoint.ONE + proportion);
+        currentVirtualBalanceA = (currentVirtualBalanceA * newPoolTotalSupply) / poolTotalSupply;
+        currentVirtualBalanceB = (currentVirtualBalanceB * newPoolTotalSupply) / poolTotalSupply;
         _setLastVirtualBalances(currentVirtualBalanceA, currentVirtualBalanceB);
         _updateTimestamp();
 
@@ -380,7 +379,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         address,
         address pool,
         RemoveLiquidityKind,
-        uint256 maxBptAmountIn,
+        uint256 exactBptAmountIn,
         uint256[] memory,
         uint256[] memory balancesScaled18,
         bytes memory
@@ -389,17 +388,16 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         // after removing liquidity. This is needed to keep the pool centeredness and price ratio constant.
 
         uint256 poolTotalSupply = _vault.totalSupply(pool);
+        uint256 bptDelta = poolTotalSupply - exactBptAmountIn;
 
         (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = _computeCurrentVirtualBalances(
             balancesScaled18
         );
 
-        uint256 bptDelta = poolTotalSupply - maxBptAmountIn;
-
         // When adding/removing liquidity, round down the virtual balances. This favors the vault in swap operations.
         // The virtual balances are not used in proportional add/remove calculations.
-        currentVirtualBalanceA = currentVirtualBalanceA.mulDown(bptDelta).divDown(poolTotalSupply);
-        currentVirtualBalanceB = currentVirtualBalanceB.mulDown(bptDelta).divDown(poolTotalSupply);
+        currentVirtualBalanceA = (currentVirtualBalanceA * bptDelta) / poolTotalSupply;
+        currentVirtualBalanceB = (currentVirtualBalanceB * bptDelta) / poolTotalSupply;
 
         _setLastVirtualBalances(currentVirtualBalanceA, currentVirtualBalanceB);
         _updateTimestamp();
@@ -766,15 +764,16 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         PriceRatioState memory priceRatioState = _priceRatioState;
 
+        uint256 endFourthRootPriceRatio = ReClammMath.fourthRootScaled18(endPriceRatio);
+
         uint256 startFourthRootPriceRatio;
         if (_vault.isPoolInitialized(address(this))) {
             startPriceRatio = _computeCurrentPriceRatio();
             startFourthRootPriceRatio = ReClammMath.fourthRootScaled18(startPriceRatio);
         } else {
-            startFourthRootPriceRatio = priceRatioState.endFourthRootPriceRatio;
+            startFourthRootPriceRatio = endFourthRootPriceRatio;
             startPriceRatio = endPriceRatio;
         }
-        uint256 endFourthRootPriceRatio = ReClammMath.fourthRootScaled18(endPriceRatio);
 
         priceRatioState.startFourthRootPriceRatio = startFourthRootPriceRatio.toUint96();
         priceRatioState.endFourthRootPriceRatio = endFourthRootPriceRatio.toUint96();

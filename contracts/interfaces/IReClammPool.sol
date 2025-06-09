@@ -290,6 +290,8 @@ interface IReClammPool is IBasePool {
 
     /**
      * @notice Computes the current target price. This is the ratio of the total (i.e., real + virtual) balances (B/A).
+     * @dev Given the nature of the internal pool maths (particularly when virtual balances are shifting), it is not
+     * recommended to use this pool as a price oracle.
      * @return currentTargetPrice Target price at the current pool state (real and virtual balances)
      */
     function computeCurrentSpotPrice() external view returns (uint256 currentTargetPrice);
