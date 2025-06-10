@@ -661,7 +661,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             priceRatioUpdateEndTime
         );
 
-        uint256 priceRatioDelta = SignedMath.abs(endPriceRatio.toInt256() - startPriceRatio.toInt256());
+        uint256 priceRatioDelta = endPriceRatio >= startPriceRatio
+            ? endPriceRatio - startPriceRatio
+            : startPriceRatio - endPriceRatio;
 
         if (priceRatioDelta < _MIN_PRICE_RATIO_DELTA) {
             revert PriceRatioDeltaBelowMin(priceRatioDelta);
