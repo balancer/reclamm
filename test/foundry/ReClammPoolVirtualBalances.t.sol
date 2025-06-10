@@ -312,12 +312,12 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
 
         assertEq(
             lastVirtualBalances[daiIdx],
-            virtualBalances[daiIdx].mulDown(currentTotalSupply - exactBptAmountIn).divDown(currentTotalSupply),
+            (virtualBalances[daiIdx] * (currentTotalSupply - exactBptAmountIn)) / currentTotalSupply,
             "DAI virtual balances do not match"
         );
         assertEq(
             lastVirtualBalances[usdcIdx],
-            virtualBalances[usdcIdx].mulDown(currentTotalSupply - exactBptAmountIn).divDown(currentTotalSupply),
+            (virtualBalances[usdcIdx] * (currentTotalSupply - exactBptAmountIn)) / currentTotalSupply,
             "USDC virtual balances do not match"
         );
     }
