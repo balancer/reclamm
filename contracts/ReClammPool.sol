@@ -4,7 +4,6 @@
 pragma solidity ^0.8.24;
 
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import { SignedMath } from "@openzeppelin/contracts/utils/math/SignedMath.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -661,7 +660,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             priceRatioUpdateEndTime
         );
 
-        uint256 priceRatioDelta = SignedMath.abs(endPriceRatio.toInt256() - startPriceRatio.toInt256());
+        uint256 priceRatioDelta = endPriceRatio >= startPriceRatio
+            ? endPriceRatio - startPriceRatio
+            : startPriceRatio - endPriceRatio;
 
         if (priceRatioDelta < _MIN_PRICE_RATIO_DELTA) {
             revert PriceRatioDeltaBelowMin(priceRatioDelta);
