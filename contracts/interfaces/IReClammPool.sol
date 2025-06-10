@@ -290,6 +290,8 @@ interface IReClammPool is IBasePool {
 
     /**
      * @notice Computes the current target price. This is the ratio of the total (i.e., real + virtual) balances (B/A).
+     * @dev Given the nature of the internal pool maths (particularly when virtual balances are shifting), it is not
+     * recommended to use this pool as a price oracle.
      * @return currentTargetPrice Target price at the current pool state (real and virtual balances)
      */
     function computeCurrentSpotPrice() external view returns (uint256 currentTargetPrice);
@@ -358,8 +360,9 @@ interface IReClammPool is IBasePool {
 
     /**
      * @notice Compute whether the pool is within the target price range.
-     * @dev The pool is considered to be in the target range when the centeredness is greater than the centeredness
-     * margin (i.e., the price is within the subset of the total price range defined by the centeredness margin.)
+     * @dev The pool is considered to be in the target range when the centeredness is greater than or equal to the
+     * centeredness margin (i.e., the price is within the subset of the total price range defined by the centeredness
+     * margin).
      *
      * Note that this function reports the state *after* the last operation. It is not very meaningful during or
      * outside an operation, as the current or next operation could change it. If this is unlikely (e.g., for high-
@@ -375,7 +378,7 @@ interface IReClammPool is IBasePool {
      * is possible while the Vault is unlocked. Ensure that the Vault is locked before calling this function if this
      * side effect is undesired (does not apply to off-chain calls).
      *
-     * @return isWithinTargetRange True if pool centeredness is greater than the centeredness margin
+     * @return isWithinTargetRange True if pool centeredness is greater than or equal to the centeredness margin
      */
     function isPoolWithinTargetRange() external view returns (bool isWithinTargetRange);
 

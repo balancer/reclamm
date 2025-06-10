@@ -171,7 +171,12 @@ contract ReClammPoolTest is BaseReClammTest {
 
     function testGetPriceRatioState() public {
         PriceRatioState memory priceRatioState = ReClammPool(pool).getPriceRatioState();
-        assertEq(priceRatioState.startFourthRootPriceRatio, 0, "Invalid default startFourthRootPriceRatio");
+        assertApproxEqAbs(
+            priceRatioState.startFourthRootPriceRatio,
+            _initialFourthRootPriceRatio,
+            1e6,
+            "Invalid default startFourthRootPriceRatio"
+        );
         // Error tolerance of 1 million wei (price ratio is computed using the pool balances and may have a small error).
         assertApproxEqAbs(
             priceRatioState.endFourthRootPriceRatio,
@@ -188,7 +193,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         uint256 oldFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
         uint256 newFourthRootPriceRatio = oldFourthRootPriceRatio.mulDown(90e16);
-        uint256 newPriceRatio = mathMock.pow4(newFourthRootPriceRatio);
+        uint256 newPriceRatio = _pow4(newFourthRootPriceRatio);
         uint256 newPriceRatioUpdateStartTime = block.timestamp;
         uint256 newPriceRatioUpdateEndTime = block.timestamp + 1 days;
 
@@ -1178,13 +1183,18 @@ contract ReClammPoolTest is BaseReClammTest {
         uint256 actualDailyPriceShiftExponent = ReClammMath.toDailyPriceShiftExponent(dailyPriceShiftBase);
 
         vm.expectEmit(newPool);
-        emit IReClammPool.PriceRatioStateUpdated(0, fourthRootPriceRatio, block.timestamp, block.timestamp);
+        emit IReClammPool.PriceRatioStateUpdated(
+            fourthRootPriceRatio,
+            fourthRootPriceRatio,
+            block.timestamp,
+            block.timestamp
+        );
 
         vm.expectEmit(address(vault));
         emit IVaultEvents.VaultAuxiliary(
             newPool,
             "PriceRatioStateUpdated",
-            abi.encode(0, fourthRootPriceRatio, block.timestamp, block.timestamp)
+            abi.encode(fourthRootPriceRatio, fourthRootPriceRatio, block.timestamp, block.timestamp)
         );
 
         vm.expectEmit(newPool);

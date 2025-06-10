@@ -240,7 +240,7 @@ library ReClammMath {
      * 1. Initial real token balances - Using a reference value (_INITIALIZATION_MAX_BALANCE_A) that will be
      *    scaled later during actual pool initialization based on the actual tokens provided
      * 2. Initial virtual balances - Additional balances used to control the pool's price range
-     * 3. Fourth root price ratio - A key parameter that helps define the pool's price boundaries
+     * 3. Price ratio - The ratio between the pool's minimum and maximum price boundaries
      *
      * Note: The actual balances used in pool initialization will be proportionally scaled versions
      * of these theoretical values, maintaining the same ratios but adjusted to the actual amount of
@@ -744,16 +744,5 @@ library ReClammMath {
      */
     function fourthRootScaled18(uint256 valueScaled18) internal pure returns (uint256) {
         return Math.sqrt(Math.sqrt(valueScaled18 * FixedPoint.ONE) * FixedPoint.ONE);
-    }
-
-    /**
-     * @notice Raise a value to the fourth power (i.e., recover a range limit from its fourth root).
-     * @dev Input and output are all 18-decimal floating point numbers.
-     * @return limitValue `rootValue` raised to the fourth power
-     */
-    function pow4(uint256 rootValue) internal pure returns (uint256) {
-        uint256 vSquared = rootValue.mulDown(rootValue);
-
-        return vSquared.mulDown(vSquared);
     }
 }

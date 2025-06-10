@@ -513,7 +513,7 @@ contract ReClammMathTest is BaseReClammTest {
     function testPow4__Fuzz(uint256 value) public pure {
         value = bound(value, 10e16, 32e18);
 
-        uint256 mathPow4 = ReClammMath.pow4(value);
+        uint256 mathPow4 = _pow4(value);
         uint256 fpPow4 = FixedPoint.powDown(value, 4e18);
 
         assertEq(mathPow4, fpPow4, "Pow4 value mismatch");
