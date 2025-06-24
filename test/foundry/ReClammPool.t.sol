@@ -1458,10 +1458,11 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function testPriceRangeShiftStop() public {
-        // 98% margin, 100% price shift exponent
+        // 50% margin, 100% price shift exponent
+        uint256 margin = 50e16;
         vm.startPrank(admin);
         ReClammPool(pool).setDailyPriceShiftExponent(100e16);
-        ReClammPoolMock(pool).manualSetCenterednessMargin(98e16);
+        ReClammPoolMock(pool).manualSetCenterednessMargin(margin);
         vm.stopPrank();
 
         // Swap all of token B for token A using the router, getting almost all of the balance of B
@@ -1492,7 +1493,7 @@ contract ReClammPoolTest is BaseReClammTest {
             .computeCurrentVirtualBalances();
 
         assertTrue(changed, "Virtual balances did not change");
-        (uint256 centerednessAfterOneHour, ) = ReClammMath.computeCenteredness(
+        (uint256 centerednessAfterOneHour, bool isPoolAboveCenter) = ReClammMath.computeCenteredness(
             balancesScaled18AfterSwap,
             currentVirtualBalanceA,
             currentVirtualBalanceB
@@ -1502,19 +1503,23 @@ contract ReClammPoolTest is BaseReClammTest {
             poolCenterednessAfterSwap,
             "Centeredness did not increase with respect to the starting point"
         );
-        assertGt(centerednessAfterOneHour, 1e16, "Centeredness did not increase above 1%");
-        assertLt(centerednessAfterOneHour, 50e16, "Centeredness increased too much");
+        assertGt(centerednessAfterOneHour, poolCenterednessAfterSwap, "Centeredness did not increase");
+        assertLt(centerednessAfterOneHour, margin, "Centeredness increased past the margin");
+        assertTrue(isPoolAboveCenter, "Pool is not above the center");
 
-        // No swaps in 30 days
+        // No swaps in 30 days. We're way past the margin right now, but we should not go past 100%.
         skip(30 days);
-        (currentVirtualBalanceA, currentVirtualBalanceB, ) = ReClammPool(pool).computeCurrentVirtualBalances();
-        (uint256 centerednessAfterThirtyDays, ) = ReClammMath.computeCenteredness(
+        (currentVirtualBalanceA, currentVirtualBalanceB, changed) = ReClammPool(pool).computeCurrentVirtualBalances();
+        assertTrue(changed, "Virtual balances did not change (2)");
+        uint256 centerednessAfterThirtyDays;
+        (centerednessAfterThirtyDays, isPoolAboveCenter) = ReClammMath.computeCenteredness(
             balancesScaled18AfterSwap,
             currentVirtualBalanceA,
             currentVirtualBalanceB
         );
         assertGt(centerednessAfterThirtyDays, centerednessAfterOneHour, "Centeredness did not increase after 30 days");
         assertApproxEqAbs(centerednessAfterThirtyDays, 100e16, 0.0000001e16, "Centeredness did not stop at 100%");
+        assertTrue(isPoolAboveCenter, "Pool is not above the center (changed sides)");
     }
 
     function _createStandardPool(
