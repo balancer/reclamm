@@ -512,15 +512,15 @@ library ReClammMath {
         // |    Tc = Current timestamp               |
         // |    Tl = Last timestamp                  |
         // +-----------------------------------------+
-        // |               Ru * (Vo + Bo)            |
+        // |               Ru * (Vo + Ro)            |
         // |      Vu = ----------------------        |
-        // |             (Qo - 1) * Vo - Bo          |
+        // |             (Qo - 1) * Vo - Ro          |
         // +-----------------------------------------+
         // |  Where:                                 |
         // |    Vu = Virtual balance undervalued     |
         // |    Vo = Virtual balance overvalued      |
         // |    Ru = Real balance undervalued        |
-        // |    Bo = Virtual balance overvalued      |
+        // |    Ro = Real balance overvalued         |
         // |    Qo = Square root of price ratio      |
         // +-----------------------------------------+
         virtualBalanceOvervalued = virtualBalanceOvervalued.mulDown(
