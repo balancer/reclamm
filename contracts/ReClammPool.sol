@@ -45,6 +45,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 private constant _MIN_SWAP_FEE_PERCENTAGE = 0.001e16; // 0.001%
     uint256 internal constant _MAX_SWAP_FEE_PERCENTAGE = 10e16; // 10%
 
+    // The maximum pool centeredness allowed to consider the pool within the target range.
+    uint256 internal constant _MAX_CENTEREDNESS_MARGIN = 50e16; // 50%
+
     // The daily price shift exponent is a percentage that defines the speed at which the virtual balances will change
     // over the course of one day. A value of 100% (i.e, FP 1) means that the min and max prices will double (or halve)
     // every day, until the pool price is within the range defined by the margin. This constant defines the maximum
@@ -618,6 +621,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.initialCenterednessMargin = _INITIAL_CENTEREDNESS_MARGIN;
 
         // Operating Limits
+        data.maxCenterednessMargin = _MAX_CENTEREDNESS_MARGIN;
         data.maxDailyPriceShiftExponent = _MAX_DAILY_PRICE_SHIFT_EXPONENT;
         data.maxDailyPriceRatioUpdateRate = _MAX_DAILY_PRICE_RATIO_UPDATE_RATE;
         data.minPriceRatioUpdateDuration = _MIN_PRICE_RATIO_UPDATE_DURATION;
@@ -854,7 +858,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
      * @param centerednessMargin The new centerednessMargin value, which must be within the target range
      */
     function _setCenterednessMargin(uint256 centerednessMargin) internal {
-        if (centerednessMargin > FixedPoint.ONE) {
+        if (centerednessMargin > _MAX_CENTEREDNESS_MARGIN) {
             revert InvalidCenterednessMargin();
         }
 

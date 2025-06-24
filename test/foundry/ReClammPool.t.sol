@@ -48,6 +48,8 @@ contract ReClammPoolTest is BaseReClammTest {
     uint256 private constant _MIN_SWAP_FEE_PERCENTAGE = 0.001e16; // 0.001%
     uint256 private constant _MAX_SWAP_FEE_PERCENTAGE = 10e16; // 10%
 
+    uint256 private constant _MAX_CENTEREDNESS_MARGIN = 50e16; // 50%
+
     uint256 private constant _MIN_PRICE_RATIO_UPDATE_DURATION = 1 days;
     uint256 private constant _BALANCE_RATIO_AND_PRICE_TOLERANCE = 0.01e16; // 0.01%
 
@@ -349,6 +351,10 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(data.initialCenterednessMargin, _DEFAULT_CENTEREDNESS_MARGIN, "Invalid initial centeredness margin");
 
         // Check operating limit parameters.
+        assertEq(data.maxCenterednessMargin, _MAX_CENTEREDNESS_MARGIN, "Invalid max centeredness margin");
+
+        // Ensure that the max centeredness margin parameter fits in uint64.
+        assertEq(data.maxCenterednessMargin, uint64(data.maxCenterednessMargin), "Max centeredness margin not uint64");
         assertEq(
             data.maxDailyPriceShiftExponent,
             _MAX_DAILY_PRICE_SHIFT_EXPONENT,
