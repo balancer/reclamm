@@ -46,7 +46,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 internal constant _MAX_SWAP_FEE_PERCENTAGE = 10e16; // 10%
 
     // The maximum pool centeredness allowed to consider the pool within the target range.
-    uint256 internal constant _MAX_CENTEREDNESS_MARGIN = 50e16; // 50%
+    uint256 internal constant _MAX_CENTEREDNESS_MARGIN = 90e16; // 90%
 
     // The daily price shift exponent is a percentage that defines the speed at which the virtual balances will change
     // over the course of one day. A value of 100% (i.e, FP 1) means that the min and max prices will double (or halve)
