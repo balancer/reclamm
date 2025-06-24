@@ -490,8 +490,8 @@ library ReClammMath {
         uint32 currentTimestamp,
         uint32 lastTimestamp
     ) internal pure returns (uint256 newVirtualBalanceA, uint256 newVirtualBalanceB) {
-        uint256 sqrtPriceRatio = Math.sqrt(
-            computePriceRatio(balancesScaled18, virtualBalanceA, virtualBalanceB) * FixedPoint.ONE
+        uint256 sqrtPriceRatio = sqrtScaled18(
+            computePriceRatio(balancesScaled18, virtualBalanceA, virtualBalanceB)
         );
 
         // The overvalued token is the one with a lower token balance (therefore, rarer and more valuable).
@@ -526,6 +526,12 @@ library ReClammMath {
         virtualBalanceOvervalued = virtualBalanceOvervalued.mulDown(
             dailyPriceShiftBase.powDown((currentTimestamp - lastTimestamp) * FixedPoint.ONE)
         );
+
+        // This would cap the virtual balance overvalued to the minimum value at the center of the pool.
+        virtualBalanceOvervalued = Math.max(virtualBalanceOvervalued, balancesScaledOvervalued.divDown(
+            sqrtScaled18(sqrtPriceRatio) - FixedPoint.ONE
+        ));
+
         virtualBalanceUndervalued =
             (balancesScaledUndervalued * (virtualBalanceOvervalued + balancesScaledOvervalued)) /
             ((sqrtPriceRatio - FixedPoint.ONE).mulDown(virtualBalanceOvervalued) - balancesScaledOvervalued);

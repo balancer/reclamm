@@ -1457,6 +1457,66 @@ contract ReClammPoolTest is BaseReClammTest {
         assertApproxEqRel(maxPriceAfter, expectedMaxPrice, 1e14, "Max price did not move as expected");
     }
 
+    function testPriceRangeShiftStop() public {
+        // 98% margin, 100% price shift exponent
+        vm.startPrank(admin);
+        ReClammPool(pool).setDailyPriceShiftExponent(100e16);
+        ReClammPoolMock(pool).manualSetCenterednessMargin(98e16);
+        vm.stopPrank();
+
+        // Swap all of token B for token A using the router, getting almost all of the balance of B
+        (IERC20[] memory tokens, , uint256[] memory balances, ) = vault.getPoolTokenInfo(pool);
+
+        vm.prank(alice);
+        router.swapSingleTokenExactOut(
+            pool,
+            tokens[a],
+            tokens[b],
+            balances[b] - 1e18, // Swap almost all of B
+            MAX_UINT256,
+            MAX_UINT256,
+            false,
+            bytes("")
+        );
+
+        (, , , uint256[] memory balancesScaled18AfterSwap) = vault.getPoolTokenInfo(pool);
+
+        (uint256 poolCenterednessAfterSwap, ) = ReClammPool(pool).computeCurrentPoolCenteredness();
+        assertApproxEqAbs(poolCenterednessAfterSwap, 0, 0.5e16, "Pool centeredness after swap is not close to 0%");
+        assertFalse(ReClammPool(pool).isPoolWithinTargetRange(), "Pool is still within target range after swap");
+
+        // Wait some time, verify that the price is moving
+        skip(5 hours);
+
+        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) = ReClammPool(pool)
+            .computeCurrentVirtualBalances();
+
+        assertTrue(changed, "Virtual balances did not change");
+        (uint256 centerednessAfterOneHour, ) = ReClammMath.computeCenteredness(
+            balancesScaled18AfterSwap,
+            currentVirtualBalanceA,
+            currentVirtualBalanceB
+        );
+        assertGt(
+            centerednessAfterOneHour,
+            poolCenterednessAfterSwap,
+            "Centeredness did not increase with respect to the starting point"
+        );
+        assertGt(centerednessAfterOneHour, 1e16, "Centeredness did not increase above 1%");
+        assertLt(centerednessAfterOneHour, 50e16, "Centeredness increased too much");
+
+        // No swaps in 30 days
+        skip(30 days);
+        (currentVirtualBalanceA, currentVirtualBalanceB, ) = ReClammPool(pool).computeCurrentVirtualBalances();
+        (uint256 centerednessAfterThirtyDays, ) = ReClammMath.computeCenteredness(
+            balancesScaled18AfterSwap,
+            currentVirtualBalanceA,
+            currentVirtualBalanceB
+        );
+        assertGt(centerednessAfterThirtyDays, centerednessAfterOneHour, "Centeredness did not increase after 30 days");
+        assertApproxEqAbs(centerednessAfterThirtyDays, 100e16, 0.0000001e16, "Centeredness did not stop at 100%");
+    }
+
     function _createStandardPool(
         bool tokenAPriceIncludesRate,
         bool tokenBPriceIncludesRate,
