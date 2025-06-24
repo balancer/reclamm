@@ -49,7 +49,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     // over the course of one day. A value of 100% (i.e, FP 1) means that the min and max prices will double (or halve)
     // every day, until the pool price is within the range defined by the margin. This constant defines the maximum
     // "price shift" velocity.
-    uint256 internal constant _MAX_DAILY_PRICE_SHIFT_EXPONENT = 300e16; // 300%
+    uint256 internal constant _MAX_DAILY_PRICE_SHIFT_EXPONENT = 100e16; // 300%
 
     // Price ratio updates must have both a minimum duration and a maximum daily rate. For instance, an update rate of
     // FP 2 means the ratio one day later must be at least half and at most double the rate at the start of the update.
@@ -660,9 +660,12 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             priceRatioUpdateEndTime
         );
 
-        uint256 priceRatioDelta = endPriceRatio >= startPriceRatio
-            ? endPriceRatio - startPriceRatio
-            : startPriceRatio - endPriceRatio;
+        uint256 priceRatioDelta;
+        unchecked {
+            priceRatioDelta = endPriceRatio >= startPriceRatio
+                ? endPriceRatio - startPriceRatio
+                : startPriceRatio - endPriceRatio;
+        }
 
         if (priceRatioDelta < _MIN_PRICE_RATIO_DELTA) {
             revert PriceRatioDeltaBelowMin(priceRatioDelta);
