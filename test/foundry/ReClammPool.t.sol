@@ -1458,10 +1458,13 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function testPriceRangeShiftStop() public {
+        uint256 SHORT_DELAY = 5 hours;
+        uint256 LONG_DELAY = 20 * 365 days;
+
         // 50% margin, 100% price shift exponent
         uint256 margin = 50e16;
         vm.startPrank(admin);
-        ReClammPool(pool).setDailyPriceShiftExponent(100e16);
+        ReClammPool(pool).setDailyPriceShiftExponent(300e16); // Set to the maximum value to stress test powDown
         ReClammPoolMock(pool).manualSetCenterednessMargin(margin);
         vm.stopPrank();
 
@@ -1487,38 +1490,45 @@ contract ReClammPoolTest is BaseReClammTest {
         assertFalse(ReClammPool(pool).isPoolWithinTargetRange(), "Pool is still within target range after swap");
 
         // Wait some time, verify that the price is moving
-        skip(5 hours);
+        skip(SHORT_DELAY);
 
         (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) = ReClammPool(pool)
             .computeCurrentVirtualBalances();
 
-        assertTrue(changed, "Virtual balances did not change");
-        (uint256 centerednessAfterOneHour, bool isPoolAboveCenter) = ReClammMath.computeCenteredness(
+        assertTrue(changed, "Virtual balances did not change after short delay");
+        (uint256 centerednessAfterShortDelay, bool isPoolAboveCenter) = ReClammMath.computeCenteredness(
             balancesScaled18AfterSwap,
             currentVirtualBalanceA,
             currentVirtualBalanceB
         );
         assertGt(
-            centerednessAfterOneHour,
+            centerednessAfterShortDelay,
             poolCenterednessAfterSwap,
             "Centeredness did not increase with respect to the starting point"
         );
-        assertGt(centerednessAfterOneHour, poolCenterednessAfterSwap, "Centeredness did not increase");
-        assertLt(centerednessAfterOneHour, margin, "Centeredness increased past the margin");
+        assertGt(centerednessAfterShortDelay, poolCenterednessAfterSwap, "Centeredness did not increase");
+        assertLt(centerednessAfterShortDelay, margin, "Centeredness increased past the margin");
         assertTrue(isPoolAboveCenter, "Pool is not above the center");
 
-        // No swaps in 30 days. We're way past the margin right now, but we should not go past 100%.
-        skip(30 days);
+        // Wait an absurd amount of time to stress test the duration-handling code.
+        // We're way past the margin right now, but we should not go past 100%.
+        skip(LONG_DELAY);
+
         (currentVirtualBalanceA, currentVirtualBalanceB, changed) = ReClammPool(pool).computeCurrentVirtualBalances();
-        assertTrue(changed, "Virtual balances did not change (2)");
-        uint256 centerednessAfterThirtyDays;
-        (centerednessAfterThirtyDays, isPoolAboveCenter) = ReClammMath.computeCenteredness(
+        assertTrue(changed, "Virtual balances did not change after long delay");
+        uint256 centerednessAfterLongDelay;
+        (centerednessAfterLongDelay, isPoolAboveCenter) = ReClammMath.computeCenteredness(
             balancesScaled18AfterSwap,
             currentVirtualBalanceA,
             currentVirtualBalanceB
         );
-        assertGt(centerednessAfterThirtyDays, centerednessAfterOneHour, "Centeredness did not increase after 30 days");
-        assertApproxEqAbs(centerednessAfterThirtyDays, 100e16, 0.0000001e16, "Centeredness did not stop at 100%");
+        assertGt(
+            centerednessAfterLongDelay,
+            centerednessAfterShortDelay,
+            "Centeredness did not increase after long delay"
+        );
+        assertApproxEqAbs(centerednessAfterLongDelay, 100e16, 0.0000001e16, "Centeredness did not stop at 100%");
+        assertLt(centerednessAfterLongDelay, 100e16, "Centeredness did not stay below 100%");
         assertTrue(isPoolAboveCenter, "Pool is not above the center (changed sides)");
     }
 
