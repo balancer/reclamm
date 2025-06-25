@@ -523,20 +523,12 @@ library ReClammMath {
         // +-----------------------------------------+
         uint256 duration = currentTimestamp - lastTimestamp;
 
-        if (duration <= 1 days) {
-            // We know the duration will not overflow `powDown`.
-            virtualBalanceOvervalued = virtualBalanceOvervalued.mulDown(
-                dailyPriceShiftBase.powDown(duration * FixedPoint.ONE)
-            );
-        } else {
-            // a^(b*c) = (a^b)^c
-            // So instead of base^(huge_number), we do (base^(1 day))^(duration_in_days)
-            uint256 dailyDecay = dailyPriceShiftBase.powDown(1 days * FixedPoint.ONE);
-
-            virtualBalanceOvervalued = virtualBalanceOvervalued.mulDown(powInt(dailyDecay, duration / 1 days)).mulDown(
-                dailyPriceShiftBase.powDown((duration % 1 days) * FixedPoint.ONE)
-            );
-        }
+        // a^(b*c) = (a^b)^c
+        // So instead of base^(huge_number), we do (base^(1 day))^(duration_in_days)
+        uint256 dailyDecay = dailyPriceShiftBase.powDown(1 days * FixedPoint.ONE);
+        virtualBalanceOvervalued = virtualBalanceOvervalued.mulDown(powInt(dailyDecay, duration / 1 days)).mulDown(
+            dailyPriceShiftBase.powDown((duration % 1 days) * FixedPoint.ONE)
+        );
 
         // Ensure that Vo does not go below the minimum allowed value (corresponding to centeredness == 1).
         virtualBalanceOvervalued = Math.max(
