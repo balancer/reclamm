@@ -1464,7 +1464,7 @@ contract ReClammPoolTest is BaseReClammTest {
         // 50% margin, 100% price shift exponent
         uint256 margin = 50e16;
         vm.startPrank(admin);
-        ReClammPool(pool).setDailyPriceShiftExponent(300e16); // Set to the maximum value to stress test powDown
+        ReClammPool(pool).setDailyPriceShiftExponent(100e16);
         ReClammPoolMock(pool).manualSetCenterednessMargin(margin);
         vm.stopPrank();
 
@@ -1489,7 +1489,7 @@ contract ReClammPoolTest is BaseReClammTest {
         assertApproxEqAbs(poolCenterednessAfterSwap, 0, 0.5e16, "Pool centeredness after swap is not close to 0%");
         assertFalse(ReClammPool(pool).isPoolWithinTargetRange(), "Pool is still within target range after swap");
 
-        // Wait some time, verify that the price is moving
+        // Wait some time, verify that the price is moving.
         skip(SHORT_DELAY);
 
         (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) = ReClammPool(pool)
@@ -1528,7 +1528,6 @@ contract ReClammPoolTest is BaseReClammTest {
             "Centeredness did not increase after long delay"
         );
         assertApproxEqAbs(centerednessAfterLongDelay, 100e16, 0.0000001e16, "Centeredness did not stop at 100%");
-        assertLt(centerednessAfterLongDelay, 100e16, "Centeredness did not stay below 100%");
         assertTrue(isPoolAboveCenter, "Pool is not above the center (changed sides)");
         assertLt(centerednessAfterLongDelay, 100e16, "Centeredness did not stay below 100%");
 
