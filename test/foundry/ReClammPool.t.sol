@@ -1468,7 +1468,7 @@ contract ReClammPoolTest is BaseReClammTest {
         ReClammPoolMock(pool).manualSetCenterednessMargin(margin);
         vm.stopPrank();
 
-        // Swap all of token B for token A using the router, getting almost all of the balance of B
+        // Swap all of token B for token A using the router, getting almost all of the balance of B.
         (IERC20[] memory tokens, , uint256[] memory balances, ) = vault.getPoolTokenInfo(pool);
 
         vm.prank(alice);
@@ -1530,6 +1530,14 @@ contract ReClammPoolTest is BaseReClammTest {
         assertApproxEqAbs(centerednessAfterLongDelay, 100e16, 0.0000001e16, "Centeredness did not stop at 100%");
         assertLt(centerednessAfterLongDelay, 100e16, "Centeredness did not stay below 100%");
         assertTrue(isPoolAboveCenter, "Pool is not above the center (changed sides)");
+        assertLt(centerednessAfterLongDelay, 100e16, "Centeredness did not stay below 100%");
+
+        // Wait even more; the virtual balances should not change anymore.
+        skip(10 days);
+        (uint256 finalVirtualBalanceA, uint256 finalVirtualBalanceB, ) = ReClammPool(pool)
+            .computeCurrentVirtualBalances();
+        assertEq(finalVirtualBalanceA, currentVirtualBalanceA, "Final virtual balance A changed");
+        assertEq(finalVirtualBalanceB, currentVirtualBalanceB, "Final virtual balance B changed");
     }
 
     function _createStandardPool(
