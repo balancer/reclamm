@@ -525,7 +525,7 @@ library ReClammMath {
             dailyPriceShiftBase.powDown((currentTimestamp - lastTimestamp) * FixedPoint.ONE)
         );
 
-        // This would cap the virtual balance overvalued to the minimum value at the center of the pool.
+        // Ensure that Vo does not go below the minimum allowed value (corresponding to centeredness == 1).
         virtualBalanceOvervalued = Math.max(
             virtualBalanceOvervalued,
             balancesScaledOvervalued.divDown(sqrtScaled18(sqrtPriceRatio) - FixedPoint.ONE)

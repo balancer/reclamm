@@ -1458,14 +1458,14 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function testPriceRangeShiftStop() public {
-        // 50% margin, 100% price shift exponent
+        // 50% margin, 100% price shift exponent.
         uint256 margin = 50e16;
         vm.startPrank(admin);
         ReClammPool(pool).setDailyPriceShiftExponent(100e16);
         ReClammPoolMock(pool).manualSetCenterednessMargin(margin);
         vm.stopPrank();
 
-        // Swap all of token B for token A using the router, getting almost all of the balance of B
+        // Swap all of token B for token A using the router, getting almost all of the balance of B.
         (IERC20[] memory tokens, , uint256[] memory balances, ) = vault.getPoolTokenInfo(pool);
 
         vm.prank(alice);
@@ -1486,40 +1486,52 @@ contract ReClammPoolTest is BaseReClammTest {
         assertApproxEqAbs(poolCenterednessAfterSwap, 0, 0.5e16, "Pool centeredness after swap is not close to 0%");
         assertFalse(ReClammPool(pool).isPoolWithinTargetRange(), "Pool is still within target range after swap");
 
-        // Wait some time, verify that the price is moving
+        // Wait some time, verify that the price is moving.
         skip(5 hours);
 
         (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) = ReClammPool(pool)
             .computeCurrentVirtualBalances();
 
         assertTrue(changed, "Virtual balances did not change");
-        (uint256 centerednessAfterOneHour, bool isPoolAboveCenter) = ReClammMath.computeCenteredness(
+        (uint256 centerednessAfterShortDelay, bool isPoolAboveCenter) = ReClammMath.computeCenteredness(
             balancesScaled18AfterSwap,
             currentVirtualBalanceA,
             currentVirtualBalanceB
         );
         assertGt(
-            centerednessAfterOneHour,
+            centerednessAfterShortDelay,
             poolCenterednessAfterSwap,
             "Centeredness did not increase with respect to the starting point"
         );
-        assertGt(centerednessAfterOneHour, poolCenterednessAfterSwap, "Centeredness did not increase");
-        assertLt(centerednessAfterOneHour, margin, "Centeredness increased past the margin");
+        assertGt(centerednessAfterShortDelay, poolCenterednessAfterSwap, "Centeredness did not increase");
+        assertLt(centerednessAfterShortDelay, margin, "Centeredness increased past the margin");
         assertTrue(isPoolAboveCenter, "Pool is not above the center");
 
         // No swaps in 30 days. We're way past the margin right now, but we should not go past 100%.
         skip(30 days);
         (currentVirtualBalanceA, currentVirtualBalanceB, changed) = ReClammPool(pool).computeCurrentVirtualBalances();
         assertTrue(changed, "Virtual balances did not change (2)");
-        uint256 centerednessAfterThirtyDays;
-        (centerednessAfterThirtyDays, isPoolAboveCenter) = ReClammMath.computeCenteredness(
+        uint256 centerednessAfterLongDelay;
+        (centerednessAfterLongDelay, isPoolAboveCenter) = ReClammMath.computeCenteredness(
             balancesScaled18AfterSwap,
             currentVirtualBalanceA,
             currentVirtualBalanceB
         );
-        assertGt(centerednessAfterThirtyDays, centerednessAfterOneHour, "Centeredness did not increase after 30 days");
-        assertApproxEqAbs(centerednessAfterThirtyDays, 100e16, 0.0000001e16, "Centeredness did not stop at 100%");
+        assertGt(
+            centerednessAfterLongDelay,
+            centerednessAfterShortDelay,
+            "Centeredness did not increase after 30 days"
+        );
+        assertApproxEqAbs(centerednessAfterLongDelay, 100e16, 0.0000001e16, "Centeredness did not stop at 100%");
         assertTrue(isPoolAboveCenter, "Pool is not above the center (changed sides)");
+        assertLt(centerednessAfterLongDelay, 100e16, "Centeredness did not stay below 100%");
+
+        // Wait even more; the virtual balances should not change anymore.
+        skip(10 days);
+        (uint256 finalVirtualBalanceA, uint256 finalVirtualBalanceB, ) = ReClammPool(pool)
+            .computeCurrentVirtualBalances();
+        assertEq(finalVirtualBalanceA, currentVirtualBalanceA, "Final virtual balance A changed");
+        assertEq(finalVirtualBalanceB, currentVirtualBalanceB, "Final virtual balance B changed");
     }
 
     function _createStandardPool(
