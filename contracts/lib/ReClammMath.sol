@@ -521,9 +521,22 @@ library ReClammMath {
         // |    Ro = Real balance overvalued         |
         // |    Qo = Square root of price ratio      |
         // +-----------------------------------------+
-        virtualBalanceOvervalued = virtualBalanceOvervalued.mulDown(
-            dailyPriceShiftBase.powDown((currentTimestamp - lastTimestamp) * FixedPoint.ONE)
-        );
+        uint256 duration = currentTimestamp - lastTimestamp;
+
+        if (duration <= 1 days) {
+            // We know the duration will not overflow `powDown`.
+            virtualBalanceOvervalued = virtualBalanceOvervalued.mulDown(
+                dailyPriceShiftBase.powDown(duration * FixedPoint.ONE)
+            );
+        } else {
+            // a^(b*c) = (a^b)^c
+            // So instead of base^(huge_number), we do (base^(1 day))^(duration_in_days)
+            uint256 dailyDecay = dailyPriceShiftBase.powDown(1 days * FixedPoint.ONE);
+
+            virtualBalanceOvervalued = virtualBalanceOvervalued.mulDown(powInt(dailyDecay, duration / 1 days)).mulDown(
+                dailyPriceShiftBase.powDown((duration % 1 days) * FixedPoint.ONE)
+            );
+        }
 
         // This would cap the virtual balance overvalued to the minimum value at the center of the pool.
         virtualBalanceOvervalued = Math.max(
@@ -538,6 +551,20 @@ library ReClammMath {
         (newVirtualBalanceA, newVirtualBalanceB) = isPoolAboveCenter
             ? (virtualBalanceUndervalued, virtualBalanceOvervalued)
             : (virtualBalanceOvervalued, virtualBalanceUndervalued);
+    }
+
+    // Helper function for integer exponentiation (pow isn't needed for integers, and can easily overflow).
+    function powInt(uint256 base, uint256 exponent) internal pure returns (uint256 result) {
+        uint256 currentBase = base;
+        result = FixedPoint.ONE;
+
+        while (exponent > 0) {
+            if (exponent & 1 == 1) {
+                result = result.mulDown(currentBase);
+            }
+            currentBase = currentBase.mulDown(currentBase);
+            exponent >>= 1;
+        }
     }
 
     /**
