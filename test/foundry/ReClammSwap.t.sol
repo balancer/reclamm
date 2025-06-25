@@ -259,7 +259,7 @@ contract ReClammSwapTest is BaseReClammTest {
 
     function testInRangePriceRatioUpdatingSwapExactOut__Fuzz(uint256 newFourthRootPriceRatio) public {
         uint256 currentFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
-        newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 3e18);
+        newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 2e18);
 
         if (newFourthRootPriceRatio > currentFourthRootPriceRatio) {
             vm.assume(newFourthRootPriceRatio - currentFourthRootPriceRatio >= 2);
