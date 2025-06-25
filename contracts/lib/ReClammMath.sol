@@ -553,17 +553,23 @@ library ReClammMath {
             : (virtualBalanceOvervalued, virtualBalanceUndervalued);
     }
 
-    // Helper function for integer exponentiation (pow isn't needed for integers, and can easily overflow).
-    function powInt(uint256 base, uint256 exponent) internal pure returns (uint256 result) {
+    /**
+     * @notice Helper function for integer exponentiation (pow isn't needed for integers, and can easily overflow).
+     * @dev This function does not validate that the exponent is an integer, so this must be guaranteed externally.
+     * @param base The base of the power function
+     * @param integerExponent The integer exponent of the power function
+     * @return result The result of base^integerExponent (i.e., powDown for integer powers)
+     */
+    function powInt(uint256 base, uint256 integerExponent) internal pure returns (uint256 result) {
         uint256 currentBase = base;
         result = FixedPoint.ONE;
 
-        while (exponent > 0) {
-            if (exponent & 1 == 1) {
+        while (integerExponent > 0) {
+            if (integerExponent & 1 == 1) {
                 result = result.mulDown(currentBase);
             }
             currentBase = currentBase.mulDown(currentBase);
-            exponent >>= 1;
+            integerExponent >>= 1;
         }
     }
 
