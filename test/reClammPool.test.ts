@@ -797,7 +797,7 @@ describe('ReClammPool', function () {
       );
     });
 
-    it('should move virtual balances correctly (out of range > center and price ratio de-concentrating)', async () => {
+    it('should move virtual balances correctly (out of range > center and price ratio deconcentrating)', async () => {
       const initialFourthRootPriceRatio = await pool.computeCurrentFourthRootPriceRatio();
 
       const { minPrice: minPriceBeforeBigSwap, maxPrice: maxPriceBeforeBigSwap } = await checkPoolPrices(
