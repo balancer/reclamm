@@ -521,13 +521,12 @@ library ReClammMath {
         // |    Ro = Real balance overvalued         |
         // |    Qo = Square root of price ratio      |
         // +-----------------------------------------+
-        uint256 duration = currentTimestamp - lastTimestamp;
 
-        // a^(b*c) = (a^b)^c
-        // So instead of base^(huge_number), we do (base^(1 day))^(duration_in_days)
-        uint256 dailyDecay = dailyPriceShiftBase.powDown(1 days * FixedPoint.ONE);
-        virtualBalanceOvervalued = virtualBalanceOvervalued.mulDown(powInt(dailyDecay, duration / 1 days)).mulDown(
-            dailyPriceShiftBase.powDown((duration % 1 days) * FixedPoint.ONE)
+        // Cap the duration (time between operations) at 30 days, to ensure `powDown` does not overflow.
+        uint256 duration = Math.min(currentTimestamp - lastTimestamp, 30 days);
+
+        virtualBalanceOvervalued = virtualBalanceOvervalued.mulDown(
+            dailyPriceShiftBase.powDown(duration * FixedPoint.ONE)
         );
 
         // Ensure that Vo does not go below the minimum allowed value (corresponding to centeredness == 1).
@@ -543,26 +542,6 @@ library ReClammMath {
         (newVirtualBalanceA, newVirtualBalanceB) = isPoolAboveCenter
             ? (virtualBalanceUndervalued, virtualBalanceOvervalued)
             : (virtualBalanceOvervalued, virtualBalanceUndervalued);
-    }
-
-    /**
-     * @notice Helper function for integer exponentiation (pow isn't needed for integers, and can easily overflow).
-     * @dev This function does not validate that the exponent is an integer, so this must be guaranteed externally.
-     * @param base The base of the power function
-     * @param integerExponent The integer exponent of the power function
-     * @return result The result of base^integerExponent (i.e., powDown for integer powers)
-     */
-    function powInt(uint256 base, uint256 integerExponent) internal pure returns (uint256 result) {
-        uint256 currentBase = base;
-        result = FixedPoint.ONE;
-
-        while (integerExponent > 0) {
-            if (integerExponent & 1 == 1) {
-                result = result.mulDown(currentBase);
-            }
-            currentBase = currentBase.mulDown(currentBase);
-            integerExponent >>= 1;
-        }
     }
 
     /**
