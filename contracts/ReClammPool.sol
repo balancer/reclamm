@@ -649,9 +649,12 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             priceRatioUpdateEndTime
         );
 
-        uint256 updateDuration = priceRatioUpdateEndTime - actualPriceRatioUpdateStartTime;
+        // `resolveStartTime` validates that end time >= start time.
+        uint256 updateDuration;
+        unchecked {
+            updateDuration = priceRatioUpdateEndTime - actualPriceRatioUpdateStartTime;
+        }
 
-        // We've already validated that end time >= start time at this point.
         if (updateDuration < _MIN_PRICE_RATIO_UPDATE_DURATION) {
             revert PriceRatioUpdateDurationTooShort();
         }
