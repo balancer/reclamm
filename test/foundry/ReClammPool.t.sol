@@ -1545,6 +1545,51 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(finalVirtualBalanceB, currentVirtualBalanceB, "Final virtual balance B changed");
     }
 
+    function testPriceRangeShiftStopAt100__Fuzz(uint256 margin) public {
+        margin = bound(margin, 1e16, _MAX_CENTEREDNESS_MARGIN);
+
+        vm.startPrank(admin);
+        ReClammPool(pool).setDailyPriceShiftExponent(100e16);
+        ReClammPoolMock(pool).manualSetCenterednessMargin(margin);
+        vm.stopPrank();
+
+        // Swap all of token B for token A using the router, getting almost all of the balance of B.
+        (IERC20[] memory tokens, , uint256[] memory balances, ) = vault.getPoolTokenInfo(pool);
+
+        vm.prank(alice);
+        router.swapSingleTokenExactOut(
+            pool,
+            tokens[a],
+            tokens[b],
+            balances[b] - 1e18, // Swap almost all of B
+            MAX_UINT256,
+            MAX_UINT256,
+            false,
+            bytes("")
+        );
+
+        (, , , uint256[] memory balancesScaled18AfterSwap) = vault.getPoolTokenInfo(pool);
+
+        (uint256 poolCenterednessAfterSwap, ) = ReClammPool(pool).computeCurrentPoolCenteredness();
+        assertApproxEqAbs(poolCenterednessAfterSwap, 0, 0.5e16, "Pool centeredness after swap is not close to 0%");
+        assertFalse(ReClammPool(pool).isPoolWithinTargetRange(), "Pool is still within target range after swap");
+
+        // We're way past the margin right now, but we should not go past 100%.
+        skip(30 days);
+
+        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) = ReClammPool(pool)
+            .computeCurrentVirtualBalances();
+        assertTrue(changed, "Virtual balances did not change after long delay");
+        (uint256 centerednessAfterLongDelay, bool isPoolAboveCenter) = ReClammMath.computeCenteredness(
+            balancesScaled18AfterSwap,
+            currentVirtualBalanceA,
+            currentVirtualBalanceB
+        );
+        assertApproxEqAbs(centerednessAfterLongDelay, 100e16, 0.0000001e16, "Centeredness did not stop at 100%");
+        assertTrue(isPoolAboveCenter, "Pool is not above the center (changed sides)");
+        assertLt(centerednessAfterLongDelay, 100e16, "Centeredness did not stay below 100%");
+    }
+
     function _createStandardPool(
         bool tokenAPriceIncludesRate,
         bool tokenBPriceIncludesRate,
