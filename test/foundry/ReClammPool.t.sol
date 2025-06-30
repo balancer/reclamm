@@ -1588,6 +1588,13 @@ contract ReClammPoolTest is BaseReClammTest {
         assertApproxEqAbs(centerednessAfterLongDelay, 100e16, 0.0000001e16, "Centeredness did not stop at 100%");
         assertTrue(isPoolAboveCenter, "Pool is not above the center (changed sides)");
         assertLt(centerednessAfterLongDelay, 100e16, "Centeredness did not stay below 100%");
+
+        // Wait even more; the virtual balances should not change anymore.
+        skip(30 days);
+        (uint256 finalVirtualBalanceA, uint256 finalVirtualBalanceB, ) = ReClammPool(pool)
+            .computeCurrentVirtualBalances();
+        assertEq(finalVirtualBalanceA, currentVirtualBalanceA, "Final virtual balance A changed");
+        assertEq(finalVirtualBalanceB, currentVirtualBalanceB, "Final virtual balance B changed");
     }
 
     function _createStandardPool(
