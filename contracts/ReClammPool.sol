@@ -277,7 +277,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         address,
         TokenConfig[] memory tokenConfig,
         LiquidityManagement calldata liquidityManagement
-    ) public view override onlyVault returns (bool) {
+    ) public pure override returns (bool) {
+        // This function is `pure`, so it does not need `onlyVault` protection.
         return
             tokenConfig.length == 2 &&
             liquidityManagement.disableUnbalancedLiquidity &&

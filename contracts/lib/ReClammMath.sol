@@ -521,8 +521,12 @@ library ReClammMath {
         // |    Ro = Real balance overvalued         |
         // |    Qo = Square root of price ratio      |
         // +-----------------------------------------+
+
+        // Cap the duration (time between operations) at 30 days, to ensure `powDown` does not overflow.
+        uint256 duration = Math.min(currentTimestamp - lastTimestamp, 30 days);
+
         virtualBalanceOvervalued = virtualBalanceOvervalued.mulDown(
-            dailyPriceShiftBase.powDown((currentTimestamp - lastTimestamp) * FixedPoint.ONE)
+            dailyPriceShiftBase.powDown(duration * FixedPoint.ONE)
         );
 
         // Ensure that Vo does not go below the minimum allowed value (corresponding to centeredness == 1).
