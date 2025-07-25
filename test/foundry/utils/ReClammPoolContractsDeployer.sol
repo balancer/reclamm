@@ -117,6 +117,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
                 : _vault.buildTokenConfig(_tokens, _rateProviders),
             roleAccounts,
             0.001e16, // minimum swap fee
+            address(0), // no hook contract
             priceParams,
             defaultParams.defaultDailyPriceShiftExponent,
             defaultParams.defaultCenterednessMargin.toUint64(),

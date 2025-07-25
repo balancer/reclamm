@@ -140,6 +140,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
             vault.buildTokenConfig(sortedTokens, rateProviders),
             roleAccounts,
             _DEFAULT_SWAP_FEE,
+            address(0), // hook contract
             priceParams,
             _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
             _DEFAULT_CENTEREDNESS_MARGIN,

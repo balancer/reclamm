@@ -55,6 +55,8 @@ contract ReClammPoolTest is BaseReClammTest {
 
     ReClammMathMock mathMock = new ReClammMathMock();
 
+    // asdf add contract and test onlyVault
+
     function testOnSwapOnlyVault() public {
         PoolSwapParams memory request;
         vm.expectRevert(abi.encodeWithSelector(IVaultErrors.SenderIsNotVault.selector, address(this)));
@@ -1094,7 +1096,7 @@ contract ReClammPoolTest is BaseReClammTest {
         });
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
-        new ReClammPool(params, vault);
+        new ReClammPool(params, vault, address(0));
     }
 
     function testCreateWithTargetUnderMinPrice() public {
@@ -1112,7 +1114,7 @@ contract ReClammPoolTest is BaseReClammTest {
         });
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
-        new ReClammPool(params, vault);
+        new ReClammPool(params, vault, address(0));
     }
 
     function testCreateWithInvalidMaxPrice() public {
@@ -1130,7 +1132,7 @@ contract ReClammPoolTest is BaseReClammTest {
         });
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
-        new ReClammPool(params, vault);
+        new ReClammPool(params, vault, address(0));
     }
 
     function testCreateWithTargetOverMaxPrice() public {
@@ -1148,7 +1150,7 @@ contract ReClammPoolTest is BaseReClammTest {
         });
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
-        new ReClammPool(params, vault);
+        new ReClammPool(params, vault, address(0));
     }
 
     function testCreateWithInvalidTargetPrice() public {
@@ -1166,7 +1168,7 @@ contract ReClammPoolTest is BaseReClammTest {
         });
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
-        new ReClammPool(params, vault);
+        new ReClammPool(params, vault, address(0));
     }
 
     function testOnBeforeInitializeEvents() public {
@@ -1320,6 +1322,7 @@ contract ReClammPoolTest is BaseReClammTest {
             tokenConfig,
             roleAccounts,
             _DEFAULT_SWAP_FEE,
+            address(0), // hook contract
             priceParams,
             _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
             _DEFAULT_CENTEREDNESS_MARGIN,
@@ -1342,6 +1345,7 @@ contract ReClammPoolTest is BaseReClammTest {
             tokenConfig,
             roleAccounts,
             _DEFAULT_SWAP_FEE,
+            address(0), // hook contract
             priceParams,
             _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
             _DEFAULT_CENTEREDNESS_MARGIN,
@@ -1623,6 +1627,7 @@ contract ReClammPoolTest is BaseReClammTest {
             vault.buildTokenConfig(sortedTokens),
             roleAccounts,
             _DEFAULT_SWAP_FEE,
+            address(0), // hook contract
             priceParams,
             _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
             _DEFAULT_CENTEREDNESS_MARGIN,
