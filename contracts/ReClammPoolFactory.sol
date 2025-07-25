@@ -48,6 +48,7 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
      * @param tokens An array of descriptors for the tokens the pool will manage
      * @param roleAccounts Addresses the Vault will allow to change certain pool settings
      * @param swapFeePercentage Initial swap fee percentage
+     * @param hookContract ReClamm pools are their own hooks, but can forward to an optional second hook
      * @param priceParams Initial min, max and target prices; flags indicating whether token prices incorporate rates
      * @param dailyPriceShiftExponent Virtual balances will change by 2^(dailyPriceShiftExponent) per day
      * @param centerednessMargin How far the price can be from the center before the price range starts to move
@@ -59,6 +60,7 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
         TokenConfig[] memory tokens,
         PoolRoleAccounts memory roleAccounts,
         uint256 swapFeePercentage,
+        address hookContract,
         ReClammPriceParams memory priceParams,
         uint256 dailyPriceShiftExponent,
         uint256 centerednessMargin,
@@ -88,7 +90,8 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
                     dailyPriceShiftExponent: dailyPriceShiftExponent,
                     centerednessMargin: centerednessMargin.toUint64()
                 }),
-                getVault()
+                getVault(),
+                hookContract
             ),
             salt
         );
