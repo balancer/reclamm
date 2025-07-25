@@ -55,7 +55,12 @@ contract ReClammPoolTest is BaseReClammTest {
 
     ReClammMathMock mathMock = new ReClammMathMock();
 
-    // asdf add contract and test onlyVault
+    function testOnRegisterOnlyVault() public {
+        LiquidityManagement memory liquidityManagement;
+
+        vm.expectRevert(abi.encodeWithSelector(IVaultErrors.SenderIsNotVault.selector, address(this)));
+        ReClammPool(pool).onRegister(address(this), address(this), new TokenConfig[](2), liquidityManagement);
+    }
 
     function testOnSwapOnlyVault() public {
         PoolSwapParams memory request;
@@ -68,12 +73,30 @@ contract ReClammPoolTest is BaseReClammTest {
         ReClammPool(pool).onBeforeInitialize(new uint256[](2), bytes(""));
     }
 
+    function testOnAfterInitializeOnlyVault() public {
+        vm.expectRevert(abi.encodeWithSelector(IVaultErrors.SenderIsNotVault.selector, address(this)));
+        ReClammPool(pool).onAfterInitialize(new uint256[](2), 0, bytes(""));
+    }
     function testOnBeforeAddLiquidityOnlyVault() public {
         vm.expectRevert(abi.encodeWithSelector(IVaultErrors.SenderIsNotVault.selector, address(this)));
         ReClammPool(pool).onBeforeAddLiquidity(
             address(this),
             address(this),
             AddLiquidityKind.PROPORTIONAL,
+            new uint256[](2),
+            0,
+            new uint256[](2),
+            bytes("")
+        );
+    }
+
+    function testOnAfterAddLiquidityOnlyVault() public {
+        vm.expectRevert(abi.encodeWithSelector(IVaultErrors.SenderIsNotVault.selector, address(this)));
+        ReClammPool(pool).onAfterAddLiquidity(
+            address(this),
+            address(this),
+            AddLiquidityKind.PROPORTIONAL,
+            new uint256[](2),
             new uint256[](2),
             0,
             new uint256[](2),
@@ -92,6 +115,41 @@ contract ReClammPoolTest is BaseReClammTest {
             new uint256[](2),
             bytes("")
         );
+    }
+
+    function testOnAfterRemoveLiquidityOnlyVault() public {
+        vm.expectRevert(abi.encodeWithSelector(IVaultErrors.SenderIsNotVault.selector, address(this)));
+        ReClammPool(pool).onAfterRemoveLiquidity(
+            address(this),
+            address(this),
+            RemoveLiquidityKind.PROPORTIONAL,
+            1,
+            new uint256[](2),
+            new uint256[](2),
+            new uint256[](2),
+            bytes("")
+        );
+    }
+
+    function testOnBeforeSwapOnlyVault() public {
+        PoolSwapParams memory params;
+
+        vm.expectRevert(abi.encodeWithSelector(IVaultErrors.SenderIsNotVault.selector, address(this)));
+        ReClammPool(pool).onBeforeSwap(params, address(this));
+    }
+
+    function testOnAfterSwapOnlyVault() public {
+        AfterSwapParams memory params;
+
+        vm.expectRevert(abi.encodeWithSelector(IVaultErrors.SenderIsNotVault.selector, address(this)));
+        ReClammPool(pool).onAfterSwap(params);
+    }
+
+    function testOnComputeDynamicSwapFeePercentageOnlyVault() public {
+        PoolSwapParams memory params;
+
+        vm.expectRevert(abi.encodeWithSelector(IVaultErrors.SenderIsNotVault.selector, address(this)));
+        ReClammPool(pool).onComputeDynamicSwapFeePercentage(params, address(this), 0);
     }
 
     function testComputeCurrentFourthRootPriceRatio() public view {
