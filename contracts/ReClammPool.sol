@@ -373,8 +373,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         return
             _HOOK_CONTRACT == address(0) ||
-            (_HOOK_CONTRACT != address(0) &&
-                IHooks(_HOOK_CONTRACT).onBeforeInitialize(balancesScaled18, userData));
+            (_HOOK_CONTRACT != address(0) && IHooks(_HOOK_CONTRACT).onBeforeInitialize(balancesScaled18, userData));
     }
 
     /// @inheritdoc IHooks
@@ -537,8 +536,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         address pool,
         uint256 staticSwapFeePercentage
     ) public view override onlyVault onlyWithHookContract returns (bool, uint256) {
-        return
-            IHooks(_HOOK_CONTRACT).onComputeDynamicSwapFeePercentage(params, pool, staticSwapFeePercentage);
+        return IHooks(_HOOK_CONTRACT).onComputeDynamicSwapFeePercentage(params, pool, staticSwapFeePercentage);
     }
 
     /********************************************************
