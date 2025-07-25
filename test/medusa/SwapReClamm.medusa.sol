@@ -64,7 +64,8 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
             "RECLAMM",
             vault.buildTokenConfig(tokens),
             roleAccounts,
-            0,
+            0, // swap fee
+            address(0), // hook contract
             priceParams,
             1e18, // 100% daily price shift exponent
             10e16, // 10% margin

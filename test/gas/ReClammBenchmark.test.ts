@@ -58,6 +58,7 @@ class ReClammBenchmark extends Benchmark {
       buildTokenConfig(poolTokens, withRate),
       roleAccounts,
       fp(0.1), // 10% swap fee percentage
+      ZERO_ADDRESS, // no secondary pool contract
       priceParams,
       fp(1), // 100% price shift daily rate
       fp(0.2), // 20% centeredness margin
