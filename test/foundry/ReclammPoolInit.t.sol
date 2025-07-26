@@ -468,10 +468,10 @@ contract ReClammPoolInitTest is BaseReClammTest {
         // Does not revert either way.
         vm.startPrank(lp);
 
-        uint256 snapshotId = vm.snapshot();
+        uint256 snapshotId = vm.snapshotState();
         _initPool(newPool, initialBalancesRaw, 0);
         _validatePostInitConditions();
-        vm.revertTo(snapshotId);
+        vm.revertToState(snapshotId);
 
         _initPool(newPool, inverseInitialBalances, 0);
         _validatePostInitConditions();
@@ -526,13 +526,13 @@ contract ReClammPoolInitTest is BaseReClammTest {
         // Does not revert either way.
         vm.startPrank(lp);
 
-        uint256 snapshotId = vm.snapshot();
+        uint256 snapshotId = vm.snapshotState();
         _initPool(newPool, initialBalancesRaw, 0);
         _validatePostInitConditions();
 
         uint256 spotPrice1 = ReClammPool(newPool).computeCurrentSpotPrice();
 
-        vm.revertTo(snapshotId);
+        vm.revertToState(snapshotId);
         _initPool(newPool, inverseInitialBalances, 0);
         _validatePostInitConditions();
 
@@ -595,13 +595,13 @@ contract ReClammPoolInitTest is BaseReClammTest {
         // Does not revert either way.
         vm.startPrank(lp);
 
-        uint256 snapshotId = vm.snapshot();
+        uint256 snapshotId = vm.snapshotState();
         _initPool(newPool, initialBalancesRaw, 0);
         _validatePostInitConditions();
 
         uint256 spotPrice1 = ReClammPool(newPool).computeCurrentSpotPrice();
 
-        vm.revertTo(snapshotId);
+        vm.revertToState(snapshotId);
         _initPool(newPool, inverseInitialBalances, 0);
         _validatePostInitConditions();
         uint256 spotPrice2 = ReClammPool(newPool).computeCurrentSpotPrice();
@@ -661,13 +661,13 @@ contract ReClammPoolInitTest is BaseReClammTest {
         // Does not revert either way.
         vm.startPrank(lp);
 
-        uint256 snapshotId = vm.snapshot();
+        uint256 snapshotId = vm.snapshotState();
         _initPool(newPool, initialBalancesRaw, 0);
         _validatePostInitConditions();
 
         uint256 spotPrice1 = ReClammPool(newPool).computeCurrentSpotPrice();
 
-        vm.revertTo(snapshotId);
+        vm.revertToState(snapshotId);
         _initPool(newPool, inverseInitialBalances, 0);
         _validatePostInitConditions();
         uint256 spotPrice2 = ReClammPool(newPool).computeCurrentSpotPrice();
@@ -734,13 +734,13 @@ contract ReClammPoolInitTest is BaseReClammTest {
         // Does not revert either way.
         vm.startPrank(lp);
 
-        uint256 snapshotId = vm.snapshot();
+        uint256 snapshotId = vm.snapshotState();
         _initPool(newPool, initialBalancesRaw, 0);
         _validatePostInitConditions();
 
         uint256 spotPrice1 = ReClammPool(newPool).computeCurrentSpotPrice();
 
-        vm.revertTo(snapshotId);
+        vm.revertToState(snapshotId);
         _initPool(newPool, inverseInitialBalances, 0);
         _validatePostInitConditions();
         uint256 spotPrice2 = ReClammPool(newPool).computeCurrentSpotPrice();
@@ -807,13 +807,13 @@ contract ReClammPoolInitTest is BaseReClammTest {
         // Does not revert either way.
         vm.startPrank(lp);
 
-        uint256 snapshotId = vm.snapshot();
+        uint256 snapshotId = vm.snapshotState();
         _initPool(newPool, initialBalancesRaw, 0);
         _validatePostInitConditions();
 
         uint256 spotPrice1 = ReClammPool(newPool).computeCurrentSpotPrice();
 
-        vm.revertTo(snapshotId);
+        vm.revertToState(snapshotId);
         _initPool(newPool, inverseInitialBalances, 0);
         _validatePostInitConditions();
         uint256 spotPrice2 = ReClammPool(newPool).computeCurrentSpotPrice();
