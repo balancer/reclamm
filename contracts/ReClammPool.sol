@@ -301,14 +301,15 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         address pool,
         TokenConfig[] memory tokenConfig,
         LiquidityManagement calldata liquidityManagement
-    ) public override onlyVault returns (bool) {
-        return
+    ) public override onlyVault returns (bool success) {
+        success =
             tokenConfig.length == 2 &&
             liquidityManagement.disableUnbalancedLiquidity &&
-            liquidityManagement.enableDonation == false &&
-            (_HOOK_CONTRACT == address(0) ||
-                (_HOOK_CONTRACT != address(0) &&
-                    IHooks(_HOOK_CONTRACT).onRegister(factory, pool, tokenConfig, liquidityManagement)));
+            liquidityManagement.enableDonation == false;
+
+        if (success && _HOOK_CONTRACT != address(0)) {
+            success = IHooks(_HOOK_CONTRACT).onRegister(factory, pool, tokenConfig, liquidityManagement);
+        }
     }
 
     struct InitializeLocals {
@@ -372,8 +373,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _updateTimestamp();
 
         return
-            _HOOK_CONTRACT == address(0) ||
-            (_HOOK_CONTRACT != address(0) && IHooks(_HOOK_CONTRACT).onBeforeInitialize(balancesScaled18, userData));
+            _HOOK_CONTRACT == address(0) ? true : IHooks(_HOOK_CONTRACT).onBeforeInitialize(balancesScaled18, userData);
     }
 
     /// @inheritdoc IHooks
@@ -412,9 +412,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _updateTimestamp();
 
         return
-            _HOOK_CONTRACT == address(0) ||
-            (_HOOK_CONTRACT != address(0) &&
-                IHooks(_HOOK_CONTRACT).onBeforeAddLiquidity(
+            _HOOK_CONTRACT == address(0)
+                ? true
+                : IHooks(_HOOK_CONTRACT).onBeforeAddLiquidity(
                     router,
                     pool,
                     kind,
@@ -422,7 +422,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                     exactBptAmountOut,
                     balancesScaled18,
                     userData
-                ));
+                );
     }
 
     /// @inheritdoc IHooks
@@ -478,9 +478,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _updateTimestamp();
 
         return
-            _HOOK_CONTRACT == address(0) ||
-            (_HOOK_CONTRACT != address(0) &&
-                IHooks(_HOOK_CONTRACT).onBeforeRemoveLiquidity(
+            _HOOK_CONTRACT == address(0)
+                ? true
+                : IHooks(_HOOK_CONTRACT).onBeforeRemoveLiquidity(
                     router,
                     pool,
                     kind,
@@ -488,7 +488,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                     minAmountsOutScaled18,
                     balancesScaled18,
                     userData
-                ));
+                );
     }
 
     /// @inheritdoc IHooks
