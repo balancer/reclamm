@@ -409,6 +409,7 @@ contract ReClammPoolTest is BaseReClammTest {
             "Invalid initial price shift exponent"
         );
         assertEq(data.initialCenterednessMargin, _DEFAULT_CENTEREDNESS_MARGIN, "Invalid initial centeredness margin");
+        assertEq(data.hookContract, poolHooksContract, "Invalid hook contract");
 
         // Check operating limit parameters.
         assertEq(data.maxCenterednessMargin, _MAX_CENTEREDNESS_MARGIN, "Invalid max centeredness margin");

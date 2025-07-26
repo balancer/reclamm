@@ -751,6 +751,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.initialTargetPrice = _INITIAL_TARGET_PRICE;
         data.initialDailyPriceShiftExponent = _INITIAL_DAILY_PRICE_SHIFT_EXPONENT;
         data.initialCenterednessMargin = _INITIAL_CENTEREDNESS_MARGIN;
+        data.hookContract = _HOOK_CONTRACT;
 
         // Operating Limits
         data.maxCenterednessMargin = _MAX_CENTEREDNESS_MARGIN;
