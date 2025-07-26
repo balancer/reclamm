@@ -114,6 +114,24 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
         return address(factory);
     }
 
+    function createHook() internal override returns (address) {
+        // Sets all flags to true.
+        HookFlags memory hookFlags = HookFlags({
+            enableHookAdjustedAmounts: false,
+            shouldCallBeforeInitialize: true,
+            shouldCallAfterInitialize: true,
+            shouldCallComputeDynamicSwapFee: true,
+            shouldCallBeforeSwap: true,
+            shouldCallAfterSwap: true,
+            shouldCallBeforeAddLiquidity: true,
+            shouldCallAfterAddLiquidity: true,
+            shouldCallBeforeRemoveLiquidity: true,
+            shouldCallAfterRemoveLiquidity: true
+        });
+
+        return _createHook(hookFlags);
+    }
+
     function _createPool(
         address[] memory tokens,
         string memory label
@@ -156,21 +174,6 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
         setSwapFeePercentage(_DEFAULT_SWAP_FEE);
 
         _creationTimestamp = block.timestamp;
-
-        HookFlags memory hookFlags = HookFlags({
-            enableHookAdjustedAmounts: false,
-            shouldCallBeforeInitialize: true,
-            shouldCallAfterInitialize: true,
-            shouldCallComputeDynamicSwapFee: true,
-            shouldCallBeforeSwap: true,
-            shouldCallAfterSwap: true,
-            shouldCallBeforeAddLiquidity: true,
-            shouldCallAfterAddLiquidity: true,
-            shouldCallBeforeRemoveLiquidity: true,
-            shouldCallAfterRemoveLiquidity: true
-        });
-
-        PoolHooksMock(poolHooksContract).setHookFlags(hookFlags);
 
         // poolArgs is used to check pool deployment address with create2.
         poolArgs = abi.encode(
