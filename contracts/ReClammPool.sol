@@ -137,6 +137,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     function _ensureHookContract() internal view {
         if (_HOOK_CONTRACT == address(0)) {
+            // Should not happen. Hook flags would not go beyond ReClamm-required ones without a contract.
             revert NotImplemented();
         }
     }

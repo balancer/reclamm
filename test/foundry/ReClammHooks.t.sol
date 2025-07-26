@@ -6,17 +6,13 @@ import "forge-std/Test.sol";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import {
-    LiquidityManagement,
-    TokenConfig,
-    HookFlags,
-    PoolData
-} from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultErrors.sol";
+import "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 import { PoolHooksMock } from "@balancer-labs/v3-vault/contracts/test/PoolHooksMock.sol";
 
+import { ReClammPoolImmutableData, IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
 
@@ -41,6 +37,26 @@ contract ReClammHookTest is BaseReClammTest {
             liquidityManagement
         );
         assertFalse(success, "onRegister did not fail");
+    }
+
+    function testNoHook() public {
+        poolHooksContract = address(0);
+
+        (address newPool, ) = _createPool([address(usdc), address(dai)].toMemoryArray(), "New Test Pool");
+        (IERC20[] memory tokens, , , ) = vault.getPoolTokenInfo(newPool);
+
+        vm.prank(bob);
+        router.initialize(newPool, tokens, _initialBalances, 0, false, bytes(""));
+
+        ReClammPoolImmutableData memory data = ReClammPool(newPool).getReClammPoolImmutableData();
+        assertEq(data.hookContract, address(0), "Pool has a hook");
+
+        PoolSwapParams memory params;
+
+        // Try to call an unsupported hook.
+        vm.expectRevert(IReClammPool.NotImplemented.selector);
+        vm.prank(address(vault));
+        ReClammPool(newPool).onBeforeSwap(params, address(newPool));
     }
 
     function testOnBeforeInitializeForwarding() public {
