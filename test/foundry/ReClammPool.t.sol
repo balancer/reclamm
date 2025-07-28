@@ -1278,13 +1278,13 @@ contract ReClammPoolTest is BaseReClammTest {
         uint256[] memory highRatioAmounts = _initialBalances;
         highRatioAmounts[a] = 1e18;
 
-        uint256 snapshotId = vm.snapshot();
+        uint256 snapshotId = vm.snapshotState();
 
         vm.expectRevert(IReClammPool.BalanceRatioExceedsTolerance.selector);
         vm.prank(alice);
         router.initialize(newPool, tokens, highRatioAmounts, 0, false, bytes(""));
 
-        vm.revertTo(snapshotId);
+        vm.revertToState(snapshotId);
 
         uint256[] memory lowRatioAmounts = _initialBalances;
         lowRatioAmounts[b] = 1e18;
