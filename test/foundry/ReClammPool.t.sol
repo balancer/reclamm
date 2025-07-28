@@ -145,13 +145,6 @@ contract ReClammPoolTest is BaseReClammTest {
         ReClammPool(pool).onAfterSwap(params);
     }
 
-    function testOnComputeDynamicSwapFeePercentageOnlyVault() public {
-        PoolSwapParams memory params;
-
-        vm.expectRevert(abi.encodeWithSelector(IVaultErrors.SenderIsNotVault.selector, address(this)));
-        ReClammPool(pool).onComputeDynamicSwapFeePercentage(params, address(this), 0);
-    }
-
     function testComputeCurrentFourthRootPriceRatio() public view {
         uint256 fourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
         assertEq(fourthRootPriceRatio, _initialFourthRootPriceRatio, "Invalid default fourthRootPriceRatio");

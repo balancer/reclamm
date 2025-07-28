@@ -536,7 +536,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         PoolSwapParams calldata params,
         address pool,
         uint256 staticSwapFeePercentage
-    ) public view override onlyVault onlyWithHookContract returns (bool, uint256) {
+    ) public view override onlyWithHookContract returns (bool, uint256) {
+        // This does not need onlyVault, as it's defined as a view function in the interface.
         return IHooks(_HOOK_CONTRACT).onComputeDynamicSwapFeePercentage(params, pool, staticSwapFeePercentage);
     }
 
