@@ -128,6 +128,7 @@ describe('ReClammPool', function () {
       tokenConfig,
       { pauseManager: ZERO_ADDRESS, swapFeeManager: ZERO_ADDRESS, poolCreator: ZERO_ADDRESS },
       SWAP_FEE,
+      ZERO_ADDRESS, // no secondary hook contract
       priceParams,
       PRICE_SHIFT_DAILY_RATE,
       CENTEREDNESS_MARGIN,

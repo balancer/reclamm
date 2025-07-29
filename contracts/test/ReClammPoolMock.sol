@@ -15,7 +15,11 @@ contract ReClammPoolMock is ReClammPool {
     using SafeCast for uint256;
     using FixedPoint for uint256;
 
-    constructor(ReClammPoolParams memory params, IVault vault) ReClammPool(params, vault) {
+    constructor(
+        ReClammPoolParams memory params,
+        IVault vault,
+        address hookContract
+    ) ReClammPool(params, vault, hookContract) {
         // solhint-disable-previous-line no-empty-blocks
     }
 
