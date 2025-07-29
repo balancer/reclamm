@@ -458,12 +458,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         uint256 spotPrice2 = ReClammPool(newPool).computeCurrentSpotPrice();
         assertApproxEqRel(spotPrice1, spotPrice2, 0.1e16, "Spot prices are not equal");
         // The actual spot price after initialization corresponds to WETH/USDC, so it matches the initial one.
-        assertApproxEqRel(
-            spotPrice1,
-            _initialTargetPrice,
-            0.01e16,
-            "Spot prices differ from initial target price"
-        );
+        assertApproxEqRel(spotPrice1, _initialTargetPrice, 0.01e16, "Spot prices differ from initial target price");
     }
 
     function testComputeInitialBalancesWaUsdcWaEth() public {
@@ -531,12 +526,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         assertApproxEqRel(spotPrice1, spotPrice2, 0.1e16, "Spot prices are not equal");
         // The actual spot price after initialization corresponds to WETH/USDC, so it matches the one specified
         // at creation time.
-        assertApproxEqRel(
-            spotPrice1,
-            _initialTargetPrice,
-            0.01e16,
-            "Spot prices differ from initial target price"
-        );
+        assertApproxEqRel(spotPrice1, _initialTargetPrice, 0.01e16, "Spot prices differ from initial target price");
     }
 
     function testComputeInitialBalancesWaUsdcWaEurc() public {
@@ -611,12 +601,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         assertApproxEqRel(spotPrice1, spotPrice2, 0.1e16, "Spot prices are not equal");
         // The actual spot price after initialization corresponds to WETH/USDC, so it matches the one specified
         // at creation time.
-        assertApproxEqRel(
-            spotPrice1,
-            eurUsdRate,
-            0.01e16,
-            "Spot prices differ from initial target price"
-        );
+        assertApproxEqRel(spotPrice1, eurUsdRate, 0.01e16, "Spot prices differ from initial target price");
     }
 
     function testComputeInitialBalancesWstEthsDai() public {
