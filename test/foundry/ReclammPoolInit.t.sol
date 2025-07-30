@@ -391,7 +391,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         _validatePostInitConditions();
         uint256 spotPrice2 = ReClammPool(newPool).computeCurrentSpotPrice();
         assertApproxEqRel(spotPrice1, spotPrice2, 0.1e16, "Spot prices are not equal");
-        // The spot price is always computed in terms of the tokens without the rates, so this would be ETH/USDC
+        // The spot price is always computed in terms of the tokens without the rates, so this would be ETH/USDC.
         assertApproxEqRel(spotPrice1, initialUnderlyingPrice, 0.01e16, "Spot prices differ from initial target price");
     }
 
@@ -532,7 +532,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
     function testComputeInitialBalancesWaUsdcWaEurc() public {
         uint256 eurUsdRate = 1.17e18;
 
-        address eurc = address(dai); // let's just say this is EURC.
+        address eurc = address(dai); // let's just say this is EURC
         require(address(usdc6Decimals) > address(eurc), "Incorrect token order");
         uint256 waEurcRate = 1.01e18;
         uint256 waUsdcRate = 1.1e18;
@@ -588,13 +588,13 @@ contract ReClammPoolInitTest is BaseReClammTest {
         // Does not revert either way.
         vm.startPrank(lp);
 
-        uint256 snapshotId = vm.snapshot();
+        uint256 snapshotId = vm.snapshotState();
         _initPool(newPool, initialBalancesRaw, 0);
         _validatePostInitConditions();
 
         uint256 spotPrice1 = ReClammPool(newPool).computeCurrentSpotPrice();
 
-        vm.revertTo(snapshotId);
+        vm.revertToState(snapshotId);
         _initPool(newPool, inverseInitialBalances, 0);
         _validatePostInitConditions();
         uint256 spotPrice2 = ReClammPool(newPool).computeCurrentSpotPrice();
@@ -669,7 +669,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         _validatePostInitConditions();
         uint256 spotPrice2 = ReClammPool(newPool).computeCurrentSpotPrice();
         assertApproxEqRel(spotPrice1, spotPrice2, 0.1e16, "Spot prices are not equal");
-        // The spot price is always underlying <> underlying, so it has to be 2.5k
+        // The spot price is always underlying / underlying, so it has to be 2.5k
         assertApproxEqRel(spotPrice1, initialUnderlyingPrice, 0.01e16, "Spot prices differ from initial target price");
     }
 
