@@ -1162,8 +1162,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256 rateA,
         uint256 rateB
     ) internal view returns (uint256 minPrice, uint256 maxPrice, uint256 targetPrice) {
-        rateA = _TOKEN_A_PRICE_INCLUDES_RATE ? rateA : FixedPoint.ONE;
-        rateB = _TOKEN_B_PRICE_INCLUDES_RATE ? rateB : FixedPoint.ONE;
+        rateA = _TOKEN_A_PRICE_INCLUDES_RATE ? FixedPoint.ONE : rateA;
+        rateB = _TOKEN_B_PRICE_INCLUDES_RATE ? FixedPoint.ONE : rateB;
 
         // Example: a pool waUSDC/waWETH, where the price is given in terms of the underlying tokens.
         // Consider a USDC/ETH pool where the price is 2000. Token A is ETH (waWETH); token B is USDC (waUSDC).
@@ -1171,8 +1171,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         // obtained by dividing the price by the rate of waUSDC, which is token B.
         // Now, if the rate of waWETH is 1.5 (1 waWETH = 1.5 ETH), waUSDC/waWETH = 1500, which is
         // obtained by multiplying the price by the rate of waWETH, which is token A.
-        minPrice = (_INITIAL_MIN_PRICE * rateA) / rateB;
-        maxPrice = (_INITIAL_MAX_PRICE * rateA) / rateB;
-        targetPrice = (_INITIAL_TARGET_PRICE * rateA) / rateB;
+        // On the other hand, spot prices are computed using live balances which always contain the rates, so
+        // we apply the inverse here (i.e. multiply by rate B, divide by rate A) to undo the effect.
+        minPrice = (_INITIAL_MIN_PRICE * rateB) / rateA;
+        maxPrice = (_INITIAL_MAX_PRICE * rateB) / rateA;
+        targetPrice = (_INITIAL_TARGET_PRICE * rateB) / rateA;
     }
 }
