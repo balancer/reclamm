@@ -164,6 +164,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
             roleAccounts,
             _DEFAULT_SWAP_FEE,
             poolHooksContract,
+            false, // disable donation
             priceParams,
             _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
             _DEFAULT_CENTEREDNESS_MARGIN,

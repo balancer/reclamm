@@ -32,7 +32,7 @@ import {
   pureComputeInvariant,
   toDailyPriceShiftBase,
   fourthRoot,
-  pow4
+  pow4,
 } from './utils/reClammMath';
 import { expectEqualWithError } from './utils/relativeError';
 
@@ -129,6 +129,7 @@ describe('ReClammPool', function () {
       { pauseManager: ZERO_ADDRESS, swapFeeManager: ZERO_ADDRESS, poolCreator: ZERO_ADDRESS },
       SWAP_FEE,
       ZERO_ADDRESS, // no secondary hook contract
+      false, // disable donation
       priceParams,
       PRICE_SHIFT_DAILY_RATE,
       CENTEREDNESS_MARGIN,
@@ -382,7 +383,9 @@ describe('ReClammPool', function () {
       const updateStartTimestamp = (await currentTimestamp()) + 1n;
       const updateEndTimestamp = updateStartTimestamp + 1n * BigInt(DAY) + 1n;
       const endFourthRootPriceRatio = fpDivDown(initialFourthRootPriceRatio, fp(1.1));
-      await pool.connect(bob).startPriceRatioUpdate(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
+      await pool
+        .connect(bob)
+        .startPriceRatioUpdate(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
 
       // Virtual balances were updated, but prices should not move yet.
       const { minPrice: minPriceAfterStartPriceRatioUpdate } = await checkPoolPrices(
@@ -537,19 +540,20 @@ describe('ReClammPool', function () {
       const updateStartTimestamp = (await currentTimestamp()) + 1n;
       const updateEndTimestamp = updateStartTimestamp + 1n * BigInt(DAY) + 1n;
       const endFourthRootPriceRatio = fpDivDown(initialFourthRootPriceRatio, fp(1.1));
-      await pool.connect(bob).startPriceRatioUpdate(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
+      await pool
+        .connect(bob)
+        .startPriceRatioUpdate(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
 
       // Virtual balances were updated, but prices should not move yet.
-      const { minPrice: minPriceAfterStartPriceRatioUpdate } =
-        await checkPoolPrices(
-          pool,
-          initialFourthRootPriceRatio,
-          minPriceOOR,
-          maxPriceOOR,
-          priceRatioError,
-          pricesSmallError,
-          true
-        );
+      const { minPrice: minPriceAfterStartPriceRatioUpdate } = await checkPoolPrices(
+        pool,
+        initialFourthRootPriceRatio,
+        minPriceOOR,
+        maxPriceOOR,
+        priceRatioError,
+        pricesSmallError,
+        true
+      );
 
       await advanceTime(6 * HOUR);
 
@@ -696,10 +700,12 @@ describe('ReClammPool', function () {
       const updateStartTimestamp = (await currentTimestamp()) + 1n;
       const updateEndTimestamp = updateStartTimestamp + 1n * BigInt(DAY) + 1n;
       const endFourthRootPriceRatio = fpMulDown(initialFourthRootPriceRatio, fp(1.1));
-      await pool.connect(bob).startPriceRatioUpdate(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
+      await pool
+        .connect(bob)
+        .startPriceRatioUpdate(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
 
       // Virtual balances were updated, but prices should not move yet.
-      const { minPrice: minPriceAfterStartPriceRatioUpdate} = await checkPoolPrices(
+      const { minPrice: minPriceAfterStartPriceRatioUpdate } = await checkPoolPrices(
         pool,
         initialFourthRootPriceRatio,
         minPriceOOR,
@@ -850,19 +856,20 @@ describe('ReClammPool', function () {
       const updateStartTimestamp = (await currentTimestamp()) + 1n;
       const updateEndTimestamp = updateStartTimestamp + 1n * BigInt(DAY) + 1n;
       const endFourthRootPriceRatio = fpMulDown(initialFourthRootPriceRatio, fp(1.1));
-      await pool.connect(bob).startPriceRatioUpdate(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
+      await pool
+        .connect(bob)
+        .startPriceRatioUpdate(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
 
       // Virtual balances were updated, but prices should not move yet.
-      const { minPrice: minPriceAfterStartPriceRatioUpdate } =
-        await checkPoolPrices(
-          pool,
-          initialFourthRootPriceRatio,
-          minPriceOOR,
-          maxPriceOOR,
-          priceRatioError,
-          pricesSmallError,
-          true
-        );
+      const { minPrice: minPriceAfterStartPriceRatioUpdate } = await checkPoolPrices(
+        pool,
+        initialFourthRootPriceRatio,
+        minPriceOOR,
+        maxPriceOOR,
+        priceRatioError,
+        pricesSmallError,
+        true
+      );
 
       await advanceTime(6 * HOUR);
 

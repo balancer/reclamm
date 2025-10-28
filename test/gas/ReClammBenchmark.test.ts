@@ -59,6 +59,7 @@ class ReClammBenchmark extends Benchmark {
       roleAccounts,
       fp(0.1), // 10% swap fee percentage
       ZERO_ADDRESS, // no secondary pool contract
+      false, // disable donation
       priceParams,
       fp(1), // 100% price shift daily rate
       fp(0.2), // 20% centeredness margin

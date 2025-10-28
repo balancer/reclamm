@@ -118,6 +118,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
             roleAccounts,
             0.001e16, // minimum swap fee
             address(0), // no hook contract
+            false, // disable donation
             priceParams,
             defaultParams.defaultDailyPriceShiftExponent,
             defaultParams.defaultCenterednessMargin.toUint64(),

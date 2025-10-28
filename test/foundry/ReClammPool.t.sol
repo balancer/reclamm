@@ -1375,6 +1375,7 @@ contract ReClammPoolTest is BaseReClammTest {
             roleAccounts,
             _DEFAULT_SWAP_FEE,
             address(0), // hook contract
+            false, // disable donation
             priceParams,
             _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
             _DEFAULT_CENTEREDNESS_MARGIN,
@@ -1398,6 +1399,7 @@ contract ReClammPoolTest is BaseReClammTest {
             roleAccounts,
             _DEFAULT_SWAP_FEE,
             address(0), // hook contract
+            false, // disable donation
             priceParams,
             _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
             _DEFAULT_CENTEREDNESS_MARGIN,
@@ -1680,6 +1682,7 @@ contract ReClammPoolTest is BaseReClammTest {
             roleAccounts,
             _DEFAULT_SWAP_FEE,
             address(0), // hook contract
+            false, // disable donation
             priceParams,
             _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
             _DEFAULT_CENTEREDNESS_MARGIN,

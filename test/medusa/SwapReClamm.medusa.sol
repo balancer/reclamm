@@ -66,6 +66,7 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
             roleAccounts,
             0, // swap fee
             address(0), // hook contract
+            false, // disable donation
             priceParams,
             1e18, // 100% daily price shift exponent
             10e16, // 10% margin
