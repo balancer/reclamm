@@ -5,8 +5,10 @@ pragma solidity ^0.8.24;
 import { PoolConfig } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
 
+import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
+
+import { IReClammPool, ReClammPoolParams } from "./interfaces/IReClammPool.sol";
 import { ReClammMath, a, b } from "./lib/ReClammMath.sol";
-import { IReClammPool } from "./interfaces/IReClammPool.sol";
 import { PriceRatioState } from "./lib/ReClammMath.sol";
 import { ReClammCommon } from "./ReClammCommon.sol";
 import "./interfaces/IReClammPoolExtension.sol";
@@ -30,9 +32,25 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon {
         _;
     }
 
-    constructor(IReClammPool reclammPool, IVault vault) {
+    constructor(IReClammPool reclammPool, IVault vault, ReClammPoolParams memory params, address hookContract) {
         _POOL = reclammPool;
         _VAULT = vault;
+
+        // Need to initialize these the same as in ReClammPool.
+        _INITIAL_MIN_PRICE = params.initialMinPrice;
+        _INITIAL_MAX_PRICE = params.initialMaxPrice;
+        _INITIAL_TARGET_PRICE = params.initialTargetPrice;
+
+        _INITIAL_DAILY_PRICE_SHIFT_EXPONENT = params.dailyPriceShiftExponent;
+        _INITIAL_CENTEREDNESS_MARGIN = params.centerednessMargin;
+
+        _TOKEN_A_PRICE_INCLUDES_RATE = params.tokenAPriceIncludesRate;
+        _TOKEN_B_PRICE_INCLUDES_RATE = params.tokenBPriceIncludesRate;
+
+        // Consider defining this value as a constant so that we don't need to call this function twice.
+        _MAX_DAILY_PRICE_RATIO_UPDATE_RATE = FixedPoint.powUp(2e18, _MAX_DAILY_PRICE_SHIFT_EXPONENT);
+
+        _HOOK_CONTRACT = hookContract;
     }
 
     /*******************************************************************************
