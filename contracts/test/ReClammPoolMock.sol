@@ -7,6 +7,7 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
 
+import { IReClammPoolExtension } from "../interfaces/IReClammPoolExtension.sol";
 import { ReClammPoolParams } from "../interfaces/IReClammPool.sol";
 import { ReClammMath, a } from "../lib/ReClammMath.sol";
 import { ReClammPool } from "../ReClammPool.sol";
@@ -18,8 +19,9 @@ contract ReClammPoolMock is ReClammPool {
     constructor(
         ReClammPoolParams memory params,
         IVault vault,
+        IReClammPoolExtension poolExtension,
         address hookContract
-    ) ReClammPool(params, vault, hookContract) {
+    ) ReClammPool(params, vault, poolExtension, hookContract) {
         // solhint-disable-previous-line no-empty-blocks
     }
 

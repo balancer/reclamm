@@ -22,220 +22,7 @@ struct ReClammPoolParams {
     bool tokenBPriceIncludesRate;
 }
 
-/**
- * @notice ReClamm Pool data that cannot change after deployment.
- * @dev Note that the initial prices are used only during pool initialization. After the initialization, the prices
- * will shift according to price ratio and pool centeredness.
- *
- * @param tokens Pool tokens, sorted in token registration order
- * @param decimalScalingFactors Adjust for token decimals to retain calculation precision. FP(1) for 18-decimal tokens
- * @param tokenAPriceIncludesRate True if the prices incorporate a rate for token A
- * @param tokenBPriceIncludesRate True if the prices incorporate a rate for token B
- * @param minSwapFeePercentage The minimum allowed static swap fee percentage; mitigates precision loss due to rounding
- * @param maxSwapFeePercentage The maximum allowed static swap fee percentage
- * @param initialMinPrice The initial minimum price of token A in terms of token B (possibly applying rates)
- * @param initialMaxPrice The initial maximum price of token A in terms of token B (possibly applying rates)
- * @param initialTargetPrice The initial target price of token A in terms of token B (possibly applying rates)
- * @param initialDailyPriceShiftExponent The initial daily price shift exponent
- * @param initialCenterednessMargin The initial centeredness margin (threshold for initiating a range update)
- * @param hookContract ReClamm pools are always their own hook, but also allow forwarding to an optional hook contract
- * @param maxCenterednessMargin The maximum centeredness margin for the pool, as an 18-decimal FP percentage
- * @param maxDailyPriceShiftExponent The maximum exponent for the pool's price shift, as an 18-decimal FP percentage
- * @param maxDailyPriceRatioUpdateRate The maximum percentage the price range can expand/contract per day
- * @param minPriceRatioUpdateDuration The minimum duration for the price ratio update, expressed in seconds
- * @param minPriceRatioDelta The minimum absolute difference between current and new fourth root price ratio
- * @param balanceRatioAndPriceTolerance The maximum amount initialized pool parameters can deviate from ideal values
- */
-struct ReClammPoolImmutableData {
-    // Base Pool
-    IERC20[] tokens;
-    uint256[] decimalScalingFactors;
-    bool tokenAPriceIncludesRate;
-    bool tokenBPriceIncludesRate;
-    uint256 minSwapFeePercentage;
-    uint256 maxSwapFeePercentage;
-    // Initialization
-    uint256 initialMinPrice;
-    uint256 initialMaxPrice;
-    uint256 initialTargetPrice;
-    uint256 initialDailyPriceShiftExponent;
-    uint256 initialCenterednessMargin;
-    address hookContract;
-    // Operating Limits
-    uint256 maxCenterednessMargin;
-    uint256 maxDailyPriceShiftExponent;
-    uint256 maxDailyPriceRatioUpdateRate;
-    uint256 minPriceRatioUpdateDuration;
-    uint256 minPriceRatioDelta;
-    uint256 balanceRatioAndPriceTolerance;
-}
-
-/**
- * @notice Snapshot of current ReClamm Pool data that can change.
- * @dev Note that live balances will not necessarily be accurate if the pool is in Recovery Mode. Withdrawals
- * in Recovery Mode do not make external calls (including those necessary for updating live balances), so if
- * there are withdrawals, raw and live balances will be out of sync until Recovery Mode is disabled.
- *
- * Base Pool:
- * @param balancesLiveScaled18 Token balances after paying yield fees, applying decimal scaling and rates
- * @param tokenRates 18-decimal FP values for rate tokens (e.g., yield-bearing), or FP(1) for standard tokens
- * @param staticSwapFeePercentage 18-decimal FP value of the static swap fee percentage
- * @param totalSupply The current total supply of the pool tokens (BPT)
- *
- * ReClamm:
- * @param lastTimestamp The timestamp of the last user interaction
- * @param lastVirtualBalances The last virtual balances of the pool
- * @param dailyPriceShiftExponent Virtual balances will change by 2^(dailyPriceShiftExponent) per day
- * @param dailyPriceShiftBase Internal time constant used to update virtual balances (1 - tau)
- * @param centerednessMargin The centeredness margin of the pool
- * @param currentPriceRatio The current price ratio, an interpolation of the price ratio state
- * @param currentFourthRootPriceRatio The current fourth root price ratio (stored in the price ratio state)
- * @param startFourthRootPriceRatio The fourth root price ratio at the start of an update
- * @param endFourthRootPriceRatio The fourth root price ratio at the end of an update
- * @param priceRatioUpdateStartTime The timestamp when the update begins
- * @param priceRatioUpdateEndTime The timestamp when the update ends
- *
- * Pool State:
- * @param isPoolInitialized If false, the pool has not been seeded with initial liquidity, so operations will revert
- * @param isPoolPaused If true, the pool is paused, and all non-recovery-mode state-changing operations will revert
- * @param isPoolInRecoveryMode If true, Recovery Mode withdrawals are enabled, and live balances may be inaccurate
- */
-struct ReClammPoolDynamicData {
-    // Base Pool
-    uint256[] balancesLiveScaled18;
-    uint256[] tokenRates;
-    uint256 staticSwapFeePercentage;
-    uint256 totalSupply;
-    // ReClamm
-    uint256 lastTimestamp;
-    uint256[] lastVirtualBalances;
-    uint256 dailyPriceShiftExponent;
-    uint256 dailyPriceShiftBase;
-    uint256 centerednessMargin;
-    uint256 currentPriceRatio;
-    uint256 currentFourthRootPriceRatio;
-    uint256 startFourthRootPriceRatio;
-    uint256 endFourthRootPriceRatio;
-    uint32 priceRatioUpdateStartTime;
-    uint32 priceRatioUpdateEndTime;
-    // Pool State
-    bool isPoolInitialized;
-    bool isPoolPaused;
-    bool isPoolInRecoveryMode;
-}
-
 interface IReClammPool is IBasePool {
-    /********************************************************
-                           Events
-    ********************************************************/
-
-    /**
-     * @notice The Price Ratio State was updated.
-     * @dev This event will be emitted on initialization, and when governance initiates a price ratio update.
-     * @param startFourthRootPriceRatio The fourth root price ratio at the start of an update
-     * @param endFourthRootPriceRatio The fourth root price ratio at the end of an update
-     * @param priceRatioUpdateStartTime The timestamp when the update begins
-     * @param priceRatioUpdateEndTime The timestamp when the update ends
-     */
-    event PriceRatioStateUpdated(
-        uint256 startFourthRootPriceRatio,
-        uint256 endFourthRootPriceRatio,
-        uint256 priceRatioUpdateStartTime,
-        uint256 priceRatioUpdateEndTime
-    );
-
-    /**
-     * @notice The virtual balances were updated after a user interaction (swap or liquidity operation).
-     * @dev Unless the price range is changing, the virtual balances remain in proportion to the real balances.
-     * These balances will also be updated when the centeredness margin or daily price shift exponent is changed.
-     *
-     * @param virtualBalanceA Offset to the real balance reserves
-     * @param virtualBalanceB Offset to the real balance reserves
-     */
-    event VirtualBalancesUpdated(uint256 virtualBalanceA, uint256 virtualBalanceB);
-
-    /**
-     * @notice The daily price shift exponent was updated.
-     * @dev This will be emitted on deployment, and when changed by governance or the swap manager.
-     * @param dailyPriceShiftExponent The new daily price shift exponent
-     * @param dailyPriceShiftBase Internal time constant used to update virtual balances (1 - tau)
-     */
-    event DailyPriceShiftExponentUpdated(uint256 dailyPriceShiftExponent, uint256 dailyPriceShiftBase);
-
-    /**
-     * @notice The centeredness margin was updated.
-     * @dev This will be emitted on deployment, and when changed by governance or the swap manager.
-     * @param centerednessMargin The new centeredness margin
-     */
-    event CenterednessMarginUpdated(uint256 centerednessMargin);
-
-    /**
-     * @notice The timestamp of the last user interaction.
-     * @dev This is emitted on every swap or liquidity operation.
-     * @param lastTimestamp The timestamp of the operation
-     */
-    event LastTimestampUpdated(uint32 lastTimestamp);
-
-    /********************************************************   
-                           Errors
-    ********************************************************/
-
-    /// @notice The function is not implemented.
-    error NotImplemented();
-
-    /// @notice The centeredness margin is outside the valid numerical range.
-    error InvalidCenterednessMargin();
-
-    /// @notice The vault is not locked, so the pool balances are manipulable.
-    error VaultIsNotLocked();
-
-    /// @notice The pool is outside the target price range before or after the operation.
-    error PoolOutsideTargetRange();
-
-    /// @notice The start time for the price ratio update is invalid (either in the past or after the given end time).
-    error InvalidStartTime();
-
-    /// @notice
-    error InvalidInitialPrice();
-
-    /// @notice The daily price shift exponent is too high.
-    error DailyPriceShiftExponentTooHigh();
-
-    /// @notice The difference between end time and start time is too short for the price ratio update.
-    error PriceRatioUpdateDurationTooShort();
-
-    /// @notice The rate of change exceeds the maximum daily price ratio rate.
-    error PriceRatioUpdateTooFast();
-
-    /// @dev The price ratio being set is too close to the current one.
-    error PriceRatioDeltaBelowMin(uint256 fourthRootPriceRatioDelta);
-
-    /// @dev An attempt was made to stop the price ratio update while no update was in progress.
-    error PriceRatioNotUpdating();
-
-    /**
-     * @notice `getRate` from `IRateProvider` was called on a ReClamm Pool.
-     * @dev ReClamm Pools should never be nested. This is because the invariant of the pool is only used to calculate
-     * swaps. When tracking the market price or shrinking or expanding the liquidity concentration, the invariant can
-     * can decrease or increase independent of the balances, which makes the BPT rate meaningless.
-     */
-    error ReClammPoolBptRateUnsupported();
-
-    /// @dev Function called before initializing the pool.
-    error PoolNotInitialized();
-
-    /**
-     * @notice The initial balances of the ReClamm Pool must respect the initialization ratio bounds.
-     * @dev On pool creation, a theoretical balance ratio is computed from the min, max, and target prices. During
-     * initialization, the actual balance ratio is compared to this theoretical value, and must fall within a fixed,
-     * symmetrical tolerance range, or initialization reverts. If it were outside this range, the initial price would
-     * diverge too far from the target price, and the pool would be vulnerable to arbitrage.
-     */
-    error BalanceRatioExceedsTolerance();
-
-    /// @notice The current price interval or spot price is outside the initialization price range.
-    error WrongInitializationPrices();
-
     /********************************************************
                        Pool State Getters
     ********************************************************/
@@ -416,18 +203,6 @@ interface IReClammPool is IBasePool {
      */
     function computeCurrentPoolCenteredness() external view returns (uint256 poolCenteredness, bool isPoolAboveCenter);
 
-    /**
-     * @notice Get dynamic pool data relevant to swap/add/remove calculations.
-     * @return data A struct containing all dynamic ReClamm pool parameters
-     */
-    function getReClammPoolDynamicData() external view returns (ReClammPoolDynamicData memory data);
-
-    /**
-     * @notice Get immutable pool data relevant to swap/add/remove calculations.
-     * @return data A struct containing all immutable ReClamm pool parameters
-     */
-    function getReClammPoolImmutableData() external view returns (ReClammPoolImmutableData memory data);
-
     /********************************************************
                        Pool State Setters
     ********************************************************/
@@ -484,4 +259,17 @@ interface IReClammPool is IBasePool {
      * @param newCenterednessMargin The new centeredness margin
      */
     function setCenterednessMargin(uint256 newCenterednessMargin) external;
+
+    /*******************************************************************************
+                                     Miscellaneous
+    *******************************************************************************/
+
+    /**
+     * @notice Returns the ReClammPoolExtension contract address.
+     * @dev The ReClammPoolExtension handles less critical or frequently used functions, since delegate calls through
+     * the ReClammPool are more expensive than direct calls.
+     *
+     * @return reClammPoolExtension Address of the extension contract
+     */
+    function getReClammPoolExtension() external view returns (address reClammPoolExtension);
 }
