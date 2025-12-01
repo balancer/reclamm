@@ -7,16 +7,16 @@ import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol"
 
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 
-import { IReClammPool, ReClammPoolParams } from "./interfaces/IReClammPool.sol";
 import { ReClammMath, a, b } from "./lib/ReClammMath.sol";
 import { PriceRatioState } from "./lib/ReClammMath.sol";
 import { ReClammCommon } from "./ReClammCommon.sol";
+import { ReClammPoolParams } from "./interfaces/IReClammPoolMain.sol";
 import "./interfaces/IReClammPoolExtension.sol";
 
 contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon {
     using ReClammMath for *;
 
-    IReClammPool private immutable _POOL;
+    IReClammPoolMain private immutable _POOL;
 
     IVault private immutable _VAULT;
 
@@ -32,7 +32,7 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon {
         _;
     }
 
-    constructor(IReClammPool reclammPool, IVault vault, ReClammPoolParams memory params, address hookContract) {
+    constructor(IReClammPoolMain reclammPool, IVault vault, ReClammPoolParams memory params, address hookContract) {
         _POOL = reclammPool;
         _VAULT = vault;
 
@@ -149,7 +149,7 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon {
                                     Proxy Functions
     *******************************************************************************/
 
-    function pool() external view returns (IReClammPool) {
+    function pool() external view returns (IReClammPoolMain) {
         return _POOL;
     }
 

@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import { IReClammPool } from "./IReClammPool.sol";
+import { IReClammPoolMain } from "./IReClammPoolMain.sol";
 
 /**
  * @notice ReClamm Pool data that cannot change after deployment.
@@ -118,7 +118,7 @@ interface IReClammPoolExtension {
      * @dev The ReClammPool contains the most common, critical path pool operations.
      * @return reclammPool The address of the ReClammPool
      */
-    function pool() external view returns (IReClammPool reclammPool);
+    function pool() external view returns (IReClammPoolMain reclammPool);
 
     /*******************************************************************************
                                     Pool State Getters

@@ -28,10 +28,10 @@ import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
 import { IReClammPoolExtension } from "./interfaces/IReClammPoolExtension.sol";
 import { PriceRatioState, ReClammMath, a, b } from "./lib/ReClammMath.sol";
 import { ReClammCommon } from "./ReClammCommon.sol";
-import "./interfaces/IReClammPool.sol";
+import { IReClammPoolMain, ReClammPoolParams } from "./interfaces/IReClammPoolMain.sol";
 
 contract ReClammPool is
-    IReClammPool,
+    IReClammPoolMain,
     BalancerPoolToken,
     PoolInfo,
     BasePoolAuthentication,
@@ -494,7 +494,7 @@ contract ReClammPool is
                         Pool State Getters
     ********************************************************/
 
-    /// @inheritdoc IReClammPool
+    /// @inheritdoc IReClammPoolMain
     function computeInitialBalancesRaw(
         IERC20 referenceToken,
         uint256 referenceAmountInRaw
@@ -534,7 +534,7 @@ contract ReClammPool is
             .toRawUndoRateRoundDown(10 ** (_MAX_TOKEN_DECIMALS - decimalsOtherToken), rateOtherToken);
     }
 
-    /// @inheritdoc IReClammPool
+    /// @inheritdoc IReClammPoolMain
     function computeCurrentPriceRange() external view returns (uint256 minPrice, uint256 maxPrice) {
         if (_vault.isPoolInitialized(address(this))) {
             (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
@@ -547,7 +547,7 @@ contract ReClammPool is
         }
     }
 
-    /// @inheritdoc IReClammPool
+    /// @inheritdoc IReClammPoolMain
     function computeCurrentVirtualBalances()
         external
         view
@@ -556,7 +556,7 @@ contract ReClammPool is
         (, currentVirtualBalanceA, currentVirtualBalanceB, changed) = _getRealAndVirtualBalances();
     }
 
-    /// @inheritdoc IReClammPool
+    /// @inheritdoc IReClammPoolMain
     function computeCurrentSpotPrice() external view returns (uint256) {
         (
             uint256[] memory balancesScaled18,
@@ -582,42 +582,42 @@ contract ReClammPool is
         (currentVirtualBalanceA, currentVirtualBalanceB, changed) = _computeCurrentVirtualBalances(balancesScaled18);
     }
 
-    /// @inheritdoc IReClammPool
+    /// @inheritdoc IReClammPoolMain
     function getLastTimestamp() external view returns (uint32) {
         return _lastTimestamp;
     }
 
-    /// @inheritdoc IReClammPool
+    /// @inheritdoc IReClammPoolMain
     function getLastVirtualBalances() external view returns (uint256 virtualBalanceA, uint256 virtualBalanceB) {
         return (_lastVirtualBalanceA, _lastVirtualBalanceB);
     }
 
-    /// @inheritdoc IReClammPool
+    /// @inheritdoc IReClammPoolMain
     function getCenterednessMargin() external view returns (uint256) {
         return _centerednessMargin;
     }
 
-    /// @inheritdoc IReClammPool
+    /// @inheritdoc IReClammPoolMain
     function getDailyPriceShiftExponent() external view returns (uint256) {
         return _dailyPriceShiftBase.toDailyPriceShiftExponent();
     }
 
-    /// @inheritdoc IReClammPool
+    /// @inheritdoc IReClammPoolMain
     function getDailyPriceShiftBase() external view returns (uint256) {
         return _dailyPriceShiftBase;
     }
 
-    /// @inheritdoc IReClammPool
+    /// @inheritdoc IReClammPoolMain
     function getPriceRatioState() external view returns (PriceRatioState memory) {
         return _priceRatioState;
     }
 
-    /// @inheritdoc IReClammPool
+    /// @inheritdoc IReClammPoolMain
     function isPoolWithinTargetRange() external view returns (bool) {
         return _isPoolWithinTargetRange();
     }
 
-    /// @inheritdoc IReClammPool
+    /// @inheritdoc IReClammPoolMain
     function isPoolWithinTargetRangeUsingCurrentVirtualBalances()
         external
         view
@@ -639,7 +639,7 @@ contract ReClammPool is
         );
     }
 
-    /// @inheritdoc IReClammPool
+    /// @inheritdoc IReClammPoolMain
     function computeCurrentPoolCenteredness() external view returns (uint256, bool) {
         (, , , uint256[] memory currentBalancesScaled18) = _vault.getPoolTokenInfo(address(this));
         return ReClammMath.computeCenteredness(currentBalancesScaled18, _lastVirtualBalanceA, _lastVirtualBalanceB);
@@ -649,7 +649,7 @@ contract ReClammPool is
                         Pool State Setters
     ********************************************************/
 
-    /// @inheritdoc IReClammPool
+    /// @inheritdoc IReClammPoolMain
     function setDailyPriceShiftExponent(
         uint256 newDailyPriceShiftExponent
     )
@@ -663,7 +663,7 @@ contract ReClammPool is
         return _setDailyPriceShiftExponentAndUpdateVirtualBalances(newDailyPriceShiftExponent);
     }
 
-    /// @inheritdoc IReClammPool
+    /// @inheritdoc IReClammPoolMain
     function setCenterednessMargin(
         uint256 newCenterednessMargin
     )
@@ -901,17 +901,17 @@ contract ReClammPool is
         targetPrice = (_INITIAL_TARGET_PRICE * rateB) / rateA;
     }
 
-    /// @inheritdoc IReClammPool
+    /// @inheritdoc IReClammPoolMain
     function computeCurrentPriceRatio() external view returns (uint256) {
         return _computeCurrentPriceRatio();
     }
 
-    /// @inheritdoc IReClammPool
+    /// @inheritdoc IReClammPoolMain
     function computeCurrentFourthRootPriceRatio() external view returns (uint256) {
         return ReClammMath.fourthRootScaled18(_computeCurrentPriceRatio());
     }
 
-    /// @inheritdoc IReClammPool
+    /// @inheritdoc IReClammPoolMain
     function startPriceRatioUpdate(
         uint256 endPriceRatio,
         uint256 priceRatioUpdateStartTime,
@@ -971,7 +971,7 @@ contract ReClammPool is
         }
     }
 
-    /// @inheritdoc IReClammPool
+    /// @inheritdoc IReClammPoolMain
     function stopPriceRatioUpdate() external onlyWhenInitialized onlySwapFeeManagerOrGovernance(address(this)) {
         _updateVirtualBalances();
 
@@ -989,7 +989,7 @@ contract ReClammPool is
                                      Miscellaneous
     *******************************************************************************/
 
-    /// @inheritdoc IReClammPool
+    /// @inheritdoc IReClammPoolMain
     function getReClammPoolExtension() external view returns (address) {
         return _implementation();
     }
