@@ -6,14 +6,16 @@ import { PoolConfig } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTy
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
 
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
+import { VaultGuard } from "@balancer-labs/v3-vault/contracts/VaultGuard.sol";
 
 import { ReClammMath, PriceRatioState, a, b } from "./lib/ReClammMath.sol";
 import { ReClammPoolParams } from "./interfaces/IReClammPool.sol";
 import { ReClammCommon } from "./ReClammCommon.sol";
 import "./interfaces/IReClammPoolExtension.sol";
 
-contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon {
+contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuard {
     using ReClammMath for *;
+    using FixedPoint for uint256;
 
     IReClammPoolMain private immutable _POOL;
 
@@ -31,7 +33,7 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon {
         _;
     }
 
-    constructor(IReClammPoolMain reclammPool, IVault vault, ReClammPoolParams memory params, address hookContract) {
+    constructor(IReClammPoolMain reclammPool, IVault vault, ReClammPoolParams memory params, address hookContract) VaultGuard(vault) {
         _POOL = reclammPool;
         _VAULT = vault;
 
@@ -50,6 +52,36 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon {
         _MAX_DAILY_PRICE_RATIO_UPDATE_RATE = FixedPoint.powUp(2e18, _MAX_DAILY_PRICE_SHIFT_EXPONENT);
 
         _HOOK_CONTRACT = hookContract;
+    }
+
+    /// @inheritdoc IReClammPoolExtension
+    function getLastTimestamp() external view onlyPoolDelegateCall returns (uint32) {
+        return _lastTimestamp;
+    }
+
+    /// @inheritdoc IReClammPoolExtension
+    function getLastVirtualBalances() external view onlyPoolDelegateCall returns (uint256 virtualBalanceA, uint256 virtualBalanceB) {
+        return (_lastVirtualBalanceA, _lastVirtualBalanceB);
+    }
+
+    /// @inheritdoc IReClammPoolExtension
+    function getCenterednessMargin() external view onlyPoolDelegateCall returns (uint256) {
+        return _centerednessMargin;
+    }
+
+    /// @inheritdoc IReClammPoolExtension
+    function getDailyPriceShiftExponent() external view onlyPoolDelegateCall returns (uint256) {
+        return _dailyPriceShiftBase.toDailyPriceShiftExponent();
+    }
+
+    /// @inheritdoc IReClammPoolExtension
+    function getDailyPriceShiftBase() external view onlyPoolDelegateCall returns (uint256) {
+        return _dailyPriceShiftBase;
+    }
+
+    /// @inheritdoc IReClammPoolExtension
+    function getPriceRatioState() external view onlyPoolDelegateCall returns (PriceRatioState memory) {
+        return _priceRatioState;
     }
 
     /*******************************************************************************
@@ -122,6 +154,99 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon {
         data.minPriceRatioUpdateDuration = _MIN_PRICE_RATIO_UPDATE_DURATION;
         data.minPriceRatioDelta = _MIN_PRICE_RATIO_DELTA;
         data.balanceRatioAndPriceTolerance = _BALANCE_RATIO_AND_PRICE_TOLERANCE;
+    }
+
+    /// @inheritdoc IReClammPoolExtension
+    function computeCurrentPriceRatio() external view onlyPoolDelegateCall returns (uint256) {
+        return _computeCurrentPriceRatio();
+    }
+
+    /// @inheritdoc IReClammPoolExtension
+    function computeCurrentFourthRootPriceRatio() external view onlyPoolDelegateCall returns (uint256) {
+        return ReClammMath.fourthRootScaled18(_computeCurrentPriceRatio());
+    }
+
+    /// @inheritdoc IReClammPoolExtension
+    function computeCurrentPriceRange() external view onlyPoolDelegateCall returns (uint256 minPrice, uint256 maxPrice) {
+        if (_VAULT.isPoolInitialized(address(this))) {
+            (, , , uint256[] memory balancesScaled18) = _VAULT.getPoolTokenInfo(address(this));
+            (uint256 virtualBalanceA, uint256 virtualBalanceB, ) = _computeCurrentVirtualBalances(balancesScaled18);
+
+            (minPrice, maxPrice) = ReClammMath.computePriceRange(balancesScaled18, virtualBalanceA, virtualBalanceB);
+        } else {
+            minPrice = _INITIAL_MIN_PRICE;
+            maxPrice = _INITIAL_MAX_PRICE;
+        }
+    }
+
+    /// @inheritdoc IReClammPoolExtension
+    function computeCurrentVirtualBalances()
+        external
+        view
+        onlyPoolDelegateCall
+        returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed)
+    {
+        (, currentVirtualBalanceA, currentVirtualBalanceB, changed) = _getRealAndVirtualBalances();
+    }
+
+    /// @inheritdoc IReClammPoolExtension
+    function computeCurrentSpotPrice() external view onlyPoolDelegateCall returns (uint256) {
+        (
+            uint256[] memory balancesScaled18,
+            uint256 currentVirtualBalanceA,
+            uint256 currentVirtualBalanceB,
+
+        ) = _getRealAndVirtualBalances();
+
+        return (balancesScaled18[b] + currentVirtualBalanceB).divDown(balancesScaled18[a] + currentVirtualBalanceA);
+    }
+
+    /// @inheritdoc IReClammPoolExtension
+    function isPoolWithinTargetRange() external view onlyPoolDelegateCall returns (bool) {
+        return _isPoolWithinTargetRange();
+    }
+
+    /// @inheritdoc IReClammPoolExtension
+    function isPoolWithinTargetRangeUsingCurrentVirtualBalances()
+        external
+        view
+        onlyPoolDelegateCall
+        returns (bool isWithinTargetRange, bool virtualBalancesChanged)
+    {
+        (, , , uint256[] memory balancesScaled18) = _VAULT.getPoolTokenInfo(address(this));
+        uint256 currentVirtualBalanceA;
+        uint256 currentVirtualBalanceB;
+
+        (currentVirtualBalanceA, currentVirtualBalanceB, virtualBalancesChanged) = _computeCurrentVirtualBalances(
+            balancesScaled18
+        );
+
+        isWithinTargetRange = ReClammMath.isPoolWithinTargetRange(
+            balancesScaled18,
+            currentVirtualBalanceA,
+            currentVirtualBalanceB,
+            _centerednessMargin
+        );
+    }
+
+    /// @inheritdoc IReClammPoolExtension
+    function computeCurrentPoolCenteredness() external view onlyPoolDelegateCall returns (uint256, bool) {
+        (, , , uint256[] memory currentBalancesScaled18) = _VAULT.getPoolTokenInfo(address(this));
+        return ReClammMath.computeCenteredness(currentBalancesScaled18, _lastVirtualBalanceA, _lastVirtualBalanceB);
+    }
+    
+    function _getRealAndVirtualBalances()
+        internal
+        view
+        returns (
+            uint256[] memory balancesScaled18,
+            uint256 currentVirtualBalanceA,
+            uint256 currentVirtualBalanceB,
+            bool changed
+        )
+    {
+        (, , , balancesScaled18) = _VAULT.getPoolTokenInfo(address(this));
+        (currentVirtualBalanceA, currentVirtualBalanceB, changed) = _computeCurrentVirtualBalances(balancesScaled18);
     }
 
     // This function is needed in the getters, and in the old code was coming from BalancerPoolToken.

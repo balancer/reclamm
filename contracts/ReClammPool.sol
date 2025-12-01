@@ -317,8 +317,10 @@ contract ReClammPool is
         );
 
         _setLastVirtualBalances(virtualBalanceA, virtualBalanceB);
+        // wake-disable-next-line unchecked-return-value
         _startPriceRatioUpdate(locals.priceRatio, block.timestamp, block.timestamp);
         // Set dynamic parameters.
+        // wake-disable-next-line unchecked-return-value
         _setDailyPriceShiftExponent(_INITIAL_DAILY_PRICE_SHIFT_EXPONENT);
         _setCenterednessMargin(_INITIAL_CENTEREDNESS_MARGIN);
         _updateTimestamp();
@@ -535,117 +537,6 @@ contract ReClammPool is
             .toRawUndoRateRoundDown(10 ** (_MAX_TOKEN_DECIMALS - decimalsOtherToken), rateOtherToken);
     }
 
-    /// @inheritdoc IReClammPoolMain
-    function computeCurrentPriceRange() external view returns (uint256 minPrice, uint256 maxPrice) {
-        if (_vault.isPoolInitialized(address(this))) {
-            (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
-            (uint256 virtualBalanceA, uint256 virtualBalanceB, ) = _computeCurrentVirtualBalances(balancesScaled18);
-
-            (minPrice, maxPrice) = ReClammMath.computePriceRange(balancesScaled18, virtualBalanceA, virtualBalanceB);
-        } else {
-            minPrice = _INITIAL_MIN_PRICE;
-            maxPrice = _INITIAL_MAX_PRICE;
-        }
-    }
-
-    /// @inheritdoc IReClammPoolMain
-    function computeCurrentVirtualBalances()
-        external
-        view
-        returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed)
-    {
-        (, currentVirtualBalanceA, currentVirtualBalanceB, changed) = _getRealAndVirtualBalances();
-    }
-
-    /// @inheritdoc IReClammPoolMain
-    function computeCurrentSpotPrice() external view returns (uint256) {
-        (
-            uint256[] memory balancesScaled18,
-            uint256 currentVirtualBalanceA,
-            uint256 currentVirtualBalanceB,
-
-        ) = _getRealAndVirtualBalances();
-
-        return (balancesScaled18[b] + currentVirtualBalanceB).divDown(balancesScaled18[a] + currentVirtualBalanceA);
-    }
-
-    function _getRealAndVirtualBalances()
-        internal
-        view
-        returns (
-            uint256[] memory balancesScaled18,
-            uint256 currentVirtualBalanceA,
-            uint256 currentVirtualBalanceB,
-            bool changed
-        )
-    {
-        (, , , balancesScaled18) = _vault.getPoolTokenInfo(address(this));
-        (currentVirtualBalanceA, currentVirtualBalanceB, changed) = _computeCurrentVirtualBalances(balancesScaled18);
-    }
-
-    /// @inheritdoc IReClammPoolMain
-    function getLastTimestamp() external view returns (uint32) {
-        return _lastTimestamp;
-    }
-
-    /// @inheritdoc IReClammPoolMain
-    function getLastVirtualBalances() external view returns (uint256 virtualBalanceA, uint256 virtualBalanceB) {
-        return (_lastVirtualBalanceA, _lastVirtualBalanceB);
-    }
-
-    /// @inheritdoc IReClammPoolMain
-    function getCenterednessMargin() external view returns (uint256) {
-        return _centerednessMargin;
-    }
-
-    /// @inheritdoc IReClammPoolMain
-    function getDailyPriceShiftExponent() external view returns (uint256) {
-        return _dailyPriceShiftBase.toDailyPriceShiftExponent();
-    }
-
-    /// @inheritdoc IReClammPoolMain
-    function getDailyPriceShiftBase() external view returns (uint256) {
-        return _dailyPriceShiftBase;
-    }
-
-    /// @inheritdoc IReClammPoolMain
-    function getPriceRatioState() external view returns (PriceRatioState memory) {
-        return _priceRatioState;
-    }
-
-    /// @inheritdoc IReClammPoolMain
-    function isPoolWithinTargetRange() external view returns (bool) {
-        return _isPoolWithinTargetRange();
-    }
-
-    /// @inheritdoc IReClammPoolMain
-    function isPoolWithinTargetRangeUsingCurrentVirtualBalances()
-        external
-        view
-        returns (bool isWithinTargetRange, bool virtualBalancesChanged)
-    {
-        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
-        uint256 currentVirtualBalanceA;
-        uint256 currentVirtualBalanceB;
-
-        (currentVirtualBalanceA, currentVirtualBalanceB, virtualBalancesChanged) = _computeCurrentVirtualBalances(
-            balancesScaled18
-        );
-
-        isWithinTargetRange = ReClammMath.isPoolWithinTargetRange(
-            balancesScaled18,
-            currentVirtualBalanceA,
-            currentVirtualBalanceB,
-            _centerednessMargin
-        );
-    }
-
-    /// @inheritdoc IReClammPoolMain
-    function computeCurrentPoolCenteredness() external view returns (uint256, bool) {
-        (, , , uint256[] memory currentBalancesScaled18) = _vault.getPoolTokenInfo(address(this));
-        return ReClammMath.computeCenteredness(currentBalancesScaled18, _lastVirtualBalanceA, _lastVirtualBalanceB);
-    }
-
     /********************************************************   
                         Pool State Setters
     ********************************************************/
@@ -774,19 +665,6 @@ contract ReClammPool is
         _vault.emitAuxiliaryEvent("LastTimestampUpdated", abi.encode(lastTimestamp32));
     }
 
-    /// @dev This function relies on the pool balance, which can be manipulated if the vault is unlocked.
-    function _isPoolWithinTargetRange() internal view returns (bool) {
-        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
-
-        return
-            ReClammMath.isPoolWithinTargetRange(
-                balancesScaled18,
-                _lastVirtualBalanceA,
-                _lastVirtualBalanceB,
-                _centerednessMargin
-            );
-    }
-
     /// @dev Checks that the current balance ratio is within the initialization balance ratio tolerance.
     function _checkInitializationBalanceRatio(
         uint256[] memory balancesScaled18,
@@ -900,16 +778,6 @@ contract ReClammPool is
         minPrice = (_INITIAL_MIN_PRICE * rateB) / rateA;
         maxPrice = (_INITIAL_MAX_PRICE * rateB) / rateA;
         targetPrice = (_INITIAL_TARGET_PRICE * rateB) / rateA;
-    }
-
-    /// @inheritdoc IReClammPoolMain
-    function computeCurrentPriceRatio() external view returns (uint256) {
-        return _computeCurrentPriceRatio();
-    }
-
-    /// @inheritdoc IReClammPoolMain
-    function computeCurrentFourthRootPriceRatio() external view returns (uint256) {
-        return ReClammMath.fourthRootScaled18(_computeCurrentPriceRatio());
     }
 
     /// @inheritdoc IReClammPoolMain
