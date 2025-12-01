@@ -8,20 +8,6 @@ import { IBasePool } from "@balancer-labs/v3-interfaces/contracts/vault/IBasePoo
 
 import { PriceRatioState } from "../lib/ReClammMath.sol";
 
-/// @dev Struct with data for deploying a new ReClammPool.
-struct ReClammPoolParams {
-    string name;
-    string symbol;
-    string version;
-    uint256 dailyPriceShiftExponent;
-    uint64 centerednessMargin;
-    uint256 initialMinPrice;
-    uint256 initialMaxPrice;
-    uint256 initialTargetPrice;
-    bool tokenAPriceIncludesRate;
-    bool tokenBPriceIncludesRate;
-}
-
 interface IReClammPoolMain is IBasePool {
     /********************************************************
                        Pool State Getters
