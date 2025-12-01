@@ -128,7 +128,8 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon {
     // This function is needed in the getters, and in the old code was coming from BalancerPoolToken.
     // That implementation just called the Vault, so we'll just do the same thing here.
     function _totalSupply() internal view returns (uint256) {
-        return _VAULT.totalSupply(address(_POOL));
+        // Since this is a delegate call, "this" is the pool address.
+        return _VAULT.totalSupply(address(this));
     }
 
     function _getLastVirtualBalances() internal view returns (uint256[] memory) {

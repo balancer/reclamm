@@ -28,7 +28,6 @@ import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
 import { IReClammPoolExtension } from "./interfaces/IReClammPoolExtension.sol";
 import { PriceRatioState, ReClammMath, a, b } from "./lib/ReClammMath.sol";
 import { ReClammCommon } from "./ReClammCommon.sol";
-
 import "./interfaces/IReClammPool.sol";
 
 contract ReClammPool is
