@@ -12,7 +12,7 @@ import { BasePoolFactory } from "@balancer-labs/v3-pool-utils/contracts/BasePool
 import { Version } from "@balancer-labs/v3-solidity-utils/contracts/helpers/Version.sol";
 
 import { ReClammPoolFactoryLib, ReClammPriceParams } from "../lib/ReClammPoolFactoryLib.sol";
-import { ReClammPoolParams } from "../interfaces/IReClammPool.sol";
+import { ReClammPoolParams } from "../interfaces/IReClammPoolMain.sol";
 import { ReClammPoolMock } from "./ReClammPoolMock.sol";
 
 /// @notice ReClammPool Mock factory.
