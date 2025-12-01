@@ -6,10 +6,10 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
 
+import { PriceRatioState, ReClammMath } from "./lib/ReClammMath.sol";
 import { IReClammErrors } from "./interfaces/IReClammErrors.sol";
 import { IReClammEvents } from "./interfaces/IReClammEvents.sol";
 import { ReClammStorage } from "./ReClammStorage.sol";
-import { PriceRatioState, ReClammMath } from "./lib/ReClammMath.sol";
 
 /**
  * @notice Functions and modifiers shared between the main Vault and its extension contracts.

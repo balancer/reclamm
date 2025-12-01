@@ -3,22 +3,16 @@
 pragma solidity ^0.8.24;
 
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-// solhint-disable-next-line no-unused-import
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { IPoolVersion } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/helpers/IPoolVersion.sol";
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
-import {
-    TokenConfig,
-    PoolRoleAccounts,
-    LiquidityManagement
-} from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
+import "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { BasePoolFactory } from "@balancer-labs/v3-pool-utils/contracts/BasePoolFactory.sol";
 import { Version } from "@balancer-labs/v3-solidity-utils/contracts/helpers/Version.sol";
 
 import { ReClammPoolFactoryLib, ReClammPriceParams } from "./lib/ReClammPoolFactoryLib.sol";
-import { ReClammPoolParams } from "./interfaces/IReClammPoolMain.sol";
+import { ReClammPoolParams } from "./interfaces/IReClammPool.sol";
 import { ReClammPool } from "./ReClammPool.sol";
 
 /// @notice ReClammPool factory.

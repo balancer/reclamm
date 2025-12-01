@@ -8,7 +8,7 @@ import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/Fixe
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
 
 import { IReClammPoolExtension } from "../interfaces/IReClammPoolExtension.sol";
-import { ReClammPoolParams } from "../interfaces/IReClammPoolMain.sol";
+import { ReClammPoolParams } from "../interfaces/IReClammPool.sol";
 import { ReClammMath, a } from "../lib/ReClammMath.sol";
 import { ReClammPool } from "../ReClammPool.sol";
 

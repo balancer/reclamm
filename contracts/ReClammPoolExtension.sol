@@ -7,10 +7,9 @@ import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol"
 
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 
-import { ReClammMath, a, b } from "./lib/ReClammMath.sol";
-import { PriceRatioState } from "./lib/ReClammMath.sol";
+import { ReClammMath, PriceRatioState, a, b } from "./lib/ReClammMath.sol";
+import { ReClammPoolParams } from "./interfaces/IReClammPool.sol";
 import { ReClammCommon } from "./ReClammCommon.sol";
-import { ReClammPoolParams } from "./interfaces/IReClammPoolMain.sol";
 import "./interfaces/IReClammPoolExtension.sol";
 
 contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon {
