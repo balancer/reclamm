@@ -119,7 +119,7 @@ contract ReClammPool is
     /// @notice The pool is outside the target price range before or after the operation.
     error PoolOutsideTargetRange();
 
-    /// @notice
+    /// @notice The initial price configuration (min, max, target) is invalid.
     error InvalidInitialPrice();
 
     /// @notice The daily price shift exponent is too high.
