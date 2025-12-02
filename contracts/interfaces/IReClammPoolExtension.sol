@@ -111,15 +111,8 @@ struct ReClammPoolDynamicData {
 
 interface IReClammPoolExtension {
     /*******************************************************************************
-                              Constants and immutables
+                                   Pool State Getters
     *******************************************************************************/
-
-    /**
-     * @notice Returns the ReClammPool address.
-     * @dev The ReClammPool contains the most common, critical path pool operations.
-     * @return reclammPool The address of the ReClammPool
-     */
-    function pool() external view returns (IReClammPoolMain reclammPool);
 
     /**
      * @notice Getter for the timestamp of the last user interaction.
@@ -165,10 +158,6 @@ interface IReClammPoolExtension {
      */
     function getPriceRatioState() external view returns (PriceRatioState memory priceRatioState);
 
-    /*******************************************************************************
-                                    Pool State Getters
-    *******************************************************************************/
-
     /**
      * @notice Get dynamic pool data relevant to swap/add/remove calculations.
      * @return data A struct containing all dynamic ReClamm pool parameters
@@ -180,6 +169,28 @@ interface IReClammPoolExtension {
      * @return data A struct containing all immutable ReClamm pool parameters
      */
     function getReClammPoolImmutableData() external view returns (ReClammPoolImmutableData memory data);
+
+    /*******************************************************************************
+                                Convenience Functions
+    *******************************************************************************/
+
+    /**
+     * @notice Computes the current price ratio.
+     * @dev The price ratio is the ratio of the max price to the min price, according to current real and virtual
+     * balances.
+     *
+     * @return currentPriceRatio The current price ratio
+     */
+    function computeCurrentPriceRatio() external view returns (uint256 currentPriceRatio);
+
+    /**
+     * @notice Computes the current fourth root of price ratio.
+     * @dev The price ratio is the ratio of the max price to the min price, according to current real and virtual
+     * balances. This function returns its fourth root.
+     *
+     * @return currentFourthRootPriceRatio The current fourth root of price ratio
+     */
+    function computeCurrentFourthRootPriceRatio() external view returns (uint256 currentFourthRootPriceRatio);
 
     /**
      * @notice Computes the current total price range.
@@ -197,6 +208,20 @@ interface IReClammPoolExtension {
      * @return maxPrice The upper limit of the current total price range
      */
     function computeCurrentPriceRange() external view returns (uint256 minPrice, uint256 maxPrice);
+
+    /**
+     * @notice Compute the current pool centeredness (a measure of how unbalanced the pool is).
+     * @dev A value of 0 means the pool is at the edge of the price range (i.e., one of the real balances is zero).
+     * A value of FixedPoint.ONE means the balances (and market price) are exactly in the middle of the range.
+     *
+     * The centeredness margin is affected by the current live balances, so manipulating the result of this function
+     * is possible while the Vault is unlocked. Ensure that the Vault is locked before calling this function if this
+     * side effect is undesired (does not apply to off-chain calls).
+     *
+     * @return poolCenteredness The current centeredness margin (as a 18-decimal FP value)
+     * @return isPoolAboveCenter True if the pool is above the center, false otherwise
+     */
+    function computeCurrentPoolCenteredness() external view returns (uint256 poolCenteredness, bool isPoolAboveCenter);
 
     /**
      * @notice Computes the current virtual balances and a flag indicating whether they have changed.
@@ -226,24 +251,6 @@ interface IReClammPoolExtension {
     function computeCurrentSpotPrice() external view returns (uint256 currentTargetPrice);
 
     /**
-     * @notice Computes the current fourth root of price ratio.
-     * @dev The price ratio is the ratio of the max price to the min price, according to current real and virtual
-     * balances. This function returns its fourth root.
-     *
-     * @return currentFourthRootPriceRatio The current fourth root of price ratio
-     */
-    function computeCurrentFourthRootPriceRatio() external view returns (uint256 currentFourthRootPriceRatio);
-
-    /**
-     * @notice Computes the current price ratio.
-     * @dev The price ratio is the ratio of the max price to the min price, according to current real and virtual
-     * balances.
-     *
-     * @return currentPriceRatio The current price ratio
-     */
-    function computeCurrentPriceRatio() external view returns (uint256 currentPriceRatio);
-
-    /**
      * @notice Compute whether the pool is within the target price range, recomputing the virtual balances.
      * @dev The pool is considered to be in the target range when the centeredness is greater than the centeredness
      * margin (i.e., the price is within the subset of the total price range defined by the centeredness margin.)
@@ -260,16 +267,9 @@ interface IReClammPoolExtension {
         returns (bool isWithinTargetRange, bool virtualBalancesChanged);
 
     /**
-     * @notice Compute the current pool centeredness (a measure of how unbalanced the pool is).
-     * @dev A value of 0 means the pool is at the edge of the price range (i.e., one of the real balances is zero).
-     * A value of FixedPoint.ONE means the balances (and market price) are exactly in the middle of the range.
-     *
-     * The centeredness margin is affected by the current live balances, so manipulating the result of this function
-     * is possible while the Vault is unlocked. Ensure that the Vault is locked before calling this function if this
-     * side effect is undesired (does not apply to off-chain calls).
-     *
-     * @return poolCenteredness The current centeredness margin (as a 18-decimal FP value)
-     * @return isPoolAboveCenter True if the pool is above the center, false otherwise
+     * @notice Returns the ReClammPool address.
+     * @dev The ReClammPool contains the most common, critical path pool operations.
+     * @return reclammPool The address of the ReClammPool
      */
-    function computeCurrentPoolCenteredness() external view returns (uint256 poolCenteredness, bool isPoolAboveCenter);
+    function pool() external view returns (IReClammPoolMain reclammPool);
 }

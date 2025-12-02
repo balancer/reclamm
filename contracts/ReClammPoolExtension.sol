@@ -2,6 +2,7 @@
 
 pragma solidity ^0.8.24;
 
+import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultErrors.sol";
 import { PoolConfig } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
 import { IHooks } from "@balancer-labs/v3-interfaces/contracts/vault/IHooks.sol";
@@ -35,6 +36,7 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
         _;
     }
 
+    /// @dev Can only call hook functions not defined by the main pool if the secondary hook implements them.
     modifier onlyWithHookContract() {
         _ensureHookContract();
         _;
@@ -62,6 +64,10 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
 
         _HOOK_CONTRACT = hookContract;
     }
+
+    /*******************************************************************************
+                                   Pool State Getters
+    *******************************************************************************/
 
     /// @inheritdoc IReClammPoolExtension
     function getLastTimestamp() external view onlyPoolDelegateCall returns (uint32) {
@@ -97,10 +103,6 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
     function getPriceRatioState() external view onlyPoolDelegateCall returns (PriceRatioState memory) {
         return _priceRatioState;
     }
-
-    /*******************************************************************************
-                                    Pool State Getters
-    *******************************************************************************/
 
     /// @inheritdoc IReClammPoolExtension
     function getReClammPoolDynamicData()
@@ -170,6 +172,10 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
         data.balanceRatioAndPriceTolerance = _BALANCE_RATIO_AND_PRICE_TOLERANCE;
     }
 
+    /*******************************************************************************
+                                Convenience Functions
+    *******************************************************************************/
+    
     /// @inheritdoc IReClammPoolExtension
     function computeCurrentPriceRatio() external view onlyPoolDelegateCall returns (uint256) {
         return _computeCurrentPriceRatio();
@@ -196,6 +202,12 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
             minPrice = _INITIAL_MIN_PRICE;
             maxPrice = _INITIAL_MAX_PRICE;
         }
+    }
+
+    /// @inheritdoc IReClammPoolExtension
+    function computeCurrentPoolCenteredness() external view onlyPoolDelegateCall returns (uint256, bool) {
+        (, , , uint256[] memory currentBalancesScaled18) = _VAULT.getPoolTokenInfo(address(this));
+        return ReClammMath.computeCenteredness(currentBalancesScaled18, _lastVirtualBalanceA, _lastVirtualBalanceB);
     }
 
     /// @inheritdoc IReClammPoolExtension
@@ -243,11 +255,9 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
         );
     }
 
-    /// @inheritdoc IReClammPoolExtension
-    function computeCurrentPoolCenteredness() external view onlyPoolDelegateCall returns (uint256, bool) {
-        (, , , uint256[] memory currentBalancesScaled18) = _VAULT.getPoolTokenInfo(address(this));
-        return ReClammMath.computeCenteredness(currentBalancesScaled18, _lastVirtualBalanceA, _lastVirtualBalanceB);
-    }
+    /*******************************************************************************
+                                    Hook Functions
+    *******************************************************************************/
 
     /// @notice Forwards onAfterInitialize to the secondary hook. (This hook is unused by the main pool contract.)
     function onAfterInitialize(
@@ -331,6 +341,17 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
         return IHooks(_HOOK_CONTRACT).onComputeDynamicSwapFeePercentage(params, pool_, staticSwapFeePercentage);
     }
 
+    /*******************************************************************************
+                                   Internal Helpers
+    *******************************************************************************/
+
+    // This function is needed in the getters, and in the old code was coming from BalancerPoolToken.
+    // That implementation just called the Vault, so we'll just do the same thing here.
+    function _totalSupply() internal view returns (uint256) {
+        // Since this is a delegate call, "this" is the pool address.
+        return _VAULT.totalSupply(address(this));
+    }
+
     function _getRealAndVirtualBalances()
         internal
         view
@@ -345,13 +366,6 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
         (currentVirtualBalanceA, currentVirtualBalanceB, changed) = _computeCurrentVirtualBalances(balancesScaled18);
     }
 
-    // This function is needed in the getters, and in the old code was coming from BalancerPoolToken.
-    // That implementation just called the Vault, so we'll just do the same thing here.
-    function _totalSupply() internal view returns (uint256) {
-        // Since this is a delegate call, "this" is the pool address.
-        return _VAULT.totalSupply(address(this));
-    }
-
     function _getLastVirtualBalances() internal view returns (uint256[] memory) {
         uint256[] memory lastVirtualBalances = new uint256[](2);
         lastVirtualBalances[a] = _lastVirtualBalanceA;
@@ -360,24 +374,15 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
         return lastVirtualBalances;
     }
 
-    // For ReClammCommon Vault access.
-    function _getBalancerVault() internal view override returns (IVault) {
-        return _VAULT;
-    }
+    /*******************************************************************************
+                                   Modifier Helpers
+    *******************************************************************************/
 
     function _ensureHookContract() internal view {
         if (_HOOK_CONTRACT == address(0)) {
             // Should not happen. Hook flags would not go beyond ReClamm-required ones without a contract.
             revert NotImplemented();
         }
-    }
-    
-    /*******************************************************************************
-                                    Proxy Functions
-    *******************************************************************************/
-
-    function pool() external view returns (IReClammPoolMain) {
-        return _POOL;
     }
 
     function _ensurePoolDelegateCall() internal view {
@@ -386,5 +391,36 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
         if (address(this) != address(_POOL)) {
             revert NotPoolDelegateCall();
         }
+    }
+
+    /*******************************************************************************
+                                    Proxy Functions
+    *******************************************************************************/
+
+    function pool() external view returns (IReClammPoolMain) {
+        return _POOL;
+    }
+
+    // For ReClammCommon Vault access.
+    function _getBalancerVault() internal view override returns (IVault) {
+        return _VAULT;
+    }
+
+    /*******************************************************************************
+                                     Default handlers
+    *******************************************************************************/
+
+    receive() external payable {
+        revert IVaultErrors.CannotReceiveEth();
+    }
+
+    // solhint-disable no-complex-fallback
+
+    fallback() external payable {
+        if (msg.value > 0) {
+            revert IVaultErrors.CannotReceiveEth();
+        }
+
+        revert NotImplemented();
     }
 }
