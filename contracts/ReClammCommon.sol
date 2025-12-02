@@ -6,18 +6,19 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
 
-import { PriceRatioState, ReClammMath } from "./lib/ReClammMath.sol";
-import { IReClammErrors } from "./interfaces/IReClammErrors.sol";
-import { IReClammEvents } from "./interfaces/IReClammEvents.sol";
 import { ReClammStorage } from "./ReClammStorage.sol";
+import { ReClammMath } from "./lib/ReClammMath.sol";
 
 /**
  * @notice Functions and modifiers shared between the main ReClammPool and its extension contract.
  * @dev This contract contains common utilities in the inheritance chain that require storage to work,
  * and will be required in both the main ReClammPool and its extension.
  */
-abstract contract ReClammCommon is IReClammEvents, IReClammErrors, ReClammStorage {
+abstract contract ReClammCommon is ReClammStorage {
     using SafeCast for *;
+
+    /// @notice The function is not implemented.
+    error NotImplemented();
 
     /*******************************************************************************
                                Shared Internal Functions
@@ -50,66 +51,6 @@ abstract contract ReClammCommon is IReClammEvents, IReClammErrors, ReClammStorag
             _centerednessMargin,
             _priceRatioState
         );
-    }
-
-    function _startPriceRatioUpdate(
-        uint256 endPriceRatio,
-        uint256 priceRatioUpdateStartTime,
-        uint256 priceRatioUpdateEndTime
-    ) internal returns (uint256 startPriceRatio) {
-        if (priceRatioUpdateStartTime > priceRatioUpdateEndTime || priceRatioUpdateStartTime < block.timestamp) {
-            revert InvalidStartTime();
-        }
-
-        PriceRatioState memory priceRatioState = _priceRatioState;
-
-        uint256 endFourthRootPriceRatio = ReClammMath.fourthRootScaled18(endPriceRatio);
-
-        uint256 startFourthRootPriceRatio;
-        if (_getBalancerVault().isPoolInitialized(address(this))) {
-            startPriceRatio = _computeCurrentPriceRatio();
-            startFourthRootPriceRatio = ReClammMath.fourthRootScaled18(startPriceRatio);
-        } else {
-            startFourthRootPriceRatio = endFourthRootPriceRatio;
-            startPriceRatio = endPriceRatio;
-        }
-
-        priceRatioState.startFourthRootPriceRatio = startFourthRootPriceRatio.toUint96();
-        priceRatioState.endFourthRootPriceRatio = endFourthRootPriceRatio.toUint96();
-        priceRatioState.priceRatioUpdateStartTime = priceRatioUpdateStartTime.toUint32();
-        priceRatioState.priceRatioUpdateEndTime = priceRatioUpdateEndTime.toUint32();
-
-        _priceRatioState = priceRatioState;
-
-        emit PriceRatioStateUpdated(
-            startFourthRootPriceRatio,
-            endFourthRootPriceRatio,
-            priceRatioUpdateStartTime,
-            priceRatioUpdateEndTime
-        );
-
-        _getBalancerVault().emitAuxiliaryEvent(
-            "PriceRatioStateUpdated",
-            abi.encode(
-                startFourthRootPriceRatio,
-                endFourthRootPriceRatio,
-                priceRatioUpdateStartTime,
-                priceRatioUpdateEndTime
-            )
-        );
-    }
-
-    /// @dev This function relies on the pool balance, which can be manipulated if the vault is unlocked.
-    function _isPoolWithinTargetRange() internal view returns (bool) {
-        (, , , uint256[] memory balancesScaled18) = _getBalancerVault().getPoolTokenInfo(address(this));
-
-        return
-            ReClammMath.isPoolWithinTargetRange(
-                balancesScaled18,
-                _lastVirtualBalanceA,
-                _lastVirtualBalanceB,
-                _centerednessMargin
-            );
     }
 
     /*******************************************************************************

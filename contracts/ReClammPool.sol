@@ -57,6 +57,106 @@ contract ReClammPool is
     // to the extension via delegatecall.
     IReClammPoolExtension private immutable _RECLAMM_EXTENSION;
 
+    /**
+     * @notice The Price Ratio State was updated.
+     * @dev This event will be emitted on initialization, and when governance initiates a price ratio update.
+     * @param startFourthRootPriceRatio The fourth root price ratio at the start of an update
+     * @param endFourthRootPriceRatio The fourth root price ratio at the end of an update
+     * @param priceRatioUpdateStartTime The timestamp when the update begins
+     * @param priceRatioUpdateEndTime The timestamp when the update ends
+     */
+    event PriceRatioStateUpdated(
+        uint256 startFourthRootPriceRatio,
+        uint256 endFourthRootPriceRatio,
+        uint256 priceRatioUpdateStartTime,
+        uint256 priceRatioUpdateEndTime
+    );
+
+    /**
+     * @notice The virtual balances were updated after a user interaction (swap or liquidity operation).
+     * @dev Unless the price range is changing, the virtual balances remain in proportion to the real balances.
+     * These balances will also be updated when the centeredness margin or daily price shift exponent is changed.
+     *
+     * @param virtualBalanceA Offset to the real balance reserves
+     * @param virtualBalanceB Offset to the real balance reserves
+     */
+    event VirtualBalancesUpdated(uint256 virtualBalanceA, uint256 virtualBalanceB);
+
+    /**
+     * @notice The daily price shift exponent was updated.
+     * @dev This will be emitted on deployment, and when changed by governance or the swap manager.
+     * @param dailyPriceShiftExponent The new daily price shift exponent
+     * @param dailyPriceShiftBase Internal time constant used to update virtual balances (1 - tau)
+     */
+    event DailyPriceShiftExponentUpdated(uint256 dailyPriceShiftExponent, uint256 dailyPriceShiftBase);
+
+    /**
+     * @notice The centeredness margin was updated.
+     * @dev This will be emitted on deployment, and when changed by governance or the swap manager.
+     * @param centerednessMargin The new centeredness margin
+     */
+    event CenterednessMarginUpdated(uint256 centerednessMargin);
+
+    /**
+     * @notice The timestamp of the last user interaction.
+     * @dev This is emitted on every swap or liquidity operation.
+     * @param lastTimestamp The timestamp of the operation
+     */
+    event LastTimestampUpdated(uint32 lastTimestamp);
+
+    /// @dev Function called before initializing the pool.
+    error PoolNotInitialized();
+
+    /// @notice The start time for the price ratio update is invalid (either in the past or after the given end time).
+    error InvalidStartTime();
+
+    /// @notice The centeredness margin is outside the valid numerical range.
+    error InvalidCenterednessMargin();
+
+    /// @notice The vault is not locked, so the pool balances are manipulable.
+    error VaultIsNotLocked();
+
+    /// @notice The pool is outside the target price range before or after the operation.
+    error PoolOutsideTargetRange();
+
+    /// @notice
+    error InvalidInitialPrice();
+
+    /// @notice The daily price shift exponent is too high.
+    error DailyPriceShiftExponentTooHigh();
+
+    /// @notice The difference between end time and start time is too short for the price ratio update.
+    error PriceRatioUpdateDurationTooShort();
+
+    /// @notice The rate of change exceeds the maximum daily price ratio rate.
+    error PriceRatioUpdateTooFast();
+
+    /// @dev The price ratio being set is too close to the current one.
+    error PriceRatioDeltaBelowMin(uint256 fourthRootPriceRatioDelta);
+
+    /// @dev An attempt was made to stop the price ratio update while no update was in progress.
+    error PriceRatioNotUpdating();
+
+    /**
+     * @notice `getRate` from `IRateProvider` was called on a ReClamm Pool.
+     * @dev ReClamm Pools should never be nested. This is because the invariant of the pool is only used to calculate
+     * swaps. When tracking the market price or shrinking or expanding the liquidity concentration, the invariant can
+     * can decrease or increase independent of the balances, which makes the BPT rate meaningless.
+     */
+    error ReClammPoolBptRateUnsupported();
+
+    /**
+     * @notice The initial balances of the ReClamm Pool must respect the initialization ratio bounds.
+     * @dev On pool creation, a theoretical balance ratio is computed from the min, max, and target prices. During
+     * initialization, the actual balance ratio is compared to this theoretical value, and must fall within a fixed,
+     * symmetrical tolerance range, or initialization reverts. If it were outside this range, the initial price would
+     * diverge too far from the target price, and the pool would be vulnerable to arbitrage.
+     */
+    error BalanceRatioExceedsTolerance();
+
+    /// @notice The current price interval or spot price is outside the initialization price range.
+    error WrongInitializationPrices();
+
     /// @notice The proxy implementation must point back to the main pool.
     error WrongReClammPoolExtensionDeployment();
 
@@ -406,6 +506,15 @@ contract ReClammPool is
     }
 
     /*******************************************************************************
+                                   Pool State Getters
+    *******************************************************************************/
+
+    /// @inheritdoc IReClammPoolMain
+    function isPoolWithinTargetRange() external view returns (bool) {
+        return _isPoolWithinTargetRange();
+    }
+
+    /*******************************************************************************
                                    Pool State Setters
     *******************************************************************************/
 
@@ -562,6 +671,19 @@ contract ReClammPool is
                                    Internal Helpers
     *******************************************************************************/
 
+    /// @dev This function relies on the pool balance, which can be manipulated if the vault is unlocked.
+    function _isPoolWithinTargetRange() internal view returns (bool) {
+        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
+
+        return
+            ReClammMath.isPoolWithinTargetRange(
+                balancesScaled18,
+                _lastVirtualBalanceA,
+                _lastVirtualBalanceB,
+                _centerednessMargin
+            );
+    }
+
     function _setLastVirtualBalances(uint256 virtualBalanceA, uint256 virtualBalanceB) internal {
         _lastVirtualBalanceA = virtualBalanceA.toUint128();
         _lastVirtualBalanceB = virtualBalanceB.toUint128();
@@ -569,6 +691,53 @@ contract ReClammPool is
         emit VirtualBalancesUpdated(virtualBalanceA, virtualBalanceB);
 
         _vault.emitAuxiliaryEvent("VirtualBalancesUpdated", abi.encode(virtualBalanceA, virtualBalanceB));
+    }
+
+    function _startPriceRatioUpdate(
+        uint256 endPriceRatio,
+        uint256 priceRatioUpdateStartTime,
+        uint256 priceRatioUpdateEndTime
+    ) internal returns (uint256 startPriceRatio) {
+        if (priceRatioUpdateStartTime > priceRatioUpdateEndTime || priceRatioUpdateStartTime < block.timestamp) {
+            revert InvalidStartTime();
+        }
+
+        PriceRatioState memory priceRatioState = _priceRatioState;
+
+        uint256 endFourthRootPriceRatio = ReClammMath.fourthRootScaled18(endPriceRatio);
+
+        uint256 startFourthRootPriceRatio;
+        if (_getBalancerVault().isPoolInitialized(address(this))) {
+            startPriceRatio = _computeCurrentPriceRatio();
+            startFourthRootPriceRatio = ReClammMath.fourthRootScaled18(startPriceRatio);
+        } else {
+            startFourthRootPriceRatio = endFourthRootPriceRatio;
+            startPriceRatio = endPriceRatio;
+        }
+
+        priceRatioState.startFourthRootPriceRatio = startFourthRootPriceRatio.toUint96();
+        priceRatioState.endFourthRootPriceRatio = endFourthRootPriceRatio.toUint96();
+        priceRatioState.priceRatioUpdateStartTime = priceRatioUpdateStartTime.toUint32();
+        priceRatioState.priceRatioUpdateEndTime = priceRatioUpdateEndTime.toUint32();
+
+        _priceRatioState = priceRatioState;
+
+        emit PriceRatioStateUpdated(
+            startFourthRootPriceRatio,
+            endFourthRootPriceRatio,
+            priceRatioUpdateStartTime,
+            priceRatioUpdateEndTime
+        );
+
+        _getBalancerVault().emitAuxiliaryEvent(
+            "PriceRatioStateUpdated",
+            abi.encode(
+                startFourthRootPriceRatio,
+                endFourthRootPriceRatio,
+                priceRatioUpdateStartTime,
+                priceRatioUpdateEndTime
+            )
+        );
     }
 
     /// Using the pool balances to update the virtual balances is dangerous with an unlocked vault, since the balances
