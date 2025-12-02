@@ -10,16 +10,21 @@ import "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { BasePoolFactory } from "@balancer-labs/v3-pool-utils/contracts/BasePoolFactory.sol";
 import { Version } from "@balancer-labs/v3-solidity-utils/contracts/helpers/Version.sol";
+import { CREATE3 } from "@balancer-labs/v3-solidity-utils/contracts/solmate/CREATE3.sol";
 
 import { ReClammPoolFactoryLib, ReClammPriceParams } from "./lib/ReClammPoolFactoryLib.sol";
+import { IReClammPoolMain } from "./interfaces/IReClammPoolMain.sol";
+import { ReClammPoolExtension } from "./ReClammPoolExtension.sol";
 import { ReClammPoolParams } from "./interfaces/IReClammPool.sol";
 import { ReClammPool } from "./ReClammPool.sol";
 
-/// @notice ReClammPool factory.
 contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
     using SafeCast for uint256;
 
     string private _poolVersion;
+
+    /// @notice The actual deployed address of the pool doesn't match the predicted value.
+    error PoolAddressMismatch();
 
     constructor(
         IVault vault,
@@ -33,6 +38,14 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
     /// @inheritdoc IPoolVersion
     function getPoolVersion() external view returns (string memory) {
         return _poolVersion;
+    }
+
+    /**
+     * @notice Gets deployment address for a given salt (CREATE3 - doesn't depend on constructor args).
+     * @dev Note that the BasePoolFactory's `getDeploymentAddress` will not work here, since we're using create3.
+     */
+    function getDeploymentAddress(bytes32 salt) public view returns (address) {
+        return CREATE3.getDeployed(_computeFinalSalt(salt));
     }
 
     /**
@@ -66,29 +79,54 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
 
         ReClammPoolFactoryLib.validateTokenConfig(tokens, priceParams);
 
+        bytes32 finalSalt = _computeFinalSalt(salt);
+
+        // Predict pool address (CREATE3 only depends on salt).
+        pool = CREATE3.getDeployed(finalSalt);
+
+        ReClammPoolParams memory params = ReClammPoolParams({
+            name: name,
+            symbol: symbol,
+            version: _poolVersion,
+            initialMinPrice: priceParams.initialMinPrice,
+            initialMaxPrice: priceParams.initialMaxPrice,
+            initialTargetPrice: priceParams.initialTargetPrice,
+            tokenAPriceIncludesRate: priceParams.tokenAPriceIncludesRate,
+            tokenBPriceIncludesRate: priceParams.tokenBPriceIncludesRate,
+            dailyPriceShiftExponent: dailyPriceShiftExponent,
+            centerednessMargin: centerednessMargin.toUint64()
+        });
+
+        // Deploy pool extension with predicted pool address (regular create; we don't care about the address).
+        ReClammPoolExtension extensionContract = new ReClammPoolExtension(
+            IReClammPoolMain(pool),
+            getVault(),
+            params,
+            hookContract
+        );
+
+        // Deploy main pool with CREATE3.
+        address deployed = CREATE3.deploy(
+            finalSalt,
+            abi.encodePacked(
+                type(ReClammPool).creationCode,
+                abi.encode(params, getVault(), extensionContract, hookContract)
+            ),
+            0
+        );
+
+        // Ensure the deployment address matches the predicted value.
+        if (deployed != pool) {
+            revert PoolAddressMismatch();
+        }
+
+        // Register the pool. Would normally be done by the base contract `_create`, but we can't call that, as it
+        // doesn't do what we want.
+        _registerPoolWithFactory(pool);
+
         LiquidityManagement memory liquidityManagement = getDefaultLiquidityManagement();
         liquidityManagement.enableDonation = false;
         liquidityManagement.disableUnbalancedLiquidity = true;
-
-        pool = _create(
-            abi.encode(
-                ReClammPoolParams({
-                    name: name,
-                    symbol: symbol,
-                    version: _poolVersion,
-                    initialMinPrice: priceParams.initialMinPrice,
-                    initialMaxPrice: priceParams.initialMaxPrice,
-                    initialTargetPrice: priceParams.initialTargetPrice,
-                    tokenAPriceIncludesRate: priceParams.tokenAPriceIncludesRate,
-                    tokenBPriceIncludesRate: priceParams.tokenBPriceIncludesRate,
-                    dailyPriceShiftExponent: dailyPriceShiftExponent,
-                    centerednessMargin: centerednessMargin.toUint64()
-                }),
-                getVault(),
-                hookContract
-            ),
-            salt
-        );
 
         _registerPoolWithVault(
             pool,
