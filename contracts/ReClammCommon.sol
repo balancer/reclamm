@@ -12,14 +12,16 @@ import { IReClammEvents } from "./interfaces/IReClammEvents.sol";
 import { ReClammStorage } from "./ReClammStorage.sol";
 
 /**
- * @notice Functions and modifiers shared between the main Vault and its extension contracts.
+ * @notice Functions and modifiers shared between the main ReClammPool and its extension contract.
  * @dev This contract contains common utilities in the inheritance chain that require storage to work,
- * and will be required in both the main Vault and its extensions.
+ * and will be required in both the main ReClammPool and its extension.
  */
 abstract contract ReClammCommon is IReClammEvents, IReClammErrors, ReClammStorage {
     using SafeCast for *;
 
-    function _getBalancerVault() internal view virtual returns (IVault);
+    /*******************************************************************************
+                               Shared Internal Functions
+    *******************************************************************************/
 
     /**
      * @notice Computes the fourth root of the current price ratio.
@@ -109,4 +111,12 @@ abstract contract ReClammCommon is IReClammEvents, IReClammErrors, ReClammStorag
                 _centerednessMargin
             );
     }
+
+    /*******************************************************************************
+                                    Proxy Functions
+    *******************************************************************************/
+
+    // The Vault is stored immutably (through VaultGuard) in both contracts. To avoid name collisions, define this
+    // function in both to enable referencing the Vault in common code.
+    function _getBalancerVault() internal view virtual returns (IVault);
 }

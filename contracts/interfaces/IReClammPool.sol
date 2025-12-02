@@ -21,6 +21,8 @@ struct ReClammPoolParams {
     bool tokenBPriceIncludesRate;
 }
 
+/// @notice Full interface for the ReClammPool, encompassing main and extension functions.
+// wake-disable-next-line unused-interface
 interface IReClammPool is IReClammPoolMain, IReClammPoolExtension, IReClammErrors, IReClammEvents {
     // solhint-disable-previous-line no-empty-blocks
 }

@@ -6,11 +6,15 @@ import { PriceRatioState } from "./lib/ReClammMath.sol";
 
 /**
  * @notice Storage layout for the ReClammPool.
- * @dev This contract has no code, but is inherited by both ReClamm contracts. In order to ensure that *only* the
- * Pool contract's storage is actually used, calls to the extension contract must be delegate calls made through the
- * main Pool.
+ * @dev This contract has no code, but is inherited by both ReClamm contracts (main and extension). In order to ensure
+ * that *only* the Pool contract's storage is actually used, calls to the extension contract must be delegate calls
+ * made through the main Pool.
  */
 abstract contract ReClammStorage {
+    /*******************************************************************************
+                                       Constants
+    *******************************************************************************/
+
     // Fees are 18-decimal, floating point values, which will be stored in the Vault using 24 bits.
     // This means they have 0.00001% resolution (i.e., any non-zero bits < 1e11 will cause precision loss).
     // Minimum values help make the math well-behaved (i.e., the swap fee should overwhelm any rounding error).
@@ -27,10 +31,15 @@ abstract contract ReClammStorage {
     // "price shift" velocity.
     uint256 internal constant _MAX_DAILY_PRICE_SHIFT_EXPONENT = 100e16; // 100%
 
+    // The maximum daily price ratio change rate is given by 2^_MAX_DAILY_PRICE_SHIFT_EXPONENT.
+    // This is somewhat arbitrary, but it makes sense to link these rates; i.e., we are setting the maximum speed
+    // of expansion or contraction to equal the maximum speed of the price shift. It is expressed as a multiple;
+    // i.e., 8e18 means it can change by 8x per day.
+    uint256 internal constant _MAX_DAILY_PRICE_RATIO_UPDATE_RATE = 2e18;
+
     // Price ratio updates must have both a minimum duration and a maximum daily rate. For instance, an update rate of
     // FP 2 means the ratio one day later must be at least half and at most double the rate at the start of the update.
     uint256 internal constant _MIN_PRICE_RATIO_UPDATE_DURATION = 1 days;
-    uint256 internal immutable _MAX_DAILY_PRICE_RATIO_UPDATE_RATE;
 
     // There is also a minimum delta, to keep the math well-behaved.
     uint256 internal constant _MIN_PRICE_RATIO_DELTA = 1e6;
@@ -39,6 +48,10 @@ abstract contract ReClammStorage {
     // This represents the maximum deviation from the ideal state (i.e., at target price and near centered) after
     // initialization, to prevent arbitration losses.
     uint256 internal constant _BALANCE_RATIO_AND_PRICE_TOLERANCE = 0.01e16; // 0.01%
+
+    /*******************************************************************************
+                                       Immutables
+    *******************************************************************************/
 
     // These immutables are only used during initialization, to set the virtual balances and price ratio in a more
     // user-friendly manner.
@@ -64,6 +77,10 @@ abstract contract ReClammStorage {
     // ReClamm pools are always their own hook from the Vault's perspective, but also allow forwarding to an optional
     // second hook contract.
     address internal immutable _HOOK_CONTRACT;
+
+    /*******************************************************************************
+                                    State Variables
+    *******************************************************************************/
 
     PriceRatioState internal _priceRatioState;
 
