@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 
 import { PoolConfig } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
+import { IHooks } from "@balancer-labs/v3-interfaces/contracts/vault/IHooks.sol";
+import "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { VaultGuard } from "@balancer-labs/v3-vault/contracts/VaultGuard.sol";
@@ -31,6 +33,18 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
     modifier onlyPoolDelegateCall() {
         _ensurePoolDelegateCall();
         _;
+    }
+
+    modifier onlyWithHookContract() {
+        _ensureHookContract();
+        _;
+    }
+
+    function _ensureHookContract() internal view {
+        if (_HOOK_CONTRACT == address(0)) {
+            // Should not happen. Hook flags would not go beyond ReClamm-required ones without a contract.
+            revert NotImplemented();
+        }
     }
 
     constructor(IReClammPoolMain reclammPool, IVault vault, ReClammPoolParams memory params, address hookContract) VaultGuard(vault) {
@@ -235,6 +249,88 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
         return ReClammMath.computeCenteredness(currentBalancesScaled18, _lastVirtualBalanceA, _lastVirtualBalanceB);
     }
     
+    /// @notice Forwards onAfterInitialize to the secondary hook. (This hook is unused by the main pool contract.)
+    function onAfterInitialize(
+        uint256[] memory exactAmountsIn,
+        uint256 bptAmountOut,
+        bytes memory userData
+    ) external onlyVault onlyWithHookContract returns (bool) {
+        return IHooks(_HOOK_CONTRACT).onAfterInitialize(exactAmountsIn, bptAmountOut, userData);
+    }
+
+    /// @notice Forwards onAfterAddLiquidity to the secondary hook. (This hook is unused by the main pool contract.)
+    function onAfterAddLiquidity(
+        address router,
+        address pool_,
+        AddLiquidityKind kind,
+        uint256[] memory amountsInScaled18,
+        uint256[] memory amountsInRaw,
+        uint256 bptAmountOut,
+        uint256[] memory balancesScaled18,
+        bytes memory userData
+    ) public onlyVault onlyWithHookContract returns (bool, uint256[] memory) {
+        return
+            IHooks(_HOOK_CONTRACT).onAfterAddLiquidity(
+                router,
+                pool_,
+                kind,
+                amountsInScaled18,
+                amountsInRaw,
+                bptAmountOut,
+                balancesScaled18,
+                userData
+            );
+    }
+
+    /// @notice Forwards onAfterRemoveLiquidity to the secondary hook. (This hook is unused by the main pool contract.)
+    function onAfterRemoveLiquidity(
+        address router,
+        address pool_,
+        RemoveLiquidityKind kind,
+        uint256 bptAmountIn,
+        uint256[] memory amountsOutScaled18,
+        uint256[] memory amountsOutRaw,
+        uint256[] memory balancesScaled18,
+        bytes memory userData
+    ) public onlyVault onlyWithHookContract returns (bool, uint256[] memory) {
+        return
+            IHooks(_HOOK_CONTRACT).onAfterRemoveLiquidity(
+                router,
+                pool_,
+                kind,
+                bptAmountIn,
+                amountsOutScaled18,
+                amountsOutRaw,
+                balancesScaled18,
+                userData
+            );
+    }
+
+    /// @notice Forwards onBeforeSwap to the secondary hook. (This hook is unused by the main pool contract.)
+    function onBeforeSwap(
+        PoolSwapParams calldata params,
+        address pool_
+    ) public onlyVault onlyWithHookContract returns (bool) {
+        return IHooks(_HOOK_CONTRACT).onBeforeSwap(params, pool_);
+    }
+
+    /// @notice Forwards onAfterSwap to the secondary hook. (This hook is unused by the main pool contract.)
+    function onAfterSwap(
+        AfterSwapParams calldata params
+    ) public onlyVault onlyWithHookContract returns (bool, uint256) {
+        return IHooks(_HOOK_CONTRACT).onAfterSwap(params);
+    }
+
+    /// @notice Forwards the call to the secondary hook. (This hook is unused by the main pool contract.)
+    function onComputeDynamicSwapFeePercentage(
+        PoolSwapParams calldata params,
+        address pool_,
+        uint256 staticSwapFeePercentage
+    ) public view onlyWithHookContract returns (bool, uint256) {
+        // This does not need onlyVault, as it's defined as a view function in the interface.
+        return IHooks(_HOOK_CONTRACT).onComputeDynamicSwapFeePercentage(params, pool_, staticSwapFeePercentage);
+    }
+
     function _getRealAndVirtualBalances()
         internal
         view

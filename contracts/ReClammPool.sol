@@ -62,18 +62,6 @@ contract ReClammPool is
         }
     }
 
-    modifier onlyWithHookContract() {
-        _ensureHookContract();
-        _;
-    }
-
-    function _ensureHookContract() internal view {
-        if (_HOOK_CONTRACT == address(0)) {
-            // Should not happen. Hook flags would not go beyond ReClamm-required ones without a contract.
-            revert NotImplemented();
-        }
-    }
-
     modifier onlyWithinTargetRange() {
         _ensurePoolWithinTargetRange();
         _;
@@ -328,16 +316,6 @@ contract ReClammPool is
         return
             _HOOK_CONTRACT == address(0) ? true : IHooks(_HOOK_CONTRACT).onBeforeInitialize(balancesScaled18, userData);
     }
-
-    /// @inheritdoc IHooks
-    function onAfterInitialize(
-        uint256[] memory exactAmountsIn,
-        uint256 bptAmountOut,
-        bytes memory userData
-    ) public override onlyVault onlyWithHookContract returns (bool) {
-        return IHooks(_HOOK_CONTRACT).onAfterInitialize(exactAmountsIn, bptAmountOut, userData);
-    }
-
     /// @inheritdoc IHooks
     function onBeforeAddLiquidity(
         address router,
@@ -376,30 +354,6 @@ contract ReClammPool is
                     balancesScaled18,
                     userData
                 );
-    }
-
-    /// @inheritdoc IHooks
-    function onAfterAddLiquidity(
-        address router,
-        address pool,
-        AddLiquidityKind kind,
-        uint256[] memory amountsInScaled18,
-        uint256[] memory amountsInRaw,
-        uint256 bptAmountOut,
-        uint256[] memory balancesScaled18,
-        bytes memory userData
-    ) public override onlyVault onlyWithHookContract returns (bool, uint256[] memory) {
-        return
-            IHooks(_HOOK_CONTRACT).onAfterAddLiquidity(
-                router,
-                pool,
-                kind,
-                amountsInScaled18,
-                amountsInRaw,
-                bptAmountOut,
-                balancesScaled18,
-                userData
-            );
     }
 
     /// @inheritdoc IHooks
@@ -442,55 +396,6 @@ contract ReClammPool is
                     balancesScaled18,
                     userData
                 );
-    }
-
-    /// @inheritdoc IHooks
-    function onAfterRemoveLiquidity(
-        address router,
-        address pool,
-        RemoveLiquidityKind kind,
-        uint256 bptAmountIn,
-        uint256[] memory amountsOutScaled18,
-        uint256[] memory amountsOutRaw,
-        uint256[] memory balancesScaled18,
-        bytes memory userData
-    ) public override onlyVault onlyWithHookContract returns (bool, uint256[] memory) {
-        return
-            IHooks(_HOOK_CONTRACT).onAfterRemoveLiquidity(
-                router,
-                pool,
-                kind,
-                bptAmountIn,
-                amountsOutScaled18,
-                amountsOutRaw,
-                balancesScaled18,
-                userData
-            );
-    }
-
-    /// @inheritdoc IHooks
-    function onBeforeSwap(
-        PoolSwapParams calldata params,
-        address pool
-    ) public override onlyVault onlyWithHookContract returns (bool) {
-        return IHooks(_HOOK_CONTRACT).onBeforeSwap(params, pool);
-    }
-
-    /// @inheritdoc IHooks
-    function onAfterSwap(
-        AfterSwapParams calldata params
-    ) public override onlyVault onlyWithHookContract returns (bool, uint256) {
-        return IHooks(_HOOK_CONTRACT).onAfterSwap(params);
-    }
-
-    /// @inheritdoc IHooks
-    function onComputeDynamicSwapFeePercentage(
-        PoolSwapParams calldata params,
-        address pool,
-        uint256 staticSwapFeePercentage
-    ) public view override onlyWithHookContract returns (bool, uint256) {
-        // This does not need onlyVault, as it's defined as a view function in the interface.
-        return IHooks(_HOOK_CONTRACT).onComputeDynamicSwapFeePercentage(params, pool, staticSwapFeePercentage);
     }
 
     /********************************************************
