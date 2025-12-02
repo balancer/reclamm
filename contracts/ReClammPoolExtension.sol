@@ -175,7 +175,7 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
     /*******************************************************************************
                                 Convenience Functions
     *******************************************************************************/
-    
+
     /// @inheritdoc IReClammPoolExtension
     function computeCurrentPriceRatio() external view onlyPoolDelegateCall returns (uint256) {
         return _computeCurrentPriceRatio();
