@@ -10,16 +10,22 @@ import "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { BasePoolFactory } from "@balancer-labs/v3-pool-utils/contracts/BasePoolFactory.sol";
 import { Version } from "@balancer-labs/v3-solidity-utils/contracts/helpers/Version.sol";
+import { CREATE3 } from "@balancer-labs/v3-solidity-utils/contracts/solmate/CREATE3.sol";
 
 import { ReClammPoolFactoryLib, ReClammPriceParams } from "../lib/ReClammPoolFactoryLib.sol";
+import { IReClammPoolMain } from "../interfaces/IReClammPoolMain.sol";
+import { ReClammPoolExtension } from "../ReClammPoolExtension.sol";
 import { ReClammPoolParams } from "../interfaces/IReClammPool.sol";
 import { ReClammPoolMock } from "./ReClammPoolMock.sol";
 
-/// @notice ReClammPool Mock factory.
+/// @notice ReClammPool Mock factory. It is identical to the real factory, except for deploying a mock pool.
 contract ReClammPoolFactoryMock is IPoolVersion, BasePoolFactory, Version {
     using SafeCast for uint256;
 
     string private _poolVersion;
+
+    /// @notice The actual deployed address of the pool doesn't match the predicted value.
+    error PoolAddressMismatch();
 
     constructor(
         IVault vault,
@@ -36,7 +42,15 @@ contract ReClammPoolFactoryMock is IPoolVersion, BasePoolFactory, Version {
     }
 
     /**
-     * @notice Deploys a new `ReClammPool`.
+     * @notice Gets deployment address for a given salt (CREATE3 - doesn't depend on constructor args).
+     * @dev Note that the BasePoolFactory's `getDeploymentAddress` will not work here, since we're using create3.
+     */
+    function getDeploymentAddress(bytes32 salt) public view returns (address) {
+        return CREATE3.getDeployed(_computeFinalSalt(salt));
+    }
+
+    /**
+     * @notice Deploys a new `ReClammPoolMock`.
      * @param name The name of the pool
      * @param symbol The symbol of the pool
      * @param tokens An array of descriptors for the tokens the pool will manage
@@ -66,29 +80,56 @@ contract ReClammPoolFactoryMock is IPoolVersion, BasePoolFactory, Version {
 
         ReClammPoolFactoryLib.validateTokenConfig(tokens, priceParams);
 
+        bytes32 finalSalt = _computeFinalSalt(salt);
+
+        // Predict pool address (CREATE3 only depends on salt).
+        pool = CREATE3.getDeployed(finalSalt);
+
+        {
+            ReClammPoolParams memory params = ReClammPoolParams({
+                name: name,
+                symbol: symbol,
+                version: _poolVersion,
+                initialMinPrice: priceParams.initialMinPrice,
+                initialMaxPrice: priceParams.initialMaxPrice,
+                initialTargetPrice: priceParams.initialTargetPrice,
+                tokenAPriceIncludesRate: priceParams.tokenAPriceIncludesRate,
+                tokenBPriceIncludesRate: priceParams.tokenBPriceIncludesRate,
+                dailyPriceShiftExponent: dailyPriceShiftExponent,
+                centerednessMargin: centerednessMargin.toUint64()
+            });
+
+            // Deploy pool extension with predicted pool address (regular create; we don't care about the address).
+            ReClammPoolExtension extensionContract = new ReClammPoolExtension(
+                IReClammPoolMain(pool),
+                getVault(),
+                params,
+                hookContract
+            );
+
+            // Deploy main pool with CREATE3.
+            address deployed = CREATE3.deploy(
+                finalSalt,
+                abi.encodePacked(
+                    type(ReClammPoolMock).creationCode,
+                    abi.encode(params, getVault(), extensionContract, hookContract)
+                ),
+                0
+            );
+
+            // Ensure the deployment address matches the predicted value.
+            if (deployed != pool) {
+                revert PoolAddressMismatch();
+            }
+        }
+
+        // Register the pool. Would normally be done by the base contract `_create`, but we can't call that, as it
+        // doesn't do what we want.
+        _registerPoolWithFactory(pool);
+
         LiquidityManagement memory liquidityManagement = getDefaultLiquidityManagement();
         liquidityManagement.enableDonation = false;
         liquidityManagement.disableUnbalancedLiquidity = true;
-
-        pool = _create(
-            abi.encode(
-                ReClammPoolParams({
-                    name: name,
-                    symbol: symbol,
-                    version: _poolVersion,
-                    initialMinPrice: priceParams.initialMinPrice,
-                    initialMaxPrice: priceParams.initialMaxPrice,
-                    initialTargetPrice: priceParams.initialTargetPrice,
-                    tokenAPriceIncludesRate: priceParams.tokenAPriceIncludesRate,
-                    tokenBPriceIncludesRate: priceParams.tokenBPriceIncludesRate,
-                    dailyPriceShiftExponent: dailyPriceShiftExponent,
-                    centerednessMargin: centerednessMargin.toUint64()
-                }),
-                getVault(),
-                hookContract
-            ),
-            salt
-        );
 
         _registerPoolWithVault(
             pool,
