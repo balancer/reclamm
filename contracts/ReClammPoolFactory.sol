@@ -84,40 +84,42 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
         // Predict pool address (CREATE3 only depends on salt).
         pool = CREATE3.getDeployed(finalSalt);
 
-        ReClammPoolParams memory params = ReClammPoolParams({
-            name: name,
-            symbol: symbol,
-            version: _poolVersion,
-            initialMinPrice: priceParams.initialMinPrice,
-            initialMaxPrice: priceParams.initialMaxPrice,
-            initialTargetPrice: priceParams.initialTargetPrice,
-            tokenAPriceIncludesRate: priceParams.tokenAPriceIncludesRate,
-            tokenBPriceIncludesRate: priceParams.tokenBPriceIncludesRate,
-            dailyPriceShiftExponent: dailyPriceShiftExponent,
-            centerednessMargin: centerednessMargin.toUint64()
-        });
+        {
+            ReClammPoolParams memory params = ReClammPoolParams({
+                name: name,
+                symbol: symbol,
+                version: _poolVersion,
+                initialMinPrice: priceParams.initialMinPrice,
+                initialMaxPrice: priceParams.initialMaxPrice,
+                initialTargetPrice: priceParams.initialTargetPrice,
+                tokenAPriceIncludesRate: priceParams.tokenAPriceIncludesRate,
+                tokenBPriceIncludesRate: priceParams.tokenBPriceIncludesRate,
+                dailyPriceShiftExponent: dailyPriceShiftExponent,
+                centerednessMargin: centerednessMargin.toUint64()
+            });
 
-        // Deploy pool extension with predicted pool address (regular create; we don't care about the address).
-        ReClammPoolExtension extensionContract = new ReClammPoolExtension(
-            IReClammPoolMain(pool),
-            getVault(),
-            params,
-            hookContract
-        );
+            // Deploy pool extension with predicted pool address (regular create; we don't care about the address).
+            ReClammPoolExtension extensionContract = new ReClammPoolExtension(
+                IReClammPoolMain(pool),
+                getVault(),
+                params,
+                hookContract
+            );
 
-        // Deploy main pool with CREATE3.
-        address deployed = CREATE3.deploy(
-            finalSalt,
-            abi.encodePacked(
-                type(ReClammPool).creationCode,
-                abi.encode(params, getVault(), extensionContract, hookContract)
-            ),
-            0
-        );
+            // Deploy main pool with CREATE3.
+            address deployed = CREATE3.deploy(
+                finalSalt,
+                abi.encodePacked(
+                    type(ReClammPool).creationCode,
+                    abi.encode(params, getVault(), extensionContract, hookContract)
+                ),
+                0
+            );
 
-        // Ensure the deployment address matches the predicted value.
-        if (deployed != pool) {
-            revert PoolAddressMismatch();
+            // Ensure the deployment address matches the predicted value.
+            if (deployed != pool) {
+                revert PoolAddressMismatch();
+            }
         }
 
         // Register the pool. Would normally be done by the base contract `_create`, but we can't call that, as it
