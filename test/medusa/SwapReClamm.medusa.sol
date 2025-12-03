@@ -14,8 +14,8 @@ import "@balancer-labs/v3-vault/test/foundry/utils/BaseMedusaTest.sol";
 
 import { ReClammPoolFactory } from "../../contracts/ReClammPoolFactory.sol";
 import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
-import { ReClammPriceParams } from "../../../contracts/lib/ReClammPoolFactoryLib.sol";
-import { ReClammPool } from "../../contracts/ReClammPool.sol";
+import { ReClammPriceParams } from "../../contracts/lib/ReClammPoolFactoryLib.sol";
+import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
 import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
 
 /**
@@ -73,7 +73,7 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
         );
 
         // Compute the initial balance ratio so that the target price of the pool is respected.
-        initialBalances[1] = initialBalances[0].mulDown(ReClammPoolMock(newPool).computeInitialBalanceRatio());
+        initialBalances[1] = initialBalances[0].mulDown(ReClammPoolMock(payable(newPool)).computeInitialBalanceRatio());
 
         // Initialize liquidity of new pool.
         medusa.prank(lp);
@@ -129,7 +129,7 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
             return;
         }
 
-        (uint256 virtualBalanceA, uint256 virtualBalanceB, ) = ReClammPool(address(pool))
+        (uint256 virtualBalanceA, uint256 virtualBalanceB, ) = IReClammPool(address(pool))
             .computeCurrentVirtualBalances();
 
         uint256 exactAmountIn = ReClammMath.computeInGivenOut(
@@ -200,7 +200,7 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
     }
 
     function computeAddLiquidity(uint256 exactBptOut) public {
-        uint256 oldTotalSupply = ReClammPool(address(pool)).totalSupply();
+        uint256 oldTotalSupply = IERC20(address(pool)).totalSupply();
         exactBptOut = bound(exactBptOut, 1e18, oldTotalSupply);
 
         medusa.prank(lp);
@@ -212,13 +212,13 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
             bytes("")
         );
 
-        uint256 newTotalSupply = ReClammPool(address(pool)).totalSupply();
+        uint256 newTotalSupply = IERC20(address(pool)).totalSupply();
         uint256 proportion = newTotalSupply.divDown(oldTotalSupply);
         invariantProportion = invariantProportion.mulDown(proportion);
     }
 
     function computeRemoveLiquidity(uint256 exactBptIn) public {
-        uint256 oldTotalSupply = ReClammPool(address(pool)).totalSupply();
+        uint256 oldTotalSupply = IERC20(address(pool)).totalSupply();
         exactBptIn = bound(exactBptIn, 1e18, oldTotalSupply);
         uint256 proportion = (oldTotalSupply - exactBptIn).divDown(oldTotalSupply);
 

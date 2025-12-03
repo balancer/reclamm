@@ -12,7 +12,9 @@ import "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 import { PoolHooksMock } from "@balancer-labs/v3-vault/contracts/test/PoolHooksMock.sol";
 
-import { ReClammPoolImmutableData, IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
+import { ReClammPoolImmutableData } from "../../contracts/interfaces/IReClammPoolExtension.sol";
+import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
+import { ReClammCommon } from "../../contracts/ReClammCommon.sol";
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
 
@@ -30,7 +32,7 @@ contract ReClammHookTest is BaseReClammTest {
         LiquidityManagement memory liquidityManagement;
 
         vm.prank(address(vault));
-        bool success = ReClammPool(pool).onRegister(
+        bool success = ReClammPool(payable(pool)).onRegister(
             address(this),
             address(this),
             new TokenConfig[](2),
@@ -48,15 +50,15 @@ contract ReClammHookTest is BaseReClammTest {
         vm.prank(bob);
         router.initialize(newPool, tokens, _initialBalances, 0, false, bytes(""));
 
-        ReClammPoolImmutableData memory data = ReClammPool(newPool).getReClammPoolImmutableData();
+        ReClammPoolImmutableData memory data = IReClammPool(newPool).getReClammPoolImmutableData();
         assertEq(data.hookContract, address(0), "Pool has a hook");
 
         PoolSwapParams memory params;
 
         // Try to call an unsupported hook.
-        vm.expectRevert(IReClammPool.NotImplemented.selector);
+        vm.expectRevert(ReClammCommon.NotImplemented.selector);
         vm.prank(address(vault));
-        ReClammPool(newPool).onBeforeSwap(params, address(newPool));
+        ReClammPool(payable(newPool)).onBeforeSwap(params, address(newPool));
     }
 
     function testOnBeforeInitializeForwarding() public {
@@ -284,7 +286,7 @@ contract ReClammHookTest is BaseReClammTest {
     }
 
     function _checkHookFlags(address pool) internal view {
-        HookFlags memory hookFlags = ReClammPool(pool).getHookFlags();
+        HookFlags memory hookFlags = ReClammPool(payable(pool)).getHookFlags();
 
         assertFalse(hookFlags.enableHookAdjustedAmounts, "enableHookAdjustedAmounts is true");
         assertTrue(hookFlags.shouldCallBeforeInitialize, "shouldCallBeforeInitialize is false");

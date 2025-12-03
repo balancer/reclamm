@@ -31,7 +31,7 @@ import { ReClammPoolParams } from "../../../contracts/interfaces/IReClammPool.so
 import { ReClammPoolContractsDeployer } from "./ReClammPoolContractsDeployer.sol";
 import { ReClammPoolFactory } from "../../../contracts/ReClammPoolFactory.sol";
 import { ReClammPoolMock } from "../../../contracts/test/ReClammPoolMock.sol";
-import { ReClammPool } from "../../../contracts/ReClammPool.sol";
+import { IReClammPool } from "../../../contracts/interfaces/IReClammPool.sol";
 import { a, b } from "../../../contracts/lib/ReClammMath.sol";
 
 contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
@@ -94,7 +94,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
 
         (, , _initialBalances, ) = vault.getPoolTokenInfo(pool);
         (_initialVirtualBalances, ) = _computeCurrentVirtualBalances(pool);
-        _initialFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
+        _initialFourthRootPriceRatio = IReClammPool(pool).computeCurrentFourthRootPriceRatio();
     }
 
     function setInitializationPrices(uint256 newMinPrice, uint256 newMaxPrice, uint256 newTargetPrice) internal {
@@ -196,7 +196,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     function initPool() internal virtual override {
         (daiIdx, usdcIdx) = getSortedIndexes(address(dai), address(usdc));
 
-        _initialBalances = ReClammPool(pool).computeInitialBalancesRaw(dai, poolInitAmount);
+        _initialBalances = IReClammPool(pool).computeInitialBalancesRaw(dai, poolInitAmount);
 
         vm.startPrank(lp);
         _initPool(pool, _initialBalances, 0);
@@ -242,14 +242,14 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
 
     function _getLastVirtualBalances(address pool) internal view returns (uint256[] memory virtualBalances) {
         virtualBalances = new uint256[](2);
-        (virtualBalances[a], virtualBalances[b]) = ReClammPool(pool).getLastVirtualBalances();
+        (virtualBalances[a], virtualBalances[b]) = IReClammPool(pool).getLastVirtualBalances();
     }
 
     function _computeCurrentVirtualBalances(
         address pool
     ) internal view returns (uint256[] memory currentVirtualBalances, bool changed) {
         currentVirtualBalances = new uint256[](2);
-        (currentVirtualBalances[a], currentVirtualBalances[b], changed) = ReClammPool(pool)
+        (currentVirtualBalances[a], currentVirtualBalances[b], changed) = IReClammPool(pool)
             .computeCurrentVirtualBalances();
     }
 
