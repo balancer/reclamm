@@ -417,10 +417,6 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
     // solhint-disable no-complex-fallback
 
     fallback() external payable {
-        if (msg.value > 0) {
-            revert IVaultErrors.CannotReceiveEth();
-        }
-
         revert NotImplemented();
     }
 }
