@@ -137,11 +137,10 @@ describe('ReClammPool', function () {
     );
     const receipt = await tx.wait();
     const event = expectEvent.inReceipt(receipt, 'PoolCreated');
+    const poolAddress = event.args.pool;
 
-    pool = (await deployedAt('ReClammPool', event.args.pool)) as unknown as ReClammPool;
-    const poolExtension = (await deployedAt('ReClammPoolExtension', event.args.pool)) as unknown as ReClammPoolExtension;
-    
-    extensionEntryPoint = poolExtension.attach(pool) as ReClammPoolExtension;
+    pool = (await deployedAt('ReClammPool', poolAddress)) as unknown as ReClammPool;
+    extensionEntryPoint = (await deployedAt('ReClammPoolExtension', poolAddress)) as unknown as ReClammPoolExtension;
 
     const contractInitialBalances = await pool.computeInitialBalancesRaw(tokenAAddress, INITIAL_BALANCE_A);
     initialBalances = [...contractInitialBalances];
@@ -213,7 +212,7 @@ describe('ReClammPool', function () {
     expect(await factory.getPools()).to.be.deep.eq([await pool.getAddress()]);
   });
 
-  it.only('should move virtual balances correctly (out of range > center)', async () => {
+  it('should move virtual balances correctly (out of range > center)', async () => {
     // Very big swap, putting the pool right at the edge. (Token B has 6 decimals, so we need to convert to 18
     // decimals).
     const exactAmountOut = initialBalances[tokenBIdx] - MIN_POOL_BALANCE / bn(1e12) - 1n;
