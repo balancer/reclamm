@@ -31,6 +31,8 @@ import { PriceRatioState, ReClammMath, a, b } from "./lib/ReClammMath.sol";
 import { IReClammPoolMain } from "./interfaces/IReClammPoolMain.sol";
 import { ReClammPoolParams } from "./interfaces/IReClammPool.sol";
 import { ReClammCommon } from "./ReClammCommon.sol";
+import "./ReClammEvents.sol";
+import "./ReClammErrors.sol";
 
 /**
  * @notice The main ReClammPool contract implements the critical path, and uses the Proxy pattern to delegate the rest.
@@ -56,106 +58,6 @@ contract ReClammPool is
     // Store an immutable reference to the proxy implementation contract. Functions not defined here will be forwarded
     // to the extension via delegatecall.
     IReClammPoolExtension private immutable _RECLAMM_EXTENSION;
-
-    /**
-     * @notice The Price Ratio State was updated.
-     * @dev This event will be emitted on initialization, and when governance initiates a price ratio update.
-     * @param startFourthRootPriceRatio The fourth root price ratio at the start of an update
-     * @param endFourthRootPriceRatio The fourth root price ratio at the end of an update
-     * @param priceRatioUpdateStartTime The timestamp when the update begins
-     * @param priceRatioUpdateEndTime The timestamp when the update ends
-     */
-    event PriceRatioStateUpdated(
-        uint256 startFourthRootPriceRatio,
-        uint256 endFourthRootPriceRatio,
-        uint256 priceRatioUpdateStartTime,
-        uint256 priceRatioUpdateEndTime
-    );
-
-    /**
-     * @notice The virtual balances were updated after a user interaction (swap or liquidity operation).
-     * @dev Unless the price range is changing, the virtual balances remain in proportion to the real balances.
-     * These balances will also be updated when the centeredness margin or daily price shift exponent is changed.
-     *
-     * @param virtualBalanceA Offset to the real balance reserves
-     * @param virtualBalanceB Offset to the real balance reserves
-     */
-    event VirtualBalancesUpdated(uint256 virtualBalanceA, uint256 virtualBalanceB);
-
-    /**
-     * @notice The daily price shift exponent was updated.
-     * @dev This will be emitted on deployment, and when changed by governance or the swap manager.
-     * @param dailyPriceShiftExponent The new daily price shift exponent
-     * @param dailyPriceShiftBase Internal time constant used to update virtual balances (1 - tau)
-     */
-    event DailyPriceShiftExponentUpdated(uint256 dailyPriceShiftExponent, uint256 dailyPriceShiftBase);
-
-    /**
-     * @notice The centeredness margin was updated.
-     * @dev This will be emitted on deployment, and when changed by governance or the swap manager.
-     * @param centerednessMargin The new centeredness margin
-     */
-    event CenterednessMarginUpdated(uint256 centerednessMargin);
-
-    /**
-     * @notice The timestamp of the last user interaction.
-     * @dev This is emitted on every swap or liquidity operation.
-     * @param lastTimestamp The timestamp of the operation
-     */
-    event LastTimestampUpdated(uint32 lastTimestamp);
-
-    /// @dev Function called before initializing the pool.
-    error PoolNotInitialized();
-
-    /// @notice The start time for the price ratio update is invalid (either in the past or after the given end time).
-    error InvalidStartTime();
-
-    /// @notice The centeredness margin is outside the valid numerical range.
-    error InvalidCenterednessMargin();
-
-    /// @notice The vault is not locked, so the pool balances are manipulable.
-    error VaultIsNotLocked();
-
-    /// @notice The pool is outside the target price range before or after the operation.
-    error PoolOutsideTargetRange();
-
-    /// @notice The initial price configuration (min, max, target) is invalid.
-    error InvalidInitialPrice();
-
-    /// @notice The daily price shift exponent is too high.
-    error DailyPriceShiftExponentTooHigh();
-
-    /// @notice The difference between end time and start time is too short for the price ratio update.
-    error PriceRatioUpdateDurationTooShort();
-
-    /// @notice The rate of change exceeds the maximum daily price ratio rate.
-    error PriceRatioUpdateTooFast();
-
-    /// @dev The price ratio being set is too close to the current one.
-    error PriceRatioDeltaBelowMin(uint256 fourthRootPriceRatioDelta);
-
-    /// @dev An attempt was made to stop the price ratio update while no update was in progress.
-    error PriceRatioNotUpdating();
-
-    /**
-     * @notice `getRate` from `IRateProvider` was called on a ReClamm Pool.
-     * @dev ReClamm Pools should never be nested. This is because the invariant of the pool is only used to calculate
-     * swaps. When tracking the market price or shrinking or expanding the liquidity concentration, the invariant can
-     * can decrease or increase independent of the balances, which makes the BPT rate meaningless.
-     */
-    error ReClammPoolBptRateUnsupported();
-
-    /**
-     * @notice The initial balances of the ReClamm Pool must respect the initialization ratio bounds.
-     * @dev On pool creation, a theoretical balance ratio is computed from the min, max, and target prices. During
-     * initialization, the actual balance ratio is compared to this theoretical value, and must fall within a fixed,
-     * symmetrical tolerance range, or initialization reverts. If it were outside this range, the initial price would
-     * diverge too far from the target price, and the pool would be vulnerable to arbitrage.
-     */
-    error BalanceRatioExceedsTolerance();
-
-    /// @notice The current price interval or spot price is outside the initialization price range.
-    error WrongInitializationPrices();
 
     /// @notice The proxy implementation must point back to the main pool.
     error WrongReClammPoolExtensionDeployment();
@@ -190,12 +92,6 @@ contract ReClammPool is
         BasePoolAuthentication(vault, msg.sender)
         Version(params.version)
     {
-        if (address(reclammPoolExtension.pool()) != address(this)) {
-            revert WrongReClammPoolExtensionDeployment();
-        }
-
-        _RECLAMM_EXTENSION = reclammPoolExtension;
-
         if (
             params.initialMinPrice == 0 ||
             params.initialMaxPrice == 0 ||
@@ -209,6 +105,12 @@ contract ReClammPool is
             // initialized in both the main and extension contracts, but validation is only done here.
             revert InvalidInitialPrice();
         }
+
+        if (address(reclammPoolExtension.pool()) != address(this)) {
+            revert WrongReClammPoolExtensionDeployment();
+        }
+
+        _RECLAMM_EXTENSION = reclammPoolExtension;
 
         // Initialize immutable params. These are only used during pool initialization.
         // Need to initialize these identically in the ReClammPoolExtension.
