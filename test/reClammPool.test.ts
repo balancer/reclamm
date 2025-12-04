@@ -962,7 +962,6 @@ describe('ReClammPool', function () {
     await vault.connect(bob).setStaticSwapFeePercentage(pool, fp(0.1));
 
     const fourthRootPriceRatioBeforeSwaps = await extensionEntryPoint.computeCurrentFourthRootPriceRatio();
-    console.log(`fourth: ${fourthRootPriceRatioBeforeSwaps}`);
 
     // Do a lot of swaps with 80% of pool liquidity to collect fees. This will move the price ratio up,
     // deconcentrating the liquidity.
