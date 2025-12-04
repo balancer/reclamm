@@ -306,13 +306,13 @@ contract ReClammPoolInitTest is BaseReClammTest {
         // Does not revert either way.
         vm.startPrank(lp);
 
-        uint256 snapshotId = vm.snapshot();
+        uint256 snapshotId = vm.snapshotState();
         _initPool(newPool, initialBalancesRawGivenUsdc, 0);
         _validatePostInitConditions();
 
         uint256 spotPriceGivenUsdc = IReClammPool(newPool).computeCurrentSpotPrice();
 
-        vm.revertTo(snapshotId);
+        vm.revertToState(snapshotId);
         _initPool(newPool, initialBalancesRawGivenWeth, 0);
         _validatePostInitConditions();
 

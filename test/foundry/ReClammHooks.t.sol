@@ -7,6 +7,7 @@ import "forge-std/Test.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultErrors.sol";
+import { IHooks } from "@balancer-labs/v3-interfaces/contracts/vault/IHooks.sol";
 import "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
@@ -32,12 +33,7 @@ contract ReClammHookTest is BaseReClammTest {
         LiquidityManagement memory liquidityManagement;
 
         vm.prank(address(vault));
-        bool success = ReClammPool(payable(pool)).onRegister(
-            address(this),
-            address(this),
-            new TokenConfig[](2),
-            liquidityManagement
-        );
+        bool success = IHooks(pool).onRegister(address(this), address(this), new TokenConfig[](2), liquidityManagement);
         assertFalse(success, "onRegister did not fail");
     }
 
@@ -58,7 +54,7 @@ contract ReClammHookTest is BaseReClammTest {
         // Try to call an unsupported hook.
         vm.expectRevert(ReClammCommon.NotImplemented.selector);
         vm.prank(address(vault));
-        ReClammPool(payable(newPool)).onBeforeSwap(params, address(newPool));
+        IHooks(newPool).onBeforeSwap(params, address(newPool));
     }
 
     function testOnBeforeInitializeForwarding() public {
