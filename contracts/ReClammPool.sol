@@ -671,7 +671,7 @@ contract ReClammPool is
         uint256 endFourthRootPriceRatio = ReClammMath.fourthRootScaled18(endPriceRatio);
 
         uint256 startFourthRootPriceRatio;
-        if (_getBalancerVault().isPoolInitialized(address(this))) {
+        if (_vault.isPoolInitialized(address(this))) {
             startPriceRatio = _computeCurrentPriceRatio();
             startFourthRootPriceRatio = ReClammMath.fourthRootScaled18(startPriceRatio);
         } else {
@@ -693,7 +693,7 @@ contract ReClammPool is
             priceRatioUpdateEndTime
         );
 
-        _getBalancerVault().emitAuxiliaryEvent(
+        _vault.emitAuxiliaryEvent(
             "PriceRatioStateUpdated",
             abi.encode(
                 startFourthRootPriceRatio,
@@ -914,7 +914,7 @@ contract ReClammPool is
     }
 
     function _ensureVaultIsInitialized() internal view {
-        if (_getBalancerVault().isPoolInitialized(address(this)) == false) {
+        if (_vault.isPoolInitialized(address(this)) == false) {
             revert PoolNotInitialized();
         }
     }
