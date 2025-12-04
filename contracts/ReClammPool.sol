@@ -24,15 +24,14 @@ import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/Fixe
 import { BalancerPoolToken } from "@balancer-labs/v3-vault/contracts/BalancerPoolToken.sol";
 import { Version } from "@balancer-labs/v3-solidity-utils/contracts/helpers/Version.sol";
 import { PoolInfo } from "@balancer-labs/v3-pool-utils/contracts/PoolInfo.sol";
-import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
 
 import { IReClammPoolExtension } from "./interfaces/IReClammPoolExtension.sol";
 import { PriceRatioState, ReClammMath, a, b } from "./lib/ReClammMath.sol";
 import { IReClammPoolMain } from "./interfaces/IReClammPoolMain.sol";
 import { ReClammPoolParams } from "./interfaces/IReClammPool.sol";
+import { IReClammEvents } from "./interfaces/IReClammEvents.sol";
+import { IReClammErrors } from "./interfaces/IReClammErrors.sol";
 import { ReClammCommon } from "./ReClammCommon.sol";
-import "./ReClammEvents.sol";
-import "./ReClammErrors.sol";
 
 /**
  * @notice The main ReClammPool contract implements the critical path, and uses the Proxy pattern to delegate the rest.
@@ -42,12 +41,13 @@ import "./ReClammErrors.sol";
  */
 contract ReClammPool is
     IReClammPoolMain,
+    IReClammEvents,
+    IReClammErrors,
+    ReClammCommon, // MUST be before other base contracts with storage, for layout to match the Proxy implementation
     BalancerPoolToken,
     PoolInfo,
     BasePoolAuthentication,
     Version,
-    BaseHooks,
-    ReClammCommon,
     Proxy
 {
     using FixedPoint for uint256;
@@ -223,8 +223,23 @@ contract ReClammPool is
                                     Hook Functions
     *******************************************************************************/
 
-    /// @inheritdoc IHooks
-    function getHookFlags() public view override returns (HookFlags memory hookFlags) {
+    // These functions do not all fit in the contract, so the secondary hook ones need to go to the extension.
+    // This means we cannot inherit from BaseHooks, as that contract contains default implementations of all hooks that
+    // return false. So secondary hooks would just fail, instead of being forwarded.
+    //
+    // We cannot inherit from IHooks either, as then we would need to define all the hook functions, which don't fit.
+    // Since we can't use `@inheritdoc IHooks` without inheriting from IHooks, we just let the Vault call the IHooks
+    // functions (whose signatures will match these), and duplicate the NatSpec from IHooks here and in the extension.
+
+    /**
+     * @notice Return the set of hooks implemented by the contract.
+     * @dev The Vault will only call hooks the pool says it supports, and of course only if a hooks contract is defined
+     * (i.e., the `poolHooksContract` in `PoolRegistrationParams` is non-zero).
+     * `onRegister` is the only "mandatory" hook.
+     *
+     * @return hookFlags Flags indicating which hooks the contract supports
+     */
+    function getHookFlags() public view returns (HookFlags memory hookFlags) {
         if (_HOOK_CONTRACT != address(0)) {
             // The hook contract may include hooks the native ReClamm pool does not.
             hookFlags = IHooks(_HOOK_CONTRACT).getHookFlags();
@@ -236,13 +251,24 @@ contract ReClammPool is
         hookFlags.shouldCallBeforeRemoveLiquidity = true;
     }
 
-    /// @inheritdoc IHooks
+    /**
+     * @notice Hook executed when a pool is registered with a non-zero hooks contract.
+     * @dev Returns true if registration was successful, and false to revert the pool registration.
+     * Make sure this function is properly implemented (e.g. check the factory, and check that the
+     * given pool is from the factory). The Vault address will be msg.sender.
+     *
+     * @param factory Address of the pool factory (contract deploying the pool)
+     * @param pool Address of the pool
+     * @param tokenConfig An array of descriptors for the tokens the pool will manage
+     * @param liquidityManagement Liquidity management flags indicating which functions are enabled
+     * @return success True if the hook allowed the registration, false otherwise
+     */
     function onRegister(
         address factory,
         address pool,
         TokenConfig[] memory tokenConfig,
         LiquidityManagement calldata liquidityManagement
-    ) public override onlyVault returns (bool success) {
+    ) public onlyVault returns (bool success) {
         success =
             tokenConfig.length == 2 &&
             liquidityManagement.disableUnbalancedLiquidity &&
@@ -268,11 +294,19 @@ contract ReClammPool is
         uint256 priceRatio;
     }
 
-    /// @inheritdoc IHooks
+    /**
+     * @notice Hook executed before pool initialization.
+     * @dev Called if the `shouldCallBeforeInitialize` flag is set in the configuration. Hook contracts should use
+     * the `onlyVault` modifier to guarantee this is only called by the Vault.
+     *
+     * @param exactAmountsInScaled18 Exact amounts of input tokens
+     * @param userData Optional, arbitrary data sent with the encoded request
+     * @return success True if the pool wishes to proceed with initialization
+     */
     function onBeforeInitialize(
-        uint256[] memory balancesScaled18,
+        uint256[] memory exactAmountsInScaled18,
         bytes memory userData
-    ) public override onlyVault returns (bool) {
+    ) public onlyVault returns (bool) {
         InitializeLocals memory locals;
         (locals.rateA, locals.rateB) = _getTokenRates();
 
@@ -293,15 +327,15 @@ contract ReClammPool is
             locals.targetPriceScaled18
         );
 
-        _checkInitializationBalanceRatio(balancesScaled18, locals.theoreticalBalances);
+        _checkInitializationBalanceRatio(exactAmountsInScaled18, locals.theoreticalBalances);
 
-        uint256 scale = balancesScaled18[a].divDown(locals.theoreticalBalances[a]);
+        uint256 scale = exactAmountsInScaled18[a].divDown(locals.theoreticalBalances[a]);
 
         uint256 virtualBalanceA = locals.theoreticalVirtualBalanceA.mulDown(scale);
         uint256 virtualBalanceB = locals.theoreticalVirtualBalanceB.mulDown(scale);
 
         _checkInitializationPrices(
-            balancesScaled18,
+            exactAmountsInScaled18,
             locals.minPriceScaled18,
             locals.maxPriceScaled18,
             locals.targetPriceScaled18,
@@ -320,10 +354,25 @@ contract ReClammPool is
 
         // Forward to the secondary hook, if present.
         return
-            _HOOK_CONTRACT == address(0) ? true : IHooks(_HOOK_CONTRACT).onBeforeInitialize(balancesScaled18, userData);
+            _HOOK_CONTRACT == address(0)
+                ? true
+                : IHooks(_HOOK_CONTRACT).onBeforeInitialize(exactAmountsInScaled18, userData);
     }
 
-    /// @inheritdoc IHooks
+    /**
+     * @notice Hook to be executed before adding liquidity.
+     * @dev Called if the `shouldCallBeforeAddLiquidity` flag is set in the configuration. Hook contracts should use
+     * the `onlyVault` modifier to guarantee this is only called by the Vault.
+     *
+     * @param router The address (usually a router contract) that initiated an add liquidity operation on the Vault
+     * @param pool Pool address, used to fetch pool information from the Vault (pool config, tokens, etc.)
+     * @param kind The add liquidity operation type (e.g., proportional, custom)
+     * @param maxAmountsInScaled18 Maximum amounts of input tokens
+     * @param exactBptAmountOut Exact amount of output pool tokens
+     * @param balancesScaled18 Current pool balances, sorted in token registration order
+     * @param userData Optional, arbitrary data sent with the encoded request
+     * @return success True if the pool wishes to proceed with settlement
+     */
     function onBeforeAddLiquidity(
         address router,
         address pool,
@@ -332,7 +381,7 @@ contract ReClammPool is
         uint256 exactBptAmountOut,
         uint256[] memory balancesScaled18,
         bytes memory userData
-    ) public override onlyVault returns (bool) {
+    ) public onlyVault returns (bool) {
         // This hook makes sure that the virtual balances are increased in the same proportion as the real balances
         // after adding liquidity. This is needed to keep the pool centeredness and price ratio constant.
 
@@ -364,7 +413,20 @@ contract ReClammPool is
                 );
     }
 
-    /// @inheritdoc IHooks
+    /**
+     * @notice Hook to be executed before removing liquidity.
+     * @dev Called if the `shouldCallBeforeRemoveLiquidity` flag is set in the configuration. Hook contracts should use
+     * the `onlyVault` modifier to guarantee this is only called by the Vault.
+     *
+     * @param router The address (usually a router contract) that initiated a remove liquidity operation on the Vault
+     * @param pool Pool address, used to fetch pool information from the Vault (pool config, tokens, etc.)
+     * @param kind The type of remove liquidity operation (e.g., proportional, custom)
+     * @param exactBptAmountIn Exact amount of input pool tokens
+     * @param minAmountsOutScaled18 Minimum output amounts, sorted in token registration order
+     * @param balancesScaled18 Current pool balances, sorted in token registration order
+     * @param userData Optional, arbitrary data sent with the encoded request
+     * @return success True if the pool wishes to proceed with settlement
+     */
     function onBeforeRemoveLiquidity(
         address router,
         address pool,
@@ -373,7 +435,7 @@ contract ReClammPool is
         uint256[] memory minAmountsOutScaled18,
         uint256[] memory balancesScaled18,
         bytes memory userData
-    ) public override onlyVault returns (bool) {
+    ) public onlyVault returns (bool) {
         // This hook makes sure that the virtual balances are decreased in the same proportion as the real balances
         // after removing liquidity. This is needed to keep the pool centeredness and price ratio constant.
 
