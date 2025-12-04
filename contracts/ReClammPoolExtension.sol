@@ -259,16 +259,43 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
                                     Hook Functions
     *******************************************************************************/
 
-    /// @notice Forwards onAfterInitialize to the secondary hook. (This hook is unused by the main pool contract.)
+    /**
+     * @notice Hook to be executed after pool initialization.
+     * @dev Called if the `shouldCallAfterInitialize` flag is set in the configuration. Hook contracts should use
+     * the `onlyVault` modifier to guarantee this is only called by the Vault. This hook is unused by the main
+     * pool contract.
+     *
+     * @param exactAmountsIn Exact amounts of input tokens
+     * @param bptAmountOut Amount of pool tokens minted during initialization
+     * @param userData Optional, arbitrary data sent with the encoded request
+     * @return success True if the pool accepts the initialization results
+     */
     function onAfterInitialize(
         uint256[] memory exactAmountsIn,
         uint256 bptAmountOut,
         bytes memory userData
-    ) external onlyVault onlyWithHookContract returns (bool) {
+    ) external onlyWithHookContract onlyVault returns (bool) {
         return IHooks(_HOOK_CONTRACT).onAfterInitialize(exactAmountsIn, bptAmountOut, userData);
     }
 
-    /// @notice Forwards onAfterAddLiquidity to the secondary hook. (This hook is unused by the main pool contract.)
+    /**
+     * @notice Hook to be executed after adding liquidity.
+     * @dev Called if the `shouldCallAfterAddLiquidity` flag is set in the configuration. The Vault will ignore
+     * `hookAdjustedAmountsInRaw` unless `enableHookAdjustedAmounts` is true. Hook contracts should use the
+     * `onlyVault` modifier to guarantee this is only called by the Vault. This hook is unused by the main
+     * pool contract.
+     *
+     * @param router The address (usually a router contract) that initiated an add liquidity operation on the Vault
+     * @param pool_ Pool address, used to fetch pool information from the Vault (pool config, tokens, etc.)
+     * @param kind The add liquidity operation type (e.g., proportional, custom)
+     * @param amountsInScaled18 Actual amounts of tokens added, sorted in token registration order
+     * @param amountsInRaw Actual amounts of tokens added, sorted in token registration order
+     * @param bptAmountOut Amount of pool tokens minted
+     * @param balancesScaled18 Current pool balances, sorted in token registration order
+     * @param userData Additional (optional) data provided by the user
+     * @return success True if the pool wishes to proceed with settlement
+     * @return hookAdjustedAmountsInRaw New amountsInRaw, potentially modified by the hook
+     */
     function onAfterAddLiquidity(
         address router,
         address pool_,
@@ -278,7 +305,7 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
         uint256 bptAmountOut,
         uint256[] memory balancesScaled18,
         bytes memory userData
-    ) public onlyVault onlyWithHookContract returns (bool, uint256[] memory) {
+    ) public onlyWithHookContract onlyVault returns (bool, uint256[] memory) {
         return
             IHooks(_HOOK_CONTRACT).onAfterAddLiquidity(
                 router,
@@ -292,7 +319,24 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
             );
     }
 
-    /// @notice Forwards onAfterRemoveLiquidity to the secondary hook. (This hook is unused by the main pool contract.)
+    /**
+     * @notice Hook to be executed after removing liquidity.
+     * @dev Called if the `shouldCallAfterRemoveLiquidity` flag is set in the configuration. The Vault will ignore
+     * `hookAdjustedAmountsOutRaw` unless `enableHookAdjustedAmounts` is true. Hook contracts should use the
+     * `onlyVault` modifier to guarantee this is only called by the Vault. This hook is unused by the main pool
+     * contract.
+     *
+     * @param router The address (usually a router contract) that initiated a remove liquidity operation on the Vault
+     * @param pool_ Pool address, used to fetch pool information from the Vault (pool config, tokens, etc.)
+     * @param kind The type of remove liquidity operation (e.g., proportional, custom)
+     * @param bptAmountIn Amount of pool tokens to burn
+     * @param amountsOutScaled18 Scaled amount of tokens to receive, sorted in token registration order
+     * @param amountsOutRaw Actual amount of tokens to receive, sorted in token registration order
+     * @param balancesScaled18 Current pool balances, sorted in token registration order
+     * @param userData Additional (optional) data provided by the user
+     * @return success True if the pool wishes to proceed with settlement
+     * @return hookAdjustedAmountsOutRaw New amountsOutRaw, potentially modified by the hook
+     */
     function onAfterRemoveLiquidity(
         address router,
         address pool_,
@@ -302,7 +346,7 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
         uint256[] memory amountsOutRaw,
         uint256[] memory balancesScaled18,
         bytes memory userData
-    ) public onlyVault onlyWithHookContract returns (bool, uint256[] memory) {
+    ) public onlyWithHookContract onlyVault returns (bool, uint256[] memory) {
         return
             IHooks(_HOOK_CONTRACT).onAfterRemoveLiquidity(
                 router,
@@ -316,22 +360,51 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
             );
     }
 
-    /// @notice Forwards onBeforeSwap to the secondary hook. (This hook is unused by the main pool contract.)
+    /**
+     * @notice Called before a swap to give the Pool an opportunity to perform actions.
+     * @dev Called if the `shouldCallBeforeSwap` flag is set in the configuration. Hook contracts should use the
+     * `onlyVault` modifier to guarantee this is only called by the Vault. This hook is unused by the main pool
+     * contract.
+     *
+     * @param params Swap parameters (see PoolSwapParams for struct definition)
+     * @param pool_ Pool address, used to get pool information from the Vault (poolData, token config, etc.)
+     * @return success True if the pool wishes to proceed with settlement
+     */
     function onBeforeSwap(
         PoolSwapParams calldata params,
         address pool_
-    ) public onlyVault onlyWithHookContract returns (bool) {
+    ) public onlyWithHookContract onlyVault returns (bool) {
         return IHooks(_HOOK_CONTRACT).onBeforeSwap(params, pool_);
     }
 
-    /// @notice Forwards onAfterSwap to the secondary hook. (This hook is unused by the main pool contract.)
+    /**
+     * @notice Called after a swap to perform further actions once the balances have been updated by the swap.
+     * @dev Called if the `shouldCallAfterSwap` flag is set in the configuration. The Vault will ignore
+     * `hookAdjustedAmountCalculatedRaw` unless `enableHookAdjustedAmounts` is true. Hook contracts should
+     * use the `onlyVault` modifier to guarantee this is only called by the Vault. This pool is unused by the
+     * main pool contract.
+     *
+     * @param params Swap parameters (see above for struct definition)
+     * @return success True if the pool wishes to proceed with settlement
+     * @return hookAdjustedAmountCalculatedRaw New amount calculated, potentially modified by the hook
+     */
     function onAfterSwap(
         AfterSwapParams calldata params
-    ) public onlyVault onlyWithHookContract returns (bool, uint256) {
+    ) public onlyWithHookContract onlyVault returns (bool, uint256) {
         return IHooks(_HOOK_CONTRACT).onAfterSwap(params);
     }
 
-    /// @notice Forwards the call to the secondary hook. (This hook is unused by the main pool contract.)
+    /**
+     * @notice Called after `onBeforeSwap` and before the main swap operation, if the pool has dynamic fees.
+     * @dev Called if the `shouldCallComputeDynamicSwapFee` flag is set in the configuration. This hook is unused
+     * by the main pool contract.
+     *
+     * @param params Swap parameters (see PoolSwapParams for struct definition)
+     * @param pool_ Pool address, used to get pool information from the Vault (poolData, token config, etc.)
+     * @param staticSwapFeePercentage 18-decimal FP value of the static swap fee percentage, for reference
+     * @return success True if the pool wishes to proceed with settlement
+     * @return dynamicSwapFeePercentage Value of the swap fee percentage, as an 18-decimal FP value
+     */
     function onComputeDynamicSwapFeePercentage(
         PoolSwapParams calldata params,
         address pool_,
