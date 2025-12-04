@@ -780,7 +780,12 @@ contract ReClammPoolTest is BaseReClammTest {
 
         // Price ratio update event with current value and timestamp.
         vm.expectEmit();
-        emit IReClammEvents.PriceRatioStateUpdated(fourthRootPriceRatio, fourthRootPriceRatio, block.timestamp, block.timestamp);
+        emit IReClammEvents.PriceRatioStateUpdated(
+            fourthRootPriceRatio,
+            fourthRootPriceRatio,
+            block.timestamp,
+            block.timestamp
+        );
 
         vm.expectEmit();
         emit IVaultEvents.VaultAuxiliary(
@@ -1252,7 +1257,12 @@ contract ReClammPoolTest is BaseReClammTest {
         uint256 actualDailyPriceShiftExponent = ReClammMath.toDailyPriceShiftExponent(dailyPriceShiftBase);
 
         vm.expectEmit(newPool);
-        emit IReClammEvents.PriceRatioStateUpdated(fourthRootPriceRatio, fourthRootPriceRatio, block.timestamp, block.timestamp);
+        emit IReClammEvents.PriceRatioStateUpdated(
+            fourthRootPriceRatio,
+            fourthRootPriceRatio,
+            block.timestamp,
+            block.timestamp
+        );
 
         vm.expectEmit(address(vault));
         emit IVaultEvents.VaultAuxiliary(
