@@ -3,7 +3,6 @@
 pragma solidity ^0.8.24;
 
 import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultErrors.sol";
-import { PoolConfig } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
 import { IHooks } from "@balancer-labs/v3-interfaces/contracts/vault/IHooks.sol";
 import "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
@@ -381,7 +380,7 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
      * @notice Called after a swap to perform further actions once the balances have been updated by the swap.
      * @dev Called if the `shouldCallAfterSwap` flag is set in the configuration. The Vault will ignore
      * `hookAdjustedAmountCalculatedRaw` unless `enableHookAdjustedAmounts` is true. Hook contracts should
-     * use the `onlyVault` modifier to guarantee this is only called by the Vault. This pool is unused by the
+     * use the `onlyVault` modifier to guarantee this is only called by the Vault. This hook is unused by the
      * main pool contract.
      *
      * @param params Swap parameters (see above for struct definition)
@@ -483,13 +482,20 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
                                      Default handlers
     *******************************************************************************/
 
+    /// @notice This contract does not handle ETH (that is a function of the routers).
     receive() external payable {
         revert IVaultErrors.CannotReceiveEth();
     }
 
     // solhint-disable no-complex-fallback
 
+    /// @notice Revert unconditionally if a function is not implemented by either the main pool or the extension.
     fallback() external payable {
+        // Added for consistency with the main pool contract.
+        if (msg.value > 0) {
+            revert IVaultErrors.CannotReceiveEth();
+        }
+
         revert NotImplemented();
     }
 }
