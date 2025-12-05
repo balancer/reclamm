@@ -1725,11 +1725,21 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(bytes4(data), IVaultErrors.CannotReceiveEth.selector);
     }
 
-    function testEthFallbackExtension() public {
+    function testEthFallbackExtensionWithEth() public {
         address extension = IReClammPool(pool).getReClammPoolExtension();
 
         vm.prank(alice);
         (bool success, bytes memory data) = extension.call{ value: 1 }(hex"deadbeef");
+
+        assertFalse(success);
+        assertEq(bytes4(data), IVaultErrors.CannotReceiveEth.selector);
+    }
+
+    function testEthFallbackExtension() public {
+        address extension = IReClammPool(pool).getReClammPoolExtension();
+
+        vm.prank(alice);
+        (bool success, bytes memory data) = extension.call(hex"deadbeef");
 
         assertFalse(success);
         assertEq(bytes4(data), ReClammCommon.NotImplemented.selector);
