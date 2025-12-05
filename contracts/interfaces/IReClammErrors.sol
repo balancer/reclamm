@@ -3,7 +3,7 @@
 pragma solidity ^0.8.24;
 
 interface IReClammErrors {
-    /// @dev Function called before initializing the pool.
+    /// @notice A function that requires initialization was called before the pool was initialized.
     error PoolNotInitialized();
 
     /// @notice The start time for the price ratio update is invalid (either in the past or after the given end time).
