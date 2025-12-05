@@ -31,6 +31,8 @@ contract ReClammPoolFactoryTest is BaseReClammTest {
     string internal name = "Factory Test Name";
     string internal symbol = "FTS";
 
+    ReClammPoolFactory realFactory;
+
     function setUp() public virtual override {
         super.setUp();
 
@@ -46,17 +48,24 @@ contract ReClammPoolFactoryTest is BaseReClammTest {
         sortedTokens = InputHelpers.sortTokens(tokens.asIERC20());
     }
 
+    function createPoolFactory() internal override returns (address) {
+        realFactory = deployReClammPoolFactory(vault, 365 days, "Factory v1", _POOL_VERSION);
+        vm.label(address(factory), "Acl Amm (Real) Factory");
+
+        return address(realFactory);
+    }
+
     function testVaultNotSet() public {
         vm.expectRevert(CommonAuthentication.VaultNotSet.selector);
         new ReClammPoolFactory(IVault(address(0)), 365 days, "f1", "v1");
     }
 
     function testPoolVersion() public view {
-        assertEq(factory.getPoolVersion(), _POOL_VERSION, "Wrong pool version");
+        assertEq(realFactory.getPoolVersion(), _POOL_VERSION, "Wrong pool version");
     }
 
     function testDeploymentAddress() public view {
-        address predictedAddress = factory.getDeploymentAddress(ONE_BYTES32);
+        address predictedAddress = realFactory.getDeploymentAddress(ONE_BYTES32);
         assertEq(predictedAddress, 0xdb01fA030a59106f57FB67B372dF7AA3C1e86D2D, "Wrong address");
     }
 
@@ -66,7 +75,7 @@ contract ReClammPoolFactoryTest is BaseReClammTest {
         roleAccounts.poolCreator = alice;
 
         vm.expectRevert(BasePoolFactory.StandardPoolWithCreator.selector);
-        factory.create(
+        realFactory.create(
             name,
             symbol,
             tokenConfig,
@@ -86,7 +95,7 @@ contract ReClammPoolFactoryTest is BaseReClammTest {
         PoolRoleAccounts memory roleAccounts;
 
         vm.expectRevert(IVaultErrors.MaxTokens.selector);
-        factory.create(
+        realFactory.create(
             name,
             symbol,
             badTokenConfig,
@@ -102,7 +111,7 @@ contract ReClammPoolFactoryTest is BaseReClammTest {
         priceParams.tokenAPriceIncludesRate = true;
 
         vm.expectRevert(IVaultErrors.InvalidTokenType.selector);
-        factory.create(
+        realFactory.create(
             name,
             symbol,
             tokenConfig,
@@ -119,7 +128,7 @@ contract ReClammPoolFactoryTest is BaseReClammTest {
         priceParams.tokenBPriceIncludesRate = true;
 
         vm.expectRevert(IVaultErrors.InvalidTokenType.selector);
-        factory.create(
+        realFactory.create(
             name,
             symbol,
             tokenConfig,

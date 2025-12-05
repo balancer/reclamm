@@ -107,7 +107,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
         _dailyPriceShiftExponent = dailyPriceShiftExponent;
     }
 
-    function createPoolFactory() internal override returns (address) {
+    function createPoolFactory() internal virtual override returns (address) {
         factory = deployReClammPoolFactoryMock(vault, 365 days, "Factory v1", _POOL_VERSION);
         vm.label(address(factory), "Acl Amm Factory");
 
