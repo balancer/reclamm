@@ -942,6 +942,7 @@ contract ReClammPool is
                                      Default handlers
     *******************************************************************************/
 
+    /// @notice This contract does not handle ETH (that is a function of the routers).
     receive() external payable {
         revert IVaultErrors.CannotReceiveEth();
     }
