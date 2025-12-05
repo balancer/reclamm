@@ -12,10 +12,10 @@ import { BasePoolFactory } from "@balancer-labs/v3-pool-utils/contracts/BasePool
 import { Version } from "@balancer-labs/v3-solidity-utils/contracts/helpers/Version.sol";
 import { CREATE3 } from "@balancer-labs/v3-solidity-utils/contracts/solmate/CREATE3.sol";
 
-import { ReClammPoolFactoryLib, ReClammPriceParams } from "../lib/ReClammPoolFactoryLib.sol";
+import { ReClammPoolParams, ReClammPriceParams } from "../interfaces/IReClammPool.sol";
 import { IReClammPoolMain } from "../interfaces/IReClammPoolMain.sol";
 import { ReClammPoolExtension } from "../ReClammPoolExtension.sol";
-import { ReClammPoolParams } from "../interfaces/IReClammPool.sol";
+import { ReClammPoolLib } from "../lib/ReClammPoolLib.sol";
 import { ReClammPoolMock } from "./ReClammPoolMock.sol";
 
 /// @notice ReClammPool Mock factory. It is identical to the real factory, except for deploying a mock pool.
@@ -78,7 +78,7 @@ contract ReClammPoolFactoryMock is IPoolVersion, BasePoolFactory, Version {
             revert StandardPoolWithCreator();
         }
 
-        ReClammPoolFactoryLib.validateTokenConfig(tokens, priceParams);
+        ReClammPoolLib.validateTokenAndPriceConfig(tokens, priceParams);
 
         bytes32 finalSalt = _computeFinalSalt(salt);
 

@@ -25,12 +25,13 @@ import { BalancerPoolToken } from "@balancer-labs/v3-vault/contracts/BalancerPoo
 import { Version } from "@balancer-labs/v3-solidity-utils/contracts/helpers/Version.sol";
 import { PoolInfo } from "@balancer-labs/v3-pool-utils/contracts/PoolInfo.sol";
 
+import { ReClammPoolParams, ReClammPriceParams } from "./interfaces/IReClammPool.sol";
 import { IReClammPoolExtension } from "./interfaces/IReClammPoolExtension.sol";
 import { PriceRatioState, ReClammMath, a, b } from "./lib/ReClammMath.sol";
 import { IReClammPoolMain } from "./interfaces/IReClammPoolMain.sol";
-import { ReClammPoolParams } from "./interfaces/IReClammPool.sol";
 import { IReClammEvents } from "./interfaces/IReClammEvents.sol";
 import { IReClammErrors } from "./interfaces/IReClammErrors.sol";
+import { ReClammPoolLib } from "./lib/ReClammPoolLib.sol";
 import { ReClammCommon } from "./ReClammCommon.sol";
 
 /**
@@ -92,19 +93,15 @@ contract ReClammPool is
         BasePoolAuthentication(vault, msg.sender)
         Version(params.version)
     {
-        if (
-            params.initialMinPrice == 0 ||
-            params.initialMaxPrice == 0 ||
-            params.initialTargetPrice == 0 ||
-            params.initialTargetPrice < params.initialMinPrice ||
-            params.initialTargetPrice > params.initialMaxPrice ||
-            params.initialMinPrice >= params.initialMaxPrice
-        ) {
-            // If any of these prices were 0, pool initialization would revert with a numerical error.
-            // For good measure, we also ensure the target is within the range. The immutable variables must be
-            // initialized in both the main and extension contracts, but validation is only done here.
-            revert InvalidInitialPrice();
-        }
+        ReClammPriceParams memory priceParams;
+        priceParams.initialMinPrice = params.initialMinPrice;
+        priceParams.initialMaxPrice = params.initialMaxPrice;
+        priceParams.initialTargetPrice = params.initialTargetPrice;
+
+        // If any of these prices were 0, pool initialization would revert with a numerical error.
+        // For good measure, we also ensure the target is within the range. The immutable variables must be
+        // initialized in both the main and extension contracts, but validation is only done here.
+        ReClammPoolLib.validatePriceConfig(priceParams);
 
         if (address(reclammPoolExtension.pool()) != address(this)) {
             revert WrongReClammPoolExtensionDeployment();
