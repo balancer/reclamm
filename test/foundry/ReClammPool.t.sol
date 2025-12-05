@@ -22,11 +22,12 @@ import { InputHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 
 import { ReClammPoolDynamicData, ReClammPoolImmutableData } from "../../contracts/interfaces/IReClammPoolExtension.sol";
-import { IReClammPool, ReClammPoolParams } from "../../contracts/interfaces/IReClammPool.sol";
+import { IReClammPool, ReClammPoolParams, ReClammPriceParams } from "../../contracts/interfaces/IReClammPool.sol";
 import { IReClammPoolExtension } from "../../contracts/interfaces/IReClammPoolExtension.sol";
 import { PriceRatioState, ReClammMath, a, b } from "../../contracts/lib/ReClammMath.sol";
 import { ReClammPoolFactoryMock } from "../../contracts/test/ReClammPoolFactoryMock.sol";
-import { ReClammPriceParams } from "../../contracts/lib/ReClammPoolFactoryLib.sol";
+import { IReClammPoolMain } from "../../contracts/interfaces/IReClammPoolMain.sol";
+import { ReClammPoolExtension } from "../../contracts/ReClammPoolExtension.sol";
 import { IReClammEvents } from "../../contracts/interfaces/IReClammEvents.sol";
 import { IReClammErrors } from "../../contracts/interfaces/IReClammErrors.sol";
 import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
@@ -1667,11 +1668,241 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(finalVirtualBalanceB, currentVirtualBalanceB, "Final virtual balance B changed");
     }
 
-    function _createStandardPool(
-        bool tokenAPriceIncludesRate,
-        bool tokenBPriceIncludesRate,
-        string memory label
-    ) internal returns (address newPool) {
+    function testWrongDeployment() public {
+        IReClammPoolMain badPool = IReClammPoolMain(address(0xdeadbeef));
+        ReClammPoolParams memory params = ReClammPoolParams({
+            name: "ReClamm Pool",
+            symbol: "FAIL_POOL",
+            version: "1",
+            dailyPriceShiftExponent: 1e18,
+            centerednessMargin: 0.2e18,
+            initialMinPrice: 1000e18,
+            initialMaxPrice: 2000e18,
+            initialTargetPrice: 1500e18,
+            tokenAPriceIncludesRate: false,
+            tokenBPriceIncludesRate: false
+        });
+
+        ReClammPoolExtension badExtension = new ReClammPoolExtension(badPool, vault, params, address(0));
+
+        vm.expectRevert(ReClammPool.WrongReClammPoolExtensionDeployment.selector);
+        new ReClammPool(params, vault, badExtension, address(0));
+    }
+
+    function testInvariantRatios() public view {
+        assertEq(IReClammPool(pool).getMinimumInvariantRatio(), 0, "Wrong minimum invariant ratio");
+        assertEq(IReClammPool(pool).getMaximumInvariantRatio(), 0, "Wrong maximum invariant ratio");
+    }
+
+    function testProxyWiring() public view {
+        address extension = IReClammPool(pool).getReClammPoolExtension();
+        assertEq(
+            address(IReClammPoolExtension(extension).pool()),
+            pool,
+            "Pool and extension do not point to each other"
+        );
+    }
+
+    function testEthTransferPool() public {
+        vm.prank(alice);
+        vm.expectRevert(IVaultErrors.CannotReceiveEth.selector);
+        payable(pool).transfer(1);
+    }
+
+    function testEthTransferExtension() public {
+        address extension = IReClammPool(pool).getReClammPoolExtension();
+
+        vm.prank(alice);
+        vm.expectRevert(IVaultErrors.CannotReceiveEth.selector);
+        payable(extension).transfer(1);
+    }
+
+    function testEthFallbackPool() public {
+        vm.prank(alice);
+        (bool success, bytes memory data) = pool.call{ value: 1 }(hex"deadbeef");
+
+        assertFalse(success);
+        assertEq(bytes4(data), IVaultErrors.CannotReceiveEth.selector);
+    }
+
+    function testEthFallbackExtension() public {
+        address extension = IReClammPool(pool).getReClammPoolExtension();
+
+        vm.prank(alice);
+        (bool success, bytes memory data) = extension.call{ value: 1 }(hex"deadbeef");
+
+        assertFalse(success);
+        assertEq(bytes4(data), ReClammCommon.NotImplemented.selector);
+    }
+
+    function testDelegateCalls() public {
+        IReClammPoolExtension extension = IReClammPoolExtension(IReClammPool(pool).getReClammPoolExtension());
+
+        vm.expectRevert(ReClammPoolExtension.NotPoolDelegateCall.selector);
+        extension.getLastTimestamp();
+
+        vm.expectRevert(ReClammPoolExtension.NotPoolDelegateCall.selector);
+        extension.getLastVirtualBalances();
+
+        vm.expectRevert(ReClammPoolExtension.NotPoolDelegateCall.selector);
+        extension.getCenterednessMargin();
+
+        vm.expectRevert(ReClammPoolExtension.NotPoolDelegateCall.selector);
+        extension.getDailyPriceShiftExponent();
+
+        vm.expectRevert(ReClammPoolExtension.NotPoolDelegateCall.selector);
+        extension.getDailyPriceShiftBase();
+
+        vm.expectRevert(ReClammPoolExtension.NotPoolDelegateCall.selector);
+        extension.getPriceRatioState();
+
+        vm.expectRevert(ReClammPoolExtension.NotPoolDelegateCall.selector);
+        extension.getReClammPoolDynamicData();
+
+        vm.expectRevert(ReClammPoolExtension.NotPoolDelegateCall.selector);
+        extension.getReClammPoolImmutableData();
+
+        vm.expectRevert(ReClammPoolExtension.NotPoolDelegateCall.selector);
+        extension.computeCurrentPriceRatio();
+
+        vm.expectRevert(ReClammPoolExtension.NotPoolDelegateCall.selector);
+        extension.computeCurrentFourthRootPriceRatio();
+
+        vm.expectRevert(ReClammPoolExtension.NotPoolDelegateCall.selector);
+        extension.computeCurrentPriceRange();
+
+        vm.expectRevert(ReClammPoolExtension.NotPoolDelegateCall.selector);
+        extension.computeCurrentPoolCenteredness();
+
+        vm.expectRevert(ReClammPoolExtension.NotPoolDelegateCall.selector);
+        extension.computeCurrentVirtualBalances();
+
+        vm.expectRevert(ReClammPoolExtension.NotPoolDelegateCall.selector);
+        extension.computeCurrentSpotPrice();
+
+        vm.expectRevert(ReClammPoolExtension.NotPoolDelegateCall.selector);
+        extension.isPoolWithinTargetRangeUsingCurrentVirtualBalances();
+
+        vm.expectRevert(ReClammPoolExtension.NotPoolDelegateCall.selector);
+        extension.isPoolWithinTargetRangeUsingCurrentVirtualBalances();
+    }
+
+    function testVaultCalls() public {
+        IHooks extension = IHooks(IReClammPool(pool).getReClammPoolExtension());
+
+        vm.expectRevert(abi.encodeWithSelector(IVaultErrors.SenderIsNotVault.selector, address(this)));
+        extension.onAfterInitialize(new uint256[](2), 0, bytes(""));
+
+        vm.expectRevert(abi.encodeWithSelector(IVaultErrors.SenderIsNotVault.selector, address(this)));
+        extension.onAfterAddLiquidity(
+            alice,
+            pool,
+            AddLiquidityKind.PROPORTIONAL,
+            new uint256[](2),
+            new uint256[](2),
+            1e18,
+            new uint256[](2),
+            bytes("")
+        );
+
+        vm.expectRevert(abi.encodeWithSelector(IVaultErrors.SenderIsNotVault.selector, address(this)));
+        extension.onAfterRemoveLiquidity(
+            alice,
+            pool,
+            RemoveLiquidityKind.PROPORTIONAL,
+            1e18,
+            new uint256[](2),
+            new uint256[](2),
+            new uint256[](2),
+            bytes("")
+        );
+
+        PoolSwapParams memory beforeParams;
+        vm.expectRevert(abi.encodeWithSelector(IVaultErrors.SenderIsNotVault.selector, address(this)));
+        extension.onBeforeSwap(beforeParams, pool);
+
+        AfterSwapParams memory afterParams;
+        vm.expectRevert(abi.encodeWithSelector(IVaultErrors.SenderIsNotVault.selector, address(this)));
+        extension.onAfterSwap(afterParams);
+    }
+
+    function testHookCalls() public {
+        pool = _createStandardPool("NoHook");
+        IHooks extension = IHooks(IReClammPool(pool).getReClammPoolExtension());
+
+        vm.expectRevert(abi.encodeWithSelector(ReClammCommon.NotImplemented.selector, address(this)));
+        extension.onAfterInitialize(new uint256[](2), 0, bytes(""));
+
+        vm.expectRevert(abi.encodeWithSelector(ReClammCommon.NotImplemented.selector, address(this)));
+        extension.onAfterAddLiquidity(
+            alice,
+            pool,
+            AddLiquidityKind.PROPORTIONAL,
+            new uint256[](2),
+            new uint256[](2),
+            1e18,
+            new uint256[](2),
+            bytes("")
+        );
+
+        vm.expectRevert(abi.encodeWithSelector(ReClammCommon.NotImplemented.selector, address(this)));
+        extension.onAfterRemoveLiquidity(
+            alice,
+            pool,
+            RemoveLiquidityKind.PROPORTIONAL,
+            1e18,
+            new uint256[](2),
+            new uint256[](2),
+            new uint256[](2),
+            bytes("")
+        );
+
+        PoolSwapParams memory beforeParams;
+        vm.expectRevert(abi.encodeWithSelector(ReClammCommon.NotImplemented.selector, address(this)));
+        extension.onBeforeSwap(beforeParams, pool);
+
+        AfterSwapParams memory afterParams;
+        vm.expectRevert(abi.encodeWithSelector(ReClammCommon.NotImplemented.selector, address(this)));
+        extension.onAfterSwap(afterParams);
+
+        vm.expectRevert(abi.encodeWithSelector(ReClammCommon.NotImplemented.selector, address(this)));
+        extension.onComputeDynamicSwapFeePercentage(beforeParams, pool, 1e16);
+    }
+
+    function testInitializationPrice() public {
+        string memory name = "ReClamm Pool";
+        string memory symbol = "RECLAMM_POOL";
+
+        address[] memory tokens = [address(usdc), address(dai)].toMemoryArray();
+        IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens.asIERC20());
+        PoolRoleAccounts memory roleAccounts;
+
+        ReClammPriceParams memory priceParams = ReClammPriceParams({
+            initialMinPrice: _initialMinPrice,
+            initialMaxPrice: _initialMaxPrice,
+            initialTargetPrice: _initialMinPrice - 1, // bad target price
+            tokenAPriceIncludesRate: false,
+            tokenBPriceIncludesRate: false
+        });
+
+        TokenConfig[] memory tokenConfig = vault.buildTokenConfig(sortedTokens);
+
+        vm.expectRevert(IReClammErrors.InvalidInitialPrice.selector);
+        ReClammPoolFactoryMock(poolFactory).create(
+            name,
+            symbol,
+            tokenConfig,
+            roleAccounts,
+            _DEFAULT_SWAP_FEE,
+            address(0), // hook contract
+            priceParams,
+            _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
+            _DEFAULT_CENTEREDNESS_MARGIN,
+            bytes32(saltNumber++)
+        );
+    }
+
+    function _createStandardPool(string memory label) internal returns (address newPool) {
         string memory name = "ReClamm Pool";
         string memory symbol = "RECLAMM_POOL";
 
@@ -1683,8 +1914,8 @@ contract ReClammPoolTest is BaseReClammTest {
             initialMinPrice: _initialMinPrice,
             initialMaxPrice: _initialMaxPrice,
             initialTargetPrice: _initialTargetPrice,
-            tokenAPriceIncludesRate: tokenAPriceIncludesRate,
-            tokenBPriceIncludesRate: tokenBPriceIncludesRate
+            tokenAPriceIncludesRate: false,
+            tokenBPriceIncludesRate: false
         });
 
         newPool = ReClammPoolFactoryMock(poolFactory).create(

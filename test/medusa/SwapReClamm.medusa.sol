@@ -12,11 +12,10 @@ import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/Ar
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import "@balancer-labs/v3-vault/test/foundry/utils/BaseMedusaTest.sol";
 
+import { IReClammPool, ReClammPriceParams } from "../../contracts/interfaces/IReClammPool.sol";
 import { ReClammPoolFactory } from "../../contracts/ReClammPoolFactory.sol";
-import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
-import { ReClammPriceParams } from "../../contracts/lib/ReClammPoolFactoryLib.sol";
-import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
 import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
+import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
 
 /**
  * @notice Medusa test for the ReClamm pool.

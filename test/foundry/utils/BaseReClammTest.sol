@@ -26,7 +26,7 @@ import { BaseVaultTest } from "@balancer-labs/v3-vault/test/foundry/utils/BaseVa
 import { PoolHooksMock } from "@balancer-labs/v3-vault/contracts/test/PoolHooksMock.sol";
 
 import { ReClammPoolFactoryMock } from "../../../contracts/test/ReClammPoolFactoryMock.sol";
-import { ReClammPriceParams } from "../../../contracts/lib/ReClammPoolFactoryLib.sol";
+import { ReClammPriceParams } from "../../../contracts/interfaces/IReClammPool.sol";
 import { ReClammPoolParams } from "../../../contracts/interfaces/IReClammPool.sol";
 import { ReClammPoolContractsDeployer } from "./ReClammPoolContractsDeployer.sol";
 import { ReClammPoolFactory } from "../../../contracts/ReClammPoolFactory.sol";

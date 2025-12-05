@@ -189,11 +189,9 @@ contract ReClammPoolInitTest is BaseReClammTest {
     }
 
     function testComputeInitialBalancesUsdcEth() public {
-        require(address(usdc6Decimals) > address(weth), "Incorrect token order");
-        // Spot price is 2.5k ETH/USDC. There are no rate providers here so flags don't really matter.
-        IERC20[] memory sortedTokens = [address(weth), address(usdc6Decimals)].toMemoryArray().asIERC20();
-        (uint256 wethIndex, uint256 usdcIndex) = (a, b);
+        (IERC20[] memory sortedTokens, uint256 wethIndex, uint256 usdcIndex) = _getWethUsdcTokens();
 
+        // Spot price is 2.5k ETH/USDC. There are no rate providers here so flags don't really matter.
         _tokenAPriceIncludesRate = false;
         _tokenBPriceIncludesRate = false;
         uint256 initialAmount = 100e6;
@@ -258,10 +256,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
     }
 
     function testComputeInitialBalancesUsdcEthFlagsTrue() public {
-        require(address(usdc6Decimals) > address(weth), "Incorrect token order");
-        // Spot price is 2.5k ETH/USDC. There are no rate providers here so flags don't really matter.
-        IERC20[] memory sortedTokens = [address(weth), address(usdc6Decimals)].toMemoryArray().asIERC20();
-        (uint256 wethIndex, uint256 usdcIndex) = (a, b);
+        (IERC20[] memory sortedTokens, uint256 wethIndex, uint256 usdcIndex) = _getWethUsdcTokens();
 
         _tokenAPriceIncludesRate = true;
         _tokenBPriceIncludesRate = true;
@@ -327,15 +322,13 @@ contract ReClammPoolInitTest is BaseReClammTest {
     }
 
     function testComputeInitialBalancesUsdcWstEth() public {
-        require(address(usdc6Decimals) > address(weth), "Incorrect token order");
+        (IERC20[] memory sortedTokens, uint256 wethIndex, uint256 usdcIndex) = _getWethUsdcTokens();
+
         uint256 wstEthRate = 1.2e18;
         uint256 initialUnderlyingPrice = _initialTargetPrice;
 
         // Spot price for ETH/USDC is 2.5k, so spot price is 3k for wstETH/USDC, i.e. 2.5k * rate.
         _initialTargetPrice = _initialTargetPrice.mulDown(wstEthRate);
-
-        IERC20[] memory sortedTokens = [address(weth), address(usdc6Decimals)].toMemoryArray().asIERC20();
-        (uint256 wethIndex, uint256 usdcIndex) = (a, b);
 
         // We'll specify the spot price in terms of wstETH/USDC, so we set both flags to false.
         // wstETH has a rate with respect to ETH.
@@ -402,12 +395,10 @@ contract ReClammPoolInitTest is BaseReClammTest {
     }
 
     function testComputeInitialBalancesUsdcWaEth() public {
-        require(address(usdc6Decimals) > address(weth), "Incorrect token order");
+        (IERC20[] memory sortedTokens, uint256 wethIndex, uint256 usdcIndex) = _getWethUsdcTokens();
         uint256 waWethRate = 1.2e18;
 
         // Spot price is 2.5k for ETH/USDC --> spot price for waETH/USDC is 2.5k * 1.2
-        IERC20[] memory sortedTokens = [address(weth), address(usdc6Decimals)].toMemoryArray().asIERC20();
-        (uint256 wethIndex, uint256 usdcIndex) = (a, b);
 
         // We'll specify the spot price in terms of ETH/USDC, so we set the flag corresponding to waWeth to true.
         // waWeth has a rate with respect to ETH.
@@ -473,13 +464,12 @@ contract ReClammPoolInitTest is BaseReClammTest {
     }
 
     function testComputeInitialBalancesWaUsdcWaEth() public {
-        require(address(usdc6Decimals) > address(weth), "Incorrect token order");
+        (IERC20[] memory sortedTokens, uint256 wethIndex, uint256 usdcIndex) = _getWethUsdcTokens();
+
         uint256 waWethRate = 1.2e18;
         uint256 waUsdcRate = 1.5e18;
 
         // Spot price is 2.5k for ETH/USDC --> spot price of waWETH / waUSDC does not matter here.
-        IERC20[] memory sortedTokens = [address(weth), address(usdc6Decimals)].toMemoryArray().asIERC20();
-        (uint256 wethIndex, uint256 usdcIndex) = (a, b);
 
         // We'll specify the spot price in terms of ETH/USDC, both flags to true.
         // waWeth has a rate with respect to ETH, and waUSDC has a rate with respect to USDC.
@@ -549,7 +539,8 @@ contract ReClammPoolInitTest is BaseReClammTest {
         uint256 eurUsdRate = 1.17e18;
 
         address eurc = address(dai); // let's just say this is EURC
-        require(address(usdc6Decimals) > address(eurc), "Incorrect token order");
+
+        (IERC20[] memory sortedTokens, uint256 eurcIndex, uint256 usdcIndex) = _getSortedTokensWithUsdc(IERC20(eurc));
         uint256 waEurcRate = 1.01e18;
         uint256 waUsdcRate = 1.1e18;
 
@@ -557,9 +548,6 @@ contract ReClammPoolInitTest is BaseReClammTest {
         _initialMaxPrice = eurUsdRate.mulDown(1.02e18);
         _initialTargetPrice = eurUsdRate;
         _initialMinPrice = eurUsdRate.mulDown(0.98e18);
-
-        IERC20[] memory sortedTokens = [address(eurc), address(usdc6Decimals)].toMemoryArray().asIERC20();
-        (uint256 eurcIndex, uint256 usdcIndex) = (a, b);
 
         // We'll specify the spot price in terms of ETH/USDC, both flags to true.
         // waWeth has a rate with respect to ETH, and waUSDC has a rate with respect to USDC.
@@ -621,7 +609,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
     }
 
     function testComputeInitialBalancesWstEthsDai() public {
-        require(address(usdc6Decimals) > address(weth), "Incorrect token order");
+        (IERC20[] memory sortedTokens, uint256 wethIndex, uint256 usdcIndex) = _getWethUsdcTokens();
         uint256 waWethRate = 1.2e18;
         uint256 waUsdcRate = 1.5e18;
 
@@ -629,8 +617,6 @@ contract ReClammPoolInitTest is BaseReClammTest {
         uint256 initialUnderlyingPrice = _initialTargetPrice;
         _initialTargetPrice = _initialTargetPrice.mulDown(waWethRate).divDown(waUsdcRate);
         // Spot price is 2.5k for ETH/USDC --> spot price for wstETH/sDAI is 2.5k * 1.2 / 1.5 = 2000
-        IERC20[] memory sortedTokens = [address(weth), address(usdc6Decimals)].toMemoryArray().asIERC20();
-        (uint256 wethIndex, uint256 usdcIndex) = (a, b);
 
         // We'll specify the spot price in terms of wstEth/sDAI so we'll set both flags to false
         _tokenAPriceIncludesRate = false;
@@ -715,5 +701,23 @@ contract ReClammPoolInitTest is BaseReClammTest {
             _INITIAL_PARAMS_ERROR,
             "Wrong target price after initialization with rate"
         );
+    }
+
+    function _getWethUsdcTokens()
+        private
+        view
+        returns (IERC20[] memory sortedTokens, uint256 wethIndex, uint256 usdcIndex)
+    {
+        return _getSortedTokensWithUsdc(weth);
+    }
+
+    function _getSortedTokensWithUsdc(
+        IERC20 otherToken
+    ) private view returns (IERC20[] memory sortedTokens, uint256 otherIndex, uint256 usdcIndex) {
+        sortedTokens = new IERC20[](2);
+        usdcIndex = address(otherToken) > address(usdc6Decimals) ? 0 : 1;
+        otherIndex = usdcIndex == 0 ? 1 : 0;
+        sortedTokens[usdcIndex] = usdc6Decimals;
+        sortedTokens[otherIndex] = otherToken;
     }
 }
