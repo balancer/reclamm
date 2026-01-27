@@ -122,6 +122,14 @@ contract ReClammPool is
         _TOKEN_B_PRICE_INCLUDES_RATE = params.tokenBPriceIncludesRate;
 
         _HOOK_CONTRACT = hookContract;
+
+        if (hookContract != address(0)) {
+            HookFlags memory externalFlags = IHooks(_HOOK_CONTRACT).getHookFlags();
+
+            _EXTERNAL_HOOK_HAS_BEFORE_ADD_LIQUIDITY = externalFlags.shouldCallBeforeAddLiquidity;
+            _EXTERNAL_HOOK_HAS_BEFORE_REMOVE_LIQUIDITY = externalFlags.shouldCallBeforeRemoveLiquidity;
+            _EXTERNAL_HOOK_HAS_BEFORE_INITIALIZE = externalFlags.shouldCallBeforeInitialize;
+        }
     }
 
     /*******************************************************************************
@@ -349,11 +357,11 @@ contract ReClammPool is
         _setCenterednessMargin(_INITIAL_CENTEREDNESS_MARGIN);
         _updateTimestamp();
 
-        // Forward to the secondary hook, if present.
+        // Forward to the secondary hook, if it's present and implements onBeforeInitialize.
         return
-            _HOOK_CONTRACT == address(0)
-                ? true
-                : IHooks(_HOOK_CONTRACT).onBeforeInitialize(exactAmountsInScaled18, userData);
+            _EXTERNAL_HOOK_HAS_BEFORE_INITIALIZE
+                ? IHooks(_HOOK_CONTRACT).onBeforeInitialize(exactAmountsInScaled18, userData)
+                : true;
     }
 
     /**
@@ -395,11 +403,10 @@ contract ReClammPool is
         _setLastVirtualBalances(currentVirtualBalanceA, currentVirtualBalanceB);
         _updateTimestamp();
 
-        // Forward to the secondary hook, if present.
+        // Forward to the secondary hook, if it's present and implements onBeforeAddLiquidity.
         return
-            _HOOK_CONTRACT == address(0)
-                ? true
-                : IHooks(_HOOK_CONTRACT).onBeforeAddLiquidity(
+            _EXTERNAL_HOOK_HAS_BEFORE_ADD_LIQUIDITY
+                ? IHooks(_HOOK_CONTRACT).onBeforeAddLiquidity(
                     router,
                     pool,
                     kind,
@@ -407,7 +414,8 @@ contract ReClammPool is
                     exactBptAmountOut,
                     balancesScaled18,
                     userData
-                );
+                )
+                : true;
     }
 
     /**
@@ -451,11 +459,10 @@ contract ReClammPool is
         _setLastVirtualBalances(currentVirtualBalanceA, currentVirtualBalanceB);
         _updateTimestamp();
 
-        // Forward to the secondary hook, if present.
+        // Forward to the secondary hook, if it's present and implements onBeforeRemoveLiquidity.
         return
-            _HOOK_CONTRACT == address(0)
-                ? true
-                : IHooks(_HOOK_CONTRACT).onBeforeRemoveLiquidity(
+            _EXTERNAL_HOOK_HAS_BEFORE_REMOVE_LIQUIDITY
+                ? IHooks(_HOOK_CONTRACT).onBeforeRemoveLiquidity(
                     router,
                     pool,
                     kind,
@@ -463,7 +470,8 @@ contract ReClammPool is
                     minAmountsOutScaled18,
                     balancesScaled18,
                     userData
-                );
+                )
+                : true;
     }
 
     /*******************************************************************************

@@ -78,6 +78,12 @@ abstract contract ReClammStorage {
     // second hook contract.
     address internal immutable _HOOK_CONTRACT;
 
+    // Store which flags the external hook implements. Storing these as immutables saves gas vs. a memory read of the
+    // hook flags each time a hook is called.
+    bool internal immutable _EXTERNAL_HOOK_HAS_BEFORE_INITIALIZE;
+    bool internal immutable _EXTERNAL_HOOK_HAS_BEFORE_ADD_LIQUIDITY;
+    bool internal immutable _EXTERNAL_HOOK_HAS_BEFORE_REMOVE_LIQUIDITY;
+
     /*******************************************************************************
                                     State Variables
     *******************************************************************************/
