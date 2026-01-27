@@ -1725,6 +1725,14 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(bytes4(data), IVaultErrors.CannotReceiveEth.selector);
     }
 
+    function testEthFallbackPoolNoEth() public {
+        vm.prank(alice);
+        (bool success, bytes memory data) = pool.call(hex"deadbeef");
+
+        assertFalse(success);
+        assertEq(bytes4(data), ReClammCommon.NotImplemented.selector);
+    }
+
     function testEthFallbackExtensionWithEth() public {
         address extension = IReClammPool(pool).getReClammPoolExtension();
 
