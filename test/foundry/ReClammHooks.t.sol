@@ -14,6 +14,7 @@ import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/Ar
 import { PoolHooksMock } from "@balancer-labs/v3-vault/contracts/test/PoolHooksMock.sol";
 
 import { ReClammPoolImmutableData } from "../../contracts/interfaces/IReClammPoolExtension.sol";
+import { NonOverlappingHookMock } from "../../contracts/test/NonOverlappingHookMock.sol";
 import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
 import { ReClammCommon } from "../../contracts/ReClammCommon.sol";
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
@@ -279,6 +280,56 @@ contract ReClammHookTest is BaseReClammTest {
         vm.expectRevert(IVaultErrors.DynamicSwapFeeHookFailed.selector);
         vm.prank(alice);
         router.swapSingleTokenExactIn(pool, dai, usdc, amountDaiIn, 0, MAX_UINT256, false, bytes(""));
+    }
+
+    function testNonOverlappingHookImplementation() public {
+        // Deploy a hook that ONLY implements swap hooks, not liquidity hooks
+        NonOverlappingHookMock nonOverlappingHook = new NonOverlappingHookMock();
+
+        // Verify the non-overlapping hook does not have ReClamm hooks enabled
+        HookFlags memory nonOverlappingFlags = nonOverlappingHook.getHookFlags();
+        assertFalse(
+            nonOverlappingFlags.shouldCallBeforeInitialize,
+            "Non-overlapping hook should not have beforeInitialize"
+        );
+        assertFalse(
+            nonOverlappingFlags.shouldCallBeforeAddLiquidity,
+            "Non-overlapping hook should not have beforeAddLiquidity"
+        );
+        assertFalse(
+            nonOverlappingFlags.shouldCallBeforeRemoveLiquidity,
+            "Non-overlapping hook should not have beforeRemoveLiquidity"
+        );
+        assertTrue(nonOverlappingFlags.shouldCallBeforeSwap, "Non-overlapping hook should have beforeSwap");
+
+        // Set this as the pool's hook
+        poolHooksContract = address(nonOverlappingHook);
+
+        // Create a new pool with the non-overlapping hook
+        (address newPool, ) = _createPool([address(usdc), address(dai)].toMemoryArray(), "Non-Overlapping Hook Pool");
+
+        // The pool's getHookFlags should return the UNION of pool + external hook flags
+        HookFlags memory poolFlags = ReClammPool(payable(newPool)).getHookFlags();
+
+        // Pool's mandatory hooks should be enabled
+        assertTrue(poolFlags.shouldCallBeforeInitialize, "Pool should have beforeInitialize");
+        assertTrue(poolFlags.shouldCallBeforeAddLiquidity, "Pool should have beforeAddLiquidity");
+        assertTrue(poolFlags.shouldCallBeforeRemoveLiquidity, "Pool should have beforeRemoveLiquidity");
+
+        // External hook's swap hooks should also be enabled
+        assertTrue(poolFlags.shouldCallBeforeSwap, "Pool should have beforeSwap from external hook");
+
+        // Now verify initialization and swaps work (and forward to the external hook)
+
+        (IERC20[] memory tokens, , , ) = vault.getPoolTokenInfo(newPool);
+
+        vm.prank(bob);
+        router.initialize(newPool, tokens, _initialBalances, 0, false, bytes(""));
+
+        uint256 amountDaiIn = 100e18;
+
+        vm.prank(alice);
+        router.swapSingleTokenExactIn(newPool, dai, usdc, amountDaiIn, 0, MAX_UINT256, false, bytes(""));
     }
 
     function _checkHookFlags(address pool) internal view {
