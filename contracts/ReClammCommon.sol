@@ -57,7 +57,10 @@ abstract contract ReClammCommon is ReClammStorage {
                                     Proxy Functions
     *******************************************************************************/
 
-    // The Vault is stored immutably (through VaultGuard) in both contracts. To avoid name collisions, define this
-    // function in both to enable referencing the Vault in common code.
+    /**
+     * @notice Returns the Balancer Vault.
+     * @dev The Vault is stored immutably (through VaultGuard) in both contracts. To avoid name collisions, define this
+     * function in both to enable referencing the Vault in common code.
+     */
     function _getBalancerVault() internal view virtual returns (IVault);
 }
