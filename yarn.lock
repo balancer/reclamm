@@ -64,7 +64,7 @@ __metadata:
     dotenv: "npm:^16.4.7"
     ds-test: "https://github.com/dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0"
     ethers: "npm:^6.13.5"
-    forge-std: "https://github.com/foundry-rs/forge-std.git#v1.8.1"
+    forge-std: "https://github.com/foundry-rs/forge-std.git#v1.9.7"
     hardhat-contract-sizer: "npm:^2.10.0"
     hardhat-gas-reporter: "npm:^1.0.9"
     hardhat-ignore-warnings: "npm:^0.2.11"
@@ -155,7 +155,7 @@ __metadata:
     eslint-plugin-mocha-no-only: "npm:^1.1.1"
     eslint-plugin-prettier: "npm:^4.2.1"
     ethers: "npm:^6.13.5"
-    forge-std: "https://github.com/foundry-rs/forge-std.git#v1.8.1"
+    forge-std: "https://github.com/foundry-rs/forge-std.git#v1.9.6"
     hardhat: "npm:^2.14.0"
     hardhat-contract-sizer: "npm:^2.10.0"
     hardhat-gas-reporter: "npm:^1.0.9"
@@ -206,6 +206,7 @@ __metadata:
     "@types/node": "npm:^14.14.31"
     "@typescript-eslint/eslint-plugin": "npm:^5.41.0"
     "@typescript-eslint/parser": "npm:^5.41.0"
+    commander: "npm:^13.1.0"
     decimal.js: "npm:^10.4.2"
     eslint: "npm:^8.26.0"
     eslint-plugin-prettier: "npm:^4.2.1"
@@ -3002,6 +3003,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"commander@npm:^13.1.0":
+  version: 13.1.0
+  resolution: "commander@npm:13.1.0"
+  checksum: f01b312a04573c11e6156f4216ed0c4aee6c50e37902ebe3d9d3f50c688dcc44432ae449aaaaf54e638687a79588469f4fab7d7aad5c0c17f25be2ccaa24e1f8
+  languageName: node
+  linkType: hard
+
 "commander@npm:^8.1.0":
   version: 8.3.0
   resolution: "commander@npm:8.3.0"
@@ -4025,10 +4033,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"forge-std@https://github.com/foundry-rs/forge-std.git#v1.8.1":
-  version: 1.7.6
-  resolution: "forge-std@https://github.com/foundry-rs/forge-std.git#commit=bb4ceea94d6f10eeb5b41dc2391c6c8bf8e734ef"
-  checksum: f9e1156973bdc360989275bdc43b8745f388017eb97c4a0e4b7b55e944a497b5cdbef0a483c1f7a852f93f0cff45d0c9dba05f6331125da9f369c3297f5347b0
+"forge-std@https://github.com/foundry-rs/forge-std.git#v1.9.6":
+  version: 1.9.6
+  resolution: "forge-std@https://github.com/foundry-rs/forge-std.git#commit=3b20d60d14b343ee4f908cb8079495c07f5e8981"
+  checksum: 03aa5b5eadf52f016ce8c23f686be5e889d9cd6db46309c90c3c7a67f145145d41f40e669d99e28e8d6be22765c8c52054f9b4144ae0e742b6ce50f47cc5abff
+  languageName: node
+  linkType: hard
+
+"forge-std@https://github.com/foundry-rs/forge-std.git#v1.9.7":
+  version: 1.9.7
+  resolution: "forge-std@https://github.com/foundry-rs/forge-std.git#commit=77041d2ce690e692d6e03cc812b57d1ddaa4d505"
+  checksum: a55e3b46b86a6f851a2c2354d8519f7bcb03dd7191e832c02dd029d9775ce0bf7154688936855e5bb5a9538d7bbdd6fb6a480d1d675af1a7c848a199992f31ca
   languageName: node
   linkType: hard
 

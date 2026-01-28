@@ -4,17 +4,86 @@ pragma solidity ^0.8.24;
 
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
+import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
 
-import { ReClammPool } from "../ReClammPool.sol";
+import { IReClammPoolExtension } from "../interfaces/IReClammPoolExtension.sol";
 import { ReClammPoolParams } from "../interfaces/IReClammPool.sol";
+import { ReClammMath, a } from "../lib/ReClammMath.sol";
+import { ReClammPool } from "../ReClammPool.sol";
 
 contract ReClammPoolMock is ReClammPool {
-    constructor(ReClammPoolParams memory params, IVault vault) ReClammPool(params, vault) {
+    using SafeCast for uint256;
+    using FixedPoint for uint256;
+
+    constructor(
+        ReClammPoolParams memory params,
+        IVault vault,
+        IReClammPoolExtension poolExtension,
+        address hookContract
+    ) ReClammPool(params, vault, poolExtension, hookContract) {
         // solhint-disable-previous-line no-empty-blocks
+    }
+
+    /// @dev Used to fuzz price ranges and ensure the pool state remains coherent.
+    function reInitialize(
+        uint256[] memory balancesScaled18,
+        uint256 minPrice,
+        uint256 maxPrice,
+        uint256 targetPrice,
+        uint128 initialPriceShiftDailyRate,
+        uint256 centerednessMargin
+    ) external returns (uint256 virtualBalanceA, uint256 virtualBalanceB) {
+        (
+            uint256[] memory theoreticalBalances,
+            uint256 theoreticalVirtualBalanceA,
+            uint256 theoreticalVirtualBalanceB,
+            uint256 priceRatio
+        ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(minPrice, maxPrice, targetPrice);
+
+        _checkInitializationBalanceRatio(balancesScaled18, theoreticalBalances);
+
+        uint256 scale = balancesScaled18[a].divDown(theoreticalBalances[a]);
+
+        virtualBalanceA = theoreticalVirtualBalanceA.mulDown(scale);
+        virtualBalanceB = theoreticalVirtualBalanceB.mulDown(scale);
+
+        _setLastVirtualBalances(virtualBalanceA, virtualBalanceB);
+        _startPriceRatioUpdate(priceRatio, block.timestamp, block.timestamp);
+
+        _dailyPriceShiftBase = initialPriceShiftDailyRate;
+        _setCenterednessMargin(centerednessMargin);
+        _updateTimestamp();
+    }
+
+    function computeInitialBalanceRatio() external view returns (uint256) {
+        (uint256 rateA, uint256 rateB) = _getTokenRates();
+        return _computeInitialBalanceRatioScaled18(rateA, rateB);
+    }
+
+    function computeCurrentVirtualBalances(
+        uint256[] memory balancesScaled18
+    ) external view returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) {
+        return _computeCurrentVirtualBalances(balancesScaled18);
     }
 
     function setLastTimestamp(uint256 newLastTimestamp) external {
         _lastTimestamp = SafeCast.toUint32(newLastTimestamp);
+    }
+
+    function setLastVirtualBalances(uint256[] memory newLastVirtualBalances) external {
+        _setLastVirtualBalances(newLastVirtualBalances[0], newLastVirtualBalances[1]);
+    }
+
+    function manualSetCenterednessMargin(uint256 newCenterednessMargin) external {
+        _centerednessMargin = newCenterednessMargin.toUint64();
+    }
+
+    function manualStartPriceRatioUpdate(
+        uint256 endPriceRatio,
+        uint256 priceRatioUpdateStartTime,
+        uint256 priceRatioUpdateEndTime
+    ) external returns (uint256 startPriceRatio) {
+        return _startPriceRatioUpdate(endPriceRatio, priceRatioUpdateStartTime, priceRatioUpdateEndTime);
     }
 }

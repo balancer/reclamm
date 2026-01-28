@@ -12,6 +12,41 @@ import 'hardhat-ignore-warnings';
 import 'hardhat-gas-reporter';
 import 'hardhat-contract-sizer';
 
+const overrides = {
+  ['contracts/ReClammPool.sol']: {
+    version: '0.8.27',
+    settings: {
+      viaIR: true,
+      evmVersion: 'cancun',
+      optimizer: {
+        enabled: true,
+        runs: 700,
+        details: {
+          yulDetails: {
+            optimizerSteps: hardhatBaseConfig.DEFAULT_OPTIMIZER_STEPS,
+          },
+        },
+      },
+    },
+  },
+  ['contracts/ReClammPoolFactory.sol']: {
+    version: '0.8.27',
+    settings: {
+      viaIR: true,
+      evmVersion: 'cancun',
+      optimizer: {
+        enabled: true,
+        runs: 700,
+        details: {
+          yulDetails: {
+            optimizerSteps: hardhatBaseConfig.DEFAULT_OPTIMIZER_STEPS,
+          },
+        },
+      },
+    },
+  },
+};
+
 const config: HardhatUserConfig = {
   networks: {
     hardhat: {
@@ -20,7 +55,7 @@ const config: HardhatUserConfig = {
   },
   solidity: {
     compilers: hardhatBaseConfig.compilers,
-    overrides: { ...hardhatBaseConfig.overrides(name) },
+    overrides,
   },
   warnings,
 };

@@ -11,7 +11,7 @@ import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/Fixe
 import { E2eBatchSwapTest } from "@balancer-labs/v3-vault/test/foundry/E2eBatchSwap.t.sol";
 
 import { ReClammPoolContractsDeployer } from "./utils/ReClammPoolContractsDeployer.sol";
-import { ReClammPool } from "../../contracts/ReClammPool.sol";
+import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
 
 contract E2eBatchSwapReClammTest is E2eBatchSwapTest, ReClammPoolContractsDeployer {
     using FixedPoint for uint256;
@@ -30,11 +30,8 @@ contract E2eBatchSwapReClammTest is E2eBatchSwapTest, ReClammPoolContractsDeploy
         uint256 minBptOut
     ) internal override returns (uint256) {
         (IERC20[] memory tokens, , , ) = vault.getPoolTokenInfo(poolToInit);
-        uint256 balanceRatio = ReClammPool(poolToInit).computeInitialBalanceRatio();
 
-        uint256[] memory initialBalances = new uint256[](2);
-        initialBalances[0] = amountsIn[0];
-        initialBalances[1] = amountsIn[0].mulDown(balanceRatio);
+        uint256[] memory initialBalances = IReClammPool(poolToInit).computeInitialBalancesRaw(tokens[0], amountsIn[0]);
 
         return router.initialize(poolToInit, tokens, initialBalances, minBptOut, false, bytes(""));
     }

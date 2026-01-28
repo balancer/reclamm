@@ -43,6 +43,14 @@ class ReClammBenchmark extends Benchmark {
 
     const salt = toBeHex(this.counter++, 32);
 
+    const priceParams: ReClammPoolFactory.ReClammPriceParamsStruct = {
+      initialMinPrice: fp(0.5), // 0.5 min price
+      initialMaxPrice: fp(2), // 2 max price
+      initialTargetPrice: fp(1), // 1 target price
+      tokenAPriceIncludesRate: false, // Do not consider rates in the price calculation for token A
+      tokenBPriceIncludesRate: false, // Do not consider rates in the price calculation for token B
+    };
+
     // The min, max and target prices were chosen to make sure the balance of token 1 is equal to balance of token 0.
     const tx = await factory.create(
       `ReClamm Pool`,
@@ -50,9 +58,8 @@ class ReClammBenchmark extends Benchmark {
       buildTokenConfig(poolTokens, withRate),
       roleAccounts,
       fp(0.1), // 10% swap fee percentage
-      fp(0.5), // 0.5 min price
-      fp(2), // 2 max price
-      fp(1), // 1 target price
+      ZERO_ADDRESS, // no secondary pool contract
+      priceParams,
       fp(1), // 100% price shift daily rate
       fp(0.2), // 20% centeredness margin
       salt
@@ -83,10 +90,10 @@ class ReClammBenchmark extends Benchmark {
         const pool: ReClammPool = await deployedAt('ReClammPool', await poolInfo.pool.getAddress());
 
         const startTimestamp = await currentTimestamp();
-        const endTimestamp = startTimestamp + BigInt(DAY);
+        const endTimestamp = startTimestamp + BigInt(DAY * 2);
 
-        await pool.connect(swapFeeManager).setPriceRatioState(
-          fp(3), // Price Ratio of 81 (3^4)
+        await pool.connect(swapFeeManager).startPriceRatioUpdate(
+          fp(2), // Price Ratio of 16 (2^4)
           startTimestamp,
           endTimestamp
         );
@@ -334,10 +341,10 @@ class ReClammBenchmark extends Benchmark {
         const pool: ReClammPool = await deployedAt('ReClammPool', await poolInfo.pool.getAddress());
 
         const startTimestamp = await currentTimestamp();
-        const endTimestamp = startTimestamp + BigInt(DAY);
+        const endTimestamp = startTimestamp + BigInt(DAY * 2);
 
-        await pool.connect(swapFeeManager).setPriceRatioState(
-          fp(3), // Price Ratio of 81 (3^4)
+        await pool.connect(swapFeeManager).startPriceRatioUpdate(
+          fp(2), // Price Ratio of 16 (2^4)
           startTimestamp,
           endTimestamp
         );
