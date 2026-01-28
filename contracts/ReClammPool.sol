@@ -69,7 +69,7 @@ contract ReClammPool is
         _;
     }
 
-    // `setCenterednessMargin` must ensure the pool is in range both before and after.
+    // This modifier is used in `setCenterednessMargin`, which must ensure the pool is in range both before and after.
     modifier onlyWithinTargetRange() {
         _ensurePoolWithinTargetRange();
         _;
@@ -121,6 +121,13 @@ contract ReClammPool is
         _TOKEN_A_PRICE_INCLUDES_RATE = params.tokenAPriceIncludesRate;
         _TOKEN_B_PRICE_INCLUDES_RATE = params.tokenBPriceIncludesRate;
 
+        // The maximum daily price ratio change rate is given by 2^_MAX_DAILY_PRICE_SHIFT_EXPONENT.
+        // This is somewhat arbitrary, but it makes sense to link these rates; i.e., we are setting the maximum speed
+        // of expansion or contraction to equal the maximum speed of the price shift. It is expressed as a multiple;
+        // i.e., 8e18 means it can change by 8x per day.
+        _MAX_DAILY_PRICE_RATIO_UPDATE_RATE = FixedPoint.powUp(2e18, _MAX_DAILY_PRICE_SHIFT_EXPONENT);
+
+        // Set the external hook contract and related flags.
         _HOOK_CONTRACT = hookContract;
 
         if (hookContract != address(0)) {

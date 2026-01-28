@@ -61,7 +61,17 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
         _TOKEN_A_PRICE_INCLUDES_RATE = params.tokenAPriceIncludesRate;
         _TOKEN_B_PRICE_INCLUDES_RATE = params.tokenBPriceIncludesRate;
 
+        _MAX_DAILY_PRICE_RATIO_UPDATE_RATE = FixedPoint.powUp(2e18, _MAX_DAILY_PRICE_SHIFT_EXPONENT);
+
         _HOOK_CONTRACT = hookContract;
+
+        if (hookContract != address(0)) {
+            HookFlags memory externalFlags = IHooks(_HOOK_CONTRACT).getHookFlags();
+
+            _EXTERNAL_HOOK_HAS_BEFORE_ADD_LIQUIDITY = externalFlags.shouldCallBeforeAddLiquidity;
+            _EXTERNAL_HOOK_HAS_BEFORE_REMOVE_LIQUIDITY = externalFlags.shouldCallBeforeRemoveLiquidity;
+            _EXTERNAL_HOOK_HAS_BEFORE_INITIALIZE = externalFlags.shouldCallBeforeInitialize;
+        }
     }
 
     /*******************************************************************************
@@ -161,6 +171,9 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
         data.initialDailyPriceShiftExponent = _INITIAL_DAILY_PRICE_SHIFT_EXPONENT;
         data.initialCenterednessMargin = _INITIAL_CENTEREDNESS_MARGIN;
         data.hookContract = _HOOK_CONTRACT;
+        data.externalHookHasBeforeInitialize = _EXTERNAL_HOOK_HAS_BEFORE_INITIALIZE;
+        data.externalHookHasBeforeAddLiquidity = _EXTERNAL_HOOK_HAS_BEFORE_ADD_LIQUIDITY;
+        data.externalHookHasBeforeRemoveLiquidity = _EXTERNAL_HOOK_HAS_BEFORE_REMOVE_LIQUIDITY;
 
         // Operating Limits
         data.maxCenterednessMargin = _MAX_CENTEREDNESS_MARGIN;

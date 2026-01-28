@@ -24,6 +24,9 @@ import { PriceRatioState } from "../lib/ReClammMath.sol";
  * @param initialDailyPriceShiftExponent The initial daily price shift exponent
  * @param initialCenterednessMargin The initial centeredness margin (threshold for initiating a range update)
  * @param hookContract ReClamm pools are always their own hook, but also allow forwarding to an optional hook contract
+ * @param externalHookHasBeforeInitialize True if the external hook contract implements `beforeInitializePool`
+ * @param externalHookHasBeforeAddLiquidity True if the external hook contract implements `beforeAddLiquidity`
+ * @param externalHookHasBeforeRemoveLiquidity True if the external hook contract implements `beforeRemoveLiquidity`
  * @param maxCenterednessMargin The maximum centeredness margin for the pool, as an 18-decimal FP percentage
  * @param maxDailyPriceShiftExponent The maximum exponent for the pool's price shift, as an 18-decimal FP percentage
  * @param maxDailyPriceRatioUpdateRate The maximum percentage the price range can expand/contract per day
@@ -46,6 +49,9 @@ struct ReClammPoolImmutableData {
     uint256 initialDailyPriceShiftExponent;
     uint256 initialCenterednessMargin;
     address hookContract;
+    bool externalHookHasBeforeInitialize;
+    bool externalHookHasBeforeAddLiquidity;
+    bool externalHookHasBeforeRemoveLiquidity;
     // Operating Limits
     uint256 maxCenterednessMargin;
     uint256 maxDailyPriceShiftExponent;

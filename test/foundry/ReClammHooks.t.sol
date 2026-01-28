@@ -319,6 +319,11 @@ contract ReClammHookTest is BaseReClammTest {
         // External hook's swap hooks should also be enabled
         assertTrue(poolFlags.shouldCallBeforeSwap, "Pool should have beforeSwap from external hook");
 
+        ReClammPoolImmutableData memory data = IReClammPool(newPool).getReClammPoolImmutableData();
+        assertFalse(data.externalHookHasBeforeInitialize, "External hook beforeInitialize flag set");
+        assertFalse(data.externalHookHasBeforeAddLiquidity, "External hook beforeAddLiquidity flag set");
+        assertFalse(data.externalHookHasBeforeRemoveLiquidity, "External hook beforeRemoveLiquidity flag set");
+
         // Now verify initialization and swaps work (and forward to the external hook)
 
         (IERC20[] memory tokens, , , ) = vault.getPoolTokenInfo(newPool);

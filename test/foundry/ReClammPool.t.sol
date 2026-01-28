@@ -406,6 +406,9 @@ contract ReClammPoolTest is BaseReClammTest {
         );
         assertEq(data.initialCenterednessMargin, _DEFAULT_CENTEREDNESS_MARGIN, "Invalid initial centeredness margin");
         assertEq(data.hookContract, poolHooksContract, "Invalid hook contract");
+        assertTrue(data.externalHookHasBeforeInitialize, "External hook beforeInitialize flag not set");
+        assertTrue(data.externalHookHasBeforeAddLiquidity, "External hook beforeAddLiquidity flag not set");
+        assertTrue(data.externalHookHasBeforeRemoveLiquidity, "External hook beforeRemoveLiquidity flag not set");
 
         // Check operating limit parameters.
         assertEq(data.maxCenterednessMargin, _MAX_CENTEREDNESS_MARGIN, "Invalid max centeredness margin");

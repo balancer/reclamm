@@ -31,12 +31,6 @@ abstract contract ReClammStorage {
     // "price shift" velocity.
     uint256 internal constant _MAX_DAILY_PRICE_SHIFT_EXPONENT = 100e16; // 100%
 
-    // The maximum daily price ratio change rate is given by 2^_MAX_DAILY_PRICE_SHIFT_EXPONENT.
-    // This is somewhat arbitrary, but it makes sense to link these rates; i.e., we are setting the maximum speed
-    // of expansion or contraction to equal the maximum speed of the price shift. It is expressed as a multiple;
-    // i.e., 8e18 means it can change by 8x per day.
-    uint256 internal constant _MAX_DAILY_PRICE_RATIO_UPDATE_RATE = 2e18;
-
     // Price ratio updates must have both a minimum duration and a maximum daily rate. For instance, an update rate of
     // FP 2 means the ratio one day later must be at least half and at most double the rate at the start of the update.
     uint256 internal constant _MIN_PRICE_RATIO_UPDATE_DURATION = 1 days;
@@ -73,6 +67,10 @@ abstract contract ReClammStorage {
     // them in at initialization time, when they might be out-of-sync with the prices).
     bool internal immutable _TOKEN_A_PRICE_INCLUDES_RATE;
     bool internal immutable _TOKEN_B_PRICE_INCLUDES_RATE;
+
+    // The maximum speed of expansion or contraction of the price ratio. It is expressed as a multiple, so 8e18 would
+    // mean that it can change by 8x per day.
+    uint256 internal immutable _MAX_DAILY_PRICE_RATIO_UPDATE_RATE;
 
     // ReClamm pools are always their own hook from the Vault's perspective, but also allow forwarding to an optional
     // second hook contract.
