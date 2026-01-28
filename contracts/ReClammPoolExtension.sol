@@ -21,8 +21,6 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
 
     IReClammPoolMain private immutable _POOL;
 
-    IVault private immutable _VAULT;
-
     /**
      * @notice The `ReClammPoolExtension` contract was called by an account directly.
      * @dev It can only be called by a ReClammPool via delegate call.
@@ -48,7 +46,6 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
         address hookContract
     ) VaultGuard(vault) {
         _POOL = reclammPool;
-        _VAULT = vault;
 
         // Need to initialize these the same as in ReClammPool.
         _INITIAL_MIN_PRICE = params.initialMinPrice;
@@ -120,9 +117,9 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
         onlyPoolDelegateCall
         returns (ReClammPoolDynamicData memory data)
     {
-        data.balancesLiveScaled18 = _VAULT.getCurrentLiveBalances(address(this));
-        (, data.tokenRates) = _VAULT.getPoolTokenRates(address(this));
-        data.staticSwapFeePercentage = _VAULT.getStaticSwapFeePercentage((address(this)));
+        data.balancesLiveScaled18 = _vault.getCurrentLiveBalances(address(this));
+        (, data.tokenRates) = _vault.getPoolTokenRates(address(this));
+        data.staticSwapFeePercentage = _vault.getStaticSwapFeePercentage((address(this)));
         data.totalSupply = _totalSupply();
 
         data.lastTimestamp = _lastTimestamp;
@@ -137,7 +134,7 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
         data.priceRatioUpdateStartTime = state.priceRatioUpdateStartTime;
         data.priceRatioUpdateEndTime = state.priceRatioUpdateEndTime;
 
-        PoolConfig memory poolConfig = _VAULT.getPoolConfig(address(this));
+        PoolConfig memory poolConfig = _vault.getPoolConfig(address(this));
         data.isPoolInitialized = poolConfig.isPoolInitialized;
         data.isPoolPaused = poolConfig.isPoolPaused;
         data.isPoolInRecoveryMode = poolConfig.isPoolInRecoveryMode;
@@ -157,8 +154,8 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
         returns (ReClammPoolImmutableData memory data)
     {
         // Base Pool
-        data.tokens = _VAULT.getPoolTokens(address(this));
-        (data.decimalScalingFactors, ) = _VAULT.getPoolTokenRates(address(this));
+        data.tokens = _vault.getPoolTokens(address(this));
+        (data.decimalScalingFactors, ) = _vault.getPoolTokenRates(address(this));
         data.tokenAPriceIncludesRate = _TOKEN_A_PRICE_INCLUDES_RATE;
         data.tokenBPriceIncludesRate = _TOKEN_B_PRICE_INCLUDES_RATE;
         data.minSwapFeePercentage = _MIN_SWAP_FEE_PERCENTAGE;
@@ -205,8 +202,8 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
         onlyPoolDelegateCall
         returns (uint256 minPrice, uint256 maxPrice)
     {
-        if (_VAULT.isPoolInitialized(address(this))) {
-            (, , , uint256[] memory balancesScaled18) = _VAULT.getPoolTokenInfo(address(this));
+        if (_vault.isPoolInitialized(address(this))) {
+            (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
             (uint256 virtualBalanceA, uint256 virtualBalanceB, ) = _computeCurrentVirtualBalances(balancesScaled18);
 
             (minPrice, maxPrice) = ReClammMath.computePriceRange(balancesScaled18, virtualBalanceA, virtualBalanceB);
@@ -218,7 +215,7 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
 
     /// @inheritdoc IReClammPoolExtension
     function computeCurrentPoolCenteredness() external view onlyPoolDelegateCall returns (uint256, bool) {
-        (, , , uint256[] memory currentBalancesScaled18) = _VAULT.getPoolTokenInfo(address(this));
+        (, , , uint256[] memory currentBalancesScaled18) = _vault.getPoolTokenInfo(address(this));
         return ReClammMath.computeCenteredness(currentBalancesScaled18, _lastVirtualBalanceA, _lastVirtualBalanceB);
     }
 
@@ -251,7 +248,7 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
         onlyPoolDelegateCall
         returns (bool isWithinTargetRange, bool virtualBalancesChanged)
     {
-        (, , , uint256[] memory balancesScaled18) = _VAULT.getPoolTokenInfo(address(this));
+        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
         uint256 currentVirtualBalanceA;
         uint256 currentVirtualBalanceB;
 
@@ -434,7 +431,7 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
     // That implementation just called the Vault, so we'll just do the same thing here.
     function _totalSupply() internal view returns (uint256) {
         // Since this is a delegate call, "this" is the pool address.
-        return _VAULT.totalSupply(address(this));
+        return _vault.totalSupply(address(this));
     }
 
     function _getRealAndVirtualBalances()
@@ -447,7 +444,7 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
             bool changed
         )
     {
-        (, , , balancesScaled18) = _VAULT.getPoolTokenInfo(address(this));
+        (, , , balancesScaled18) = _vault.getPoolTokenInfo(address(this));
         (currentVirtualBalanceA, currentVirtualBalanceB, changed) = _computeCurrentVirtualBalances(balancesScaled18);
     }
 
@@ -488,7 +485,7 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
 
     // For ReClammCommon Vault access.
     function _getBalancerVault() internal view override returns (IVault) {
-        return _VAULT;
+        return _vault;
     }
 
     /*******************************************************************************
