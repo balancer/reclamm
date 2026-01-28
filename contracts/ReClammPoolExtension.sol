@@ -186,6 +186,11 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
     *******************************************************************************/
 
     /// @inheritdoc IReClammPoolExtension
+    function getMaxDailyPriceRatioUpdateRate() external view returns (uint256) {
+        return _MAX_DAILY_PRICE_RATIO_UPDATE_RATE;
+    }
+
+    /// @inheritdoc IReClammPoolExtension
     function computeCurrentPriceRatio() external view onlyPoolDelegateCall returns (uint256) {
         return _computeCurrentPriceRatio();
     }

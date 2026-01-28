@@ -181,6 +181,13 @@ interface IReClammPoolExtension {
     *******************************************************************************/
 
     /**
+     * @notice Get the maximum daily price ratio update rate immutable.
+     * @dev This allows reading the extension value without duplicating the computation in the main pool contract.
+     * @return maxDailyPriceRatioUpdateRate The maximum daily price ratio update rate
+     */
+    function getMaxDailyPriceRatioUpdateRate() external view returns (uint256 maxDailyPriceRatioUpdateRate);
+
+    /**
      * @notice Computes the current price ratio.
      * @dev The price ratio is the ratio of the max price to the min price, according to current real and virtual
      * balances.
