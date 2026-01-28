@@ -2,8 +2,6 @@
 
 pragma solidity ^0.8.24;
 
-import "forge-std/Test.sol";
-
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { TokenConfig, PoolRoleAccounts } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
@@ -11,11 +9,9 @@ import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaul
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
 
 import { CastingHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/CastingHelpers.sol";
-import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 import { InputHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/InputHelpers.sol";
-import { BasePoolFactory } from "@balancer-labs/v3-pool-utils/contracts/BasePoolFactory.sol";
-
 import { CommonAuthentication } from "@balancer-labs/v3-vault/contracts/CommonAuthentication.sol";
+import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 
 import { ReClammPriceParams } from "../../contracts/interfaces/IReClammPool.sol";
 import { ReClammPoolFactory } from "../../contracts/ReClammPoolFactory.sol";
@@ -74,8 +70,7 @@ contract ReClammPoolFactoryTest is BaseReClammTest {
         PoolRoleAccounts memory roleAccounts;
         roleAccounts.poolCreator = alice;
 
-        vm.expectRevert(BasePoolFactory.StandardPoolWithCreator.selector);
-        realFactory.create(
+        address pool = realFactory.create(
             name,
             symbol,
             tokenConfig,
@@ -87,6 +82,10 @@ contract ReClammPoolFactoryTest is BaseReClammTest {
             _DEFAULT_CENTEREDNESS_MARGIN,
             ZERO_BYTES32
         );
+
+        PoolRoleAccounts memory vaultRoleAccounts = vault.getPoolRoleAccounts(pool);
+
+        assertEq(vaultRoleAccounts.poolCreator, alice, "Wrong pool creator");
     }
 
     function testFactoryValidations() public {
