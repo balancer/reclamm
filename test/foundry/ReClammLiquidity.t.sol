@@ -85,7 +85,7 @@ contract ReClammLiquidityTest is BaseReClammTest {
         initialUsdcBalance = bound(initialUsdcBalance, 10 * _MIN_TOKEN_BALANCE, usdc.balanceOf(address(vault)));
 
         uint256[] memory initialBalancesScaled18 = _setPoolBalances(initialDaiBalance, initialUsdcBalance);
-        ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
+        ReClammPoolMock(payable(pool)).setLastTimestamp(block.timestamp);
 
         vm.warp(block.timestamp + 6 hours);
 
@@ -126,7 +126,7 @@ contract ReClammLiquidityTest is BaseReClammTest {
             "USDC virtual balances do not match"
         );
 
-        assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp was not updated");
+        assertEq(IReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp was not updated");
 
         uint256[] memory lastVirtualBalances = _getLastVirtualBalances(pool);
         assertEq(lastVirtualBalances[daiIdx], virtualBalancesAfter[daiIdx], "DAI virtual balances do not match");
@@ -258,7 +258,7 @@ contract ReClammLiquidityTest is BaseReClammTest {
         initialUsdcBalance = bound(initialUsdcBalance, 10 * _MIN_TOKEN_BALANCE, usdc.balanceOf(address(vault)));
 
         uint256[] memory initialBalancesScaled18 = _setPoolBalances(initialDaiBalance, initialUsdcBalance);
-        ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
+        ReClammPoolMock(payable(pool)).setLastTimestamp(block.timestamp);
 
         vm.warp(block.timestamp + 6 hours);
 
@@ -299,7 +299,7 @@ contract ReClammLiquidityTest is BaseReClammTest {
             "USDC virtual balances do not match"
         );
 
-        assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp was not updated");
+        assertEq(IReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp was not updated");
 
         uint256[] memory lastVirtualBalances = _getLastVirtualBalances(pool);
         assertEq(lastVirtualBalances[daiIdx], virtualBalancesAfter[daiIdx], "DAI virtual balances do not match");

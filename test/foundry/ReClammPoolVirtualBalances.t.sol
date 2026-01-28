@@ -9,6 +9,7 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
+import { IBasePool } from "@balancer-labs/v3-interfaces/contracts/vault/IBasePool.sol";
 
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
@@ -109,13 +110,13 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         assertApproxEqRel(currentPrice, newTargetPrice, _INITIAL_PARAMS_ERROR, "Current price does not match");
 
         uint256 balanceTokenAEdge = (virtualBalances[b] - virtualBalances[a].mulDown(newMinPrice)).divDown(newMinPrice);
-        uint256 invariantTokenAEdge = ReClammPool(pool).computeInvariant(
+        uint256 invariantTokenAEdge = IBasePool(pool).computeInvariant(
             [balanceTokenAEdge, 0].toMemoryArray(),
             Rounding.ROUND_DOWN
         );
 
         uint256 balanceTokenBEdge = virtualBalances[a].mulDown(newMaxPrice) - virtualBalances[b];
-        uint256 invariantTokenBEdge = ReClammPool(pool).computeInvariant(
+        uint256 invariantTokenBEdge = IBasePool(pool).computeInvariant(
             [0, balanceTokenBEdge].toMemoryArray(),
             Rounding.ROUND_DOWN
         );
@@ -133,7 +134,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
 
     function testChangingDifferentPriceRatio__Fuzz(uint96 endFourthRootPriceRatio) public {
         endFourthRootPriceRatio = SafeCast.toUint96(bound(endFourthRootPriceRatio, 1.1e18, 2e18));
-        uint256 initialFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
+        uint256 initialFourthRootPriceRatio = IReClammPool(pool).computeCurrentFourthRootPriceRatio();
 
         _assumeFourthRootPriceRatioDeltaAboveMin(initialFourthRootPriceRatio, endFourthRootPriceRatio);
 
@@ -147,7 +148,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         endPriceRatio = endPriceRatio.mulDown(endPriceRatio);
 
         vm.prank(admin);
-        ReClammPool(pool).startPriceRatioUpdate(endPriceRatio, currentTimestamp, currentTimestamp + duration);
+        ReClammPool(payable(pool)).startPriceRatioUpdate(endPriceRatio, currentTimestamp, currentTimestamp + duration);
         skip(duration);
 
         (uint256[] memory poolVirtualBalancesAfter, ) = _computeCurrentVirtualBalances(pool);
@@ -220,7 +221,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     function testAddLiquidityProportional__Fuzz(uint256 exactBptAmountOut) public {
         exactBptAmountOut = bound(exactBptAmountOut, 1e6, 10_000e18);
 
-        uint256 currentTotalSupply = ReClammPool(pool).totalSupply();
+        uint256 currentTotalSupply = IERC20(pool).totalSupply();
 
         uint256 invariantBefore = _getCurrentInvariant();
 
@@ -267,13 +268,13 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     }
 
     function testRemoveLiquidity__Fuzz(uint256 exactBptAmountIn) public {
-        exactBptAmountIn = bound(exactBptAmountIn, 1e8, ReClammPool(pool).balanceOf(lp));
+        exactBptAmountIn = bound(exactBptAmountIn, 1e8, IERC20(pool).balanceOf(lp));
 
-        uint256 currentTotalSupply = ReClammPool(pool).totalSupply();
+        uint256 currentTotalSupply = IERC20(pool).totalSupply();
 
         uint256[] memory virtualBalances = new uint256[](2);
         {
-            (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = ReClammPool(pool)
+            (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = IReClammPool(pool)
                 .computeCurrentVirtualBalances();
             virtualBalances[daiIdx] = daiIdx < usdcIdx ? currentVirtualBalanceA : currentVirtualBalanceB;
             virtualBalances[usdcIdx] = daiIdx < usdcIdx ? currentVirtualBalanceB : currentVirtualBalanceA;
@@ -296,7 +297,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
 
         uint256[] memory lastVirtualBalances = new uint256[](2);
         {
-            (uint256 lastVirtualBalanceA, uint256 lastVirtualBalanceB) = ReClammPool(pool).getLastVirtualBalances();
+            (uint256 lastVirtualBalanceA, uint256 lastVirtualBalanceB) = IReClammPool(pool).getLastVirtualBalances();
             lastVirtualBalances[daiIdx] = daiIdx < usdcIdx ? lastVirtualBalanceA : lastVirtualBalanceB;
             lastVirtualBalances[usdcIdx] = daiIdx < usdcIdx ? lastVirtualBalanceB : lastVirtualBalanceA;
         }
@@ -324,7 +325,7 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
 
     function _getCurrentInvariant() internal view returns (uint256) {
         (, , uint256[] memory balances, ) = vault.getPoolTokenInfo(pool);
-        return ReClammPool(pool).computeInvariant(balances, Rounding.ROUND_DOWN);
+        return IBasePool(pool).computeInvariant(balances, Rounding.ROUND_DOWN);
     }
 
     function _createNewPool() internal {

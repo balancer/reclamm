@@ -26,12 +26,12 @@ import { BaseVaultTest } from "@balancer-labs/v3-vault/test/foundry/utils/BaseVa
 import { PoolHooksMock } from "@balancer-labs/v3-vault/contracts/test/PoolHooksMock.sol";
 
 import { ReClammPoolFactoryMock } from "../../../contracts/test/ReClammPoolFactoryMock.sol";
-import { ReClammPriceParams } from "../../../contracts/lib/ReClammPoolFactoryLib.sol";
+import { ReClammPriceParams } from "../../../contracts/interfaces/IReClammPool.sol";
 import { ReClammPoolParams } from "../../../contracts/interfaces/IReClammPool.sol";
 import { ReClammPoolContractsDeployer } from "./ReClammPoolContractsDeployer.sol";
 import { ReClammPoolFactory } from "../../../contracts/ReClammPoolFactory.sol";
 import { ReClammPoolMock } from "../../../contracts/test/ReClammPoolMock.sol";
-import { ReClammPool } from "../../../contracts/ReClammPool.sol";
+import { IReClammPool } from "../../../contracts/interfaces/IReClammPool.sol";
 import { a, b } from "../../../contracts/lib/ReClammMath.sol";
 
 contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
@@ -94,7 +94,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
 
         (, , _initialBalances, ) = vault.getPoolTokenInfo(pool);
         (_initialVirtualBalances, ) = _computeCurrentVirtualBalances(pool);
-        _initialFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
+        _initialFourthRootPriceRatio = IReClammPool(pool).computeCurrentFourthRootPriceRatio();
     }
 
     function setInitializationPrices(uint256 newMinPrice, uint256 newMaxPrice, uint256 newTargetPrice) internal {
@@ -107,7 +107,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
         _dailyPriceShiftExponent = dailyPriceShiftExponent;
     }
 
-    function createPoolFactory() internal override returns (address) {
+    function createPoolFactory() internal virtual override returns (address) {
         factory = deployReClammPoolFactoryMock(vault, 365 days, "Factory v1", _POOL_VERSION);
         vm.label(address(factory), "Acl Amm Factory");
 
@@ -196,7 +196,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     function initPool() internal virtual override {
         (daiIdx, usdcIdx) = getSortedIndexes(address(dai), address(usdc));
 
-        _initialBalances = ReClammPool(pool).computeInitialBalancesRaw(dai, poolInitAmount);
+        _initialBalances = IReClammPool(pool).computeInitialBalancesRaw(dai, poolInitAmount);
 
         vm.startPrank(lp);
         _initPool(pool, _initialBalances, 0);
@@ -242,14 +242,14 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
 
     function _getLastVirtualBalances(address pool) internal view returns (uint256[] memory virtualBalances) {
         virtualBalances = new uint256[](2);
-        (virtualBalances[a], virtualBalances[b]) = ReClammPool(pool).getLastVirtualBalances();
+        (virtualBalances[a], virtualBalances[b]) = IReClammPool(pool).getLastVirtualBalances();
     }
 
     function _computeCurrentVirtualBalances(
         address pool
     ) internal view returns (uint256[] memory currentVirtualBalances, bool changed) {
         currentVirtualBalances = new uint256[](2);
-        (currentVirtualBalances[a], currentVirtualBalances[b], changed) = ReClammPool(pool)
+        (currentVirtualBalances[a], currentVirtualBalances[b], changed) = IReClammPool(pool)
             .computeCurrentVirtualBalances();
     }
 

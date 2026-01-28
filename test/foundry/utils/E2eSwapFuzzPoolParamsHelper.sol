@@ -20,11 +20,11 @@ import { BasicAuthorizerMock } from "@balancer-labs/v3-vault/contracts/test/Basi
 import { CastingHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/CastingHelpers.sol";
 import { GradualValueChange } from "@balancer-labs/v3-pool-weighted/contracts/lib/GradualValueChange.sol";
 
-import { BaseReClammTest } from "./BaseReClammTest.sol";
 import { ReClammPoolContractsDeployer } from "./ReClammPoolContractsDeployer.sol";
-import { ReClammPool } from "../../../contracts/ReClammPool.sol";
+import { IReClammPool } from "../../../contracts/interfaces/IReClammPool.sol";
 import { ReClammPoolMock } from "../../../contracts/test/ReClammPoolMock.sol";
 import { ReClammMath, a, b } from "../../../contracts/lib/ReClammMath.sol";
+import { BaseReClammTest } from "./BaseReClammTest.sol";
 
 contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
     using ArrayHelpers for *;
@@ -155,7 +155,7 @@ contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
 
         (, , , uint256[] memory balancesScaled18) = vault.getPoolTokenInfo(pool);
 
-        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = ReClammPoolMock(pool)
+        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = ReClammPoolMock(payable(pool))
             .computeCurrentVirtualBalances(balancesScaled18);
 
         uint256 tokenAMinTradeAmountInExactOut = _toAmountRaw(

@@ -7,12 +7,16 @@ import "forge-std/Test.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultErrors.sol";
+import { IHooks } from "@balancer-labs/v3-interfaces/contracts/vault/IHooks.sol";
 import "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 import { PoolHooksMock } from "@balancer-labs/v3-vault/contracts/test/PoolHooksMock.sol";
 
-import { ReClammPoolImmutableData, IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
+import { ReClammPoolImmutableData } from "../../contracts/interfaces/IReClammPoolExtension.sol";
+import { NonOverlappingHookMock } from "../../contracts/test/NonOverlappingHookMock.sol";
+import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
+import { ReClammCommon } from "../../contracts/ReClammCommon.sol";
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
 
@@ -30,12 +34,7 @@ contract ReClammHookTest is BaseReClammTest {
         LiquidityManagement memory liquidityManagement;
 
         vm.prank(address(vault));
-        bool success = ReClammPool(pool).onRegister(
-            address(this),
-            address(this),
-            new TokenConfig[](2),
-            liquidityManagement
-        );
+        bool success = IHooks(pool).onRegister(address(this), address(this), new TokenConfig[](2), liquidityManagement);
         assertFalse(success, "onRegister did not fail");
     }
 
@@ -48,15 +47,15 @@ contract ReClammHookTest is BaseReClammTest {
         vm.prank(bob);
         router.initialize(newPool, tokens, _initialBalances, 0, false, bytes(""));
 
-        ReClammPoolImmutableData memory data = ReClammPool(newPool).getReClammPoolImmutableData();
+        ReClammPoolImmutableData memory data = IReClammPool(newPool).getReClammPoolImmutableData();
         assertEq(data.hookContract, address(0), "Pool has a hook");
 
         PoolSwapParams memory params;
 
         // Try to call an unsupported hook.
-        vm.expectRevert(IReClammPool.NotImplemented.selector);
+        vm.expectRevert(ReClammCommon.NotImplemented.selector);
         vm.prank(address(vault));
-        ReClammPool(newPool).onBeforeSwap(params, address(newPool));
+        IHooks(newPool).onBeforeSwap(params, address(newPool));
     }
 
     function testOnBeforeInitializeForwarding() public {
@@ -283,8 +282,63 @@ contract ReClammHookTest is BaseReClammTest {
         router.swapSingleTokenExactIn(pool, dai, usdc, amountDaiIn, 0, MAX_UINT256, false, bytes(""));
     }
 
+    function testNonOverlappingHookImplementation() public {
+        // Deploy a hook that ONLY implements swap hooks, not liquidity hooks
+        NonOverlappingHookMock nonOverlappingHook = new NonOverlappingHookMock();
+
+        // Verify the non-overlapping hook does not have ReClamm hooks enabled
+        HookFlags memory nonOverlappingFlags = nonOverlappingHook.getHookFlags();
+        assertFalse(
+            nonOverlappingFlags.shouldCallBeforeInitialize,
+            "Non-overlapping hook should not have beforeInitialize"
+        );
+        assertFalse(
+            nonOverlappingFlags.shouldCallBeforeAddLiquidity,
+            "Non-overlapping hook should not have beforeAddLiquidity"
+        );
+        assertFalse(
+            nonOverlappingFlags.shouldCallBeforeRemoveLiquidity,
+            "Non-overlapping hook should not have beforeRemoveLiquidity"
+        );
+        assertTrue(nonOverlappingFlags.shouldCallBeforeSwap, "Non-overlapping hook should have beforeSwap");
+
+        // Set this as the pool's hook
+        poolHooksContract = address(nonOverlappingHook);
+
+        // Create a new pool with the non-overlapping hook
+        (address newPool, ) = _createPool([address(usdc), address(dai)].toMemoryArray(), "Non-Overlapping Hook Pool");
+
+        // The pool's getHookFlags should return the UNION of pool + external hook flags
+        HookFlags memory poolFlags = ReClammPool(payable(newPool)).getHookFlags();
+
+        // Pool's mandatory hooks should be enabled
+        assertTrue(poolFlags.shouldCallBeforeInitialize, "Pool should have beforeInitialize");
+        assertTrue(poolFlags.shouldCallBeforeAddLiquidity, "Pool should have beforeAddLiquidity");
+        assertTrue(poolFlags.shouldCallBeforeRemoveLiquidity, "Pool should have beforeRemoveLiquidity");
+
+        // External hook's swap hooks should also be enabled
+        assertTrue(poolFlags.shouldCallBeforeSwap, "Pool should have beforeSwap from external hook");
+
+        ReClammPoolImmutableData memory data = IReClammPool(newPool).getReClammPoolImmutableData();
+        assertFalse(data.externalHookHasBeforeInitialize, "External hook beforeInitialize flag set");
+        assertFalse(data.externalHookHasBeforeAddLiquidity, "External hook beforeAddLiquidity flag set");
+        assertFalse(data.externalHookHasBeforeRemoveLiquidity, "External hook beforeRemoveLiquidity flag set");
+
+        // Now verify initialization and swaps work (and forward to the external hook)
+
+        (IERC20[] memory tokens, , , ) = vault.getPoolTokenInfo(newPool);
+
+        vm.prank(bob);
+        router.initialize(newPool, tokens, _initialBalances, 0, false, bytes(""));
+
+        uint256 amountDaiIn = 100e18;
+
+        vm.prank(alice);
+        router.swapSingleTokenExactIn(newPool, dai, usdc, amountDaiIn, 0, MAX_UINT256, false, bytes(""));
+    }
+
     function _checkHookFlags(address pool) internal view {
-        HookFlags memory hookFlags = ReClammPool(pool).getHookFlags();
+        HookFlags memory hookFlags = ReClammPool(payable(pool)).getHookFlags();
 
         assertFalse(hookFlags.enableHookAdjustedAmounts, "enableHookAdjustedAmounts is true");
         assertTrue(hookFlags.shouldCallBeforeInitialize, "shouldCallBeforeInitialize is false");

@@ -7,18 +7,19 @@ import "forge-std/Test.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
-import { IVaultMock } from "@balancer-labs/v3-interfaces/contracts/test/IVaultMock.sol";
-import { PoolRoleAccounts } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
-import { IRateProvider } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/helpers/IRateProvider.sol";
 import { BaseContractsDeployer } from "@balancer-labs/v3-solidity-utils/test/foundry/utils/BaseContractsDeployer.sol";
+import { IRateProvider } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/helpers/IRateProvider.sol";
+import { PoolRoleAccounts } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
+import { IVaultMock } from "@balancer-labs/v3-interfaces/contracts/test/IVaultMock.sol";
+import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
+
 import { CastingHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/CastingHelpers.sol";
 
-import { ReClammMath, a, b } from "../../../contracts/lib/ReClammMath.sol";
-import { ReClammPoolFactory } from "../../../contracts/ReClammPoolFactory.sol";
-import { ReClammPriceParams } from "../../../contracts/lib/ReClammPoolFactoryLib.sol";
+import { ReClammPoolParams, ReClammPriceParams } from "../../../contracts/interfaces/IReClammPool.sol";
 import { ReClammPoolFactoryMock } from "../../../contracts/test/ReClammPoolFactoryMock.sol";
-import { ReClammPoolParams } from "../../../contracts/interfaces/IReClammPool.sol";
+import { ReClammPoolFactory } from "../../../contracts/ReClammPoolFactory.sol";
+import { ReClammMath, a, b } from "../../../contracts/lib/ReClammMath.sol";
+
 /**
  * @dev This contract contains functions for deploying mocks and contracts related to the "ReClamm Pool". These
  * functions should have support for reusing artifacts from the hardhat compilation.
