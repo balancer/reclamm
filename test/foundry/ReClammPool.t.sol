@@ -1809,13 +1809,12 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function testVaultCalls() public {
-        IHooks extension = IHooks(IReClammPool(pool).getReClammPoolExtension());
+        // Call through pool - fallback delegates to extension; onlyVault still checks msg.sender
+        vm.expectRevert(abi.encodeWithSelector(IVaultErrors.SenderIsNotVault.selector, address(this)));
+        IHooks(pool).onAfterInitialize(new uint256[](2), 0, bytes(""));
 
         vm.expectRevert(abi.encodeWithSelector(IVaultErrors.SenderIsNotVault.selector, address(this)));
-        extension.onAfterInitialize(new uint256[](2), 0, bytes(""));
-
-        vm.expectRevert(abi.encodeWithSelector(IVaultErrors.SenderIsNotVault.selector, address(this)));
-        extension.onAfterAddLiquidity(
+        IHooks(pool).onAfterAddLiquidity(
             alice,
             pool,
             AddLiquidityKind.PROPORTIONAL,
@@ -1827,7 +1826,7 @@ contract ReClammPoolTest is BaseReClammTest {
         );
 
         vm.expectRevert(abi.encodeWithSelector(IVaultErrors.SenderIsNotVault.selector, address(this)));
-        extension.onAfterRemoveLiquidity(
+        IHooks(pool).onAfterRemoveLiquidity(
             alice,
             pool,
             RemoveLiquidityKind.PROPORTIONAL,
@@ -1840,22 +1839,25 @@ contract ReClammPoolTest is BaseReClammTest {
 
         PoolSwapParams memory beforeParams;
         vm.expectRevert(abi.encodeWithSelector(IVaultErrors.SenderIsNotVault.selector, address(this)));
-        extension.onBeforeSwap(beforeParams, pool);
+        IHooks(pool).onBeforeSwap(beforeParams, pool);
 
         AfterSwapParams memory afterParams;
         vm.expectRevert(abi.encodeWithSelector(IVaultErrors.SenderIsNotVault.selector, address(this)));
-        extension.onAfterSwap(afterParams);
+        IHooks(pool).onAfterSwap(afterParams);
     }
 
     function testHookCalls() public {
         pool = _createStandardPool("NoHook");
-        IHooks extension = IHooks(IReClammPool(pool).getReClammPoolExtension());
 
-        vm.expectRevert(abi.encodeWithSelector(ReClammCommon.NotImplemented.selector, address(this)));
-        extension.onAfterInitialize(new uint256[](2), 0, bytes(""));
+        // Call through pool with no hook contract - should revert NotImplemented
+        // Need to prank as vault to pass onlyVault, then hits onlyWithHookContract
+        vm.startPrank(address(vault));
 
-        vm.expectRevert(abi.encodeWithSelector(ReClammCommon.NotImplemented.selector, address(this)));
-        extension.onAfterAddLiquidity(
+        vm.expectRevert(ReClammCommon.NotImplemented.selector);
+        IHooks(pool).onAfterInitialize(new uint256[](2), 0, bytes(""));
+
+        vm.expectRevert(ReClammCommon.NotImplemented.selector);
+        IHooks(pool).onAfterAddLiquidity(
             alice,
             pool,
             AddLiquidityKind.PROPORTIONAL,
@@ -1866,8 +1868,8 @@ contract ReClammPoolTest is BaseReClammTest {
             bytes("")
         );
 
-        vm.expectRevert(abi.encodeWithSelector(ReClammCommon.NotImplemented.selector, address(this)));
-        extension.onAfterRemoveLiquidity(
+        vm.expectRevert(ReClammCommon.NotImplemented.selector);
+        IHooks(pool).onAfterRemoveLiquidity(
             alice,
             pool,
             RemoveLiquidityKind.PROPORTIONAL,
@@ -1879,15 +1881,17 @@ contract ReClammPoolTest is BaseReClammTest {
         );
 
         PoolSwapParams memory beforeParams;
-        vm.expectRevert(abi.encodeWithSelector(ReClammCommon.NotImplemented.selector, address(this)));
-        extension.onBeforeSwap(beforeParams, pool);
+        vm.expectRevert(ReClammCommon.NotImplemented.selector);
+        IHooks(pool).onBeforeSwap(beforeParams, pool);
 
         AfterSwapParams memory afterParams;
-        vm.expectRevert(abi.encodeWithSelector(ReClammCommon.NotImplemented.selector, address(this)));
-        extension.onAfterSwap(afterParams);
+        vm.expectRevert(ReClammCommon.NotImplemented.selector);
+        IHooks(pool).onAfterSwap(afterParams);
 
-        vm.expectRevert(abi.encodeWithSelector(ReClammCommon.NotImplemented.selector, address(this)));
-        extension.onComputeDynamicSwapFeePercentage(beforeParams, pool, 1e16);
+        vm.expectRevert(ReClammCommon.NotImplemented.selector);
+        IHooks(pool).onComputeDynamicSwapFeePercentage(beforeParams, pool, 1e16);
+
+        vm.stopPrank();
     }
 
     function testInitializationPrice() public {
