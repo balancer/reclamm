@@ -33,7 +33,7 @@
     "slither": "yarn compile --force && bash -c 'source slither/bin/activate && slither --compile-force-framework hardhat --ignore-compile . --config-file .slither.config.json'",
     "slither:triage": "yarn compile && bash -c 'source slither/bin/activate && slither --compile-force-framework hardhat --ignore-compile . --config-file .slither.config.json --triage-mode'"
   },
-  "packageManager": "yarn@4.0.0-rc.42",
+  "packageManager": "yarn@4.12.0",
   "dependencies": {
     "@balancer-labs/v3-interfaces": "workspace:*",
     "@balancer-labs/v3-vault": "workspace:*",

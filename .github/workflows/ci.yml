@@ -15,8 +15,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - name: Set up environment
         uses: ./.github/actions/setup
+      - name: Build monorepo
+        run: |
+          cd lib/balancer-v3-monorepo
+          yarn install
+          yarn build
       - name: Lint
         run: yarn lint
       - name: Build
@@ -30,8 +37,15 @@ jobs:
     needs: lint-and-build
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - name: Set up environment
         uses: ./.github/actions/setup
+      - name: Build monorepo
+        run: |
+          cd lib/balancer-v3-monorepo
+          yarn install
+          yarn build
       - name: Test
         run: yarn test:forge
 
@@ -40,7 +54,14 @@ jobs:
     needs: lint-and-build
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - name: Set up environment
         uses: ./.github/actions/setup
+      - name: Build monorepo
+        run: |
+          cd lib/balancer-v3-monorepo
+          yarn install
+          yarn build
       - name: Test
         run: yarn test:hardhat

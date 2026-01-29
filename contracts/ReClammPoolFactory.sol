@@ -73,10 +73,6 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
         uint256 centerednessMargin,
         bytes32 salt
     ) external returns (address pool) {
-        if (roleAccounts.poolCreator != address(0)) {
-            revert StandardPoolWithCreator();
-        }
-
         ReClammPoolLib.validateTokenAndPriceConfig(tokens, priceParams);
 
         bytes32 finalSalt = _computeFinalSalt(salt);

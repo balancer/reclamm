@@ -5,12 +5,12 @@ pragma solidity ^0.8.24;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
-import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
+import { Rounding, PoolRoleAccounts } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { InputHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/InputHelpers.sol";
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
+import { BaseMedusaTest } from "@balancer-labs/v3-vault/test/foundry/utils/BaseMedusaTest.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
-import "@balancer-labs/v3-vault/test/foundry/utils/BaseMedusaTest.sol";
 
 import { IReClammPool, ReClammPriceParams } from "../../contracts/interfaces/IReClammPool.sol";
 import { ReClammPoolFactory } from "../../contracts/ReClammPoolFactory.sol";
@@ -32,13 +32,13 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
 
     uint256 internal invariantProportion = FixedPoint.ONE; // 100%
 
-    uint256 internal immutable initInvariant;
+    uint256 internal immutable INITIAL_INVARIANT;
 
     constructor() BaseMedusaTest() {
-        initInvariant = computeInvariant();
+        INITIAL_INVARIANT = computeInvariant();
         vault.manualUnsafeSetStaticSwapFeePercentage(address(pool), 0);
 
-        emit Debug("prevInvariant", initInvariant);
+        emit Debug("prevInvariant", INITIAL_INVARIANT);
     }
 
     function createPool(IERC20[] memory tokens, uint256[] memory initialBalances) internal override returns (address) {
@@ -99,16 +99,17 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
         initialBalances[1] = DEFAULT_INITIAL_POOL_BALANCE;
     }
 
+    // Deliberately snake_case; we want Medusa to stop if this invariant is violated.
     function optimize_currentInvariant() public returns (int256) {
         uint256 currentInvariant = Math.sqrt(computeInvariant() * FixedPoint.ONE);
-        uint256 initialInvariant = Math.sqrt(initInvariant * FixedPoint.ONE).mulUp(invariantProportion);
+        uint256 initialInvariant = Math.sqrt(INITIAL_INVARIANT * FixedPoint.ONE).mulUp(invariantProportion);
 
         // Checking invariant property here, and not in a proper "property_" function, because Medusa reverts silently.
         if (currentInvariant < initialInvariant) {
             revert();
         }
 
-        emit Debug("initInvariant   ", initialInvariant);
+        emit Debug("INITIAL_INVARIANT   ", initialInvariant);
         emit Debug("currentInvariant", currentInvariant);
 
         return -int256(currentInvariant);
