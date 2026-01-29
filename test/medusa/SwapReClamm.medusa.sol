@@ -99,7 +99,8 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
         initialBalances[1] = DEFAULT_INITIAL_POOL_BALANCE;
     }
 
-    function optimizeCurrentInvariant() public returns (int256) {
+    // Deliberately snake_case; we want Medusa to stop if this invariant is violated.
+    function optimize_currentInvariant() public returns (int256) {
         uint256 currentInvariant = Math.sqrt(computeInvariant() * FixedPoint.ONE);
         uint256 initialInvariant = Math.sqrt(INITIAL_INVARIANT * FixedPoint.ONE).mulUp(invariantProportion);
 
