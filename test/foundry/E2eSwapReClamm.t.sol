@@ -22,8 +22,8 @@ contract E2eSwapReClammTest is E2eSwapTest, E2eSwapFuzzPoolParamsHelper {
 
     function setUp() public override {
         setDefaultAccountBalance(type(uint128).max);
+
         super.setUp();
-        // Remove the old variable assignments - they're now in setUpVariables
     }
 
     function setUpVariables(E2eTestState memory state) internal view override returns (E2eTestState memory) {
