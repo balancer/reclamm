@@ -14,7 +14,6 @@ import { PoolHooksMock } from "@balancer-labs/v3-vault/contracts/test/PoolHooksM
 import { ReClammPoolImmutableData } from "../../contracts/interfaces/IReClammPoolExtension.sol";
 import { NonOverlappingHookMock } from "../../contracts/test/NonOverlappingHookMock.sol";
 import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
-import { ReClammCommon } from "../../contracts/ReClammCommon.sol";
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
 
@@ -51,7 +50,7 @@ contract ReClammHookTest is BaseReClammTest {
         PoolSwapParams memory params;
 
         // Try to call an unsupported hook.
-        vm.expectRevert(ReClammCommon.NotImplemented.selector);
+        vm.expectRevert(IReClammPool.NotImplemented.selector);
         vm.prank(address(vault));
         IHooks(newPool).onBeforeSwap(params, address(newPool));
     }

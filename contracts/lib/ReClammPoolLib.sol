@@ -5,8 +5,7 @@ pragma solidity ^0.8.24;
 import { TokenConfig, TokenType } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultErrors.sol";
 
-import { ReClammPriceParams } from "../interfaces/IReClammPool.sol";
-import { IReClammErrors } from "../interfaces/IReClammErrors.sol";
+import { ReClammPriceParams, IReClammPool } from "../interfaces/IReClammPool.sol";
 
 library ReClammPoolLib {
     function validateTokenAndPriceConfig(
@@ -40,7 +39,7 @@ library ReClammPoolLib {
             // If any of these prices were 0, pool initialization would revert with a numerical error.
             // For good measure, we also ensure the target is within the range. The immutable variables must be
             // initialized in both the main and extension contracts, but validation is only done here.
-            revert IReClammErrors.InvalidInitialPrice();
+            revert IReClammPool.InvalidInitialPrice();
         }
     }
 }

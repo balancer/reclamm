@@ -29,9 +29,8 @@ import { PoolInfo } from "@balancer-labs/v3-pool-utils/contracts/PoolInfo.sol";
 import { ReClammPoolParams, ReClammPriceParams } from "./interfaces/IReClammPool.sol";
 import { IReClammPoolExtension } from "./interfaces/IReClammPoolExtension.sol";
 import { PriceRatioState, ReClammMath, a, b } from "./lib/ReClammMath.sol";
+import { IReClammPool } from "./interfaces/IReClammPool.sol";
 import { IReClammPoolMain } from "./interfaces/IReClammPoolMain.sol";
-import { IReClammEvents } from "./interfaces/IReClammEvents.sol";
-import { IReClammErrors } from "./interfaces/IReClammErrors.sol";
 import { ReClammPoolLib } from "./lib/ReClammPoolLib.sol";
 import { ReClammCommon } from "./ReClammCommon.sol";
 
@@ -43,8 +42,6 @@ import { ReClammCommon } from "./ReClammCommon.sol";
  */
 contract ReClammPool is
     IReClammPoolMain,
-    IReClammEvents,
-    IReClammErrors,
     ReClammCommon, // MUST be before other base contracts with storage, for layout to match the Proxy implementation
     BalancerPoolToken,
     PoolInfo,
@@ -60,9 +57,6 @@ contract ReClammPool is
     // Store an immutable reference to the proxy implementation contract. Functions not defined here will be forwarded
     // to the extension via delegatecall.
     IReClammPoolExtension private immutable _RECLAMM_EXTENSION;
-
-    /// @notice The proxy implementation must point back to the main pool.
-    error WrongReClammPoolExtensionDeployment();
 
     // Protect functions that would otherwise be vulnerable to manipulation through transient liquidity.
     modifier onlyWhenVaultIsLocked() {
@@ -105,7 +99,7 @@ contract ReClammPool is
         ReClammPoolLib.validatePriceConfig(priceParams);
 
         if (address(reclammPoolExtension.pool()) != address(this)) {
-            revert WrongReClammPoolExtensionDeployment();
+            revert IReClammPool.WrongReClammPoolExtensionDeployment();
         }
 
         _RECLAMM_EXTENSION = reclammPoolExtension;
@@ -159,7 +153,7 @@ contract ReClammPool is
     /// @inheritdoc IBasePool
     function computeBalance(uint256[] memory, uint256, uint256) external pure returns (uint256) {
         // The pool does not allow unbalanced adds and removes, so this function does not need to be implemented.
-        revert NotImplemented();
+        revert IReClammPool.NotImplemented();
     }
 
     /// @inheritdoc IBasePool
@@ -198,7 +192,7 @@ contract ReClammPool is
 
     /// @inheritdoc IRateProvider
     function getRate() public pure override returns (uint256) {
-        revert ReClammPoolBptRateUnsupported();
+        revert IReClammPool.ReClammPoolBptRateUnsupported();
     }
 
     /*******************************************************************************
@@ -539,7 +533,7 @@ contract ReClammPool is
 
         // We've already validated that end time >= start time at this point.
         if (updateDuration < _MIN_PRICE_RATIO_UPDATE_DURATION) {
-            revert PriceRatioUpdateDurationTooShort();
+            revert IReClammPool.PriceRatioUpdateDurationTooShort();
         }
 
         _updateVirtualBalances();
@@ -558,7 +552,7 @@ contract ReClammPool is
         }
 
         if (priceRatioDelta < _MIN_PRICE_RATIO_DELTA) {
-            revert PriceRatioDeltaBelowMin(priceRatioDelta);
+            revert IReClammPool.PriceRatioDeltaBelowMin(priceRatioDelta);
         }
 
         // Compute the rate of change, as a multiple of the present value per day. For example, if the initial price
@@ -575,7 +569,7 @@ contract ReClammPool is
             : FixedPoint.divUp(startPriceRatio * 1 days, endPriceRatio * updateDuration);
 
         if (actualDailyPriceRatioUpdateRate > _MAX_DAILY_PRICE_RATIO_UPDATE_RATE) {
-            revert PriceRatioUpdateTooFast();
+            revert IReClammPool.PriceRatioUpdateTooFast();
         }
     }
 
@@ -585,7 +579,7 @@ contract ReClammPool is
 
         PriceRatioState memory priceRatioState = _priceRatioState;
         if (priceRatioState.priceRatioUpdateEndTime < block.timestamp) {
-            revert PriceRatioNotUpdating();
+            revert IReClammPool.PriceRatioNotUpdating();
         }
 
         uint256 currentPriceRatio = _computeCurrentPriceRatio();
@@ -662,7 +656,7 @@ contract ReClammPool is
         _lastVirtualBalanceA = virtualBalanceA.toUint128();
         _lastVirtualBalanceB = virtualBalanceB.toUint128();
 
-        emit VirtualBalancesUpdated(virtualBalanceA, virtualBalanceB);
+        emit IReClammPool.VirtualBalancesUpdated(virtualBalanceA, virtualBalanceB);
 
         _vault.emitAuxiliaryEvent("VirtualBalancesUpdated", abi.encode(virtualBalanceA, virtualBalanceB));
     }
@@ -673,7 +667,7 @@ contract ReClammPool is
         uint256 priceRatioUpdateEndTime
     ) internal returns (uint256 startPriceRatio) {
         if (priceRatioUpdateStartTime > priceRatioUpdateEndTime || priceRatioUpdateStartTime < block.timestamp) {
-            revert InvalidStartTime();
+            revert IReClammPool.InvalidStartTime();
         }
 
         PriceRatioState memory priceRatioState = _priceRatioState;
@@ -696,7 +690,7 @@ contract ReClammPool is
 
         _priceRatioState = priceRatioState;
 
-        emit PriceRatioStateUpdated(
+        emit IReClammPool.PriceRatioStateUpdated(
             startFourthRootPriceRatio,
             endFourthRootPriceRatio,
             priceRatioUpdateStartTime,
@@ -728,17 +722,17 @@ contract ReClammPool is
 
     function _setDailyPriceShiftExponent(uint256 dailyPriceShiftExponent) internal returns (uint256) {
         if (dailyPriceShiftExponent > _MAX_DAILY_PRICE_SHIFT_EXPONENT) {
-            revert DailyPriceShiftExponentTooHigh();
+            revert IReClammPool.DailyPriceShiftExponentTooHigh();
         }
 
         uint256 dailyPriceShiftBase = dailyPriceShiftExponent.toDailyPriceShiftBase();
         // There might be precision loss when adjusting to the internal representation, so we need to
-        // convert back to the external representation to emit the event.
+        // convert back to the external representation to emit IReClammPool.the event.
         dailyPriceShiftExponent = dailyPriceShiftBase.toDailyPriceShiftExponent();
 
         _dailyPriceShiftBase = dailyPriceShiftBase.toUint128();
 
-        emit DailyPriceShiftExponentUpdated(dailyPriceShiftExponent, dailyPriceShiftBase);
+        emit IReClammPool.DailyPriceShiftExponentUpdated(dailyPriceShiftExponent, dailyPriceShiftBase);
 
         _vault.emitAuxiliaryEvent(
             "DailyPriceShiftExponentUpdated",
@@ -765,13 +759,13 @@ contract ReClammPool is
      */
     function _setCenterednessMargin(uint256 centerednessMargin) internal {
         if (centerednessMargin > _MAX_CENTEREDNESS_MARGIN) {
-            revert InvalidCenterednessMargin();
+            revert IReClammPool.InvalidCenterednessMargin();
         }
 
         // Straight cast is safe since the margin is validated above (and tests ensure the margins fit in uint64).
         _centerednessMargin = uint64(centerednessMargin);
 
-        emit CenterednessMarginUpdated(centerednessMargin);
+        emit IReClammPool.CenterednessMarginUpdated(centerednessMargin);
 
         _vault.emitAuxiliaryEvent("CenterednessMarginUpdated", abi.encode(centerednessMargin));
     }
@@ -793,7 +787,7 @@ contract ReClammPool is
         uint32 lastTimestamp32 = block.timestamp.toUint32();
         _lastTimestamp = lastTimestamp32;
 
-        emit LastTimestampUpdated(lastTimestamp32);
+        emit IReClammPool.LastTimestampUpdated(lastTimestamp32);
 
         _vault.emitAuxiliaryEvent("LastTimestampUpdated", abi.encode(lastTimestamp32));
     }
@@ -810,7 +804,7 @@ contract ReClammPool is
         uint256 ratioUpperBound = theoreticalBalanceRatio.mulDown(FixedPoint.ONE + _BALANCE_RATIO_AND_PRICE_TOLERANCE);
 
         if (realBalanceRatio < ratioLowerBound || realBalanceRatio > ratioUpperBound) {
-            revert BalanceRatioExceedsTolerance();
+            revert IReClammPool.BalanceRatioExceedsTolerance();
         }
     }
 
@@ -852,7 +846,7 @@ contract ReClammPool is
         uint256 priceUpperBound = initializationPrice.mulDown(FixedPoint.ONE + _BALANCE_RATIO_AND_PRICE_TOLERANCE);
 
         if (currentPrice < priceLowerBound || currentPrice > priceUpperBound) {
-            revert WrongInitializationPrices();
+            revert IReClammPool.WrongInitializationPrices();
         }
     }
 
@@ -913,19 +907,19 @@ contract ReClammPool is
 
     function _ensurePoolWithinTargetRange() internal view {
         if (_isPoolWithinTargetRange() == false) {
-            revert PoolOutsideTargetRange();
+            revert IReClammPool.PoolOutsideTargetRange();
         }
     }
 
     function _ensureVaultIsLocked() internal view {
         if (_vault.isUnlocked()) {
-            revert VaultIsNotLocked();
+            revert IReClammPool.VaultIsNotLocked();
         }
     }
 
     function _ensureVaultIsInitialized() internal view {
         if (_vault.isPoolInitialized(address(this)) == false) {
-            revert PoolNotInitialized();
+            revert IReClammPool.PoolNotInitialized();
         }
     }
 
