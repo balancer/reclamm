@@ -17,9 +17,6 @@ import { ReClammMath } from "./lib/ReClammMath.sol";
 abstract contract ReClammCommon is ReClammStorage {
     using SafeCast for *;
 
-    /// @notice The function is not implemented.
-    error NotImplemented();
-
     /*******************************************************************************
                                Shared Internal Functions
     *******************************************************************************/

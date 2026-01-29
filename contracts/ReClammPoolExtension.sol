@@ -10,6 +10,7 @@ import "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { VaultGuard } from "@balancer-labs/v3-vault/contracts/VaultGuard.sol";
 
+import { IReClammPool } from "./interfaces/IReClammPool.sol";
 import {
     IReClammPoolExtension,
     ReClammPoolDynamicData,
@@ -25,12 +26,6 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
     using FixedPoint for uint256;
 
     IReClammPoolMain private immutable _POOL;
-
-    /**
-     * @notice The `ReClammPoolExtension` contract was called by an account directly.
-     * @dev It can only be called by a ReClammPool via delegate call.
-     */
-    error NotPoolDelegateCall();
 
     /// @dev Functions with this modifier can only be delegate-called by the Vault.
     modifier onlyPoolDelegateCall() {
@@ -473,7 +468,7 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
     function _ensureHookContract() internal view {
         if (_HOOK_CONTRACT == address(0)) {
             // Should not happen. Hook flags would not go beyond ReClamm-required ones without a contract.
-            revert NotImplemented();
+            revert IReClammPool.NotImplemented();
         }
     }
 
@@ -481,7 +476,7 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
         // If this is a delegate call from the Pool, the address of the contract should be the Pool's,
         // not the extension.
         if (address(this) != address(_POOL)) {
-            revert NotPoolDelegateCall();
+            revert IReClammPool.NotPoolDelegateCall();
         }
     }
 
@@ -516,6 +511,6 @@ contract ReClammPoolExtension is IReClammPoolExtension, ReClammCommon, VaultGuar
             revert IVaultErrors.CannotReceiveEth();
         }
 
-        revert NotImplemented();
+        revert IReClammPool.NotImplemented();
     }
 }
