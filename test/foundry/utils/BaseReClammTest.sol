@@ -120,7 +120,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
 
         PoolRoleAccounts memory roleAccounts;
 
-        roleAccounts = PoolRoleAccounts({ pauseManager: address(0), swapFeeManager: admin, poolCreator: address(0) });
+        roleAccounts = PoolRoleAccounts({ pauseManager: address(0), swapFeeManager: admin, poolCreator: alice });
 
         ReClammPriceParams memory priceParams = ReClammPriceParams({
             initialMinPrice: _initialMinPrice,

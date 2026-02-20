@@ -1597,6 +1597,12 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(finalVirtualBalanceB, currentVirtualBalanceB, "Final virtual balance B changed");
     }
 
+    function testPoolCreator() public view {
+        PoolRoleAccounts memory roleAccounts = vault.getPoolRoleAccounts(pool);
+
+        assertEq(roleAccounts.poolCreator, alice, "Wrong pool creator");
+    }
+
     function _createStandardPool(
         bool tokenAPriceIncludesRate,
         bool tokenBPriceIncludesRate,
