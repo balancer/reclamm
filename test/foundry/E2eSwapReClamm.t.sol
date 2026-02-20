@@ -2,44 +2,35 @@
 
 pragma solidity ^0.8.24;
 
-import "forge-std/Test.sol";
-import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
-import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import { ERC20TestToken } from "@balancer-labs/v3-solidity-utils/contracts/test/ERC20TestToken.sol";
+import { E2eSwapTest, E2eTestState, SwapLimits } from "@balancer-labs/v3-vault/test/foundry/E2eSwap.t.sol";
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
-import { Rounding } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
-import { PoolConfigLib } from "@balancer-labs/v3-vault/contracts/lib/PoolConfigLib.sol";
-import { E2eSwapTest } from "@balancer-labs/v3-vault/test/foundry/E2eSwap.t.sol";
 import "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
-import { ReClammMath, a, b } from "../../contracts/lib/ReClammMath.sol";
 import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
 import { E2eSwapFuzzPoolParamsHelper } from "./utils/E2eSwapFuzzPoolParamsHelper.sol";
 
-contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest {
+contract E2eSwapReClammTest is E2eSwapTest, E2eSwapFuzzPoolParamsHelper {
     using ArrayHelpers for *;
     using FixedPoint for uint256;
 
-    // Indicates whether to use fuzzed pool parameters. If false, standard calculateMinAndMaxSwapAmounts is used,
-    // as not all tests inside E2ESwap utilize fuzzPoolParams.
+    // Indicates whether to use fuzzed pool parameters.
     bool isFuzzPoolParams;
 
     function setUp() public override {
         setDefaultAccountBalance(type(uint128).max);
         super.setUp();
-
-        exactInOutDecimalsErrorMultiplier = 2e9;
-        amountInExactInOutError = 9e12;
     }
 
-    function setUpVariables() internal override {
-        sender = lp;
-        poolCreator = lp;
+    function setUpVariables(E2eTestState memory state) internal view override returns (E2eTestState memory) {
+        state.sender = lp;
+        state.poolCreator = lp;
+        state.exactInOutDecimalsErrorMultiplier = 2e9;
+        state.amountInExactInOutError = 9e12;
+        return state;
     }
 
     function createPoolFactory() internal override returns (address) {
@@ -53,9 +44,10 @@ contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest {
         return createReClammPool(tokens, label, vault, lp);
     }
 
-    function fuzzPoolParams(
-        uint256[POOL_SPECIFIC_PARAMS_SIZE] memory params
-    ) internal override returns (bool overrideSwapLimits) {
+    function fuzzPoolState(
+        uint256[POOL_SPECIFIC_PARAMS_SIZE] memory params,
+        E2eTestState memory state
+    ) internal override returns (E2eTestState memory) {
         address[] memory tokens = new address[](2);
         tokens[0] = address(tokenA);
         tokens[1] = address(tokenB);
@@ -74,20 +66,23 @@ contract E2eSwapReClammTest is E2eSwapFuzzPoolParamsHelper, E2eSwapTest {
         isFuzzPoolParams = true;
 
         setPoolBalances(poolInitAmountTokenA, poolInitAmountTokenB);
-        calculateMinAndMaxSwapAmounts();
 
-        return true;
+        // Update swap limits in state
+        SwapLimits memory limits = computeSwapLimits();
+        state.swapLimits = limits;
+
+        return state;
     }
 
-    function calculateMinAndMaxSwapAmounts() internal override {
+    function computeSwapLimits() internal override returns (SwapLimits memory swapLimits) {
         if (isFuzzPoolParams == false) {
-            super.calculateMinAndMaxSwapAmounts();
+            return super.computeSwapLimits();
         } else {
             (
-                minSwapAmountTokenA,
-                minSwapAmountTokenB,
-                maxSwapAmountTokenA,
-                maxSwapAmountTokenB
+                swapLimits.minTokenA,
+                swapLimits.minTokenB,
+                swapLimits.maxTokenA,
+                swapLimits.maxTokenB
             ) = _calculateMinAndMaxSwapAmounts(
                 vault,
                 pool,

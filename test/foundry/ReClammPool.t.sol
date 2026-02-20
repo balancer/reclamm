@@ -2,12 +2,8 @@
 
 pragma solidity ^0.8.24;
 
-import "forge-std/Test.sol";
-
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { IAuthentication } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/helpers/IAuthentication.sol";
 import { IVaultEvents } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultEvents.sol";
@@ -1464,7 +1460,7 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function testPriceRangeShiftStop__Fuzz(uint256 margin, uint256 priceShiftExponent, uint256 longDelay) public {
-        uint256 SHORT_DELAY = 5 hours;
+        uint256 shortDelay = 5 hours;
 
         margin = bound(margin, 1e16, _MAX_CENTEREDNESS_MARGIN);
         priceShiftExponent = bound(priceShiftExponent, 1e16, _MAX_DAILY_PRICE_SHIFT_EXPONENT);
@@ -1497,7 +1493,7 @@ contract ReClammPoolTest is BaseReClammTest {
         assertFalse(ReClammPool(pool).isPoolWithinTargetRange(), "Pool is still within target range after swap");
 
         // Wait some time, verify that the price is moving.
-        skip(SHORT_DELAY);
+        skip(shortDelay);
 
         (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) = ReClammPool(pool)
             .computeCurrentVirtualBalances();
