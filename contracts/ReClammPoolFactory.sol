@@ -20,19 +20,24 @@ import { Version } from "@balancer-labs/v3-solidity-utils/contracts/helpers/Vers
 import { ReClammPoolFactoryLib, ReClammPriceParams } from "./lib/ReClammPoolFactoryLib.sol";
 import { ReClammPoolParams } from "./interfaces/IReClammPool.sol";
 import { ReClammPool } from "./ReClammPool.sol";
+import { ReClammPoolHelper } from "./ReClammPoolHelper.sol";
 
 /// @notice ReClammPool factory.
 contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
     using SafeCast for uint256;
 
+    ReClammPoolHelper public immutable reClammPoolHelper;
+
     string private _poolVersion;
 
     constructor(
         IVault vault,
+        ReClammPoolHelper helper,
         uint32 pauseWindowDuration,
         string memory factoryVersion,
         string memory poolVersion
     ) BasePoolFactory(vault, pauseWindowDuration, type(ReClammPool).creationCode) Version(factoryVersion) {
+        reClammPoolHelper = helper;
         _poolVersion = poolVersion;
     }
 
@@ -84,7 +89,8 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
                     dailyPriceShiftExponent: dailyPriceShiftExponent,
                     centerednessMargin: centerednessMargin.toUint64()
                 }),
-                getVault()
+                getVault(),
+                reClammPoolHelper
             ),
             salt
         );
