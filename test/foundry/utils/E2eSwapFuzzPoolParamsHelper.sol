@@ -2,8 +2,6 @@
 
 pragma solidity ^0.8.24;
 
-import "forge-std/Test.sol";
-
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
@@ -26,7 +24,7 @@ import { ReClammPool } from "../../../contracts/ReClammPool.sol";
 import { ReClammPoolMock } from "../../../contracts/test/ReClammPoolMock.sol";
 import { ReClammMath, a, b } from "../../../contracts/lib/ReClammMath.sol";
 
-contract E2eSwapFuzzPoolParamsHelper is Test, ReClammPoolContractsDeployer {
+contract E2eSwapFuzzPoolParamsHelper is ReClammPoolContractsDeployer {
     using ArrayHelpers for *;
     using CastingHelpers for *;
     using FixedPoint for uint256;

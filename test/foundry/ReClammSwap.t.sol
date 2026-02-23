@@ -2,23 +2,17 @@
 
 pragma solidity ^0.8.24;
 
-import "forge-std/Test.sol";
-
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 
 import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
 import { ReClammMathMock } from "../../contracts/test/ReClammMathMock.sol";
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
-import { a, b } from "../../contracts/lib/ReClammMath.sol";
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
 
 contract ReClammSwapTest is BaseReClammTest {
     using FixedPoint for *;
     using ArrayHelpers for *;
-
-    uint256 _MIN_PRICE_RATE_BOUND = 1.1e18;
-    uint256 _MAX_PRICE_RATE_BOUND = 3e18;
 
     ReClammMathMock mathMock = new ReClammMathMock();
 

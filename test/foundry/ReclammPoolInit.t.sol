@@ -2,15 +2,9 @@
 
 pragma solidity ^0.8.24;
 
-import "forge-std/Test.sol";
-
-import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
-import { IAuthentication } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/helpers/IAuthentication.sol";
-import { IVaultEvents } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultEvents.sol";
 import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultErrors.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import {
@@ -50,10 +44,11 @@ contract ReClammPoolInitTest is BaseReClammTest {
     function setUp() public override {
         super.setUp();
 
-        // This salt produces the address 0xfFFFFaE77e11D7E60F2f0955bd4b21c78F168Ce3.
         // In some tests we want to reproduce 'real' scenarios involving ETHUSD prices. To simplify things and
         // think in those terms, we need the USD token to be the second in the registration order.
-        usdc6Decimals = new ERC20TestToken{ salt: bytes32(uint256(15420225402638)) }("USDC-6", "USDC-6", 6);
+        usdc6Decimals = ERC20TestToken(address(0xfFFFFffFFFFFFfFaFAFaFaFaFAfAfafAfaFaFaFa));
+        vm.etch(address(usdc6Decimals), address(new ERC20TestToken("USDC-6", "USDC-6", 6)).code);
+
         usdc6Decimals.mint(lp, DEFAULT_BALANCE);
         vm.startPrank(lp);
         usdc6Decimals.approve(address(permit2), type(uint256).max);
