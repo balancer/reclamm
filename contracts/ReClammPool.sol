@@ -312,11 +312,16 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         InitializeLocals memory locals;
         (locals.rateA, locals.rateB) = _vault.getTokenRates(address(this));
 
-        (
-            locals.minPriceScaled18,
-            locals.maxPriceScaled18,
-            locals.targetPriceScaled18
-        ) = _getPriceSettingsAdjustedByRates(locals.rateA, locals.rateB);
+        (locals.minPriceScaled18, locals.maxPriceScaled18, locals.targetPriceScaled18) = ReClammHelperLib
+            .getPriceSettingsAdjustedByRates(
+                _TOKEN_A_PRICE_INCLUDES_RATE,
+                _TOKEN_B_PRICE_INCLUDES_RATE,
+                _INITIAL_MIN_PRICE,
+                _INITIAL_MAX_PRICE,
+                _INITIAL_TARGET_PRICE,
+                locals.rateA,
+                locals.rateB
+            );
 
         (
             locals.theoreticalBalances,
@@ -970,25 +975,5 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     function _computeMaxPrice(uint256 currentInvariant, uint256 virtualBalanceA) internal pure returns (uint256) {
         return currentInvariant.divDown(virtualBalanceA.mulDown(virtualBalanceA));
-    }
-
-    function _getPriceSettingsAdjustedByRates(
-        uint256 rateA,
-        uint256 rateB
-    ) internal view returns (uint256 minPrice, uint256 maxPrice, uint256 targetPrice) {
-        rateA = _TOKEN_A_PRICE_INCLUDES_RATE ? FixedPoint.ONE : rateA;
-        rateB = _TOKEN_B_PRICE_INCLUDES_RATE ? FixedPoint.ONE : rateB;
-
-        // Example: a pool waUSDC/waWETH, where the price is given in terms of the underlying tokens.
-        // Consider a USDC/ETH pool where the price is 2000. Token A is ETH (waWETH); token B is USDC (waUSDC).
-        // If waUSDC has a rate of 2 (1 waUSDC = 2 USDC), the price of waUSDC/ETH is 1000, which is
-        // obtained by dividing the price by the rate of waUSDC, which is token B.
-        // Now, if the rate of waWETH is 1.5 (1 waWETH = 1.5 ETH), waUSDC/waWETH = 1500, which is
-        // obtained by multiplying the price by the rate of waWETH, which is token A.
-        // On the other hand, spot prices are computed using live balances which always contain the rates, so
-        // we apply the inverse here (i.e. multiply by rate B, divide by rate A) to undo the effect.
-        minPrice = (_INITIAL_MIN_PRICE * rateB) / rateA;
-        maxPrice = (_INITIAL_MAX_PRICE * rateB) / rateA;
-        targetPrice = (_INITIAL_TARGET_PRICE * rateB) / rateA;
     }
 }

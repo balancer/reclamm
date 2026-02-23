@@ -80,11 +80,18 @@ contract ReClammPoolHelper {
         uint256 rateA,
         uint256 rateB
     ) internal view returns (uint256) {
-        (
-            uint256 minPriceScaled18,
-            uint256 maxPriceScaled18,
-            uint256 targetPriceScaled18
-        ) = _getPriceSettingsAdjustedByRates(pool, rateA, rateB);
+        ReClammPoolImmutableData memory data = pool.getReClammPoolImmutableData();
+
+        (uint256 minPriceScaled18, uint256 maxPriceScaled18, uint256 targetPriceScaled18) = ReClammHelperLib
+            .getPriceSettingsAdjustedByRates(
+                data.tokenAPriceIncludesRate,
+                data.tokenBPriceIncludesRate,
+                data.initialMinPrice,
+                data.initialMaxPrice,
+                data.initialTargetPrice,
+                rateA,
+                rateB
+            );
 
         (uint256[] memory theoreticalBalancesScaled18, , , ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
             minPriceScaled18,
@@ -93,27 +100,5 @@ contract ReClammPoolHelper {
         );
 
         return theoreticalBalancesScaled18[b].divDown(theoreticalBalancesScaled18[a]);
-    }
-
-    function _getPriceSettingsAdjustedByRates(
-        IReClammPool pool,
-        uint256 rateA,
-        uint256 rateB
-    ) internal view returns (uint256 minPrice, uint256 maxPrice, uint256 targetPrice) {
-        ReClammPoolImmutableData memory data = pool.getReClammPoolImmutableData();
-        rateA = data.tokenAPriceIncludesRate ? FixedPoint.ONE : rateA;
-        rateB = data.tokenBPriceIncludesRate ? FixedPoint.ONE : rateB;
-
-        // Example: a pool waUSDC/waWETH, where the price is given in terms of the underlying tokens.
-        // Consider a USDC/ETH pool where the price is 2000. Token A is ETH (waWETH); token B is USDC (waUSDC).
-        // If waUSDC has a rate of 2 (1 waUSDC = 2 USDC), the price of waUSDC/ETH is 1000, which is
-        // obtained by dividing the price by the rate of waUSDC, which is token B.
-        // Now, if the rate of waWETH is 1.5 (1 waWETH = 1.5 ETH), waUSDC/waWETH = 1500, which is
-        // obtained by multiplying the price by the rate of waWETH, which is token A.
-        // On the other hand, spot prices are computed using live balances which always contain the rates, so
-        // we apply the inverse here (i.e. multiply by rate B, divide by rate A) to undo the effect.
-        minPrice = (data.initialMinPrice * rateB) / rateA;
-        maxPrice = (data.initialMaxPrice * rateB) / rateA;
-        targetPrice = (data.initialTargetPrice * rateB) / rateA;
     }
 }
