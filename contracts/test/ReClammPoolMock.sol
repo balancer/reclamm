@@ -7,15 +7,18 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
 
-import { ReClammPoolParams } from "../interfaces/IReClammPool.sol";
+import { ReClammPoolParams, IReClammPool } from "../interfaces/IReClammPool.sol";
+import { ReClammHelperLib } from "../lib/ReClammHelperLib.sol";
 import { ReClammMath, a } from "../lib/ReClammMath.sol";
 import { ReClammPool } from "../ReClammPool.sol";
+import { ReClammPoolHelper } from "../ReClammPoolHelper.sol";
 
 contract ReClammPoolMock is ReClammPool {
     using SafeCast for uint256;
     using FixedPoint for uint256;
+    using ReClammHelperLib for IVault;
 
-    constructor(ReClammPoolParams memory params, IVault vault) ReClammPool(params, vault) {
+    constructor(ReClammPoolParams memory params, IVault vault, ReClammPoolHelper helper) ReClammPool(params, vault, helper) {
         // solhint-disable-previous-line no-empty-blocks
     }
 
@@ -51,8 +54,8 @@ contract ReClammPoolMock is ReClammPool {
     }
 
     function computeInitialBalanceRatio() external view returns (uint256) {
-        (uint256 rateA, uint256 rateB) = _getTokenRates();
-        return _computeInitialBalanceRatioScaled18(rateA, rateB);
+        (uint256 rateA, uint256 rateB) = _vault.getTokenRates(address(this));
+        return _helper.computeInitialBalanceRatioScaled18(IReClammPool(address(this)), rateA, rateB);
     }
 
     function computeCurrentVirtualBalances(
