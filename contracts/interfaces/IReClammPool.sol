@@ -54,7 +54,6 @@ struct ReClammPriceParams {
 }
 
 /// @notice Full interface for the ReClammPool, encompassing main and extension functions.
-// wake-disable-next-line unused-contract
 interface IReClammPool is IReClammPoolMain, IReClammPoolExtension {
     /**
      * @notice The Price Ratio State was updated.

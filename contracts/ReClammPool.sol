@@ -292,10 +292,8 @@ contract ReClammPool is
         );
 
         _setLastVirtualBalances(virtualBalanceA, virtualBalanceB);
-        // wake-disable-next-line unchecked-return-value
         _startPriceRatioUpdate(locals.priceRatio, block.timestamp, block.timestamp);
         // Set dynamic parameters.
-        // wake-disable-next-line unchecked-return-value
         _setDailyPriceShiftExponent(_INITIAL_DAILY_PRICE_SHIFT_EXPONENT);
         _setCenterednessMargin(_INITIAL_CENTEREDNESS_MARGIN);
         _updateTimestamp();
@@ -474,7 +472,6 @@ contract ReClammPool is
 
         uint256 currentPriceRatio = _computeCurrentPriceRatio();
 
-        // wake-disable-next-line unchecked-return-value
         _startPriceRatioUpdate(currentPriceRatio, block.timestamp, block.timestamp);
     }
 
