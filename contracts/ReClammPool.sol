@@ -4,11 +4,9 @@
 pragma solidity ^0.8.24;
 
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { ISwapFeePercentageBounds } from "@balancer-labs/v3-interfaces/contracts/vault/ISwapFeePercentageBounds.sol";
 import "@balancer-labs/v3-interfaces/contracts/vault/IUnbalancedLiquidityInvariantRatioBounds.sol";
-import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultErrors.sol";
 import { IBasePool } from "@balancer-labs/v3-interfaces/contracts/vault/IBasePool.sol";
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
 import { IHooks } from "@balancer-labs/v3-interfaces/contracts/vault/IHooks.sol";
@@ -24,7 +22,6 @@ import { PoolInfo } from "@balancer-labs/v3-pool-utils/contracts/PoolInfo.sol";
 import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
 
 import { PriceRatioState, ReClammMath, a, b } from "./lib/ReClammMath.sol";
-import { ReClammHelperLib } from "./lib/ReClammHelperLib.sol";
 import {
     ReClammPoolParams,
     ReClammPoolDynamicData,
@@ -38,7 +35,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     using ScalingHelpers for uint256;
     using SafeCast for *;
     using ReClammMath for *;
-    using ReClammHelperLib for IVault;
 
     // Fees are 18-decimal, floating point values, which will be stored in the Vault using 24 bits.
     // This means they have 0.00001% resolution (i.e., any non-zero bits < 1e11 will cause precision loss).
@@ -65,10 +61,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 internal constant _MIN_PRICE_RATIO_DELTA = 1e6;
 
     uint256 internal constant _MAX_TOKEN_DECIMALS = 18;
-    // This represents the maximum deviation from the ideal state (i.e., at target price and near centered) after
-    // initialization, to prevent arbitration losses.
-    uint256 internal constant _BALANCE_RATIO_AND_PRICE_TOLERANCE = 0.01e16; // 0.01%
 
+    // solhint-disable-next-line immutable-vars-naming
     ReClammPoolHelper internal immutable _helper;
 
     // These immutables are only used during initialization, to set the virtual balances and price ratio in a more
@@ -292,66 +286,16 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             liquidityManagement.enableDonation == false;
     }
 
-    struct InitializeLocals {
-        uint256 rateA;
-        uint256 rateB;
-        uint256 minPriceScaled18;
-        uint256 maxPriceScaled18;
-        uint256 targetPriceScaled18;
-        uint256[] theoreticalBalances;
-        uint256 theoreticalVirtualBalanceA;
-        uint256 theoreticalVirtualBalanceB;
-        uint256 priceRatio;
-    }
-
     /// @inheritdoc IHooks
     function onBeforeInitialize(
         uint256[] memory balancesScaled18,
         bytes memory
     ) public override onlyVault returns (bool) {
-        InitializeLocals memory locals;
-        (locals.rateA, locals.rateB) = _vault.getTokenRates(address(this));
-
-        (locals.minPriceScaled18, locals.maxPriceScaled18, locals.targetPriceScaled18) = ReClammHelperLib
-            .getPriceSettingsAdjustedByRates(
-                _TOKEN_A_PRICE_INCLUDES_RATE,
-                _TOKEN_B_PRICE_INCLUDES_RATE,
-                _INITIAL_MIN_PRICE,
-                _INITIAL_MAX_PRICE,
-                _INITIAL_TARGET_PRICE,
-                locals.rateA,
-                locals.rateB
-            );
-
-        (
-            locals.theoreticalBalances,
-            locals.theoreticalVirtualBalanceA,
-            locals.theoreticalVirtualBalanceB,
-            locals.priceRatio
-        ) = ReClammMath.computeTheoreticalPriceRatioAndBalances(
-            locals.minPriceScaled18,
-            locals.maxPriceScaled18,
-            locals.targetPriceScaled18
-        );
-
-        _checkInitializationBalanceRatio(balancesScaled18, locals.theoreticalBalances);
-
-        uint256 scale = balancesScaled18[a].divDown(locals.theoreticalBalances[a]);
-
-        uint256 virtualBalanceA = locals.theoreticalVirtualBalanceA.mulDown(scale);
-        uint256 virtualBalanceB = locals.theoreticalVirtualBalanceB.mulDown(scale);
-
-        _checkInitializationPrices(
-            balancesScaled18,
-            locals.minPriceScaled18,
-            locals.maxPriceScaled18,
-            locals.targetPriceScaled18,
-            virtualBalanceA,
-            virtualBalanceB
-        );
+        (uint256 virtualBalanceA, uint256 virtualBalanceB, uint256 priceRatio) = _helper
+            .computeInitialVirtualBalancesAndRatio(balancesScaled18);
 
         _setLastVirtualBalances(virtualBalanceA, virtualBalanceB);
-        _startPriceRatioUpdate(locals.priceRatio, block.timestamp, block.timestamp);
+        _startPriceRatioUpdate(priceRatio, block.timestamp, block.timestamp);
         // Set dynamic parameters.
         _setDailyPriceShiftExponent(_INITIAL_DAILY_PRICE_SHIFT_EXPONENT);
         _setCenterednessMargin(_INITIAL_CENTEREDNESS_MARGIN);
@@ -599,7 +543,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.maxDailyPriceRatioUpdateRate = _MAX_DAILY_PRICE_RATIO_UPDATE_RATE;
         data.minPriceRatioUpdateDuration = _MIN_PRICE_RATIO_UPDATE_DURATION;
         data.minPriceRatioDelta = _MIN_PRICE_RATIO_DELTA;
-        data.balanceRatioAndPriceTolerance = _BALANCE_RATIO_AND_PRICE_TOLERANCE;
+        data.balanceRatioAndPriceTolerance = _helper.BALANCE_RATIO_AND_PRICE_TOLERANCE();
     }
 
     /********************************************************   
@@ -893,64 +837,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             );
     }
 
-    /// @dev Checks that the current balance ratio is within the initialization balance ratio tolerance.
-    function _checkInitializationBalanceRatio(
-        uint256[] memory balancesScaled18,
-        uint256[] memory theoreticalBalances
-    ) internal pure {
-        uint256 realBalanceRatio = balancesScaled18[b].divDown(balancesScaled18[a]);
-        uint256 theoreticalBalanceRatio = theoreticalBalances[b].divDown(theoreticalBalances[a]);
-
-        uint256 ratioLowerBound = theoreticalBalanceRatio.mulDown(FixedPoint.ONE - _BALANCE_RATIO_AND_PRICE_TOLERANCE);
-        uint256 ratioUpperBound = theoreticalBalanceRatio.mulDown(FixedPoint.ONE + _BALANCE_RATIO_AND_PRICE_TOLERANCE);
-
-        if (realBalanceRatio < ratioLowerBound || realBalanceRatio > ratioUpperBound) {
-            revert BalanceRatioExceedsTolerance();
-        }
-    }
-
-    /**
-     * @dev Checks that the current spot price is within the initialization tolerance of the price target, and that
-     * the total price range after initialization (i.e., with real balances) corresponds closely enough to the desired
-     * initial price range set on deployment.
-     */
-    function _checkInitializationPrices(
-        uint256[] memory balancesScaled18,
-        uint256 minPrice,
-        uint256 maxPrice,
-        uint256 targetPrice,
-        uint256 virtualBalanceA,
-        uint256 virtualBalanceB
-    ) internal pure {
-        // Compare current spot price with initialization target price.
-        uint256 spotPrice = (balancesScaled18[b] + virtualBalanceB).divDown(balancesScaled18[a] + virtualBalanceA);
-        _comparePrice(spotPrice, targetPrice);
-
-        uint256 currentInvariant = ReClammMath.computeInvariant(
-            balancesScaled18,
-            virtualBalanceA,
-            virtualBalanceB,
-            Rounding.ROUND_DOWN
-        );
-
-        // Compare current min price with initialization min price.
-        uint256 currentMinPrice = (virtualBalanceB * virtualBalanceB) / currentInvariant;
-        _comparePrice(currentMinPrice, minPrice);
-
-        // Compare current max price with initialization max price.
-        uint256 currentMaxPrice = _computeMaxPrice(currentInvariant, virtualBalanceA);
-        _comparePrice(currentMaxPrice, maxPrice);
-    }
-
-    function _comparePrice(uint256 currentPrice, uint256 initializationPrice) internal pure {
-        uint256 priceLowerBound = initializationPrice.mulDown(FixedPoint.ONE - _BALANCE_RATIO_AND_PRICE_TOLERANCE);
-        uint256 priceUpperBound = initializationPrice.mulDown(FixedPoint.ONE + _BALANCE_RATIO_AND_PRICE_TOLERANCE);
-
-        if (currentPrice < priceLowerBound || currentPrice > priceUpperBound) {
-            revert WrongInitializationPrices();
-        }
-    }
-
     function _getLastVirtualBalances() internal view returns (uint256[] memory) {
         uint256[] memory lastVirtualBalances = new uint256[](2);
         lastVirtualBalances[a] = _lastVirtualBalanceA;
@@ -963,9 +849,5 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         if (_isPoolWithinTargetRange() == false) {
             revert PoolOutsideTargetRange();
         }
-    }
-
-    function _computeMaxPrice(uint256 currentInvariant, uint256 virtualBalanceA) internal pure returns (uint256) {
-        return currentInvariant.divDown(virtualBalanceA.mulDown(virtualBalanceA));
     }
 }

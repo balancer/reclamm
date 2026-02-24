@@ -27,6 +27,7 @@ import { ReClammPoolHelper } from "./ReClammPoolHelper.sol";
 contract ReClammPoolFactory is IReClammPoolFactory, IPoolVersion, BasePoolFactory, Version {
     using SafeCast for uint256;
 
+    // solhint-disable-next-line immutable-vars-naming
     ReClammPoolHelper public immutable reClammPoolHelper;
 
     string private _poolVersion;
