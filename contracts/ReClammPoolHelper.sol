@@ -114,7 +114,7 @@ contract ReClammPoolHelper {
     }
 
     function computeInitialVirtualBalancesAndRatio(
-        uint256[] memory balancesScaled18
+        uint256[] calldata balancesScaled18
     ) external view returns (uint256, uint256, uint256) {
         IReClammPool pool = IReClammPool(msg.sender);
         InitializeLocals memory locals;
@@ -195,7 +195,7 @@ contract ReClammPoolHelper {
     }
 
     function checkInitializationBalanceRatio(
-        uint256[] memory balancesScaled18,
+        uint256[] calldata balancesScaled18,
         uint256[] memory theoreticalBalances
     ) external pure {
         return _checkInitializationBalanceRatio(balancesScaled18, theoreticalBalances);
@@ -203,7 +203,7 @@ contract ReClammPoolHelper {
 
     /// @dev Checks that the current balance ratio is within the initialization balance ratio tolerance.
     function _checkInitializationBalanceRatio(
-        uint256[] memory balancesScaled18,
+        uint256[] calldata balancesScaled18,
         uint256[] memory theoreticalBalances
     ) internal pure {
         uint256 realBalanceRatio = balancesScaled18[b].divDown(balancesScaled18[a]);
@@ -223,7 +223,7 @@ contract ReClammPoolHelper {
      * initial price range set on deployment.
      */
     function _checkInitializationPrices(
-        uint256[] memory balancesScaled18,
+        uint256[] calldata balancesScaled18,
         uint256 minPrice,
         uint256 maxPrice,
         uint256 targetPrice,
