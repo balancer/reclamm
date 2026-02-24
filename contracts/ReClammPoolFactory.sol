@@ -18,12 +18,13 @@ import { BasePoolFactory } from "@balancer-labs/v3-pool-utils/contracts/BasePool
 import { Version } from "@balancer-labs/v3-solidity-utils/contracts/helpers/Version.sol";
 
 import { ReClammPoolFactoryLib, ReClammPriceParams } from "./lib/ReClammPoolFactoryLib.sol";
-import { ReClammPoolParams } from "./interfaces/IReClammPool.sol";
+import { IReClammPoolFactory } from "./interfaces/IReClammPoolFactory.sol";
+import { IReClammPool, ReClammPoolParams } from "./interfaces/IReClammPool.sol";
 import { ReClammPool } from "./ReClammPool.sol";
 import { ReClammPoolHelper } from "./ReClammPoolHelper.sol";
 
 /// @notice ReClammPool factory.
-contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
+contract ReClammPoolFactory is IReClammPoolFactory, IPoolVersion, BasePoolFactory, Version {
     using SafeCast for uint256;
 
     ReClammPoolHelper public immutable reClammPoolHelper;
@@ -104,5 +105,14 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
             pool, // The pool is the hook
             liquidityManagement
         );
+    }
+
+    /// @inheritdoc IReClammPoolFactory
+    function computeInitialBalancesRaw(
+        IReClammPool pool,
+        IERC20 referenceToken,
+        uint256 referenceAmountInRaw
+    ) external view returns (uint256[] memory initialBalancesRaw) {
+        return reClammPoolHelper.computeInitialBalancesRaw(pool, referenceToken, referenceAmountInRaw);
     }
 }

@@ -29,10 +29,11 @@ contract ReClammPoolHelper {
     }
 
     function computeInitialBalancesRaw(
+        IReClammPool pool,
         IERC20 referenceToken,
         uint256 referenceAmountInRaw
     ) external view returns (uint256[] memory initialBalancesRaw) {
-        IERC20[] memory tokens = vault.getPoolTokens(msg.sender);
+        IERC20[] memory tokens = vault.getPoolTokens(address(pool));
 
         (uint256 referenceTokenIdx, uint256 otherTokenIdx) = tokens[a] == referenceToken ? (a, b) : (b, a);
 
@@ -40,8 +41,8 @@ contract ReClammPoolHelper {
             revert IVaultErrors.InvalidToken();
         }
 
-        (uint256 rateA, uint256 rateB) = vault.getTokenRates(msg.sender);
-        uint256 balanceRatioScaled18 = _computeInitialBalanceRatioScaled18(IReClammPool(msg.sender), rateA, rateB);
+        (uint256 rateA, uint256 rateB) = vault.getTokenRates(address(pool));
+        uint256 balanceRatioScaled18 = _computeInitialBalanceRatioScaled18(IReClammPool(pool), rateA, rateB);
         (uint256 rateReferenceToken, uint256 rateOtherToken) = tokens[a] == referenceToken
             ? (rateA, rateB)
             : (rateB, rateA);

@@ -425,14 +425,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     ********************************************************/
 
     /// @inheritdoc IReClammPool
-    function computeInitialBalancesRaw(
-        IERC20 referenceToken,
-        uint256 referenceAmountInRaw
-    ) external view returns (uint256[] memory initialBalancesRaw) {
-        return _helper.computeInitialBalancesRaw(referenceToken, referenceAmountInRaw);
-    }
-
-    /// @inheritdoc IReClammPool
     function computeCurrentPriceRange() external view returns (uint256 minPrice, uint256 maxPrice) {
         if (_vault.isPoolInitialized(address(this))) {
             (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));

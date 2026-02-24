@@ -10,8 +10,8 @@ import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/Fixe
 import { ReClammPoolImmutableData, IReClammPool } from "../interfaces/IReClammPool.sol";
 import { a, b } from "./ReClammMath.sol";
 
+/// @dev Helper library with common functionality for ReClammPool and ReClammPoolHelper.
 library ReClammHelperLib {
-
     function getTokenRates(IVault vault, address pool) internal view returns (uint256 rateA, uint256 rateB) {
         (, TokenInfo[] memory tokenInfo, , ) = vault.getPoolTokenInfo(pool);
 
