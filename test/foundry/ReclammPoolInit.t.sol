@@ -58,7 +58,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
     function testComputeInitialBalancesInvalidToken() public {
         vm.expectRevert(IVaultErrors.InvalidToken.selector);
-        ReClammPool(pool).computeInitialBalancesRaw(wsteth, _INITIAL_AMOUNT);
+        ReClammPoolFactoryMock(poolFactory).computeInitialBalancesRaw(IReClammPool(pool), wsteth, _INITIAL_AMOUNT);
     }
 
     function testInitialBalanceRatioAndBalances() public view {
@@ -79,13 +79,21 @@ contract ReClammPoolInitTest is BaseReClammTest {
         IERC20[] memory tokens = vault.getPoolTokens(pool);
 
         // Compute balances given A.
-        uint256[] memory initialBalancesRaw = ReClammPool(pool).computeInitialBalancesRaw(tokens[a], _INITIAL_AMOUNT);
+        uint256[] memory initialBalancesRaw = ReClammPoolFactoryMock(poolFactory).computeInitialBalancesRaw(
+            IReClammPool(pool),
+            tokens[a],
+            _INITIAL_AMOUNT
+        );
         assertEq(initialBalancesRaw[a], _INITIAL_AMOUNT, "Initial amount doesn't match given amount (A)");
         uint256 expectedAmount = _INITIAL_AMOUNT.mulDown(bOverA);
         assertEq(initialBalancesRaw[b], expectedAmount, "Wrong other token amount (B)");
 
         // Compute balances given B.
-        initialBalancesRaw = ReClammPool(pool).computeInitialBalancesRaw(tokens[b], _INITIAL_AMOUNT);
+        initialBalancesRaw = ReClammPoolFactoryMock(poolFactory).computeInitialBalancesRaw(
+            IReClammPool(pool),
+            tokens[b],
+            _INITIAL_AMOUNT
+        );
         assertEq(initialBalancesRaw[b], _INITIAL_AMOUNT, "Initial amount doesn't match given amount (B)");
         expectedAmount = _INITIAL_AMOUNT.divDown(bOverA);
         assertEq(initialBalancesRaw[a], expectedAmount, "Wrong other token amount (A)");
@@ -103,7 +111,8 @@ contract ReClammPoolInitTest is BaseReClammTest {
         assertFalse(vault.isPoolInitialized(pool), "Pool is initialized");
         uint256 initialBalanceRatio = ReClammPoolMock(pool).computeInitialBalanceRatio();
 
-        uint256[] memory initialBalancesRaw = ReClammPool(pool).computeInitialBalancesRaw(
+        uint256[] memory initialBalancesRaw = ReClammPoolFactoryMock(poolFactory).computeInitialBalancesRaw(
+            IReClammPool(pool),
             sortedTokens[a],
             _INITIAL_AMOUNT
         );
@@ -146,7 +155,8 @@ contract ReClammPoolInitTest is BaseReClammTest {
         _rateProviderA.mockRate(rateA);
         _rateProviderB.mockRate(rateB);
 
-        uint256[] memory initialBalancesRawGivenB = ReClammPool(newPool).computeInitialBalancesRaw(
+        uint256[] memory initialBalancesRawGivenB = ReClammPoolFactoryMock(poolFactory).computeInitialBalancesRaw(
+            IReClammPool(newPool),
             sortedTokens[b],
             initialAmount
         );
@@ -157,7 +167,8 @@ contract ReClammPoolInitTest is BaseReClammTest {
         // The reference token initial balance should always equal the initial amount passed in.
         assertEq(initialBalancesRawGivenB[b], initialAmount, "Invalid initial balance for token B");
 
-        uint256[] memory initialBalancesRawGivenA = ReClammPool(newPool).computeInitialBalancesRaw(
+        uint256[] memory initialBalancesRawGivenA = ReClammPoolFactoryMock(poolFactory).computeInitialBalancesRaw(
+            IReClammPool(newPool),
             sortedTokens[a],
             initialBalancesRawGivenB[a]
         );
@@ -210,7 +221,8 @@ contract ReClammPoolInitTest is BaseReClammTest {
         _rateProviderA.mockRate(FixedPoint.ONE);
         _rateProviderB.mockRate(FixedPoint.ONE);
 
-        uint256[] memory initialBalancesRawGivenUsdc = ReClammPool(newPool).computeInitialBalancesRaw(
+        uint256[] memory initialBalancesRawGivenUsdc = ReClammPoolFactoryMock(poolFactory).computeInitialBalancesRaw(
+            IReClammPool(newPool),
             sortedTokens[usdcIndex],
             initialAmount
         );
@@ -218,7 +230,8 @@ contract ReClammPoolInitTest is BaseReClammTest {
         // The reference token initial balance should always equal the initial amount passed in.
         assertEq(initialBalancesRawGivenUsdc[usdcIndex], initialAmount, "Invalid initial balance for usdc index");
 
-        uint256[] memory initialBalancesRawGivenWeth = ReClammPool(newPool).computeInitialBalancesRaw(
+        uint256[] memory initialBalancesRawGivenWeth = ReClammPoolFactoryMock(poolFactory).computeInitialBalancesRaw(
+            IReClammPool(newPool),
             sortedTokens[wethIndex],
             initialBalancesRawGivenUsdc[wethIndex]
         );
@@ -279,7 +292,8 @@ contract ReClammPoolInitTest is BaseReClammTest {
         _rateProviderA.mockRate(FixedPoint.ONE);
         _rateProviderB.mockRate(FixedPoint.ONE);
 
-        uint256[] memory initialBalancesRawGivenUsdc = ReClammPool(newPool).computeInitialBalancesRaw(
+        uint256[] memory initialBalancesRawGivenUsdc = ReClammPoolFactoryMock(poolFactory).computeInitialBalancesRaw(
+            IReClammPool(newPool),
             sortedTokens[usdcIndex],
             initialAmount
         );
@@ -287,7 +301,8 @@ contract ReClammPoolInitTest is BaseReClammTest {
         // The reference token initial balance should always equal the initial amount passed in.
         assertEq(initialBalancesRawGivenUsdc[usdcIndex], initialAmount, "Invalid initial balance for usdc index");
 
-        uint256[] memory initialBalancesRawGivenWeth = ReClammPool(newPool).computeInitialBalancesRaw(
+        uint256[] memory initialBalancesRawGivenWeth = ReClammPoolFactoryMock(poolFactory).computeInitialBalancesRaw(
+            IReClammPool(newPool),
             sortedTokens[wethIndex],
             initialBalancesRawGivenUsdc[wethIndex]
         );
@@ -354,7 +369,8 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
         assertFalse(vault.isPoolInitialized(newPool), "Pool is initialized");
 
-        uint256[] memory initialBalancesRawGivenUsdc = ReClammPool(newPool).computeInitialBalancesRaw(
+        uint256[] memory initialBalancesRawGivenUsdc = ReClammPoolFactoryMock(poolFactory).computeInitialBalancesRaw(
+            IReClammPool(newPool),
             sortedTokens[usdcIndex],
             initialAmount
         );
@@ -362,7 +378,8 @@ contract ReClammPoolInitTest is BaseReClammTest {
         // The reference token initial balance should always equal the initial amount passed in.
         assertEq(initialBalancesRawGivenUsdc[usdcIndex], initialAmount, "Invalid initial balance for usdc index");
 
-        uint256[] memory initialBalancesRawGivenWstEth = ReClammPool(newPool).computeInitialBalancesRaw(
+        uint256[] memory initialBalancesRawGivenWstEth = ReClammPoolFactoryMock(poolFactory).computeInitialBalancesRaw(
+            IReClammPool(newPool),
             sortedTokens[wethIndex],
             initialBalancesRawGivenUsdc[wethIndex]
         );
@@ -425,7 +442,8 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
         assertFalse(vault.isPoolInitialized(newPool), "Pool is initialized");
 
-        uint256[] memory initialBalancesRawGivenUsdc = ReClammPool(newPool).computeInitialBalancesRaw(
+        uint256[] memory initialBalancesRawGivenUsdc = ReClammPoolFactoryMock(poolFactory).computeInitialBalancesRaw(
+            IReClammPool(newPool),
             sortedTokens[usdcIndex],
             initialAmount
         );
@@ -433,7 +451,8 @@ contract ReClammPoolInitTest is BaseReClammTest {
         // The reference token initial balance should always equal the initial amount passed in.
         assertEq(initialBalancesRawGivenUsdc[usdcIndex], initialAmount, "Invalid initial balance for usdc index");
 
-        uint256[] memory initialBalancesRawGivenWaEth = ReClammPool(newPool).computeInitialBalancesRaw(
+        uint256[] memory initialBalancesRawGivenWaEth = ReClammPoolFactoryMock(poolFactory).computeInitialBalancesRaw(
+            IReClammPool(newPool),
             sortedTokens[wethIndex],
             initialBalancesRawGivenUsdc[wethIndex]
         );
@@ -497,7 +516,8 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
         assertFalse(vault.isPoolInitialized(newPool), "Pool is initialized");
 
-        uint256[] memory initialBalancesRawGivenWaUsdc = ReClammPool(newPool).computeInitialBalancesRaw(
+        uint256[] memory initialBalancesRawGivenWaUsdc = ReClammPoolFactoryMock(poolFactory).computeInitialBalancesRaw(
+            IReClammPool(newPool),
             sortedTokens[usdcIndex],
             initialAmount
         );
@@ -505,7 +525,8 @@ contract ReClammPoolInitTest is BaseReClammTest {
         // The reference token initial balance should always equal the initial amount passed in.
         assertEq(initialBalancesRawGivenWaUsdc[usdcIndex], initialAmount, "Invalid initial balance for usdc index");
 
-        uint256[] memory initialBalancesRawGivenWaEth = ReClammPool(newPool).computeInitialBalancesRaw(
+        uint256[] memory initialBalancesRawGivenWaEth = ReClammPoolFactoryMock(poolFactory).computeInitialBalancesRaw(
+            IReClammPool(newPool),
             sortedTokens[wethIndex],
             initialBalancesRawGivenWaUsdc[wethIndex]
         );
@@ -577,7 +598,8 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
         assertFalse(vault.isPoolInitialized(newPool), "Pool is initialized");
 
-        uint256[] memory initialBalancesRawGivenWaUsdc = ReClammPool(newPool).computeInitialBalancesRaw(
+        uint256[] memory initialBalancesRawGivenWaUsdc = ReClammPoolFactoryMock(poolFactory).computeInitialBalancesRaw(
+            IReClammPool(newPool),
             sortedTokens[usdcIndex],
             initialAmount
         );
@@ -585,7 +607,8 @@ contract ReClammPoolInitTest is BaseReClammTest {
         // The reference token initial balance should always equal the initial amount passed in.
         assertEq(initialBalancesRawGivenWaUsdc[usdcIndex], initialAmount, "Invalid initial balance for usdc index");
 
-        uint256[] memory initialBalancesRawGivenWaEurc = ReClammPool(newPool).computeInitialBalancesRaw(
+        uint256[] memory initialBalancesRawGivenWaEurc = ReClammPoolFactoryMock(poolFactory).computeInitialBalancesRaw(
+            IReClammPool(newPool),
             sortedTokens[eurcIndex],
             initialBalancesRawGivenWaUsdc[eurcIndex]
         );
@@ -647,7 +670,8 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
         assertFalse(vault.isPoolInitialized(newPool), "Pool is initialized");
 
-        uint256[] memory initialBalancesRawGivenSDai = ReClammPool(newPool).computeInitialBalancesRaw(
+        uint256[] memory initialBalancesRawGivenSDai = ReClammPoolFactoryMock(poolFactory).computeInitialBalancesRaw(
+            IReClammPool(newPool),
             sortedTokens[usdcIndex],
             initialAmount
         );
@@ -655,7 +679,8 @@ contract ReClammPoolInitTest is BaseReClammTest {
         // The reference token initial balance should always equal the initial amount passed in.
         assertEq(initialBalancesRawGivenSDai[usdcIndex], initialAmount, "Invalid initial balance for usdc index");
 
-        uint256[] memory initialBalancesRawGivenWstEth = ReClammPool(newPool).computeInitialBalancesRaw(
+        uint256[] memory initialBalancesRawGivenWstEth = ReClammPoolFactoryMock(poolFactory).computeInitialBalancesRaw(
+            IReClammPool(newPool),
             sortedTokens[wethIndex],
             initialBalancesRawGivenSDai[wethIndex]
         );

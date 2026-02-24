@@ -14,6 +14,7 @@ import { CastingHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpe
 
 import { ReClammMath, a, b } from "../../../contracts/lib/ReClammMath.sol";
 import { ReClammPoolFactory } from "../../../contracts/ReClammPoolFactory.sol";
+import { ReClammPoolHelper } from "../../../contracts/ReClammPoolHelper.sol";
 import { ReClammPriceParams } from "../../../contracts/lib/ReClammPoolFactoryLib.sol";
 import { ReClammPoolFactoryMock } from "../../../contracts/test/ReClammPoolFactoryMock.sol";
 import { ReClammPoolParams } from "../../../contracts/interfaces/IReClammPool.sol";
@@ -160,15 +161,17 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
         string memory poolVersion
     ) internal returns (ReClammPoolFactory) {
         if (reusingArtifacts) {
+            address helper = deployCode(_computeReClammPath(type(ReClammPoolHelper).name), abi.encode(vault));
             return
                 ReClammPoolFactory(
                     deployCode(
                         _computeReClammPath(type(ReClammPoolFactory).name),
-                        abi.encode(vault, pauseWindowDuration, factoryVersion, poolVersion)
+                        abi.encode(vault, helper, pauseWindowDuration, factoryVersion, poolVersion)
                     )
                 );
         } else {
-            return new ReClammPoolFactory(vault, pauseWindowDuration, factoryVersion, poolVersion);
+            ReClammPoolHelper helper = new ReClammPoolHelper(vault);
+            return new ReClammPoolFactory(vault, helper, pauseWindowDuration, factoryVersion, poolVersion);
         }
     }
 
@@ -179,15 +182,17 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
         string memory poolVersion
     ) internal returns (ReClammPoolFactoryMock) {
         if (reusingArtifacts) {
+            address helper = deployCode(_computeReClammPath(type(ReClammPoolHelper).name), abi.encode(vault));
             return
                 ReClammPoolFactoryMock(
                     deployCode(
                         _computeReClammTestPath(type(ReClammPoolFactoryMock).name),
-                        abi.encode(vault, pauseWindowDuration, factoryVersion, poolVersion)
+                        abi.encode(vault, helper, pauseWindowDuration, factoryVersion, poolVersion)
                     )
                 );
         } else {
-            return new ReClammPoolFactoryMock(vault, pauseWindowDuration, factoryVersion, poolVersion);
+            ReClammPoolHelper helper = new ReClammPoolHelper(vault);
+            return new ReClammPoolFactoryMock(vault, helper, pauseWindowDuration, factoryVersion, poolVersion);
         }
     }
 

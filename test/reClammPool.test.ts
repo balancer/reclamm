@@ -17,7 +17,7 @@ import * as VaultDeployer from '@balancer-labs/v3-helpers/src/models/vault/Vault
 import { IVaultMock } from '@balancer-labs/v3-interfaces/typechain-types';
 import TypesConverter from '@balancer-labs/v3-helpers/src/models/types/TypesConverter';
 import { buildTokenConfig } from '@balancer-labs/v3-helpers/src/models/tokens/tokenConfig';
-import { ReClammPool, ReClammPoolFactory } from '../typechain-types';
+import { ReClammPool, ReClammPoolFactory, ReClammPoolHelper } from '../typechain-types';
 import { actionId } from '@balancer-labs/v3-helpers/src/models/misc/actions';
 import { advanceTime, currentTimestamp, DAY, HOUR, MONTH } from '@balancer-labs/v3-helpers/src/time';
 import * as expectEvent from '@balancer-labs/v3-helpers/src/test/expectEvent';
@@ -32,7 +32,7 @@ import {
   pureComputeInvariant,
   toDailyPriceShiftBase,
   fourthRoot,
-  pow4
+  pow4,
 } from './utils/reClammMath';
 import { expectEqualWithError } from './utils/relativeError';
 
@@ -107,8 +107,11 @@ describe('ReClammPool', function () {
   });
 
   sharedBeforeEach('create and initialize pool', async () => {
+    const helper = (await deploy('ReClammPoolHelper', {
+      args: [await vault.getAddress()],
+    })) as unknown as ReClammPoolHelper;
     factory = await deploy('ReClammPoolFactory', {
-      args: [await vault.getAddress(), MONTH * 12, FACTORY_VERSION, POOL_VERSION],
+      args: [await vault.getAddress(), await helper.getAddress(), MONTH * 12, FACTORY_VERSION, POOL_VERSION],
     });
     poolTokens = sortAddresses([tokenAAddress, tokenBAddress]);
 
@@ -138,7 +141,11 @@ describe('ReClammPool', function () {
 
     pool = (await deployedAt('ReClammPool', event.args.pool)) as unknown as ReClammPool;
 
-    const contractInitialBalances = await pool.computeInitialBalancesRaw(tokenAAddress, INITIAL_BALANCE_A);
+    const contractInitialBalances = await factory.computeInitialBalancesRaw(
+      await pool.getAddress(),
+      tokenAAddress,
+      INITIAL_BALANCE_A
+    );
     initialBalances = [...contractInitialBalances];
 
     await tokenA.mint(bob, 100n * TOKEN_AMOUNT);
@@ -381,7 +388,9 @@ describe('ReClammPool', function () {
       const updateStartTimestamp = (await currentTimestamp()) + 1n;
       const updateEndTimestamp = updateStartTimestamp + 1n * BigInt(DAY) + 1n;
       const endFourthRootPriceRatio = fpDivDown(initialFourthRootPriceRatio, fp(1.1));
-      await pool.connect(bob).startPriceRatioUpdate(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
+      await pool
+        .connect(bob)
+        .startPriceRatioUpdate(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
 
       // Virtual balances were updated, but prices should not move yet.
       const { minPrice: minPriceAfterStartPriceRatioUpdate } = await checkPoolPrices(
@@ -536,19 +545,20 @@ describe('ReClammPool', function () {
       const updateStartTimestamp = (await currentTimestamp()) + 1n;
       const updateEndTimestamp = updateStartTimestamp + 1n * BigInt(DAY) + 1n;
       const endFourthRootPriceRatio = fpDivDown(initialFourthRootPriceRatio, fp(1.1));
-      await pool.connect(bob).startPriceRatioUpdate(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
+      await pool
+        .connect(bob)
+        .startPriceRatioUpdate(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
 
       // Virtual balances were updated, but prices should not move yet.
-      const { minPrice: minPriceAfterStartPriceRatioUpdate } =
-        await checkPoolPrices(
-          pool,
-          initialFourthRootPriceRatio,
-          minPriceOOR,
-          maxPriceOOR,
-          priceRatioError,
-          pricesSmallError,
-          true
-        );
+      const { minPrice: minPriceAfterStartPriceRatioUpdate } = await checkPoolPrices(
+        pool,
+        initialFourthRootPriceRatio,
+        minPriceOOR,
+        maxPriceOOR,
+        priceRatioError,
+        pricesSmallError,
+        true
+      );
 
       await advanceTime(6 * HOUR);
 
@@ -695,10 +705,12 @@ describe('ReClammPool', function () {
       const updateStartTimestamp = (await currentTimestamp()) + 1n;
       const updateEndTimestamp = updateStartTimestamp + 1n * BigInt(DAY) + 1n;
       const endFourthRootPriceRatio = fpMulDown(initialFourthRootPriceRatio, fp(1.1));
-      await pool.connect(bob).startPriceRatioUpdate(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
+      await pool
+        .connect(bob)
+        .startPriceRatioUpdate(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
 
       // Virtual balances were updated, but prices should not move yet.
-      const { minPrice: minPriceAfterStartPriceRatioUpdate} = await checkPoolPrices(
+      const { minPrice: minPriceAfterStartPriceRatioUpdate } = await checkPoolPrices(
         pool,
         initialFourthRootPriceRatio,
         minPriceOOR,
@@ -849,19 +861,20 @@ describe('ReClammPool', function () {
       const updateStartTimestamp = (await currentTimestamp()) + 1n;
       const updateEndTimestamp = updateStartTimestamp + 1n * BigInt(DAY) + 1n;
       const endFourthRootPriceRatio = fpMulDown(initialFourthRootPriceRatio, fp(1.1));
-      await pool.connect(bob).startPriceRatioUpdate(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
+      await pool
+        .connect(bob)
+        .startPriceRatioUpdate(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
 
       // Virtual balances were updated, but prices should not move yet.
-      const { minPrice: minPriceAfterStartPriceRatioUpdate } =
-        await checkPoolPrices(
-          pool,
-          initialFourthRootPriceRatio,
-          minPriceOOR,
-          maxPriceOOR,
-          priceRatioError,
-          pricesSmallError,
-          true
-        );
+      const { minPrice: minPriceAfterStartPriceRatioUpdate } = await checkPoolPrices(
+        pool,
+        initialFourthRootPriceRatio,
+        minPriceOOR,
+        maxPriceOOR,
+        priceRatioError,
+        pricesSmallError,
+        true
+      );
 
       await advanceTime(6 * HOUR);
 

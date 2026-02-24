@@ -15,6 +15,7 @@ import { ReClammPool } from '../../typechain-types/contracts/ReClammPool';
 import { fp } from '@balancer-labs/v3-helpers/src/numbers';
 import { saveSnap } from '@balancer-labs/v3-helpers/src/gas';
 import { sharedBeforeEach } from '../../lib/balancer-v3-monorepo/pvt/common/sharedBeforeEach';
+import { ReClammPoolHelper } from '../../typechain-types';
 
 class ReClammBenchmark extends Benchmark {
   counter = 0;
@@ -31,8 +32,12 @@ class ReClammBenchmark extends Benchmark {
   override async deployPool(tag: PoolTag, poolTokens: string[], withRate: boolean): Promise<PoolInfo> {
     const [, , swapFeeManager] = await ethers.getSigners();
 
+    const helper = (await deploy('ReClammPoolHelper', {
+      args: [await this.vault.getAddress()],
+    })) as unknown as ReClammPoolHelper;
+    
     const factory = (await deploy('ReClammPoolFactory', {
-      args: [await this.vault.getAddress(), MONTH * 12, 'Factory v1', 'Pool v1'],
+      args: [await this.vault.getAddress(), await helper.getAddress(), MONTH * 12, 'Factory v1', 'Pool v1'],
     })) as unknown as ReClammPoolFactory;
 
     const roleAccounts: PoolRoleAccountsStruct = {
