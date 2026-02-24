@@ -17,7 +17,7 @@ import * as VaultDeployer from '@balancer-labs/v3-helpers/src/models/vault/Vault
 import { IVaultMock } from '@balancer-labs/v3-interfaces/typechain-types';
 import TypesConverter from '@balancer-labs/v3-helpers/src/models/types/TypesConverter';
 import { buildTokenConfig } from '@balancer-labs/v3-helpers/src/models/tokens/tokenConfig';
-import { ReClammPool, ReClammPoolFactory } from '../typechain-types';
+import { ReClammPool, ReClammPoolExtension, ReClammPoolFactory } from '../typechain-types';
 import { actionId } from '@balancer-labs/v3-helpers/src/models/misc/actions';
 import { advanceTime, currentTimestamp, DAY, HOUR, MONTH } from '@balancer-labs/v3-helpers/src/time';
 import * as expectEvent from '@balancer-labs/v3-helpers/src/test/expectEvent';
@@ -71,6 +71,7 @@ describe('ReClammPool', function () {
   let vault: IVaultMock;
   let factory: ReClammPoolFactory;
   let pool: ReClammPool;
+  let extensionEntryPoint: ReClammPoolExtension;
   let router: Router;
   let alice: SignerWithAddress;
   let bob: SignerWithAddress;
@@ -135,8 +136,10 @@ describe('ReClammPool', function () {
     );
     const receipt = await tx.wait();
     const event = expectEvent.inReceipt(receipt, 'PoolCreated');
+    const poolAddress = event.args.pool;
 
-    pool = (await deployedAt('ReClammPool', event.args.pool)) as unknown as ReClammPool;
+    pool = (await deployedAt('ReClammPool', poolAddress)) as unknown as ReClammPool;
+    extensionEntryPoint = (await deployedAt('ReClammPoolExtension', poolAddress)) as unknown as ReClammPoolExtension;
 
     const contractInitialBalances = await pool.computeInitialBalancesRaw(tokenAAddress, INITIAL_BALANCE_A);
     initialBalances = [...contractInitialBalances];
@@ -221,13 +224,13 @@ describe('ReClammPool', function () {
       .swapSingleTokenExactOut(pool, tokenA, tokenB, exactAmountOut, maxAmountIn, deadline, wethIsEth, '0x');
 
     const [, , , poolBalancesAfterSwap] = await vault.getPoolTokenInfo(pool);
-    const virtualBalancesAfterSwap = await pool.computeCurrentVirtualBalances();
+    const virtualBalancesAfterSwap = await extensionEntryPoint.computeCurrentVirtualBalances();
 
     const lastTimestamp = await currentTimestamp();
     await advanceTime(HOUR);
     const expectedTimestamp = lastTimestamp + BigInt(HOUR) + 1n;
 
-    const currentFourthRootPriceRatio = await pool.computeCurrentFourthRootPriceRatio();
+    const currentFourthRootPriceRatio = await extensionEntryPoint.computeCurrentFourthRootPriceRatio();
 
     // calculate the expected virtual balances in the next swap
     const [expectedFinalVirtualBalances] = computeCurrentVirtualBalances(
@@ -254,7 +257,7 @@ describe('ReClammPool', function () {
       .swapSingleTokenExactOut(pool, tokenB, tokenA, INITIAL_BALANCE_A, MAX_UINT256, deadline, wethIsEth, '0x');
 
     // Check whether the virtual balances are close to their expected values.
-    const actualFinalVirtualBalances = await pool.computeCurrentVirtualBalances();
+    const actualFinalVirtualBalances = await extensionEntryPoint.computeCurrentVirtualBalances();
 
     expectEqualWithError(
       actualFinalVirtualBalances[tokenAIdx],
@@ -275,13 +278,13 @@ describe('ReClammPool', function () {
     await doSwapExactOutAndCheckVirtualBalancesAndSpotPrice(tokenB, tokenA, exactAmountOut);
 
     const [, , , poolBalancesAfterSwap] = await vault.getPoolTokenInfo(pool);
-    const virtualBalancesAfterSwap = await pool.computeCurrentVirtualBalances();
+    const virtualBalancesAfterSwap = await extensionEntryPoint.computeCurrentVirtualBalances();
 
     const lastTimestamp = await currentTimestamp();
     await advanceTime(HOUR);
     const expectedTimestamp = lastTimestamp + BigInt(HOUR) + 1n;
 
-    const currentFourthRootPriceRatio = await pool.computeCurrentFourthRootPriceRatio();
+    const currentFourthRootPriceRatio = await extensionEntryPoint.computeCurrentFourthRootPriceRatio();
 
     // Calculate the expected virtual balances in the next swap.
     const [expectedFinalVirtualBalances] = computeCurrentVirtualBalances(
@@ -306,7 +309,7 @@ describe('ReClammPool', function () {
     await doSwapExactOutAndCheckVirtualBalancesAndSpotPrice(tokenA, tokenB, initialBalances[tokenBIdx]);
 
     // Check whether the virtual balances are close to their expected values.
-    const actualFinalVirtualBalances = await pool.computeCurrentVirtualBalances();
+    const actualFinalVirtualBalances = await extensionEntryPoint.computeCurrentVirtualBalances();
 
     expectEqualWithError(
       actualFinalVirtualBalances[tokenAIdx],
@@ -326,7 +329,7 @@ describe('ReClammPool', function () {
     });
 
     it('should move virtual balances correctly (out of range < center and price ratio concentrating)', async () => {
-      const initialFourthRootPriceRatio = await pool.computeCurrentFourthRootPriceRatio();
+      const initialFourthRootPriceRatio = await extensionEntryPoint.computeCurrentFourthRootPriceRatio();
 
       const { minPrice: minPriceBeforeBigSwap, maxPrice: maxPriceBeforeBigSwap } = await checkPoolPrices(
         pool,
@@ -377,7 +380,7 @@ describe('ReClammPool', function () {
       // Since the price move introduces some rounding, store the price ratio before the startPriceRatioUpdate call.
       // Notice that "checkPoolPrices" already checked that initialFourthRootPriceRatio matches the current price ratio,
       // so the values are close.
-      const startFourthRootPriceRatio = await pool.computeCurrentFourthRootPriceRatio();
+      const startFourthRootPriceRatio = await extensionEntryPoint.computeCurrentFourthRootPriceRatio();
       const updateStartTimestamp = (await currentTimestamp()) + 1n;
       const updateEndTimestamp = updateStartTimestamp + 1n * BigInt(DAY) + 1n;
       const endFourthRootPriceRatio = fpDivDown(initialFourthRootPriceRatio, fp(1.1));
@@ -404,7 +407,7 @@ describe('ReClammPool', function () {
         fourthRoot(fpDivDown(endFourthRootPriceRatio, initialFourthRootPriceRatio))
       );
       expectEqualWithError(
-        await pool.computeCurrentFourthRootPriceRatio(),
+        await extensionEntryPoint.computeCurrentFourthRootPriceRatio(),
         expectedPriceRatioAfterConcentration,
         priceRatioError
       );
@@ -437,7 +440,7 @@ describe('ReClammPool', function () {
 
       const expectedTimestamp = (await currentTimestamp()) + 1n;
 
-      const lastVirtualBalances = await pool.getLastVirtualBalances();
+      const lastVirtualBalances = await extensionEntryPoint.getLastVirtualBalances();
 
       // Calculate the expected virtual balances in the next swap.
       const [expectedFinalVirtualBalances] = computeCurrentVirtualBalances(
@@ -459,7 +462,7 @@ describe('ReClammPool', function () {
       await doSwapExactOutAndCheckVirtualBalancesAndSpotPrice(tokenA, tokenB, initialBalances[tokenBIdx]);
 
       // Check whether the virtual balances are close to their expected values.
-      const actualFinalVirtualBalances = await pool.computeCurrentVirtualBalances();
+      const actualFinalVirtualBalances = await extensionEntryPoint.computeCurrentVirtualBalances();
 
       expectEqualWithError(
         actualFinalVirtualBalances[tokenAIdx],
@@ -485,7 +488,7 @@ describe('ReClammPool', function () {
     });
 
     it('should move virtual balances correctly (out of range > center and price ratio concentrating)', async () => {
-      const initialFourthRootPriceRatio = await pool.computeCurrentFourthRootPriceRatio();
+      const initialFourthRootPriceRatio = await extensionEntryPoint.computeCurrentFourthRootPriceRatio();
 
       const { minPrice: minPriceBeforeBigSwap, maxPrice: maxPriceBeforeBigSwap } = await checkPoolPrices(
         pool,
@@ -560,7 +563,7 @@ describe('ReClammPool', function () {
         fourthRoot(fpDivDown(endFourthRootPriceRatio, initialFourthRootPriceRatio))
       );
       expectEqualWithError(
-        await pool.computeCurrentFourthRootPriceRatio(),
+        await extensionEntryPoint.computeCurrentFourthRootPriceRatio(),
         expectedPriceRatioAfterConcentration,
         priceRatioError
       );
@@ -593,7 +596,7 @@ describe('ReClammPool', function () {
 
       const expectedTimestamp = (await currentTimestamp()) + 1n;
 
-      const lastVirtualBalances = await pool.getLastVirtualBalances();
+      const lastVirtualBalances = await extensionEntryPoint.getLastVirtualBalances();
 
       // Calculate the expected virtual balances in the next swap.
       const [expectedFinalVirtualBalances] = computeCurrentVirtualBalances(
@@ -614,7 +617,7 @@ describe('ReClammPool', function () {
       await doSwapExactOutAndCheckVirtualBalancesAndSpotPrice(tokenB, tokenA, initialBalances[tokenAIdx]);
 
       // Check whether the virtual balances are close to their expected values.
-      const actualFinalVirtualBalances = await pool.computeCurrentVirtualBalances();
+      const actualFinalVirtualBalances = await extensionEntryPoint.computeCurrentVirtualBalances();
 
       expectEqualWithError(
         actualFinalVirtualBalances[tokenAIdx],
@@ -640,7 +643,7 @@ describe('ReClammPool', function () {
     });
 
     it('should move virtual balances correctly (out of range < center and price ratio deconcentrating)', async () => {
-      const initialFourthRootPriceRatio = await pool.computeCurrentFourthRootPriceRatio();
+      const initialFourthRootPriceRatio = await extensionEntryPoint.computeCurrentFourthRootPriceRatio();
 
       const { minPrice: minPriceBeforeBigSwap, maxPrice: maxPriceBeforeBigSwap } = await checkPoolPrices(
         pool,
@@ -691,7 +694,7 @@ describe('ReClammPool', function () {
       // Since the price move introduces some rounding, store the price ratio before the startPriceRatioUpdate call.
       // Notice that "checkPoolPrices" already checked that initialFourthRootPriceRatio matches the current price ratio,
       // so the values are close.
-      const startFourthRootPriceRatio = await pool.computeCurrentFourthRootPriceRatio();
+      const startFourthRootPriceRatio = await extensionEntryPoint.computeCurrentFourthRootPriceRatio();
       const updateStartTimestamp = (await currentTimestamp()) + 1n;
       const updateEndTimestamp = updateStartTimestamp + 1n * BigInt(DAY) + 1n;
       const endFourthRootPriceRatio = fpMulDown(initialFourthRootPriceRatio, fp(1.1));
@@ -718,7 +721,7 @@ describe('ReClammPool', function () {
         fourthRoot(fpDivDown(endFourthRootPriceRatio, initialFourthRootPriceRatio))
       );
       expectEqualWithError(
-        await pool.computeCurrentFourthRootPriceRatio(),
+        await extensionEntryPoint.computeCurrentFourthRootPriceRatio(),
         expectedPriceRatioAfterConcentration,
         priceRatioError
       );
@@ -751,7 +754,7 @@ describe('ReClammPool', function () {
 
       const expectedTimestamp = (await currentTimestamp()) + 1n;
 
-      const lastVirtualBalances = await pool.getLastVirtualBalances();
+      const lastVirtualBalances = await extensionEntryPoint.getLastVirtualBalances();
 
       // Calculate the expected virtual balances in the next swap.
       const [expectedFinalVirtualBalances] = computeCurrentVirtualBalances(
@@ -772,7 +775,7 @@ describe('ReClammPool', function () {
       await doSwapExactOutAndCheckVirtualBalancesAndSpotPrice(tokenA, tokenB, initialBalances[tokenBIdx]);
 
       // Check whether the virtual balances are close to their expected values.
-      const actualFinalVirtualBalances = await pool.computeCurrentVirtualBalances();
+      const actualFinalVirtualBalances = await extensionEntryPoint.computeCurrentVirtualBalances();
 
       expectEqualWithError(
         actualFinalVirtualBalances[tokenAIdx],
@@ -798,7 +801,7 @@ describe('ReClammPool', function () {
     });
 
     it('should move virtual balances correctly (out of range > center and price ratio deconcentrating)', async () => {
-      const initialFourthRootPriceRatio = await pool.computeCurrentFourthRootPriceRatio();
+      const initialFourthRootPriceRatio = await extensionEntryPoint.computeCurrentFourthRootPriceRatio();
 
       const { minPrice: minPriceBeforeBigSwap, maxPrice: maxPriceBeforeBigSwap } = await checkPoolPrices(
         pool,
@@ -873,7 +876,7 @@ describe('ReClammPool', function () {
         fourthRoot(fpDivDown(endFourthRootPriceRatio, initialFourthRootPriceRatio))
       );
       expectEqualWithError(
-        await pool.computeCurrentFourthRootPriceRatio(),
+        await extensionEntryPoint.computeCurrentFourthRootPriceRatio(),
         expectedPriceRatioAfterConcentration,
         priceRatioError
       );
@@ -906,7 +909,7 @@ describe('ReClammPool', function () {
 
       const expectedTimestamp = (await currentTimestamp()) + 1n;
 
-      const lastVirtualBalances = await pool.getLastVirtualBalances();
+      const lastVirtualBalances = await extensionEntryPoint.getLastVirtualBalances();
 
       // Calculate the expected virtual balances in the next swap.
       const [expectedFinalVirtualBalances] = computeCurrentVirtualBalances(
@@ -927,7 +930,7 @@ describe('ReClammPool', function () {
       await doSwapExactOutAndCheckVirtualBalancesAndSpotPrice(tokenB, tokenA, initialBalances[tokenAIdx]);
 
       // Check whether the virtual balances are close to their expected values.
-      const actualFinalVirtualBalances = await pool.computeCurrentVirtualBalances();
+      const actualFinalVirtualBalances = await extensionEntryPoint.computeCurrentVirtualBalances();
 
       expectEqualWithError(
         actualFinalVirtualBalances[tokenAIdx],
@@ -957,8 +960,7 @@ describe('ReClammPool', function () {
     // 10% swap fee, will accumulate in the pool.
     await vault.connect(bob).setStaticSwapFeePercentage(pool, fp(0.1));
 
-    // check price ratio before
-    const fourthRootPriceRatioBeforeSwaps = await pool.computeCurrentFourthRootPriceRatio();
+    const fourthRootPriceRatioBeforeSwaps = await extensionEntryPoint.computeCurrentFourthRootPriceRatio();
 
     // Do a lot of swaps with 80% of pool liquidity to collect fees. This will move the price ratio up,
     // deconcentrating the liquidity.
@@ -992,7 +994,7 @@ describe('ReClammPool', function () {
     // 0% swap fee, making sure no fees will be accrued by the pool in the next swaps.
     await vault.connect(bob).manualUnsafeSetStaticSwapFeePercentage(pool, fp(0));
 
-    const fourthRootPriceRatioAfterSwaps = await pool.computeCurrentFourthRootPriceRatio();
+    const fourthRootPriceRatioAfterSwaps = await extensionEntryPoint.computeCurrentFourthRootPriceRatio();
     // Make sure the fourth root price ratio increased by 2x (it means, price ratio increased by 16 times), at least.
     expect(fourthRootPriceRatioAfterSwaps).to.be.greaterThan(2n * fourthRootPriceRatioBeforeSwaps);
 
@@ -1008,7 +1010,7 @@ describe('ReClammPool', function () {
     expectedPricesError: number,
     compareMinAndMaxPrices: boolean
   ): Promise<{ minPrice: bigint; maxPrice: bigint }> {
-    const [virtualBalanceA, virtualBalanceB] = await pool.computeCurrentVirtualBalances();
+    const [virtualBalanceA, virtualBalanceB] = await extensionEntryPoint.computeCurrentVirtualBalances();
 
     const virtualBalances = [virtualBalanceA, virtualBalanceB];
     const [, , , poolBalances] = await vault.getPoolTokenInfo(pool);
@@ -1043,7 +1045,7 @@ describe('ReClammPool', function () {
     const deadline = MAX_UINT256;
     const wethIsEth = false;
 
-    const virtualBalancesBeforeSwap = await pool.computeCurrentVirtualBalances();
+    const virtualBalancesBeforeSwap = await extensionEntryPoint.computeCurrentVirtualBalances();
 
     // Makes sure swap and virtual balances transactions are batched in the same block, so the timestamp does not
     // change.
@@ -1053,7 +1055,7 @@ describe('ReClammPool', function () {
       .connect(bob)
       .swapSingleTokenExactOut(pool, tokenIn, tokenOut, exactAmountOut, maxAmountIn, deadline, wethIsEth, '0x');
 
-    const virtualBalancesAfterSwap = await pool.computeCurrentVirtualBalances();
+    const virtualBalancesAfterSwap = await extensionEntryPoint.computeCurrentVirtualBalances();
 
     await ethers.provider.send('evm_setAutomine', [true]);
 
@@ -1073,12 +1075,12 @@ describe('ReClammPool', function () {
    */
   async function checkSpotPriceAfterSwap() {
     const [, , poolBalancesAfterSwapRaw] = await vault.getPoolTokenInfo(pool);
-    const virtualBalancesAfterSwap = await pool.computeCurrentVirtualBalances();
+    const virtualBalancesAfterSwap = await extensionEntryPoint.computeCurrentVirtualBalances();
 
     // Warps 1 second, so the current timestamp won't match the last timestamp and the current virtual balances will
     // be recomputed.
     await advanceTime(1n);
-    const recomputedVirtualBalances = await pool.computeCurrentVirtualBalances();
+    const recomputedVirtualBalances = await extensionEntryPoint.computeCurrentVirtualBalances();
 
     const spotPriceAfterSwap = computeSpotPrice(poolBalancesAfterSwapRaw, virtualBalancesAfterSwap);
     // After 1 second, if the pool is out-of-range or updating price ratio, the virtual balances should have changed,

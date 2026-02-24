@@ -2,29 +2,25 @@
 
 pragma solidity ^0.8.24;
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import { PoolRoleAccounts, LiquidityManagement } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 import { IRateProvider } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/helpers/IRateProvider.sol";
-import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
+import { PoolRoleAccounts, HookFlags } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { CastingHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/CastingHelpers.sol";
 import { InputHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/InputHelpers.sol";
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
-import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
-import { PoolFactoryMock } from "@balancer-labs/v3-vault/contracts/test/PoolFactoryMock.sol";
 import { RateProviderMock } from "@balancer-labs/v3-vault/contracts/test/RateProviderMock.sol";
 import { BaseVaultTest } from "@balancer-labs/v3-vault/test/foundry/utils/BaseVaultTest.sol";
+import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 
-import { ReClammPoolContractsDeployer } from "./ReClammPoolContractsDeployer.sol";
-import { ReClammPool } from "../../../contracts/ReClammPool.sol";
-import { a, b } from "../../../contracts/lib/ReClammMath.sol";
-import { ReClammPoolFactory } from "../../../contracts/ReClammPoolFactory.sol";
-import { ReClammPriceParams } from "../../../contracts/lib/ReClammPoolFactoryLib.sol";
-import { ReClammPoolParams } from "../../../contracts/interfaces/IReClammPool.sol";
-import { ReClammPoolMock } from "../../../contracts/test/ReClammPoolMock.sol";
 import { ReClammPoolFactoryMock } from "../../../contracts/test/ReClammPoolFactoryMock.sol";
+import { ReClammPriceParams } from "../../../contracts/interfaces/IReClammPool.sol";
+import { ReClammPoolParams } from "../../../contracts/interfaces/IReClammPool.sol";
+import { ReClammPoolContractsDeployer } from "./ReClammPoolContractsDeployer.sol";
+import { IReClammPool } from "../../../contracts/interfaces/IReClammPool.sol";
+import { a, b } from "../../../contracts/lib/ReClammMath.sol";
 
 contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     using FixedPoint for uint256;
@@ -86,7 +82,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
 
         (, , _initialBalances, ) = vault.getPoolTokenInfo(pool);
         (_initialVirtualBalances, ) = _computeCurrentVirtualBalances(pool);
-        _initialFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
+        _initialFourthRootPriceRatio = IReClammPool(pool).computeCurrentFourthRootPriceRatio();
     }
 
     function setInitializationPrices(uint256 newMinPrice, uint256 newMaxPrice, uint256 newTargetPrice) internal {
@@ -99,11 +95,29 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
         _dailyPriceShiftExponent = dailyPriceShiftExponent;
     }
 
-    function createPoolFactory() internal override returns (address) {
+    function createPoolFactory() internal virtual override returns (address) {
         factory = deployReClammPoolFactoryMock(vault, 365 days, "Factory v1", _POOL_VERSION);
         vm.label(address(factory), "Acl Amm Factory");
 
         return address(factory);
+    }
+
+    function createHook() internal override returns (address) {
+        // Sets all flags to true.
+        HookFlags memory hookFlags = HookFlags({
+            enableHookAdjustedAmounts: false,
+            shouldCallBeforeInitialize: true,
+            shouldCallAfterInitialize: true,
+            shouldCallComputeDynamicSwapFee: true,
+            shouldCallBeforeSwap: true,
+            shouldCallAfterSwap: true,
+            shouldCallBeforeAddLiquidity: true,
+            shouldCallAfterAddLiquidity: true,
+            shouldCallBeforeRemoveLiquidity: true,
+            shouldCallAfterRemoveLiquidity: true
+        });
+
+        return _createHook(hookFlags);
     }
 
     function _createPool(
@@ -117,7 +131,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
 
         PoolRoleAccounts memory roleAccounts;
 
-        roleAccounts = PoolRoleAccounts({ pauseManager: address(0), swapFeeManager: admin, poolCreator: alice });
+        roleAccounts = PoolRoleAccounts({ pauseManager: address(0), swapFeeManager: admin, poolCreator: address(0) });
 
         ReClammPriceParams memory priceParams = ReClammPriceParams({
             initialMinPrice: _initialMinPrice,
@@ -169,7 +183,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
     function initPool() internal virtual override {
         (daiIdx, usdcIdx) = getSortedIndexes(address(dai), address(usdc));
 
-        _initialBalances = ReClammPool(pool).computeInitialBalancesRaw(dai, poolInitAmount);
+        _initialBalances = IReClammPool(pool).computeInitialBalancesRaw(dai, poolInitAmount);
 
         vm.startPrank(lp);
         _initPool(pool, _initialBalances, 0);
@@ -215,14 +229,14 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
 
     function _getLastVirtualBalances(address pool) internal view returns (uint256[] memory virtualBalances) {
         virtualBalances = new uint256[](2);
-        (virtualBalances[a], virtualBalances[b]) = ReClammPool(pool).getLastVirtualBalances();
+        (virtualBalances[a], virtualBalances[b]) = IReClammPool(pool).getLastVirtualBalances();
     }
 
     function _computeCurrentVirtualBalances(
         address pool
     ) internal view returns (uint256[] memory currentVirtualBalances, bool changed) {
         currentVirtualBalances = new uint256[](2);
-        (currentVirtualBalances[a], currentVirtualBalances[b], changed) = ReClammPool(pool)
+        (currentVirtualBalances[a], currentVirtualBalances[b], changed) = IReClammPool(pool)
             .computeCurrentVirtualBalances();
     }
 

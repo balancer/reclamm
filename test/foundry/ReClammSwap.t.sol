@@ -7,6 +7,7 @@ import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/Fixe
 
 import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
 import { ReClammMathMock } from "../../contracts/test/ReClammMathMock.sol";
+import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
 
@@ -26,7 +27,7 @@ contract ReClammSwapTest is BaseReClammTest {
         uint256[] memory newBalances = _setPoolBalances(daiBalance, usdcBalance);
 
         // Set the last timestamp.
-        ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
+        ReClammPoolMock(payable(pool)).setLastTimestamp(block.timestamp);
 
         vm.warp(block.timestamp + 6 hours);
 
@@ -61,11 +62,11 @@ contract ReClammSwapTest is BaseReClammTest {
 
         _assertVirtualBalancesMatch(lastVirtualBalancesAfterSwap, currentVirtualBalances);
 
-        assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp does not match");
+        assertEq(IReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp does not match");
     }
 
     function testInRangePriceRatioUpdatingSwapExactIn__Fuzz(uint256 newFourthRootPriceRatio) public {
-        uint256 currentFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
+        uint256 currentFourthRootPriceRatio = IReClammPool(pool).computeCurrentFourthRootPriceRatio();
         newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 2e18);
 
         _assumeFourthRootPriceRatioDeltaAboveMin(currentFourthRootPriceRatio, newFourthRootPriceRatio);
@@ -74,7 +75,7 @@ contract ReClammSwapTest is BaseReClammTest {
         newPriceRatio = newPriceRatio.mulDown(newPriceRatio);
 
         vm.prank(admin);
-        ReClammPool(pool).startPriceRatioUpdate(newPriceRatio, block.timestamp, block.timestamp + 5 days);
+        ReClammPool(payable(pool)).startPriceRatioUpdate(newPriceRatio, block.timestamp, block.timestamp + 5 days);
 
         vm.warp(block.timestamp + 6 hours);
 
@@ -103,7 +104,7 @@ contract ReClammSwapTest is BaseReClammTest {
 
         _assertVirtualBalancesMatch(lastVirtualBalancesAfterSwap, currentVirtualBalances);
 
-        assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp does not match");
+        assertEq(IReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp does not match");
     }
 
     function testOutOfRangePriceRatioUpdatingSwapExactIn__Fuzz(
@@ -119,7 +120,7 @@ contract ReClammSwapTest is BaseReClammTest {
         // Set the pool balances.
         uint256[] memory newBalances = _setPoolBalances(daiBalance, usdcBalance);
 
-        uint256 currentFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
+        uint256 currentFourthRootPriceRatio = IReClammPool(pool).computeCurrentFourthRootPriceRatio();
         newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 1.6e18);
         _assumeFourthRootPriceRatioDeltaAboveMin(currentFourthRootPriceRatio, newFourthRootPriceRatio);
 
@@ -127,7 +128,7 @@ contract ReClammSwapTest is BaseReClammTest {
         newPriceRatio = newPriceRatio.mulDown(newPriceRatio);
 
         vm.prank(admin);
-        ReClammPool(pool).startPriceRatioUpdate(newPriceRatio, block.timestamp, block.timestamp + 5 days);
+        ReClammPool(payable(pool)).startPriceRatioUpdate(newPriceRatio, block.timestamp, block.timestamp + 5 days);
 
         vm.warp(block.timestamp + 6 hours);
 
@@ -162,7 +163,7 @@ contract ReClammSwapTest is BaseReClammTest {
 
         _assertVirtualBalancesMatch(lastVirtualBalancesAfterSwap, currentVirtualBalances);
 
-        assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp does not match");
+        assertEq(IReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp does not match");
     }
 
     function testInRangeSwapExactIn__Fuzz(uint256 daiBalance, uint256 usdcBalance) public {
@@ -175,7 +176,7 @@ contract ReClammSwapTest is BaseReClammTest {
         uint256[] memory newBalances = _setPoolBalances(daiBalance, usdcBalance);
 
         // Set the last timestamp.
-        ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
+        ReClammPoolMock(payable(pool)).setLastTimestamp(block.timestamp);
 
         vm.warp(block.timestamp + 6 hours);
 
@@ -206,7 +207,7 @@ contract ReClammSwapTest is BaseReClammTest {
 
         _assertVirtualBalancesMatch(lastVirtualBalancesAfterSwap, currentVirtualBalances);
 
-        assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp does not match");
+        assertEq(IReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp does not match");
     }
 
     function testOutOfRangeSwapExactOut__Fuzz(uint256 daiBalance, uint256 usdcBalance) public {
@@ -219,7 +220,7 @@ contract ReClammSwapTest is BaseReClammTest {
         uint256[] memory newBalances = _setPoolBalances(daiBalance, usdcBalance);
 
         // Set the last timestamp.
-        ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
+        ReClammPoolMock(payable(pool)).setLastTimestamp(block.timestamp);
 
         vm.warp(block.timestamp + 6 hours);
 
@@ -248,11 +249,11 @@ contract ReClammSwapTest is BaseReClammTest {
 
         _assertVirtualBalancesMatch(lastVirtualBalancesAfterSwap, currentVirtualBalances);
 
-        assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp does not match");
+        assertEq(IReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp does not match");
     }
 
     function testInRangePriceRatioUpdatingSwapExactOut__Fuzz(uint256 newFourthRootPriceRatio) public {
-        uint256 currentFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
+        uint256 currentFourthRootPriceRatio = IReClammPool(pool).computeCurrentFourthRootPriceRatio();
         newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 2e18);
 
         if (newFourthRootPriceRatio > currentFourthRootPriceRatio) {
@@ -265,7 +266,7 @@ contract ReClammSwapTest is BaseReClammTest {
         newPriceRatio = newPriceRatio.mulDown(newPriceRatio);
 
         vm.prank(admin);
-        ReClammPool(pool).startPriceRatioUpdate(newPriceRatio, block.timestamp, block.timestamp + 5 days);
+        ReClammPool(payable(pool)).startPriceRatioUpdate(newPriceRatio, block.timestamp, block.timestamp + 5 days);
 
         vm.warp(block.timestamp + 6 hours);
 
@@ -286,7 +287,7 @@ contract ReClammSwapTest is BaseReClammTest {
 
         _assertVirtualBalancesMatch(lastVirtualBalancesAfterSwap, currentVirtualBalances);
 
-        assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp does not match");
+        assertEq(IReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp does not match");
     }
 
     function testOutOfRangePriceRatioUpdatingSwapExactOut__Fuzz(
@@ -302,7 +303,7 @@ contract ReClammSwapTest is BaseReClammTest {
         // Set the pool balances.
         uint256[] memory newBalances = _setPoolBalances(daiBalance, usdcBalance);
 
-        uint256 currentFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
+        uint256 currentFourthRootPriceRatio = IReClammPool(pool).computeCurrentFourthRootPriceRatio();
         newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 1.6e18);
         _assumeFourthRootPriceRatioDeltaAboveMin(currentFourthRootPriceRatio, newFourthRootPriceRatio);
 
@@ -310,7 +311,7 @@ contract ReClammSwapTest is BaseReClammTest {
         newPriceRatio = newPriceRatio.mulDown(newPriceRatio);
 
         vm.prank(admin);
-        ReClammPool(pool).startPriceRatioUpdate(newPriceRatio, block.timestamp, block.timestamp + 5 days);
+        ReClammPool(payable(pool)).startPriceRatioUpdate(newPriceRatio, block.timestamp, block.timestamp + 5 days);
 
         vm.warp(block.timestamp + 6 hours);
 
@@ -339,7 +340,7 @@ contract ReClammSwapTest is BaseReClammTest {
 
         _assertVirtualBalancesMatch(lastVirtualBalancesAfterSwap, currentVirtualBalances);
 
-        assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp does not match");
+        assertEq(IReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp does not match");
     }
 
     function testInRangeSwapExactOut__Fuzz(uint256 daiBalance, uint256 usdcBalance) public {
@@ -352,7 +353,7 @@ contract ReClammSwapTest is BaseReClammTest {
         uint256[] memory newBalances = _setPoolBalances(daiBalance, usdcBalance);
 
         // Set the last timestamp.
-        ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
+        ReClammPoolMock(payable(pool)).setLastTimestamp(block.timestamp);
 
         vm.warp(block.timestamp + 6 hours);
 
@@ -375,7 +376,7 @@ contract ReClammSwapTest is BaseReClammTest {
 
         uint256[] memory lastVirtualBalancesAfterSwap = _getLastVirtualBalances(pool);
         _assertVirtualBalancesMatch(lastVirtualBalancesAfterSwap, currentVirtualBalances);
-        assertEq(ReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp does not match");
+        assertEq(IReClammPool(pool).getLastTimestamp(), block.timestamp, "Last timestamp does not match");
     }
 
     function _assertVirtualBalancesMatch(

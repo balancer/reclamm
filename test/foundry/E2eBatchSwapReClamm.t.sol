@@ -2,8 +2,6 @@
 
 pragma solidity ^0.8.24;
 
-import "forge-std/Test.sol";
-
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { ERC20TestToken } from "@balancer-labs/v3-solidity-utils/contracts/test/ERC20TestToken.sol";
@@ -11,7 +9,7 @@ import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/Fixe
 import { E2eBatchSwapTest } from "@balancer-labs/v3-vault/test/foundry/E2eBatchSwap.t.sol";
 
 import { ReClammPoolContractsDeployer } from "./utils/ReClammPoolContractsDeployer.sol";
-import { ReClammPool } from "../../contracts/ReClammPool.sol";
+import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
 
 contract E2eBatchSwapReClammTest is E2eBatchSwapTest, ReClammPoolContractsDeployer {
     using FixedPoint for uint256;
@@ -31,7 +29,7 @@ contract E2eBatchSwapReClammTest is E2eBatchSwapTest, ReClammPoolContractsDeploy
     ) internal override returns (uint256) {
         (IERC20[] memory tokens, , , ) = vault.getPoolTokenInfo(poolToInit);
 
-        uint256[] memory initialBalances = ReClammPool(poolToInit).computeInitialBalancesRaw(tokens[0], amountsIn[0]);
+        uint256[] memory initialBalances = IReClammPool(poolToInit).computeInitialBalancesRaw(tokens[0], amountsIn[0]);
 
         return router.initialize(poolToInit, tokens, initialBalances, minBptOut, false, bytes(""));
     }

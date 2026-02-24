@@ -9,9 +9,9 @@ import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/Ar
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 import "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
-import { ReClammPool } from "../../contracts/ReClammPool.sol";
-import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
 import { E2eSwapFuzzPoolParamsHelper } from "./utils/E2eSwapFuzzPoolParamsHelper.sol";
+import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
+import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
 
 contract E2eSwapReClammTest is E2eSwapTest, E2eSwapFuzzPoolParamsHelper {
     using ArrayHelpers for *;
@@ -22,6 +22,7 @@ contract E2eSwapReClammTest is E2eSwapTest, E2eSwapFuzzPoolParamsHelper {
 
     function setUp() public override {
         setDefaultAccountBalance(type(uint128).max);
+
         super.setUp();
     }
 
@@ -53,7 +54,7 @@ contract E2eSwapReClammTest is E2eSwapTest, E2eSwapFuzzPoolParamsHelper {
         tokens[1] = address(tokenB);
 
         (poolInitAmountTokenA, poolInitAmountTokenB) = _fuzzPoolParams(
-            ReClammPoolMock(pool),
+            ReClammPoolMock(payable(pool)),
             params,
             getRate(tokenA),
             getRate(tokenB),
@@ -101,7 +102,7 @@ contract E2eSwapReClammTest is E2eSwapTest, E2eSwapFuzzPoolParamsHelper {
         uint256 minBptOut
     ) internal override returns (uint256) {
         (IERC20[] memory tokens, , , ) = vault.getPoolTokenInfo(poolToInit);
-        uint256[] memory initialBalances = ReClammPool(poolToInit).computeInitialBalancesRaw(tokens[0], amountsIn[0]);
+        uint256[] memory initialBalances = IReClammPool(poolToInit).computeInitialBalancesRaw(tokens[0], amountsIn[0]);
 
         return router.initialize(poolToInit, tokens, initialBalances, minBptOut, false, bytes(""));
     }

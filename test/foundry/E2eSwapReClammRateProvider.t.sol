@@ -16,7 +16,7 @@ import {
 } from "@balancer-labs/v3-vault/test/foundry/E2eSwapRateProvider.t.sol";
 
 import { E2eSwapFuzzPoolParamsHelper } from "./utils/E2eSwapFuzzPoolParamsHelper.sol";
-import { ReClammPool } from "../../contracts/ReClammPool.sol";
+import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
 import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
 
 contract E2eSwapReClammRateProvider is E2eSwapRateProviderTest, E2eSwapFuzzPoolParamsHelper {
@@ -61,7 +61,7 @@ contract E2eSwapReClammRateProvider is E2eSwapRateProviderTest, E2eSwapFuzzPoolP
     ) internal override returns (uint256) {
         (IERC20[] memory tokens, , , ) = vault.getPoolTokenInfo(poolToInit);
 
-        uint256[] memory initialBalances = ReClammPool(poolToInit).computeInitialBalancesRaw(tokens[0], amountsIn[0]);
+        uint256[] memory initialBalances = IReClammPool(poolToInit).computeInitialBalancesRaw(tokens[0], amountsIn[0]);
 
         return router.initialize(poolToInit, tokens, initialBalances, minBptOut, false, bytes(""));
     }
@@ -75,7 +75,7 @@ contract E2eSwapReClammRateProvider is E2eSwapRateProviderTest, E2eSwapFuzzPoolP
         tokens[1] = address(tokenB);
 
         (poolInitAmountTokenA, poolInitAmountTokenB) = _fuzzPoolParams(
-            ReClammPoolMock(pool),
+            ReClammPoolMock(payable(pool)),
             params,
             getRate(tokenA),
             getRate(tokenB),
