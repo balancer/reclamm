@@ -15,6 +15,7 @@ import { ScalingHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpe
 import { ReClammPoolImmutableData, IReClammPool } from "./interfaces/IReClammPool.sol";
 import { ReClammMath, a, b } from "./lib/ReClammMath.sol";
 
+/// @notice Stateless helper contract to perform accessory computations for the `ReClammPool`.
 contract ReClammPoolHelper {
     using FixedPoint for uint256;
     using ScalingHelpers for *;
