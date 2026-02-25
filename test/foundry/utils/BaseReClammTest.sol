@@ -168,7 +168,7 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
                 centerednessMargin: _DEFAULT_CENTEREDNESS_MARGIN
             }),
             vault,
-            helper
+            _helper
         );
     }
 

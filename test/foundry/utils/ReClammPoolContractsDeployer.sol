@@ -144,7 +144,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
                 centerednessMargin: defaultParams.defaultCenterednessMargin.toUint64()
             }),
             _vault,
-            _helper
+            poolFactory.reClammPoolHelper()
         );
 
         // Cannot set the pool creator directly on a standard Balancer stable pool factory.
