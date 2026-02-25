@@ -113,6 +113,10 @@ contract ReClammPoolHelper {
         uint256 priceRatio;
     }
 
+    /**
+     * @notice Compute the initialization amounts, given a reference token and amount.
+     * @dev Must be called by the pool; this function shall not be called directly.
+     */
     function computeInitialVirtualBalancesAndRatio(
         uint256[] calldata balancesScaled18
     ) external view returns (uint256, uint256, uint256) {
