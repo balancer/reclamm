@@ -13,7 +13,7 @@ import { Version } from "@balancer-labs/v3-solidity-utils/contracts/helpers/Vers
 
 import { ReClammPoolHelper } from "../ReClammPoolHelper.sol";
 import { ReClammPoolFactoryLib, ReClammPriceParams } from "../lib/ReClammPoolFactoryLib.sol";
-import { IReClammPool, ReClammPoolParams } from "../interfaces/IReClammPool.sol";
+import { ReClammPoolParams } from "../interfaces/IReClammPool.sol";
 import { ReClammPoolMock } from "./ReClammPoolMock.sol";
 
 /// @notice ReClammPool Mock factory.
@@ -99,13 +99,5 @@ contract ReClammPoolFactoryMock is IPoolVersion, BasePoolFactory, Version {
             pool, // The pool is the hook
             liquidityManagement
         );
-    }
-
-    function computeInitialBalancesRaw(
-        IReClammPool pool,
-        IERC20 referenceToken,
-        uint256 referenceAmountInRaw
-    ) external view returns (uint256[] memory initialBalancesRaw) {
-        return reClammPoolHelper.computeInitialBalancesRaw(pool, referenceToken, referenceAmountInRaw);
     }
 }

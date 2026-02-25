@@ -239,6 +239,22 @@ interface IReClammPool is IBasePool {
     ********************************************************/
 
     /**
+     * @notice Compute the initialization amounts, given a reference token and amount.
+     * @dev Convenience function to compute the initial funding amount for the second token, given the first. It
+     * returns the amount of tokens in raw amounts, which can be used as-is to initialize the pool using a standard
+     * router.
+     *
+     * @param referenceToken The token whose amount is known
+     * @param referenceAmountInRaw The amount of the reference token to be used for initialization, in raw amounts
+     * @return initialBalancesRaw Initialization raw balances sorted in token registration order, including the given
+     * amount and a calculated raw amount for the other token
+     */
+    function computeInitialBalancesRaw(
+        IERC20 referenceToken,
+        uint256 referenceAmountInRaw
+    ) external view returns (uint256[] memory initialBalancesRaw);
+
+    /**
      * @notice Computes the current total price range.
      * @dev Prices represent the value of token A denominated in token B (i.e., how many B tokens equal the value of
      * one A token).

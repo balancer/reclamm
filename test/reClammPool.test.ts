@@ -141,8 +141,7 @@ describe('ReClammPool', function () {
 
     pool = (await deployedAt('ReClammPool', event.args.pool)) as unknown as ReClammPool;
 
-    const contractInitialBalances = await factory.computeInitialBalancesRaw(
-      await pool.getAddress(),
+    const contractInitialBalances = await pool.computeInitialBalancesRaw(
       tokenAAddress,
       INITIAL_BALANCE_A
     );

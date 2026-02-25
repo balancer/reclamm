@@ -551,6 +551,14 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     ********************************************************/
 
     /// @inheritdoc IReClammPool
+    function computeInitialBalancesRaw(
+        IERC20 referenceToken,
+        uint256 referenceAmountInRaw
+    ) external view returns (uint256[] memory initialBalancesRaw) {
+        return _helper.computeInitialBalancesRaw(this, referenceToken, referenceAmountInRaw);
+    }
+
+    /// @inheritdoc IReClammPool
     function startPriceRatioUpdate(
         uint256 endPriceRatio,
         uint256 priceRatioUpdateStartTime,
