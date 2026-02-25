@@ -19,10 +19,11 @@ import { BaseVaultTest } from "@balancer-labs/v3-vault/test/foundry/utils/BaseVa
 
 import { ReClammPoolContractsDeployer } from "./ReClammPoolContractsDeployer.sol";
 import { ReClammPool } from "../../../contracts/ReClammPool.sol";
+import { ReClammPoolHelper } from "../../../contracts/ReClammPoolHelper.sol";
 import { a, b } from "../../../contracts/lib/ReClammMath.sol";
 import { ReClammPoolFactory } from "../../../contracts/ReClammPoolFactory.sol";
 import { ReClammPriceParams } from "../../../contracts/lib/ReClammPoolFactoryLib.sol";
-import { ReClammPoolParams } from "../../../contracts/interfaces/IReClammPool.sol";
+import { IReClammPool, ReClammPoolParams } from "../../../contracts/interfaces/IReClammPool.sol";
 import { ReClammPoolMock } from "../../../contracts/test/ReClammPoolMock.sol";
 import { ReClammPoolFactoryMock } from "../../../contracts/test/ReClammPoolFactoryMock.sol";
 
@@ -78,6 +79,8 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
 
     uint256 internal _creationTimestamp;
 
+    ReClammPoolHelper internal _helper;
+
     function setUp() public virtual override {
         _rateProviderA = new RateProviderMock();
         _rateProviderB = new RateProviderMock();
@@ -101,7 +104,9 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
 
     function createPoolFactory() internal override returns (address) {
         factory = deployReClammPoolFactoryMock(vault, 365 days, "Factory v1", _POOL_VERSION);
+        _helper = factory.reClammPoolHelper();
         vm.label(address(factory), "Acl Amm Factory");
+        vm.label(address(_helper), "ReClamm Pool Helper");
 
         return address(factory);
     }
@@ -162,14 +167,15 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
                 dailyPriceShiftExponent: _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
                 centerednessMargin: _DEFAULT_CENTEREDNESS_MARGIN
             }),
-            vault
+            vault,
+            _helper
         );
     }
 
     function initPool() internal virtual override {
         (daiIdx, usdcIdx) = getSortedIndexes(address(dai), address(usdc));
 
-        _initialBalances = ReClammPool(pool).computeInitialBalancesRaw(dai, poolInitAmount);
+        _initialBalances = IReClammPool(pool).computeInitialBalancesRaw(dai, poolInitAmount);
 
         vm.startPrank(lp);
         _initPool(pool, _initialBalances, 0);

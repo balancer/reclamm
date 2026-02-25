@@ -1090,7 +1090,7 @@ contract ReClammPoolTest is BaseReClammTest {
         });
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
-        new ReClammPool(params, vault);
+        new ReClammPool(params, vault, _helper);
     }
 
     function testCreateWithTargetUnderMinPrice() public {
@@ -1108,7 +1108,7 @@ contract ReClammPoolTest is BaseReClammTest {
         });
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
-        new ReClammPool(params, vault);
+        new ReClammPool(params, vault, _helper);
     }
 
     function testCreateWithInvalidMaxPrice() public {
@@ -1126,7 +1126,7 @@ contract ReClammPoolTest is BaseReClammTest {
         });
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
-        new ReClammPool(params, vault);
+        new ReClammPool(params, vault, _helper);
     }
 
     function testCreateWithTargetOverMaxPrice() public {
@@ -1144,7 +1144,7 @@ contract ReClammPoolTest is BaseReClammTest {
         });
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
-        new ReClammPool(params, vault);
+        new ReClammPool(params, vault, _helper);
     }
 
     function testCreateWithInvalidTargetPrice() public {
@@ -1162,7 +1162,7 @@ contract ReClammPoolTest is BaseReClammTest {
         });
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
-        new ReClammPool(params, vault);
+        new ReClammPool(params, vault, _helper);
     }
 
     function testOnBeforeInitializeEvents() public {

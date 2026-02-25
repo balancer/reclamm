@@ -11,6 +11,7 @@ import "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 import { BasePoolFactory } from "@balancer-labs/v3-pool-utils/contracts/BasePoolFactory.sol";
 import { Version } from "@balancer-labs/v3-solidity-utils/contracts/helpers/Version.sol";
 
+import { ReClammPoolHelper } from "../ReClammPoolHelper.sol";
 import { ReClammPoolFactoryLib, ReClammPriceParams } from "../lib/ReClammPoolFactoryLib.sol";
 import { ReClammPoolParams } from "../interfaces/IReClammPool.sol";
 import { ReClammPoolMock } from "./ReClammPoolMock.sol";
@@ -19,14 +20,19 @@ import { ReClammPoolMock } from "./ReClammPoolMock.sol";
 contract ReClammPoolFactoryMock is IPoolVersion, BasePoolFactory, Version {
     using SafeCast for uint256;
 
+    // solhint-disable-next-line immutable-vars-naming
+    ReClammPoolHelper public immutable reClammPoolHelper;
+
     string private _poolVersion;
 
     constructor(
         IVault vault,
+        ReClammPoolHelper helper,
         uint32 pauseWindowDuration,
         string memory factoryVersion,
         string memory poolVersion
     ) BasePoolFactory(vault, pauseWindowDuration, type(ReClammPoolMock).creationCode) Version(factoryVersion) {
+        reClammPoolHelper = helper;
         _poolVersion = poolVersion;
     }
 
@@ -78,7 +84,8 @@ contract ReClammPoolFactoryMock is IPoolVersion, BasePoolFactory, Version {
                     dailyPriceShiftExponent: dailyPriceShiftExponent,
                     centerednessMargin: centerednessMargin.toUint64()
                 }),
-                getVault()
+                getVault(),
+                reClammPoolHelper
             ),
             salt
         );

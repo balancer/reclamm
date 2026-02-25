@@ -16,6 +16,7 @@ import { ReClammPoolFactory } from "../../contracts/ReClammPoolFactory.sol";
 import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
 import { ReClammPriceParams } from "../../../contracts/lib/ReClammPoolFactoryLib.sol";
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
+import { ReClammPoolHelper } from "../../contracts/ReClammPoolHelper.sol";
 import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
 
 /**
@@ -43,8 +44,10 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
     }
 
     function createPool(IERC20[] memory tokens, uint256[] memory initialBalances) internal override returns (address) {
+        ReClammPoolHelper helper = new ReClammPoolHelper(vault);
         ReClammPoolFactory factory = new ReClammPoolFactory(
             vault,
+            helper,
             1 days,
             "ReClamm Pool Factory",
             "ReClammPoolFactory"
