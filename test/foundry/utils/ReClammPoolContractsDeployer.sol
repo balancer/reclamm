@@ -143,7 +143,8 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
                 dailyPriceShiftExponent: defaultParams.defaultDailyPriceShiftExponent,
                 centerednessMargin: defaultParams.defaultCenterednessMargin.toUint64()
             }),
-            _vault
+            _vault,
+            _helper
         );
 
         // Cannot set the pool creator directly on a standard Balancer stable pool factory.

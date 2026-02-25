@@ -167,7 +167,8 @@ contract BaseReClammTest is ReClammPoolContractsDeployer, BaseVaultTest {
                 dailyPriceShiftExponent: _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
                 centerednessMargin: _DEFAULT_CENTEREDNESS_MARGIN
             }),
-            vault
+            vault,
+            helper
         );
     }
 
