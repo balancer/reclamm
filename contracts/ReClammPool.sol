@@ -65,6 +65,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     // solhint-disable-next-line immutable-vars-naming
     ReClammPoolHelper internal immutable _helper;
 
+    // Constant in the helper, cached here for convenience.
+    uint256 private immutable _BALANCE_RATIO_AND_PRICE_TOLERANCE;
+
     // These immutables are only used during initialization, to set the virtual balances and price ratio in a more
     // user-friendly manner.
     uint256 private immutable _INITIAL_MIN_PRICE;
@@ -141,6 +144,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         Version(params.version)
     {
         _helper = helper;
+        _BALANCE_RATIO_AND_PRICE_TOLERANCE = helper.BALANCE_RATIO_AND_PRICE_TOLERANCE();
 
         if (
             params.initialMinPrice == 0 ||
@@ -543,7 +547,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.maxDailyPriceRatioUpdateRate = _MAX_DAILY_PRICE_RATIO_UPDATE_RATE;
         data.minPriceRatioUpdateDuration = _MIN_PRICE_RATIO_UPDATE_DURATION;
         data.minPriceRatioDelta = _MIN_PRICE_RATIO_DELTA;
-        data.balanceRatioAndPriceTolerance = _helper.BALANCE_RATIO_AND_PRICE_TOLERANCE();
+        data.balanceRatioAndPriceTolerance = _BALANCE_RATIO_AND_PRICE_TOLERANCE;
     }
 
     /********************************************************   
