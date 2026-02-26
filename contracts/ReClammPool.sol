@@ -57,6 +57,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 internal constant _MIN_PRICE_RATIO_UPDATE_DURATION = 1 days;
     uint256 internal immutable _MAX_DAILY_PRICE_RATIO_UPDATE_RATE;
 
+    uint256 internal constant _MIN_PRICE_RATIO = 1.0001e18; // 0.1%
+
     // There is also a minimum delta, to keep the math well-behaved.
     uint256 internal constant _MIN_PRICE_RATIO_DELTA = 1e6;
 
@@ -573,6 +575,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         onlySwapFeeManagerOrGovernance(address(this))
         returns (uint256 actualPriceRatioUpdateStartTime)
     {
+        if (endPriceRatio < _MIN_PRICE_RATIO) {
+            revert EndPriceRatioBelowMin(endPriceRatio);
+        }
+
         actualPriceRatioUpdateStartTime = GradualValueChange.resolveStartTime(
             priceRatioUpdateStartTime,
             priceRatioUpdateEndTime

@@ -35,6 +35,7 @@ contract ReClammPoolTest is BaseReClammTest {
     using ArrayHelpers for *;
     using SafeCast for *;
 
+    uint256 private constant _ABSOLUTE_MIN_PRICE_RATIO = 1.0001e18; // 0.01%
     uint256 private constant _NEW_CENTEREDNESS_MARGIN = 30e16;
     uint256 private constant _INITIAL_AMOUNT = 1000e18;
 
@@ -421,6 +422,16 @@ contract ReClammPoolTest is BaseReClammTest {
         // boundary. And the error is only raised in the external function, so we can't use the mock here. Best we can
         // do is set a large update that would be too fast, and show that the error is triggered.
         vm.expectRevert(IReClammPool.PriceRatioUpdateTooFast.selector);
+        vm.prank(admin);
+        ReClammPool(pool).startPriceRatioUpdate(newPriceRatio, priceRatioUpdateStartTime, priceRatioUpdateEndTime);
+    }
+
+    function testSetPriceRatioTooLow() public {
+        uint256 newPriceRatio = _ABSOLUTE_MIN_PRICE_RATIO - 1;
+        uint256 priceRatioUpdateStartTime = block.timestamp;
+        uint256 priceRatioUpdateEndTime = block.timestamp + 1 days;
+
+        vm.expectRevert(abi.encodeWithSelector(IReClammPool.EndPriceRatioBelowMin.selector, newPriceRatio));
         vm.prank(admin);
         ReClammPool(pool).startPriceRatioUpdate(newPriceRatio, priceRatioUpdateStartTime, priceRatioUpdateEndTime);
     }
