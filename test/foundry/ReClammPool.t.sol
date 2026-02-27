@@ -348,6 +348,7 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(data.initialCenterednessMargin, _DEFAULT_CENTEREDNESS_MARGIN, "Invalid initial centeredness margin");
 
         // Check operating limit parameters.
+        assertEq(data.minPriceRatio, _ABSOLUTE_MIN_PRICE_RATIO, "Invalid min price ratio");
         assertEq(data.maxCenterednessMargin, _MAX_CENTEREDNESS_MARGIN, "Invalid max centeredness margin");
 
         // Ensure that the max centeredness margin parameter fits in uint64.

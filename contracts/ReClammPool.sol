@@ -40,7 +40,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     // This means they have 0.00001% resolution (i.e., any non-zero bits < 1e11 will cause precision loss).
     // Minimum values help make the math well-behaved (i.e., the swap fee should overwhelm any rounding error).
     // Maximum values protect users by preventing permissioned actors from setting excessively high swap fees.
-    uint256 private constant _MIN_SWAP_FEE_PERCENTAGE = 0.001e16; // 0.001%
+    uint256 internal constant _MIN_SWAP_FEE_PERCENTAGE = 0.001e16; // 0.001%
     uint256 internal constant _MAX_SWAP_FEE_PERCENTAGE = 10e16; // 10%
 
     // The maximum pool centeredness allowed to consider the pool within the target range.
@@ -55,9 +55,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     // Price ratio updates must have both a minimum duration and a maximum daily rate. For instance, an update rate of
     // FP 2 means the ratio one day later must be at least half and at most double the rate at the start of the update.
     uint256 internal constant _MIN_PRICE_RATIO_UPDATE_DURATION = 1 days;
-    uint256 internal immutable _MAX_DAILY_PRICE_RATIO_UPDATE_RATE;
 
-    uint256 internal constant _MIN_PRICE_RATIO = 1.0001e18; // 0.01%
+    // Price ratio below 1 breaks pool math. Also, tight ratios close to FP(1) may also cause virtual balances
+    // to grow excessively, potentially causing numerical issues. In practice, such tight ratios should not be needed.
+    uint256 internal constant _MIN_PRICE_RATIO = 1.0001e18; // 0.01% above FP(1)
 
     // There is also a minimum delta, to keep the math well-behaved.
     uint256 internal constant _MIN_PRICE_RATIO_DELTA = 1e6;
@@ -67,8 +68,13 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     // solhint-disable-next-line immutable-vars-naming
     ReClammPoolHelper internal immutable _helper;
 
-    // Constant in the helper, cached here for convenience.
+    // Constant in the helper, cached here for convenience at construction time.
     uint256 private immutable _BALANCE_RATIO_AND_PRICE_TOLERANCE;
+
+    // Price ratio updates must have a maximum daily rate. For instance, an update rate of FP 2 means the ratio one
+    // day later must be at least half and at most double the rate at the start of the update.
+    // This value is calculated at construction time based on `_MAX_DAILY_PRICE_SHIFT_EXPONENT`.
+    uint256 internal immutable _MAX_DAILY_PRICE_RATIO_UPDATE_RATE;
 
     // These immutables are only used during initialization, to set the virtual balances and price ratio in a more
     // user-friendly manner.
@@ -552,6 +558,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.initialCenterednessMargin = _INITIAL_CENTEREDNESS_MARGIN;
 
         // Operating Limits
+        data.minPriceRatio = _MIN_PRICE_RATIO;
         data.maxCenterednessMargin = _MAX_CENTEREDNESS_MARGIN;
         data.maxDailyPriceShiftExponent = _MAX_DAILY_PRICE_SHIFT_EXPONENT;
         data.maxDailyPriceRatioUpdateRate = _MAX_DAILY_PRICE_RATIO_UPDATE_RATE;
