@@ -287,12 +287,16 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     /// @inheritdoc IHooks
     function onRegister(
         address,
-        address,
+        address pool,
         TokenConfig[] memory tokenConfig,
         LiquidityManagement calldata liquidityManagement
-    ) public pure override returns (bool) {
-        // This function is `pure`, so it does not need `onlyVault` protection.
+    ) public view override returns (bool) {
+        // This function is `view`, so it does not need `onlyVault` protection.
+        // Only returns `true` if invoked for this pool. This is important to prevent malicious pools from
+        // registering these hooks, which gives them access to state modifying functions
+        // (`onBeforeInitialize`, `onBeforeAddLiquidity`, and `onBeforeRemoveLiquidity`).
         return
+            pool == address(this) &&
             tokenConfig.length == 2 &&
             liquidityManagement.disableUnbalancedLiquidity &&
             liquidityManagement.enableDonation == false;
@@ -303,6 +307,13 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256[] memory balancesScaled18,
         bytes memory
     ) public override onlyVault returns (bool) {
+        // There is no `pool` argument, but given that `onRegister` only allows this contract to register these hooks
+        // for itself, `onlyVault` is sufficient. On the other hand, there is no reason to call this function
+        // more than once, so we ensure that locally.
+        if (_vault.isPoolInitialized(address(this))) {
+            revert PoolAlreadyInitialized();
+        }
+
         (uint256 virtualBalanceA, uint256 virtualBalanceB, uint256 priceRatio) = _helper
             .computeInitialVirtualBalancesAndRatio(balancesScaled18);
 
@@ -326,6 +337,12 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256[] memory balancesScaled18,
         bytes memory
     ) public override onlyVault returns (bool) {
+        // `onlyVault` is sufficient, but in any case this code should only be executed when the Vault calls this
+        // function with the correct pool address.
+        if (pool != address(this)) {
+            revert InvalidPoolArgument(pool);
+        }
+
         // This hook makes sure that the virtual balances are increased in the same proportion as the real balances
         // after adding liquidity. This is needed to keep the pool centeredness and price ratio constant.
 
@@ -355,6 +372,12 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256[] memory balancesScaled18,
         bytes memory
     ) public override onlyVault returns (bool) {
+        // `onlyVault` is sufficient, but in any case this code should only be executed when the Vault calls this
+        // function with the correct pool address.
+        if (pool != address(this)) {
+            revert InvalidPoolArgument(pool);
+        }
+
         // This hook makes sure that the virtual balances are decreased in the same proportion as the real balances
         // after removing liquidity. This is needed to keep the pool centeredness and price ratio constant.
 

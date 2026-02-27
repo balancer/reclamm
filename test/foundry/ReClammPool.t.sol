@@ -67,7 +67,22 @@ contract ReClammPoolTest is BaseReClammTest {
         vm.expectRevert(abi.encodeWithSelector(IVaultErrors.SenderIsNotVault.selector, address(this)));
         ReClammPool(pool).onBeforeAddLiquidity(
             address(this),
+            pool,
+            AddLiquidityKind.PROPORTIONAL,
+            new uint256[](2),
+            0,
+            new uint256[](2),
+            bytes("")
+        );
+    }
+
+    function testOnBeforeAddLiquidityPoolArgument() public {
+        address wrongPool = address(0x123);
+        vm.prank(address(vault));
+        vm.expectRevert(abi.encodeWithSelector(IReClammPool.InvalidPoolArgument.selector, wrongPool));
+        ReClammPool(pool).onBeforeAddLiquidity(
             address(this),
+            wrongPool,
             AddLiquidityKind.PROPORTIONAL,
             new uint256[](2),
             0,
@@ -80,7 +95,22 @@ contract ReClammPoolTest is BaseReClammTest {
         vm.expectRevert(abi.encodeWithSelector(IVaultErrors.SenderIsNotVault.selector, address(this)));
         ReClammPool(pool).onBeforeRemoveLiquidity(
             address(this),
+            pool,
+            RemoveLiquidityKind.PROPORTIONAL,
+            1,
+            new uint256[](2),
+            new uint256[](2),
+            bytes("")
+        );
+    }
+
+    function testOnBeforeRemoveLiquidityPoolArgument() public {
+        address wrongPool = address(0x123);
+        vm.prank(address(vault));
+        vm.expectRevert(abi.encodeWithSelector(IReClammPool.InvalidPoolArgument.selector, wrongPool));
+        ReClammPool(pool).onBeforeRemoveLiquidity(
             address(this),
+            wrongPool,
             RemoveLiquidityKind.PROPORTIONAL,
             1,
             new uint256[](2),
@@ -1239,6 +1269,11 @@ contract ReClammPoolTest is BaseReClammTest {
 
         vm.prank(alice);
         router.initialize(newPool, tokens, _initialBalances, 0, false, bytes(""));
+
+        // Can't call `onBeforeInitialize` twice.
+        vm.prank(address(vault));
+        vm.expectRevert(IReClammPool.PoolAlreadyInitialized.selector);
+        ReClammPool(newPool).onBeforeInitialize(_initialBalances, "");
     }
 
     function testSetDailyPriceShiftExponentTooHigh() public {
