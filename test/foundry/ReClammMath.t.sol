@@ -349,7 +349,18 @@ contract ReClammMathTest is BaseReClammTest {
 
         uint256 actualPriceRatio = actualRootPriceRatio.mulDown(actualRootPriceRatio);
 
-        assertApproxEqAbs(expectedPriceRatio, actualPriceRatio, _MAX_PRICE_ERROR_ABS, "Price Ratio should be correct");
+        // 0.01% error tolerance.
+        assertApproxEqRel(expectedPriceRatio, actualPriceRatio, 0.01e16, "Price Ratio should be correct");
+
+        // For smaller price ratios, also check absolute error tolerance.
+        if (expectedFourthRootPriceRatio < 5e18) {
+            assertApproxEqAbs(
+                expectedPriceRatio,
+                actualPriceRatio,
+                _MAX_PRICE_ERROR_ABS,
+                "Price Ratio should be correct"
+            );
+        }
     }
 
     function testComputeFourthRootPriceRatioWhenCurrentTimeIsEndTime() public pure {

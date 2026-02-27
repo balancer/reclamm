@@ -38,6 +38,7 @@ struct ReClammPoolParams {
  * @param initialTargetPrice The initial target price of token A in terms of token B (possibly applying rates)
  * @param initialDailyPriceShiftExponent The initial daily price shift exponent
  * @param initialCenterednessMargin The initial centeredness margin (threshold for initiating a range update)
+ * @param minPriceRatio The minimum price ratio (max price / min price) allowed for the pool, as an 18-decimal FP value
  * @param maxCenterednessMargin The maximum centeredness margin for the pool, as an 18-decimal FP percentage
  * @param maxDailyPriceShiftExponent The maximum exponent for the pool's price shift, as an 18-decimal FP percentage
  * @param maxDailyPriceRatioUpdateRate The maximum percentage the price range can expand/contract per day
@@ -60,6 +61,7 @@ struct ReClammPoolImmutableData {
     uint256 initialDailyPriceShiftExponent;
     uint256 initialCenterednessMargin;
     // Operating Limits
+    uint256 minPriceRatio;
     uint256 maxCenterednessMargin;
     uint256 maxDailyPriceShiftExponent;
     uint256 maxDailyPriceRatioUpdateRate;
@@ -198,6 +200,9 @@ interface IReClammPool is IBasePool {
 
     /// @notice The daily price shift exponent is too high.
     error DailyPriceShiftExponentTooHigh();
+
+    /// @notice The end price ratio is too low.
+    error EndPriceRatioBelowMin(uint256 endPriceRatio);
 
     /// @notice The difference between end time and start time is too short for the price ratio update.
     error PriceRatioUpdateDurationTooShort();
