@@ -112,6 +112,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint128 internal _lastVirtualBalanceA;
     uint128 internal _lastVirtualBalanceB;
 
+    // Local protection flag for `onBeforeInitialize`.
+    bool internal _isInitialized;
+
     // Protect functions that would otherwise be vulnerable to manipulation through transient liquidity.
     modifier onlyWhenVaultIsLocked() {
         _ensureVaultIsLocked();
@@ -310,9 +313,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         // There is no `pool` argument, but given that `onRegister` only allows this contract to register these hooks
         // for itself, `onlyVault` is sufficient. On the other hand, there is no reason to call this function
         // more than once, so we ensure that locally.
-        if (_vault.isPoolInitialized(address(this))) {
+        if (_isInitialized) {
             revert PoolAlreadyInitialized();
         }
+        _isInitialized = true;
 
         (uint256 virtualBalanceA, uint256 virtualBalanceB, uint256 priceRatio) = _helper
             .computeInitialVirtualBalancesAndRatio(balancesScaled18);
