@@ -56,8 +56,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     // FP 2 means the ratio one day later must be at least half and at most double the rate at the start of the update.
     uint256 internal constant _MIN_PRICE_RATIO_UPDATE_DURATION = 1 days;
 
-    // Price ratio below 1 breaks pool math. Also, tight ratios close to FP(1) may also cause virtual balances
-    // to grow excessively, potentially causing numerical issues. In practice, such tight ratios should not be needed.
+    // Price ratio below 1 breaks pool math. Also, tight ratios close to FP(1) may cause virtual balances to grow
+    // excessively, potentially causing numerical issues. In practice, such tight ratios should not be needed.
     uint256 internal constant _MIN_PRICE_RATIO = 1.0001e18; // 0.01% above FP(1)
 
     // There is also a minimum delta, to keep the math well-behaved.
