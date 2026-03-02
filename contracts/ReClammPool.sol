@@ -489,7 +489,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function isPoolWithinTargetRange() external view returns (bool) {
+    function isPoolWithinTargetRange() external view onlyWhenVaultIsLocked returns (bool) {
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
         (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = _computeCurrentVirtualBalances(
             balancesScaled18
