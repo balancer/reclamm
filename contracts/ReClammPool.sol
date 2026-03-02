@@ -22,13 +22,8 @@ import { PoolInfo } from "@balancer-labs/v3-pool-utils/contracts/PoolInfo.sol";
 import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
 
 import { PriceRatioState, ReClammMath, a, b } from "./lib/ReClammMath.sol";
-import {
-    ReClammPoolParams,
-    ReClammPoolDynamicData,
-    ReClammPoolImmutableData,
-    IReClammPool
-} from "./interfaces/IReClammPool.sol";
 import { ReClammPoolHelper } from "./ReClammPoolHelper.sol";
+import "./interfaces/IReClammPool.sol";
 
 contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthentication, Version, BaseHooks {
     using FixedPoint for uint256;
@@ -133,12 +128,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         if (_vault.isPoolInitialized(address(this)) == false) {
             revert PoolNotInitialized();
         }
-    }
-
-    modifier onlyWithinTargetRange() {
-        _ensurePoolWithinTargetRange();
-        _;
-        _ensurePoolWithinTargetRange();
     }
 
     constructor(
@@ -501,7 +490,18 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IReClammPool
     function isPoolWithinTargetRange() external view returns (bool) {
-        return _isPoolWithinTargetRange();
+        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
+        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = _computeCurrentVirtualBalances(
+            balancesScaled18
+        );
+
+        return
+            ReClammMath.isPoolWithinTargetRange(
+                balancesScaled18,
+                currentVirtualBalanceA,
+                currentVirtualBalanceB,
+                _centerednessMargin
+            );
     }
 
     /// @inheritdoc IReClammPool
@@ -689,14 +689,40 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     /// @inheritdoc IReClammPool
     function setCenterednessMargin(
         uint256 newCenterednessMargin
-    )
-        external
-        onlyWhenInitialized
-        onlyWhenVaultIsLocked
-        onlyWithinTargetRange
-        onlySwapFeeManagerOrGovernance(address(this))
-    {
-        _setCenterednessMarginAndUpdateVirtualBalances(newCenterednessMargin);
+    ) external onlyWhenInitialized onlyWhenVaultIsLocked onlySwapFeeManagerOrGovernance(address(this)) {
+        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
+        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) = _computeCurrentVirtualBalances(
+            balancesScaled18
+        );
+
+        // Pre-check: pool must be within target range under the current margin before changing it.
+        require(
+            ReClammMath.isPoolWithinTargetRange(
+                balancesScaled18,
+                currentVirtualBalanceA,
+                currentVirtualBalanceB,
+                _centerednessMargin
+            ),
+            PoolOutsideTargetRange()
+        );
+
+        if (changed) {
+            _setLastVirtualBalances(currentVirtualBalanceA, currentVirtualBalanceB);
+        }
+        _updateTimestamp();
+
+        _setCenterednessMargin(newCenterednessMargin);
+
+        // Post-check: the new margin must not place the pool outside the target range.
+        require(
+            ReClammMath.isPoolWithinTargetRange(
+                balancesScaled18,
+                currentVirtualBalanceA,
+                currentVirtualBalanceB,
+                newCenterednessMargin
+            ),
+            PoolOutsideTargetRange()
+        );
     }
 
     /********************************************************
@@ -808,17 +834,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /**
-     * @dev This function relies on the pool balance, which can be manipulated if the vault is unlocked. Also, the pool
-     * must be within the target range before and after the operation, or the pool owner could arb the pool.
-     */
-    function _setCenterednessMarginAndUpdateVirtualBalances(uint256 centerednessMargin) internal {
-        // Update the virtual balances using the current daily price shift exponent.
-        _updateVirtualBalances();
-
-        _setCenterednessMargin(centerednessMargin);
-    }
-
-    /**
      * @notice Sets the centeredness margin when the pool is created.
      * @param centerednessMargin The new centerednessMargin value, which must be within the target range
      */
@@ -872,30 +887,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         return ReClammMath.computePriceRatio(balancesScaled18, virtualBalanceA, virtualBalanceB);
     }
 
-    /// @dev This function relies on the pool balance, which can be manipulated if the vault is unlocked.
-    function _isPoolWithinTargetRange() internal view returns (bool) {
-        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
-
-        return
-            ReClammMath.isPoolWithinTargetRange(
-                balancesScaled18,
-                _lastVirtualBalanceA,
-                _lastVirtualBalanceB,
-                _centerednessMargin
-            );
-    }
-
     function _getLastVirtualBalances() internal view returns (uint256[] memory) {
         uint256[] memory lastVirtualBalances = new uint256[](2);
         lastVirtualBalances[a] = _lastVirtualBalanceA;
         lastVirtualBalances[b] = _lastVirtualBalanceB;
 
         return lastVirtualBalances;
-    }
-
-    function _ensurePoolWithinTargetRange() internal view {
-        if (_isPoolWithinTargetRange() == false) {
-            revert PoolOutsideTargetRange();
-        }
     }
 }
