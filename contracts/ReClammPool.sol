@@ -696,6 +696,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         );
 
         // Pre-check: pool must be within target range under the current margin before changing it.
+        // solhint-disable-next-line custom-errors
         require(
             ReClammMath.isPoolWithinTargetRange(
                 balancesScaled18,
@@ -714,6 +715,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _setCenterednessMargin(newCenterednessMargin);
 
         // Post-check: the new margin must not place the pool outside the target range.
+        // solhint-disable-next-line custom-errors
         require(
             ReClammMath.isPoolWithinTargetRange(
                 balancesScaled18,
