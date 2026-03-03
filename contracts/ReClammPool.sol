@@ -432,6 +432,19 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         return (balancesScaled18[b] + currentVirtualBalanceB).divDown(balancesScaled18[a] + currentVirtualBalanceA);
     }
 
+    /**
+     * @notice Returns last-committed pool balances (via `getPoolTokenInfo`) and time-adjusted virtual balances.
+     * @dev Uses last stored rather than live balances so that `computeCurrentVirtualBalances` and
+     * `computeCurrentSpotPrice` remain consistent with the balances used when virtual balances were last
+     * written to storage. Functions that require live balance accuracy for rate-bearing tokens
+     * (`isPoolWithinTargetRange`, `computeCurrentPoolCenteredness`) call `getCurrentLiveBalances` directly
+     * instead of routing through this helper.
+     *
+     * @return balancesScaled18 The last-committed pool balances, scaled to 18 decimals
+     * @return currentVirtualBalanceA Current virtual balance of token A, adjusted for time elapsed since last update
+     * @return currentVirtualBalanceB Current virtual balance of token B, adjusted for time elapsed since last update
+     * @return changed True if the virtual balances have changed since the last update, false otherwise
+     */
     function _getRealAndVirtualBalances()
         internal
         view
@@ -488,11 +501,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IReClammPool
     function isPoolWithinTargetRange() external view returns (bool) {
-        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
+        uint256[] memory balancesScaled18 = _vault.getCurrentLiveBalances(address(this));
         (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = _computeCurrentVirtualBalances(
             balancesScaled18
         );
-
         return
             ReClammMath.isPoolWithinTargetRange(
                 balancesScaled18,
@@ -503,30 +515,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function isPoolWithinTargetRangeUsingCurrentVirtualBalances()
-        external
-        view
-        returns (bool isWithinTargetRange, bool virtualBalancesChanged)
-    {
-        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
-        uint256 currentVirtualBalanceA;
-        uint256 currentVirtualBalanceB;
-
-        (currentVirtualBalanceA, currentVirtualBalanceB, virtualBalancesChanged) = _computeCurrentVirtualBalances(
-            balancesScaled18
-        );
-
-        isWithinTargetRange = ReClammMath.isPoolWithinTargetRange(
-            balancesScaled18,
-            currentVirtualBalanceA,
-            currentVirtualBalanceB,
-            _centerednessMargin
-        );
-    }
-
-    /// @inheritdoc IReClammPool
     function computeCurrentPoolCenteredness() external view returns (uint256, bool) {
-        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
+        uint256[] memory balancesScaled18 = _vault.getCurrentLiveBalances(address(this));
         (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = _computeCurrentVirtualBalances(
             balancesScaled18
         );
@@ -691,28 +681,19 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     function setCenterednessMargin(
         uint256 newCenterednessMargin
     ) external onlyWhenInitialized onlyWhenVaultIsLocked onlySwapFeeManagerOrGovernance(address(this)) {
-        uint256[] memory balancesScaled18 = _vault.getCurrentLiveBalances(address(this));
-
-        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) = _computeCurrentVirtualBalances(
-            balancesScaled18
-        );
+        uint256[] memory balancesScaled18 = _updateVirtualBalances();
 
         (uint256 centeredness, ) = ReClammMath.computeCenteredness(
             balancesScaled18,
-            currentVirtualBalanceA,
-            currentVirtualBalanceB
+            _lastVirtualBalanceA,
+            _lastVirtualBalanceB
         );
 
         // The current margin must place the pool within the target range, to prevent setting a margin that would
         // immediately place the pool outside of the target range. This is important because an excessively high margin
         // could be used maliciously to manipulate the pool price by forcing it to stay within an excessively tight
-        //range. The new margin must also not be higher than the current centeredness, to prevent similar manipulation.
+        // range. The new margin must also not be higher than the current centeredness, to prevent similar manipulation.
         require(centeredness >= _centerednessMargin && centeredness >= newCenterednessMargin, PoolOutsideTargetRange());
-
-        if (changed) {
-            _setLastVirtualBalances(currentVirtualBalanceA, currentVirtualBalanceB);
-        }
-        _updateTimestamp();
 
         _setCenterednessMargin(newCenterednessMargin);
     }
@@ -842,15 +823,14 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _vault.emitAuxiliaryEvent("CenterednessMarginUpdated", abi.encode(centerednessMargin));
     }
 
-    function _updateVirtualBalances() internal {
-        uint256[] memory balancesScaled18 = _vault.getCurrentLiveBalances(address(this));
+    function _updateVirtualBalances() internal returns (uint256[] memory balancesScaled18) {
+        balancesScaled18 = _vault.getCurrentLiveBalances(address(this));
         (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) = _computeCurrentVirtualBalances(
             balancesScaled18
         );
         if (changed) {
             _setLastVirtualBalances(currentVirtualBalanceA, currentVirtualBalanceB);
         }
-
         _updateTimestamp();
     }
 

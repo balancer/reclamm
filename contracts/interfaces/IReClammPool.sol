@@ -375,40 +375,22 @@ interface IReClammPool is IBasePool {
      * centeredness margin (i.e., the price is within the subset of the total price range defined by the
      * centeredness margin).
      *
-     * This function uses last-committed pool balances and current virtual balances (time-adjusted from the last
-     * interaction). It reflects the state after the last operation; the next operation may change it. For high-
-     * liquidity pools with high centeredness and small swaps, it may nonetheless be useful for off-chain indicators
-     * or informational purposes.
-     *
-     * Callers should not use this as a security gate within a transaction, as the committed balances do not reflect
-     * in-progress Vault operations.
+     * This function uses current live balances and time-adjusted virtual balances, so it correctly accounts for
+     * yield accrual on rate-bearing tokens since the last interaction. Callers should not use this as a security
+     * gate within a transaction, as live balances do not reflect in-progress Vault operations.
      *
      * @return isWithinTargetRange True if pool centeredness is greater than or equal to the centeredness margin
      */
     function isPoolWithinTargetRange() external view returns (bool isWithinTargetRange);
 
     /**
-     * @notice Compute whether the pool is within the target price range, recomputing the virtual balances.
-     * @dev The pool is considered to be in the target range when the centeredness is greater than the centeredness
-     * margin (i.e., the price is within the subset of the total price range defined by the centeredness margin.)
-     *
-     * This function is identical to `isPoolWithinTargetRange` above, except that it recomputes and uses the current
-     * instead of the last virtual balances. As noted above, these should normally give the same result.
-     *
-     * @return isWithinTargetRange True if pool centeredness is greater than the centeredness margin
-     * @return virtualBalancesChanged True if the current virtual balances would not match the last virtual balances
-     */
-    function isPoolWithinTargetRangeUsingCurrentVirtualBalances()
-        external
-        view
-        returns (bool isWithinTargetRange, bool virtualBalancesChanged);
-
-    /**
      * @notice Compute the current pool centeredness (a measure of how unbalanced the pool is).
      * @dev A value of 0 means the pool is at the edge of the price range (i.e., one of the real balances is zero).
      * A value of FixedPoint.ONE means the balances (and market price) are exactly in the middle of the range.
      *
-     * This function uses last-committed pool balances and does not reflect any in-progress Vault operation.
+     * This function uses current live balances and time-adjusted virtual balances, so it correctly accounts for
+     * yield accrual on rate-bearing tokens since the last interaction. Callers should not use this as a security
+     * gate within a transaction, as live balances do not reflect in-progress Vault operations.
      *
      * @return poolCenteredness The current pool centeredness (as an 18-decimal FP value)
      * @return isPoolAboveCenter True if the pool is above the center, false otherwise
