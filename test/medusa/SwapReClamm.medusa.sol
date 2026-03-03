@@ -14,7 +14,7 @@ import "@balancer-labs/v3-vault/test/foundry/utils/BaseMedusaTest.sol";
 
 import { ReClammPoolFactory } from "../../contracts/ReClammPoolFactory.sol";
 import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
-import { ReClammPriceParams } from "../../../contracts/lib/ReClammPoolFactoryLib.sol";
+import { ReClammPriceParams } from "../../contracts/lib/ReClammPoolFactoryLib.sol";
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
 import { ReClammPoolHelper } from "../../contracts/ReClammPoolHelper.sol";
 import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
