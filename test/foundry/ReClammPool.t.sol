@@ -978,7 +978,7 @@ contract ReClammPoolTest is BaseReClammTest {
         uint64 centerednessMarginAbove100 = uint64(FixedPoint.ONE + 1);
         vm.prank(admin);
         vm.expectRevert(IReClammPool.InvalidCenterednessMargin.selector);
-        ReClammPool(pool).setCenterednessMargin(centerednessMarginAbove100);
+        ReClammPoolMock(pool).setReClammCenterednessMargin(centerednessMarginAbove100);
     }
 
     function testSetCenterednessMarginPermissioned() public {
