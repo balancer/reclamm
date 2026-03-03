@@ -485,7 +485,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function isPoolWithinTargetRange() external view onlyWhenVaultIsLocked returns (bool) {
+    function isPoolWithinTargetRange() external view returns (bool) {
         (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
         (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = _computeCurrentVirtualBalances(
             balancesScaled18
@@ -524,8 +524,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IReClammPool
     function computeCurrentPoolCenteredness() external view returns (uint256, bool) {
-        (, , , uint256[] memory currentBalancesScaled18) = _vault.getPoolTokenInfo(address(this));
-        return ReClammMath.computeCenteredness(currentBalancesScaled18, _lastVirtualBalanceA, _lastVirtualBalanceB);
+        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
+        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = _computeCurrentVirtualBalances(
+            balancesScaled18
+        );
+        return ReClammMath.computeCenteredness(balancesScaled18, currentVirtualBalanceA, currentVirtualBalanceB);
     }
 
     /// @inheritdoc IReClammPool
@@ -686,22 +689,24 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     function setCenterednessMargin(
         uint256 newCenterednessMargin
     ) external onlyWhenInitialized onlyWhenVaultIsLocked onlySwapFeeManagerOrGovernance(address(this)) {
-        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
+        uint256[] memory balancesScaled18 = _vault.getCurrentLiveBalances(address(this));
+
         (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) = _computeCurrentVirtualBalances(
             balancesScaled18
         );
 
-        // Pre-check: pool must be within target range under the current margin before changing it.
-        // solhint-disable-next-line custom-errors
-        require(
-            ReClammMath.isPoolWithinTargetRange(
-                balancesScaled18,
-                currentVirtualBalanceA,
-                currentVirtualBalanceB,
-                _centerednessMargin
-            ),
-            PoolOutsideTargetRange()
+        (uint256 centeredness, ) = ReClammMath.computeCenteredness(
+            balancesScaled18,
+            currentVirtualBalanceA,
+            currentVirtualBalanceB
         );
+
+        // The current margin must place the pool within the target range, to prevent setting a margin that would
+        // immediately place the pool outside of the target range. This is important because an excessively high margin
+        // could be used maliciously to manipulate the pool price by forcing it to stay within an excessively tight
+        //range. The new margin must also not be higher than the current centeredness, to prevent similar manipulation.
+        // solhint-disable custom-errors
+        require(centeredness >= _centerednessMargin && centeredness >= newCenterednessMargin, PoolOutsideTargetRange());
 
         if (changed) {
             _setLastVirtualBalances(currentVirtualBalanceA, currentVirtualBalanceB);
@@ -709,18 +714,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _updateTimestamp();
 
         _setCenterednessMargin(newCenterednessMargin);
-
-        // Post-check: the new margin must not place the pool outside the target range.
-        // solhint-disable-next-line custom-errors
-        require(
-            ReClammMath.isPoolWithinTargetRange(
-                balancesScaled18,
-                currentVirtualBalanceA,
-                currentVirtualBalanceB,
-                newCenterednessMargin
-            ),
-            PoolOutsideTargetRange()
-        );
     }
 
     /********************************************************
@@ -849,7 +842,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     function _updateVirtualBalances() internal {
-        (, , , uint256[] memory balancesScaled18) = _vault.getPoolTokenInfo(address(this));
+        uint256[] memory balancesScaled18 = _vault.getCurrentLiveBalances(address(this));
         (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) = _computeCurrentVirtualBalances(
             balancesScaled18
         );

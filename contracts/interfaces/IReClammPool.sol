@@ -273,9 +273,8 @@ interface IReClammPool is IBasePool {
      * The "target" range is then defined as a subset of this total price range, with the margin trimmed symmetrically
      * from each side. The pool endeavors to adjust this range as necessary to keep the current market price within it.
      *
-     * The computation involves the current live balances (though it should not be sensitive to them), so manipulating
-     * the result of this function is theoretically possible while the Vault is unlocked. Ensure that the Vault is
-     * locked before calling this function if this side effect is undesired (does not apply to off-chain calls).
+     * This function uses last-committed pool balances, so it reflects the state after the last operation rather than
+     * any in-progress Vault transaction.
      *
      * @return minPrice The lower limit of the current total price range
      * @return maxPrice The upper limit of the current total price range
@@ -289,8 +288,7 @@ interface IReClammPool is IBasePool {
      * the target range, or the price ratio is updating, this function will calculate the new virtual balances based on
      * the timestamp of the last user interaction. Note that virtual balances are always scaled18 values.
      *
-     * Current virtual balances might change as a result of an operation, manipulating the value to some degree.
-     * Ensure that the vault is locked before calling this function if this side effect is undesired.
+     * This function uses last-committed pool balances and does not reflect any in-progress Vault operation.
      *
      * @return currentVirtualBalanceA The current virtual balance of token A
      * @return currentVirtualBalanceB The current virtual balance of token B
@@ -374,22 +372,16 @@ interface IReClammPool is IBasePool {
     /**
      * @notice Compute whether the pool is within the target price range.
      * @dev The pool is considered to be in the target range when the centeredness is greater than or equal to the
-     * centeredness margin (i.e., the price is within the subset of the total price range defined by the centeredness
-     * margin).
+     * centeredness margin (i.e., the price is within the subset of the total price range defined by the
+     * centeredness margin).
      *
-     * Note that this function reports the state *after* the last operation. It is not very meaningful during or
-     * outside an operation, as the current or next operation could change it. If this is unlikely (e.g., for high-
-     * liquidity pools with high centeredness and small swaps), it may nonetheless be useful for some applications,
-     * such as off-chain indicators.
+     * This function uses last-committed pool balances and current virtual balances (time-adjusted from the last
+     * interaction). It reflects the state after the last operation; the next operation may change it. For high-
+     * liquidity pools with high centeredness and small swaps, it may nonetheless be useful for off-chain indicators
+     * or informational purposes.
      *
-     * The state depends on the current balances and centeredness margin, and it uses the *last* virtual balances in
-     * the calculation. This is fine because the real balances can only change during an operation, and the margin can
-     * only change through the permissioned setter - both of which update the virtual balances. So it is not possible
-     * for the current and last virtual balances to get out-of-sync.
-     *
-     * The range calculation is affected by the current live balances, so manipulating the result of this function
-     * is possible while the Vault is unlocked. Ensure that the Vault is locked before calling this function if this
-     * side effect is undesired (does not apply to off-chain calls).
+     * Callers should not use this as a security gate within a transaction, as the committed balances do not reflect
+     * in-progress Vault operations.
      *
      * @return isWithinTargetRange True if pool centeredness is greater than or equal to the centeredness margin
      */
@@ -416,11 +408,9 @@ interface IReClammPool is IBasePool {
      * @dev A value of 0 means the pool is at the edge of the price range (i.e., one of the real balances is zero).
      * A value of FixedPoint.ONE means the balances (and market price) are exactly in the middle of the range.
      *
-     * The centeredness margin is affected by the current live balances, so manipulating the result of this function
-     * is possible while the Vault is unlocked. Ensure that the Vault is locked before calling this function if this
-     * side effect is undesired (does not apply to off-chain calls).
+     * This function uses last-committed pool balances and does not reflect any in-progress Vault operation.
      *
-     * @return poolCenteredness The current centeredness margin (as a 18-decimal FP value)
+     * @return poolCenteredness The current pool centeredness (as an 18-decimal FP value)
      * @return isPoolAboveCenter True if the pool is above the center, false otherwise
      */
     function computeCurrentPoolCenteredness() external view returns (uint256 poolCenteredness, bool isPoolAboveCenter);
