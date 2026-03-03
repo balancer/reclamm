@@ -1679,6 +1679,41 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(roleAccounts.poolCreator, alice, "Wrong pool creator");
     }
 
+    function testUpdateVirtualBalancesUsesCurrentLiveBalances() public {
+        // Set pool clearly out of range with A dominant (above center).
+        _setPoolBalances(100e18, 5e18);
+        ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
+        skip(6 hours);
+
+        uint256[] memory rawBalances = vault.getRawBalances(pool);
+        uint256[] memory liveBalances = vault.getCurrentLiveBalances(pool);
+
+        // Set stale lastBalancesLiveScaled18 to the mirror image: B dominant (below center).
+        // This flips isAboveCenter, causing virtual balances to shift in the opposite direction.
+        uint256[] memory staleLastLive = new uint256[](2);
+        staleLastLive[a] = liveBalances[b]; // swap A and B values
+        staleLastLive[b] = liveBalances[a];
+
+        (IERC20[] memory tokens, , , ) = vault.getPoolTokenInfo(pool);
+        vault.manualSetPoolTokensAndBalances(pool, tokens, rawBalances, staleLastLive);
+
+        (, , , uint256[] memory committedBalances) = vault.getPoolTokenInfo(pool);
+        uint256[] memory currentLiveBalances = vault.getCurrentLiveBalances(pool);
+        assertNotEq(committedBalances[a], currentLiveBalances[a], "No divergence between committed and live");
+
+        (uint256 expectedFromLive, , ) = ReClammPoolMock(pool).computeCurrentVirtualBalances(currentLiveBalances);
+        (uint256 expectedFromStale, , ) = ReClammPoolMock(pool).computeCurrentVirtualBalances(committedBalances);
+        assertNotEq(expectedFromLive, expectedFromStale, "Virtual balance paths do not diverge");
+
+        vm.prank(admin);
+        ReClammPool(pool).setDailyPriceShiftExponent(_DEFAULT_DAILY_PRICE_SHIFT_EXPONENT);
+
+        (uint256 storedA, ) = ReClammPool(pool).getLastVirtualBalances();
+        uint256 diffFromLive = storedA > expectedFromLive ? storedA - expectedFromLive : expectedFromLive - storedA;
+        uint256 diffFromStale = storedA > expectedFromStale ? storedA - expectedFromStale : expectedFromStale - storedA;
+        assertLt(diffFromLive, diffFromStale, "Stored virtual balance A is closer to stale than to live");
+    }
+
     function _createStandardPool(
         bool tokenAPriceIncludesRate,
         bool tokenBPriceIncludesRate,
