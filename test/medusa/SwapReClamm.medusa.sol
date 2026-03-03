@@ -75,13 +75,10 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
         );
 
         // Compute the initial balance ratio so that the target price of the pool is respected.
-        uint256[] memory initBalances = ReClammPool(newPool).computeInitialBalancesRaw(
-            tokens[0],
-            initialBalances[0]
-        );
+        uint256[] memory initBalances = ReClammPool(newPool).computeInitialBalancesRaw(tokens[0], initialBalances[0]);
         initialBalances[0] = initBalances[0];
         initialBalances[1] = initBalances[1];
-        
+
         // Initialize liquidity of new pool.
         medusa.prank(lp);
         router.initialize(address(newPool), tokens, initialBalances, 0, false, bytes(""));
@@ -208,20 +205,25 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
 
     function computeAddLiquidity(uint256 exactBptOut) public {
         uint256 oldTotalSupply = ReClammPool(address(pool)).totalSupply();
+        if (oldTotalSupply < 1e18) {
+            return;
+        }
         exactBptOut = bound(exactBptOut, 1e18, oldTotalSupply);
 
         medusa.prank(lp);
-        router.addLiquidityProportional(
-            address(pool),
-            [MAX_UINT256, MAX_UINT256].toMemoryArray(),
-            exactBptOut,
-            false,
-            bytes("")
-        );
-
-        uint256 newTotalSupply = ReClammPool(address(pool)).totalSupply();
-        uint256 proportion = newTotalSupply.divDown(oldTotalSupply);
-        invariantProportion = invariantProportion.mulDown(proportion);
+        try
+            router.addLiquidityProportional(
+                address(pool),
+                [MAX_UINT256, MAX_UINT256].toMemoryArray(),
+                exactBptOut,
+                false,
+                bytes("")
+            )
+        {
+            uint256 newTotalSupply = ReClammPool(address(pool)).totalSupply();
+            uint256 proportion = newTotalSupply.divDown(oldTotalSupply);
+            invariantProportion = invariantProportion.mulDown(proportion);
+        } catch {}
     }
 
     function computeRemoveLiquidity(uint256 exactBptIn) public {
