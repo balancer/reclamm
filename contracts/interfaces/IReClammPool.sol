@@ -224,6 +224,9 @@ interface IReClammPool is IBasePool {
      */
     error ReClammPoolBptRateUnsupported();
 
+    /// @dev `onBeforeInitialize` hook was called more than once.
+    error PoolAlreadyInitialized();
+
     /// @dev Function called before initializing the pool.
     error PoolNotInitialized();
 
@@ -238,6 +241,9 @@ interface IReClammPool is IBasePool {
 
     /// @notice The current price interval or spot price is outside the initialization price range.
     error WrongInitializationPrices();
+
+    // Hook was invoked with the wrong pool address.
+    error InvalidPoolArgument(address pool);
 
     /********************************************************
                        Pool State Getters

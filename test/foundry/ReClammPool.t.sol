@@ -52,6 +52,51 @@ contract ReClammPoolTest is BaseReClammTest {
 
     ReClammMathMock mathMock = new ReClammMathMock();
 
+    function testOnRegisterPoolArgument() public view {
+        address wrongPool = address(0x123);
+        TokenConfig[] memory tokenConfig = new TokenConfig[](2);
+        LiquidityManagement memory liquidityManagement;
+        liquidityManagement.disableUnbalancedLiquidity = true;
+        liquidityManagement.enableDonation = false;
+        bool result = ReClammPool(pool).onRegister(poolFactory, wrongPool, tokenConfig, liquidityManagement);
+        assertFalse(result, "onRegister should return false for wrong pool argument");
+    }
+
+    function testOnRegisterTokenConfig() public view {
+        TokenConfig[] memory tokenConfig = new TokenConfig[](3);
+        LiquidityManagement memory liquidityManagement;
+        liquidityManagement.disableUnbalancedLiquidity = true;
+        liquidityManagement.enableDonation = false;
+        bool result = ReClammPool(pool).onRegister(poolFactory, pool, tokenConfig, liquidityManagement);
+        assertFalse(result, "onRegister should return false for wrong token config length");
+    }
+
+    function testOnRegisterLiquidityManagement() public view {
+        TokenConfig[] memory tokenConfig = new TokenConfig[](2);
+        LiquidityManagement memory liquidityManagement;
+        liquidityManagement.disableUnbalancedLiquidity = false;
+        liquidityManagement.enableDonation = false;
+        bool result = ReClammPool(pool).onRegister(poolFactory, pool, tokenConfig, liquidityManagement);
+        assertFalse(
+            result,
+            "onRegister should return false for wrong liquidity management (disableUnbalancedLiquidity)"
+        );
+
+        liquidityManagement.disableUnbalancedLiquidity = true;
+        liquidityManagement.enableDonation = true;
+        result = ReClammPool(pool).onRegister(poolFactory, pool, tokenConfig, liquidityManagement);
+        assertFalse(result, "onRegister should return false for wrong liquidity management (enableDonation)");
+    }
+
+    function testOnRegisterCorrectArguments() public view {
+        TokenConfig[] memory tokenConfig = new TokenConfig[](2);
+        LiquidityManagement memory liquidityManagement;
+        liquidityManagement.disableUnbalancedLiquidity = true;
+        liquidityManagement.enableDonation = false;
+        bool result = ReClammPool(pool).onRegister(poolFactory, pool, tokenConfig, liquidityManagement);
+        assertTrue(result, "onRegister should return true for correct arguments");
+    }
+
     function testOnSwapOnlyVault() public {
         PoolSwapParams memory request;
         vm.expectRevert(abi.encodeWithSelector(IVaultErrors.SenderIsNotVault.selector, address(this)));
@@ -67,7 +112,22 @@ contract ReClammPoolTest is BaseReClammTest {
         vm.expectRevert(abi.encodeWithSelector(IVaultErrors.SenderIsNotVault.selector, address(this)));
         ReClammPool(pool).onBeforeAddLiquidity(
             address(this),
+            pool,
+            AddLiquidityKind.PROPORTIONAL,
+            new uint256[](2),
+            0,
+            new uint256[](2),
+            bytes("")
+        );
+    }
+
+    function testOnBeforeAddLiquidityPoolArgument() public {
+        address wrongPool = address(0x123);
+        vm.prank(address(vault));
+        vm.expectRevert(abi.encodeWithSelector(IReClammPool.InvalidPoolArgument.selector, wrongPool));
+        ReClammPool(pool).onBeforeAddLiquidity(
             address(this),
+            wrongPool,
             AddLiquidityKind.PROPORTIONAL,
             new uint256[](2),
             0,
@@ -80,7 +140,22 @@ contract ReClammPoolTest is BaseReClammTest {
         vm.expectRevert(abi.encodeWithSelector(IVaultErrors.SenderIsNotVault.selector, address(this)));
         ReClammPool(pool).onBeforeRemoveLiquidity(
             address(this),
+            pool,
+            RemoveLiquidityKind.PROPORTIONAL,
+            1,
+            new uint256[](2),
+            new uint256[](2),
+            bytes("")
+        );
+    }
+
+    function testOnBeforeRemoveLiquidityPoolArgument() public {
+        address wrongPool = address(0x123);
+        vm.prank(address(vault));
+        vm.expectRevert(abi.encodeWithSelector(IReClammPool.InvalidPoolArgument.selector, wrongPool));
+        ReClammPool(pool).onBeforeRemoveLiquidity(
             address(this),
+            wrongPool,
             RemoveLiquidityKind.PROPORTIONAL,
             1,
             new uint256[](2),
@@ -1239,6 +1314,11 @@ contract ReClammPoolTest is BaseReClammTest {
 
         vm.prank(alice);
         router.initialize(newPool, tokens, _initialBalances, 0, false, bytes(""));
+
+        // Can't call `onBeforeInitialize` twice.
+        vm.prank(address(vault));
+        vm.expectRevert(IReClammPool.PoolAlreadyInitialized.selector);
+        ReClammPool(newPool).onBeforeInitialize(_initialBalances, "");
     }
 
     function testSetDailyPriceShiftExponentTooHigh() public {
