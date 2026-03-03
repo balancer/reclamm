@@ -31,6 +31,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     using SafeCast for *;
     using ReClammMath for *;
 
+    // solhint-disable custom-errors
+
     // Fees are 18-decimal, floating point values, which will be stored in the Vault using 24 bits.
     // This means they have 0.00001% resolution (i.e., any non-zero bits < 1e11 will cause precision loss).
     // Minimum values help make the math well-behaved (i.e., the swap fee should overwhelm any rounding error).
@@ -705,7 +707,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         // immediately place the pool outside of the target range. This is important because an excessively high margin
         // could be used maliciously to manipulate the pool price by forcing it to stay within an excessively tight
         //range. The new margin must also not be higher than the current centeredness, to prevent similar manipulation.
-        // solhint-disable custom-errors
         require(centeredness >= _centerednessMargin && centeredness >= newCenterednessMargin, PoolOutsideTargetRange());
 
         if (changed) {
