@@ -328,9 +328,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     ) public override onlyVault returns (bool) {
         // `onlyVault` is sufficient, but in any case this code should only be executed when the Vault calls this
         // function with the correct pool address.
-        if (pool != address(this)) {
-            revert InvalidPoolArgument(pool);
-        }
+        require(pool == address(this), InvalidPoolArgument(pool));
 
         // This hook makes sure that the virtual balances are increased in the same proportion as the real balances
         // after adding liquidity. This is needed to keep the pool centeredness and price ratio constant.
@@ -363,9 +361,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     ) public override onlyVault returns (bool) {
         // `onlyVault` is sufficient, but in any case this code should only be executed when the Vault calls this
         // function with the correct pool address.
-        if (pool != address(this)) {
-            revert InvalidPoolArgument(pool);
-        }
+        require(pool == address(this), InvalidPoolArgument(pool));
 
         // This hook makes sure that the virtual balances are decreased in the same proportion as the real balances
         // after removing liquidity. This is needed to keep the pool centeredness and price ratio constant.
