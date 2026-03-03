@@ -67,16 +67,21 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
             "RECLAMM",
             vault.buildTokenConfig(tokens),
             roleAccounts,
-            0,
+            0.001e16, // minimum swap fee percentage; zeroed out below for fuzz testing
             priceParams,
-            1e18, // 100% daily price shift exponent
-            10e16, // 10% margin
+            1e18,
+            10e16,
             ""
         );
 
         // Compute the initial balance ratio so that the target price of the pool is respected.
-        initialBalances[1] = initialBalances[0].mulDown(ReClammPoolMock(newPool).computeInitialBalanceRatio());
-
+        uint256[] memory initBalances = ReClammPool(newPool).computeInitialBalancesRaw(
+            tokens[0],
+            initialBalances[0]
+        );
+        initialBalances[0] = initBalances[0];
+        initialBalances[1] = initBalances[1];
+        
         // Initialize liquidity of new pool.
         medusa.prank(lp);
         router.initialize(address(newPool), tokens, initialBalances, 0, false, bytes(""));
