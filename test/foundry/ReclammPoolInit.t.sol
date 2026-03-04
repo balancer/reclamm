@@ -37,7 +37,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
     using ArrayHelpers for *;
     using CastingHelpers for *;
 
-    uint256 private constant _INITIAL_PARAMS_ERROR = 1e6;
+    uint256 private constant _INITIAL_PARAMS_ERROR = 0.0001e16; // 0.0001% error
 
     uint256 private constant _INITIAL_AMOUNT = 1000e18;
 
@@ -185,11 +185,11 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
         uint256 snapshotId = vm.snapshotState();
         _initPool(newPool, initialBalancesRawGivenB, 0);
-        _validatePostInitConditions();
+        _validatePostInitConditions(newPool);
         vm.revertToState(snapshotId);
 
         _initPool(newPool, initialBalancesRawGivenA, 0);
-        _validatePostInitConditions();
+        _validatePostInitConditions(newPool);
     }
 
     function testComputeInitialBalancesUsdcEth() public {
@@ -243,13 +243,13 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
         uint256 snapshotId = vm.snapshotState();
         _initPool(newPool, initialBalancesRawGivenUsdc, 0);
-        _validatePostInitConditions();
+        _validatePostInitConditions(newPool);
 
         uint256 spotPriceGivenUsdc = ReClammPool(newPool).computeCurrentSpotPrice();
 
         vm.revertToState(snapshotId);
         _initPool(newPool, initialBalancesRawGivenWeth, 0);
-        _validatePostInitConditions();
+        _validatePostInitConditions(newPool);
 
         uint256 spotPriceGivenWeth = ReClammPool(newPool).computeCurrentSpotPrice();
         assertApproxEqRel(spotPriceGivenUsdc, spotPriceGivenWeth, 0.01e16, "Spot prices are not equal");
@@ -312,13 +312,13 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
         uint256 snapshotId = vm.snapshot();
         _initPool(newPool, initialBalancesRawGivenUsdc, 0);
-        _validatePostInitConditions();
+        _validatePostInitConditions(newPool);
 
         uint256 spotPriceGivenUsdc = ReClammPool(newPool).computeCurrentSpotPrice();
 
         vm.revertTo(snapshotId);
         _initPool(newPool, initialBalancesRawGivenWeth, 0);
-        _validatePostInitConditions();
+        _validatePostInitConditions(newPool);
 
         uint256 spotPriceGivenWeth = ReClammPool(newPool).computeCurrentSpotPrice();
         assertApproxEqRel(spotPriceGivenUsdc, spotPriceGivenWeth, 0.01e16, "Spot prices are not equal");
@@ -387,13 +387,13 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
         uint256 snapshotId = vm.snapshotState();
         _initPool(newPool, initialBalancesRawGivenUsdc, 0);
-        _validatePostInitConditions();
+        _validatePostInitConditions(newPool);
 
         uint256 spotPriceGivenUsdc = ReClammPool(newPool).computeCurrentSpotPrice();
 
         vm.revertToState(snapshotId);
         _initPool(newPool, initialBalancesRawGivenWstEth, 0);
-        _validatePostInitConditions();
+        _validatePostInitConditions(newPool);
         uint256 spotPriceGivenWstEth = ReClammPool(newPool).computeCurrentSpotPrice();
         assertApproxEqRel(spotPriceGivenUsdc, spotPriceGivenWstEth, 0.1e16, "Spot prices are not equal");
         // The spot price is always computed in terms of the tokens without the rates, so this would be ETH/USDC.
@@ -458,13 +458,13 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
         uint256 snapshotId = vm.snapshotState();
         _initPool(newPool, initialBalancesRawGivenUsdc, 0);
-        _validatePostInitConditions();
+        _validatePostInitConditions(newPool);
 
         uint256 spotPriceGivenUsdc = ReClammPool(newPool).computeCurrentSpotPrice();
 
         vm.revertToState(snapshotId);
         _initPool(newPool, initialBalancesRawGivenWaEth, 0);
-        _validatePostInitConditions();
+        _validatePostInitConditions(newPool);
         uint256 spotPriceGivenWaEth = ReClammPool(newPool).computeCurrentSpotPrice();
         assertApproxEqRel(spotPriceGivenUsdc, spotPriceGivenWaEth, 0.1e16, "Spot prices are not equal");
         // The actual spot price after initialization corresponds to WETH/USDC, so it matches the initial one.
@@ -530,13 +530,13 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
         uint256 snapshotId = vm.snapshotState();
         _initPool(newPool, initialBalancesRawGivenWaUsdc, 0);
-        _validatePostInitConditions();
+        _validatePostInitConditions(newPool);
 
         uint256 spotPriceGivenWaUsdc = ReClammPool(newPool).computeCurrentSpotPrice();
 
         vm.revertToState(snapshotId);
         _initPool(newPool, initialBalancesRawGivenWaEth, 0);
-        _validatePostInitConditions();
+        _validatePostInitConditions(newPool);
         uint256 spotPriceGivenWaEth = ReClammPool(newPool).computeCurrentSpotPrice();
         assertApproxEqRel(spotPriceGivenWaUsdc, spotPriceGivenWaEth, 0.1e16, "Spot prices are not equal");
         // The actual spot price after initialization corresponds to WETH/USDC, so it matches the one specified
@@ -610,13 +610,13 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
         uint256 snapshotId = vm.snapshotState();
         _initPool(newPool, initialBalancesRawGivenWaUsdc, 0);
-        _validatePostInitConditions();
+        _validatePostInitConditions(newPool);
 
         uint256 spotPriceGivenWaUsdc = ReClammPool(newPool).computeCurrentSpotPrice();
 
         vm.revertToState(snapshotId);
         _initPool(newPool, initialBalancesRawGivenWaEurc, 0);
-        _validatePostInitConditions();
+        _validatePostInitConditions(newPool);
         uint256 spotPriceGivenWaEurc = ReClammPool(newPool).computeCurrentSpotPrice();
         assertApproxEqRel(spotPriceGivenWaUsdc, spotPriceGivenWaEurc, 0.1e16, "Spot prices are not equal");
         // The actual spot price after initialization corresponds to WETH/USDC, so it matches the one specified
@@ -680,13 +680,13 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
         uint256 snapshotId = vm.snapshotState();
         _initPool(newPool, initialBalancesRawGivenSDai, 0);
-        _validatePostInitConditions();
+        _validatePostInitConditions(newPool);
 
         uint256 spotPriceGivenSDai = ReClammPool(newPool).computeCurrentSpotPrice();
 
         vm.revertToState(snapshotId);
         _initPool(newPool, initialBalancesRawGivenWstEth, 0);
-        _validatePostInitConditions();
+        _validatePostInitConditions(newPool);
         uint256 spotPriceGivenWstEth = ReClammPool(newPool).computeCurrentSpotPrice();
         assertApproxEqRel(spotPriceGivenSDai, spotPriceGivenWstEth, 0.1e16, "Spot prices are not equal");
         // The spot price is always underlying / underlying, so it has to be 2.5k
@@ -698,7 +698,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         );
     }
 
-    function _validatePostInitConditions() private view {
+    function _validatePostInitConditions(address pool) private view {
         assertTrue(vault.isPoolInitialized(pool), "Pool is not initialized");
 
         // Validate price ratio and target.
