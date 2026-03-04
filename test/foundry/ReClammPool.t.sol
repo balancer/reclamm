@@ -303,7 +303,6 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function testGetReClammPoolDynamicData() public {
-        // Modify values using setters
         uint256 newDailyPriceShiftExponent = 80e16;
         uint256 endPriceRatio = 16e18;
         uint256 endFourthRootPriceRatio = 2e18;
@@ -315,8 +314,6 @@ contract ReClammPoolTest is BaseReClammTest {
             priceRatioUpdateStartTime: block.timestamp.toUint32(),
             priceRatioUpdateEndTime: (block.timestamp + 3 days).toUint32()
         });
-
-        (uint256[] memory currentVirtualBalances, ) = _computeCurrentVirtualBalances(pool);
 
         vm.startPrank(admin);
         ReClammPool(pool).startPriceRatioUpdate(
@@ -331,66 +328,131 @@ contract ReClammPoolTest is BaseReClammTest {
 
         vm.warp(block.timestamp + 6 hours);
 
-        uint256 currentPriceRatio = ReClammPool(pool).computeCurrentPriceRatio();
-        uint96 currentFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
-
-        // Get initial dynamic data.
         ReClammPoolDynamicData memory data = ReClammPool(pool).getReClammPoolDynamicData();
 
-        // Check balances.
-        assertEq(data.balancesLiveScaled18.length, 2, "Invalid number of balances");
-        (, , , uint256[] memory balancesLiveScaled18) = vault.getPoolTokenInfo(pool);
-        assertEq(data.balancesLiveScaled18[daiIdx], balancesLiveScaled18[daiIdx], "Invalid DAI balance");
-        assertEq(data.balancesLiveScaled18[usdcIdx], balancesLiveScaled18[usdcIdx], "Invalid USDC balance");
+        // Pool flags + base fields
+        {
+            assertEq(data.isPoolInitialized, true, "Pool should remain initialized");
+            assertEq(data.isPoolPaused, false, "Pool should remain unpaused");
+            assertEq(data.isPoolInRecoveryMode, false, "Pool should remain not in recovery mode");
 
-        // Check token rates.
-        assertEq(data.tokenRates.length, 2, "Invalid number of token rates");
-        (, uint256[] memory tokenRates) = vault.getPoolTokenRates(pool);
-        assertEq(data.tokenRates[daiIdx], tokenRates[daiIdx], "Invalid DAI token rate");
-        assertEq(data.tokenRates[usdcIdx], tokenRates[usdcIdx], "Invalid USDC token rate");
+            assertEq(data.staticSwapFeePercentage, newStaticSwapFeePercentage, "Invalid static swap fee percentage");
+            assertEq(data.totalSupply, ReClammPool(pool).totalSupply(), "Invalid total supply");
+        }
 
-        assertEq(data.staticSwapFeePercentage, newStaticSwapFeePercentage, "Invalid static swap fee percentage");
-        assertEq(data.totalSupply, ReClammPool(pool).totalSupply(), "Invalid total supply");
+        // Balances (live)
+        {
+            assertEq(data.balancesLiveScaled18.length, 2, "Invalid number of live balances");
+            uint256[] memory expectedLiveBalances = vault.getCurrentLiveBalances(pool);
+            assertEq(data.balancesLiveScaled18[daiIdx], expectedLiveBalances[daiIdx], "Invalid live DAI balance");
+            assertEq(data.balancesLiveScaled18[usdcIdx], expectedLiveBalances[usdcIdx], "Invalid live USDC balance");
+        }
 
-        // Check pool specific parameters.
-        assertEq(data.lastTimestamp, block.timestamp - 6 hours, "Invalid last timestamp");
-        assertEq(data.currentPriceRatio, currentPriceRatio, "Invalid current price ratio");
-        assertEq(
-            data.currentFourthRootPriceRatio,
-            currentFourthRootPriceRatio,
-            "Invalid current fourth root price ratio"
-        );
-        assertEq(
-            data.startFourthRootPriceRatio,
-            state.startFourthRootPriceRatio,
-            "Invalid start fourth root price ratio"
-        );
-        assertEq(data.endFourthRootPriceRatio, state.endFourthRootPriceRatio, "Invalid end fourth root price ratio");
-        assertEq(data.priceRatioUpdateStartTime, state.priceRatioUpdateStartTime, "Invalid start time");
-        assertEq(data.priceRatioUpdateEndTime, state.priceRatioUpdateEndTime, "Invalid end time");
+        // Balances (last-interaction / last stored derived)
+        {
+            assertEq(data.balancesLastInteractionScaled18.length, 2, "Invalid number of last-interaction balances");
+            (, , , uint256[] memory expectedLastInteractionBalances) = vault.getPoolTokenInfo(pool);
+            assertEq(
+                data.balancesLastInteractionScaled18[daiIdx],
+                expectedLastInteractionBalances[daiIdx],
+                "Invalid last-interaction DAI balance"
+            );
+            assertEq(
+                data.balancesLastInteractionScaled18[usdcIdx],
+                expectedLastInteractionBalances[usdcIdx],
+                "Invalid last-interaction USDC balance"
+            );
+        }
 
-        assertEq(data.centerednessMargin, _NEW_CENTEREDNESS_MARGIN, "Invalid centeredness margin");
-        assertEq(
-            data.dailyPriceShiftBase,
-            FixedPoint.ONE - newDailyPriceShiftExponent / 124649,
-            "Invalid daily price shift base"
-        );
-        assertEq(
-            data.dailyPriceShiftExponent,
-            mathMock.toDailyPriceShiftExponent(data.dailyPriceShiftBase),
-            "Invalid daily price shift exponent"
-        );
-        assertEq(data.lastVirtualBalances.length, 2, "Invalid number of last virtual balances");
-        assertEq(data.lastVirtualBalances[daiIdx], currentVirtualBalances[daiIdx], "Invalid DAI last virtual balance");
-        assertEq(
-            data.lastVirtualBalances[usdcIdx],
-            currentVirtualBalances[usdcIdx],
-            "Invalid USDC last virtual balance"
-        );
+        // Token rates
+        {
+            assertEq(data.tokenRates.length, 2, "Invalid number of token rates");
+            (, uint256[] memory tokenRates) = vault.getPoolTokenRates(pool);
+            assertEq(data.tokenRates[daiIdx], tokenRates[daiIdx], "Invalid DAI token rate");
+            assertEq(data.tokenRates[usdcIdx], tokenRates[usdcIdx], "Invalid USDC token rate");
+        }
 
-        assertEq(data.isPoolInitialized, true, "Pool should remain initialized");
-        assertEq(data.isPoolPaused, false, "Pool should remain unpaused");
-        assertEq(data.isPoolInRecoveryMode, false, "Pool should remain not in recovery mode");
+        // ReClamm stored params
+        {
+            assertEq(data.lastTimestamp, block.timestamp - 6 hours, "Invalid last timestamp");
+            assertEq(data.centerednessMargin, _NEW_CENTEREDNESS_MARGIN, "Invalid centeredness margin");
+
+            assertEq(
+                data.dailyPriceShiftBase,
+                FixedPoint.ONE - newDailyPriceShiftExponent / 124649,
+                "Invalid daily price shift base"
+            );
+            assertEq(
+                data.dailyPriceShiftExponent,
+                mathMock.toDailyPriceShiftExponent(data.dailyPriceShiftBase),
+                "Invalid daily price shift exponent"
+            );
+
+            (uint256 lastVA, uint256 lastVB) = ReClammPool(pool).getLastVirtualBalances();
+            assertEq(data.lastVirtualBalances.length, 2, "Invalid number of last virtual balances");
+            assertEq(data.lastVirtualBalances[a], lastVA, "Invalid token A last virtual balance");
+            assertEq(data.lastVirtualBalances[b], lastVB, "Invalid token B last virtual balance");
+        }
+
+        // Price ratio update schedule (stored state)
+        {
+            assertEq(
+                data.startFourthRootPriceRatio,
+                uint256(state.startFourthRootPriceRatio),
+                "Invalid start fourth root price ratio"
+            );
+            assertEq(
+                data.endFourthRootPriceRatio,
+                uint256(state.endFourthRootPriceRatio),
+                "Invalid end fourth root price ratio"
+            );
+            assertEq(data.priceRatioUpdateStartTime, state.priceRatioUpdateStartTime, "Invalid start time");
+            assertEq(data.priceRatioUpdateEndTime, state.priceRatioUpdateEndTime, "Invalid end time");
+        }
+
+        // Derived ratios (both frames)
+        {
+            (uint256 expLiveRatio, uint256 expLiveFourthRoot) = _expectedPriceRatioAndFourthRoot(
+                pool,
+                data.balancesLiveScaled18
+            );
+            assertEq(data.currentPriceRatioLive, expLiveRatio, "Invalid live current price ratio");
+            assertEq(data.currentFourthRootPriceRatioLive, expLiveFourthRoot, "Invalid live fourth root price ratio");
+
+            (uint256 expSnapRatio, uint256 expSnapFourthRoot) = _expectedPriceRatioAndFourthRoot(
+                pool,
+                data.balancesLastInteractionScaled18
+            );
+            assertEq(
+                data.currentPriceRatioLastInteraction,
+                expSnapRatio,
+                "Invalid last-interaction current price ratio"
+            );
+            assertEq(
+                data.currentFourthRootPriceRatioLastInteraction,
+                expSnapFourthRoot,
+                "Invalid last-interaction fourth root price ratio"
+            );
+
+            // Snapshot-style public getters should align with last-interaction frame.
+            assertEq(ReClammPool(pool).computeCurrentPriceRatio(), expSnapRatio, "Snapshot getter priceRatio mismatch");
+            assertEq(
+                ReClammPool(pool).computeCurrentFourthRootPriceRatio(),
+                expSnapFourthRoot,
+                "Snapshot getter fourthRoot mismatch"
+            );
+        }
+    }
+
+    // Helper to avoid stack-too-deep in the test.
+    // Assumes `pool` is deployed as `ReClammPoolMock` in this suite.
+    function _expectedPriceRatioAndFourthRoot(
+        address pool_,
+        uint256[] memory balancesScaled18
+    ) internal view returns (uint256 priceRatio, uint256 fourthRootPriceRatio) {
+        (uint256 vA, uint256 vB, ) = ReClammPoolMock(pool_).computeCurrentVirtualBalances(balancesScaled18);
+        priceRatio = ReClammMath.computePriceRatio(balancesScaled18, vA, vB);
+        fourthRootPriceRatio = ReClammMath.fourthRootScaled18(priceRatio);
     }
 
     function testGetReClammPoolImmutableData() public view {
