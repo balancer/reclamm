@@ -41,6 +41,8 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
     uint256 private constant _INITIAL_AMOUNT = 1000e18;
 
+    address eurc;
+
     function setUp() public override {
         super.setUp();
 
@@ -54,6 +56,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         usdc6Decimals.approve(address(permit2), type(uint256).max);
         permit2.approve(address(usdc6Decimals), address(router), type(uint160).max, type(uint48).max);
         vm.stopPrank();
+        eurc = address(dai); // let's just say this is EURC
     }
 
     function testComputeInitialBalancesInvalidToken() public {
@@ -137,6 +140,10 @@ contract ReClammPoolInitTest is BaseReClammTest {
         _tokenAPriceIncludesRate = tokenAWithRate;
         _tokenBPriceIncludesRate = tokenBWithRate;
         initialAmount = initialAmount / 10 ** (18 - IERC20Metadata(address(sortedTokens[b])).decimals());
+        // When the flag is set, we'll have a deviation with respect to the initial target price.
+        uint256 expectedSpotPrice = _initialTargetPrice
+            .mulDown(_tokenAPriceIncludesRate ? rateA : FixedPoint.ONE)
+            .divDown(_tokenBPriceIncludesRate ? rateB : FixedPoint.ONE);
 
         (address newPool, ) = _createPool(sortedTokens.asAddress(), "BeforeInitTest");
 
@@ -185,21 +192,23 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
         uint256 snapshotId = vm.snapshotState();
         _initPool(newPool, initialBalancesRawGivenB, 0);
-        _validatePostInitConditions(newPool);
+        _validatePostInitConditions(newPool, expectedSpotPrice);
         vm.revertToState(snapshotId);
 
         _initPool(newPool, initialBalancesRawGivenA, 0);
-        _validatePostInitConditions(newPool);
+        _validatePostInitConditions(newPool, expectedSpotPrice);
     }
 
     function testComputeInitialBalancesUsdcEth() public {
         require(address(usdc6Decimals) > address(weth), "Incorrect token order");
         // Spot price is 2.5k ETH/USDC. There are no rate providers here so flags don't really matter.
+        uint256 expectedSpotPrice = _initialTargetPrice;
         IERC20[] memory sortedTokens = [address(weth), address(usdc6Decimals)].toMemoryArray().asIERC20();
         (uint256 wethIndex, uint256 usdcIndex) = (a, b);
 
         _tokenAPriceIncludesRate = false;
         _tokenBPriceIncludesRate = false;
+
         uint256 initialAmount = 100e6;
 
         (address newPool, ) = _createPool(sortedTokens.asAddress(), "BeforeInitTest");
@@ -243,32 +252,28 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
         uint256 snapshotId = vm.snapshotState();
         _initPool(newPool, initialBalancesRawGivenUsdc, 0);
-        _validatePostInitConditions(newPool);
+        _validatePostInitConditions(newPool, expectedSpotPrice);
 
         uint256 spotPriceGivenUsdc = ReClammPool(newPool).computeCurrentSpotPrice();
 
         vm.revertToState(snapshotId);
         _initPool(newPool, initialBalancesRawGivenWeth, 0);
-        _validatePostInitConditions(newPool);
+        _validatePostInitConditions(newPool, expectedSpotPrice);
 
         uint256 spotPriceGivenWeth = ReClammPool(newPool).computeCurrentSpotPrice();
         assertApproxEqRel(spotPriceGivenUsdc, spotPriceGivenWeth, 0.01e16, "Spot prices are not equal");
-        assertApproxEqRel(
-            spotPriceGivenUsdc,
-            _initialTargetPrice,
-            0.01e16,
-            "Spot prices differ from initial target price"
-        );
     }
 
     function testComputeInitialBalancesUsdcEthFlagsTrue() public {
         require(address(usdc6Decimals) > address(weth), "Incorrect token order");
         // Spot price is 2.5k ETH/USDC. There are no rate providers here so flags don't really matter.
+        uint256 expectedSpotPrice = _initialTargetPrice;
         IERC20[] memory sortedTokens = [address(weth), address(usdc6Decimals)].toMemoryArray().asIERC20();
         (uint256 wethIndex, uint256 usdcIndex) = (a, b);
 
         _tokenAPriceIncludesRate = true;
         _tokenBPriceIncludesRate = true;
+
         uint256 initialAmount = 100e6;
 
         (address newPool, ) = _createPool(sortedTokens.asAddress(), "BeforeInitTest");
@@ -312,31 +317,25 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
         uint256 snapshotId = vm.snapshot();
         _initPool(newPool, initialBalancesRawGivenUsdc, 0);
-        _validatePostInitConditions(newPool);
+        _validatePostInitConditions(newPool, expectedSpotPrice);
 
         uint256 spotPriceGivenUsdc = ReClammPool(newPool).computeCurrentSpotPrice();
 
         vm.revertTo(snapshotId);
         _initPool(newPool, initialBalancesRawGivenWeth, 0);
-        _validatePostInitConditions(newPool);
+        _validatePostInitConditions(newPool, expectedSpotPrice);
 
         uint256 spotPriceGivenWeth = ReClammPool(newPool).computeCurrentSpotPrice();
         assertApproxEqRel(spotPriceGivenUsdc, spotPriceGivenWeth, 0.01e16, "Spot prices are not equal");
-        assertApproxEqRel(
-            spotPriceGivenUsdc,
-            _initialTargetPrice,
-            0.01e16,
-            "Spot prices differ from initial target price"
-        );
     }
 
     function testComputeInitialBalancesUsdcWstEth() public {
         require(address(usdc6Decimals) > address(weth), "Incorrect token order");
         uint256 wstEthRate = 1.2e18;
-        uint256 initialUnderlyingPrice = _initialTargetPrice;
 
         // Spot price for ETH/USDC is 2.5k, so spot price is 3k for wstETH/USDC, i.e. 2.5k * rate.
         _initialTargetPrice = _initialTargetPrice.mulDown(wstEthRate);
+        uint256 expectedSpotPrice = _initialTargetPrice;
 
         IERC20[] memory sortedTokens = [address(weth), address(usdc6Decimals)].toMemoryArray().asIERC20();
         (uint256 wethIndex, uint256 usdcIndex) = (a, b);
@@ -387,29 +386,24 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
         uint256 snapshotId = vm.snapshotState();
         _initPool(newPool, initialBalancesRawGivenUsdc, 0);
-        _validatePostInitConditions(newPool);
+        _validatePostInitConditions(newPool, expectedSpotPrice);
 
         uint256 spotPriceGivenUsdc = ReClammPool(newPool).computeCurrentSpotPrice();
 
         vm.revertToState(snapshotId);
         _initPool(newPool, initialBalancesRawGivenWstEth, 0);
-        _validatePostInitConditions(newPool);
+        _validatePostInitConditions(newPool, expectedSpotPrice);
+
         uint256 spotPriceGivenWstEth = ReClammPool(newPool).computeCurrentSpotPrice();
         assertApproxEqRel(spotPriceGivenUsdc, spotPriceGivenWstEth, 0.1e16, "Spot prices are not equal");
-        // The spot price is always computed in terms of the tokens without the rates, so this would be ETH/USDC.
-        assertApproxEqRel(
-            spotPriceGivenUsdc,
-            initialUnderlyingPrice,
-            0.01e16,
-            "Spot prices differ from initial target price"
-        );
     }
 
     function testComputeInitialBalancesUsdcWaEth() public {
         require(address(usdc6Decimals) > address(weth), "Incorrect token order");
         uint256 waWethRate = 1.2e18;
 
-        // Spot price is 2.5k for ETH/USDC --> spot price for waETH/USDC is 2.5k * 1.2
+        // Spot price is 2.5k for ETH/USDC --> spot price for waETH/USDC is 2.5k * 1.2 = 3000
+        uint256 expectedSpotPrice = _initialTargetPrice.mulDown(waWethRate);
         IERC20[] memory sortedTokens = [address(weth), address(usdc6Decimals)].toMemoryArray().asIERC20();
         (uint256 wethIndex, uint256 usdcIndex) = (a, b);
 
@@ -458,22 +452,15 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
         uint256 snapshotId = vm.snapshotState();
         _initPool(newPool, initialBalancesRawGivenUsdc, 0);
-        _validatePostInitConditions(newPool);
+        _validatePostInitConditions(newPool, expectedSpotPrice);
 
         uint256 spotPriceGivenUsdc = ReClammPool(newPool).computeCurrentSpotPrice();
 
         vm.revertToState(snapshotId);
         _initPool(newPool, initialBalancesRawGivenWaEth, 0);
-        _validatePostInitConditions(newPool);
+        _validatePostInitConditions(newPool, expectedSpotPrice);
         uint256 spotPriceGivenWaEth = ReClammPool(newPool).computeCurrentSpotPrice();
         assertApproxEqRel(spotPriceGivenUsdc, spotPriceGivenWaEth, 0.1e16, "Spot prices are not equal");
-        // The actual spot price after initialization corresponds to WETH/USDC, so it matches the initial one.
-        assertApproxEqRel(
-            spotPriceGivenUsdc,
-            _initialTargetPrice,
-            0.01e16,
-            "Spot prices differ from initial target price"
-        );
     }
 
     function testComputeInitialBalancesWaUsdcWaEth() public {
@@ -481,7 +468,8 @@ contract ReClammPoolInitTest is BaseReClammTest {
         uint256 waWethRate = 1.2e18;
         uint256 waUsdcRate = 1.5e18;
 
-        // Spot price is 2.5k for ETH/USDC --> spot price of waWETH / waUSDC does not matter here.
+        // Spot price is 2.5k for ETH/USDC --> spot price of waWETH / waUSDC is 2.5k * 1.2 / 1.5 = 2000.
+        uint256 expectedSpotPrice = _initialTargetPrice.mulDown(waWethRate).divDown(waUsdcRate);
         IERC20[] memory sortedTokens = [address(weth), address(usdc6Decimals)].toMemoryArray().asIERC20();
         (uint256 wethIndex, uint256 usdcIndex) = (a, b);
 
@@ -530,43 +518,34 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
         uint256 snapshotId = vm.snapshotState();
         _initPool(newPool, initialBalancesRawGivenWaUsdc, 0);
-        _validatePostInitConditions(newPool);
+        _validatePostInitConditions(newPool, expectedSpotPrice);
 
         uint256 spotPriceGivenWaUsdc = ReClammPool(newPool).computeCurrentSpotPrice();
 
         vm.revertToState(snapshotId);
         _initPool(newPool, initialBalancesRawGivenWaEth, 0);
-        _validatePostInitConditions(newPool);
+        _validatePostInitConditions(newPool, expectedSpotPrice);
         uint256 spotPriceGivenWaEth = ReClammPool(newPool).computeCurrentSpotPrice();
         assertApproxEqRel(spotPriceGivenWaUsdc, spotPriceGivenWaEth, 0.1e16, "Spot prices are not equal");
-        // The actual spot price after initialization corresponds to WETH/USDC, so it matches the one specified
-        // at creation time.
-        assertApproxEqRel(
-            spotPriceGivenWaUsdc,
-            _initialTargetPrice,
-            0.01e16,
-            "Spot prices differ from initial target price"
-        );
     }
 
     function testComputeInitialBalancesWaUsdcWaEurc() public {
         uint256 eurUsdRate = 1.17e18;
-
-        address eurc = address(dai); // let's just say this is EURC
         require(address(usdc6Decimals) > address(eurc), "Incorrect token order");
         uint256 waEurcRate = 1.01e18;
         uint256 waUsdcRate = 1.1e18;
 
-        // Spot price is 1.17 for ETH/USDC --> spot price of waWETH / waUSDC does not matter here.
+        // Spot price is 1.17 for EUR/USDC --> spot price of waEUR / waUSDC is 1.17 * 1.01 / 1.1.
         _initialMaxPrice = eurUsdRate.mulDown(1.02e18);
         _initialTargetPrice = eurUsdRate;
         _initialMinPrice = eurUsdRate.mulDown(0.98e18);
+        uint256 expectedSpotPrice = _initialTargetPrice.mulDown(waEurcRate).divDown(waUsdcRate);
 
         IERC20[] memory sortedTokens = [address(eurc), address(usdc6Decimals)].toMemoryArray().asIERC20();
         (uint256 eurcIndex, uint256 usdcIndex) = (a, b);
 
-        // We'll specify the spot price in terms of ETH/USDC, both flags to true.
-        // waWeth has a rate with respect to ETH, and waUSDC has a rate with respect to USDC.
+        // We'll specify the spot price in terms of EUR/USDC, both flags to true.
+        // waEURC has a rate with respect to EURC, and waUSDC has a rate with respect to USDC.
         _tokenAPriceIncludesRate = true;
         _tokenBPriceIncludesRate = true;
         _rateProviderA.mockRate(waEurcRate);
@@ -610,18 +589,15 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
         uint256 snapshotId = vm.snapshotState();
         _initPool(newPool, initialBalancesRawGivenWaUsdc, 0);
-        _validatePostInitConditions(newPool);
+        _validatePostInitConditions(newPool, expectedSpotPrice);
 
         uint256 spotPriceGivenWaUsdc = ReClammPool(newPool).computeCurrentSpotPrice();
 
         vm.revertToState(snapshotId);
         _initPool(newPool, initialBalancesRawGivenWaEurc, 0);
-        _validatePostInitConditions(newPool);
+        _validatePostInitConditions(newPool, expectedSpotPrice);
         uint256 spotPriceGivenWaEurc = ReClammPool(newPool).computeCurrentSpotPrice();
         assertApproxEqRel(spotPriceGivenWaUsdc, spotPriceGivenWaEurc, 0.1e16, "Spot prices are not equal");
-        // The actual spot price after initialization corresponds to WETH/USDC, so it matches the one specified
-        // at creation time.
-        assertApproxEqRel(spotPriceGivenWaUsdc, eurUsdRate, 0.01e16, "Spot prices differ from initial target price");
     }
 
     function testComputeInitialBalancesWstEthsDai() public {
@@ -630,9 +606,9 @@ contract ReClammPoolInitTest is BaseReClammTest {
         uint256 waUsdcRate = 1.5e18;
 
         // WETH/DAI is 2.5k
-        uint256 initialUnderlyingPrice = _initialTargetPrice;
-        _initialTargetPrice = _initialTargetPrice.mulDown(waWethRate).divDown(waUsdcRate);
         // Spot price is 2.5k for ETH/USDC --> spot price for wstETH/sDAI is 2.5k * 1.2 / 1.5 = 2000
+        _initialTargetPrice = _initialTargetPrice.mulDown(waWethRate).divDown(waUsdcRate);
+        uint256 expectedSpotPrice = _initialTargetPrice;
         IERC20[] memory sortedTokens = [address(weth), address(usdc6Decimals)].toMemoryArray().asIERC20();
         (uint256 wethIndex, uint256 usdcIndex) = (a, b);
 
@@ -680,30 +656,26 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
         uint256 snapshotId = vm.snapshotState();
         _initPool(newPool, initialBalancesRawGivenSDai, 0);
-        _validatePostInitConditions(newPool);
+        _validatePostInitConditions(newPool, expectedSpotPrice);
 
         uint256 spotPriceGivenSDai = ReClammPool(newPool).computeCurrentSpotPrice();
 
         vm.revertToState(snapshotId);
         _initPool(newPool, initialBalancesRawGivenWstEth, 0);
-        _validatePostInitConditions(newPool);
+        _validatePostInitConditions(newPool, expectedSpotPrice);
         uint256 spotPriceGivenWstEth = ReClammPool(newPool).computeCurrentSpotPrice();
         assertApproxEqRel(spotPriceGivenSDai, spotPriceGivenWstEth, 0.1e16, "Spot prices are not equal");
-        // The spot price is always underlying / underlying, so it has to be 2.5k
-        assertApproxEqRel(
-            spotPriceGivenSDai,
-            initialUnderlyingPrice,
-            0.01e16,
-            "Spot prices differ from initial target price"
-        );
     }
 
-    function _validatePostInitConditions(address pool) private view {
+    function _validatePostInitConditions(address pool, uint256 expectedSpotPrice) private view {
         assertTrue(vault.isPoolInitialized(pool), "Pool is not initialized");
 
         // Validate price ratio and target.
         (uint256 minPrice, uint256 maxPrice) = ReClammPool(pool).computeCurrentPriceRange();
         ReClammPoolImmutableData memory data = ReClammPool(pool).getReClammPoolImmutableData();
+        assertEq(data.initialMinPrice, _initialMinPrice, "Initial min price doesn't match specified one");
+        assertEq(data.initialMaxPrice, _initialMaxPrice, "Initial max price doesn't match specified one");
+        assertEq(data.initialTargetPrice, _initialTargetPrice, "Initial target price doesn't match specified one");
 
         assertApproxEqRel(
             maxPrice.divDown(minPrice),
@@ -712,10 +684,10 @@ contract ReClammPoolInitTest is BaseReClammTest {
             "Wrong price ratio after initialization with rate"
         );
 
-        uint256 targetPrice = ReClammPool(pool).computeCurrentSpotPrice();
+        uint256 spotPrice = ReClammPool(pool).computeCurrentSpotPrice();
         assertApproxEqRel(
-            targetPrice,
-            data.initialTargetPrice,
+            spotPrice,
+            expectedSpotPrice,
             _INITIAL_PARAMS_ERROR,
             "Wrong target price after initialization with rate"
         );

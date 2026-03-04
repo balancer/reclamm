@@ -431,6 +431,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IReClammPool
     function computeCurrentSpotPrice() external view returns (uint256) {
+        (, uint256[] memory tokenRates) = _vault.getPoolTokenRates(address(this));
         (
             uint256[] memory balancesScaled18,
             uint256 currentVirtualBalanceA,
@@ -438,7 +439,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         ) = _getRealAndVirtualBalances();
 
-        return (balancesScaled18[b] + currentVirtualBalanceB).divDown(balancesScaled18[a] + currentVirtualBalanceA);
+        // Undo rate effects to return the spot price in terms of actual token amounts.
+        return
+            ((balancesScaled18[b] + currentVirtualBalanceB) * tokenRates[a]) /
+            (balancesScaled18[a] + currentVirtualBalanceA).mulDown(tokenRates[b]);
     }
 
     function _getRealAndVirtualBalances()
