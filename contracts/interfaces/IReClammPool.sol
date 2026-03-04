@@ -71,25 +71,47 @@ struct ReClammPoolImmutableData {
 }
 
 /**
- * @notice Snapshot of current ReClamm Pool data that can change.
- * @dev Note that live balances will not necessarily be accurate if the pool is in Recovery Mode. Withdrawals
- * in Recovery Mode do not make external calls (including those necessary for updating live balances), so if
- * there are withdrawals, raw and live balances will be out of sync until Recovery Mode is disabled.
+ * @notice Snapshot of ReClamm Pool data that can change.
+ * @dev Live balances may be inaccurate in Recovery Mode: withdrawals in Recovery Mode do not make external calls
+ * (including those needed to refresh rates/live balances), so raw and live balances may be out of sync until
+ * Recovery Mode is disabled.
  *
- * Base Pool:
- * @param balancesLiveScaled18 Token balances after paying yield fees, applying decimal scaling and rates
+ * This struct intentionally exposes two “frames”:
+ *
+ * - Live frame: values derived from the Vault’s current token rates (`getCurrentLiveBalances`).
+ *   Use these for “what is the pool right now?” off-chain simulations and UI display.
+ *
+ * - Last-interaction frame: values derived from the Vault’s last-stored scaled balances (`getPoolTokenInfo`’s
+ *   `lastBalancesLiveScaled18`). These reflect the rate environment at the most recent interaction that synced
+ *   pool balances in Vault storage, and match the reference frame in which ReClamm virtual balances were last
+ *   calibrated.
+ *
+ * These frames can diverge for rate-bearing tokens between interactions. For consistency, both frames are included
+ * explicitly rather than mixing them under a single field name.
+ *
+ * Base Pool (live):
+ * @param balancesLiveScaled18 Token balances after yield fees, decimal scaling, and applying current rates
  * @param tokenRates 18-decimal FP values for rate tokens (e.g., yield-bearing), or FP(1) for standard tokens
  * @param staticSwapFeePercentage 18-decimal FP value of the static swap fee percentage
  * @param totalSupply The current total supply of the pool tokens (BPT)
  *
- * ReClamm:
- * @param lastTimestamp The timestamp of the last user interaction
- * @param lastVirtualBalances The last virtual balances of the pool
- * @param dailyPriceShiftExponent Virtual balances will change by 2^(dailyPriceShiftExponent) per day
+ * Base Pool (last interaction / last stored):
+ * @param balancesLastInteractionScaled18 Vault-stored scaled balances as of the last interaction that synced balances
+ *
+ * ReClamm state:
+ * @param lastTimestamp The timestamp of the last pool interaction that updated the pool’s timestamp
+ * @param lastVirtualBalances The last stored virtual balances of the pool (scaled18)
+ * @param dailyPriceShiftExponent Virtual balances drift by 2^(dailyPriceShiftExponent) per day when out of range
  * @param dailyPriceShiftBase Internal time constant used to update virtual balances (1 - tau)
  * @param centerednessMargin The centeredness margin of the pool
- * @param currentPriceRatio The current price ratio, an interpolation of the price ratio state
- * @param currentFourthRootPriceRatio The current fourth root price ratio (stored in the price ratio state)
+ *
+ * Derived ratios in both frames:
+ * @param currentPriceRatioLive Price ratio computed from live balances and time-adjusted virtual balances
+ * @param currentFourthRootPriceRatioLive Fourth root of currentPriceRatioLive
+ * @param currentPriceRatioLastInteraction Price ratio computed from last-interaction balances and time-adjusted virtual balances
+ * @param currentFourthRootPriceRatioLastInteraction Fourth root of currentPriceRatioLastInteraction
+ *
+ * Price ratio update schedule (stored state):
  * @param startFourthRootPriceRatio The fourth root price ratio at the start of an update
  * @param endFourthRootPriceRatio The fourth root price ratio at the end of an update
  * @param priceRatioUpdateStartTime The timestamp when the update begins
@@ -101,19 +123,25 @@ struct ReClammPoolImmutableData {
  * @param isPoolInRecoveryMode If true, Recovery Mode withdrawals are enabled, and live balances may be inaccurate
  */
 struct ReClammPoolDynamicData {
-    // Base Pool
+    // Base Pool (live)
     uint256[] balancesLiveScaled18;
     uint256[] tokenRates;
     uint256 staticSwapFeePercentage;
     uint256 totalSupply;
-    // ReClamm
+    // Base Pool (last interaction / last stored)
+    uint256[] balancesLastInteractionScaled18;
+    // ReClamm (stored state)
     uint256 lastTimestamp;
     uint256[] lastVirtualBalances;
     uint256 dailyPriceShiftExponent;
     uint256 dailyPriceShiftBase;
     uint256 centerednessMargin;
-    uint256 currentPriceRatio;
-    uint256 currentFourthRootPriceRatio;
+    // ReClamm (derived in both frames)
+    uint256 currentPriceRatioLive;
+    uint256 currentFourthRootPriceRatioLive;
+    uint256 currentPriceRatioLastInteraction;
+    uint256 currentFourthRootPriceRatioLastInteraction;
+    // Price ratio update schedule (stored state)
     uint256 startFourthRootPriceRatio;
     uint256 endFourthRootPriceRatio;
     uint32 priceRatioUpdateStartTime;

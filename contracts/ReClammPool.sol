@@ -525,11 +525,22 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IReClammPool
     function getReClammPoolDynamicData() external view returns (ReClammPoolDynamicData memory data) {
+        // Pool state flags
+        PoolConfig memory poolConfig = _vault.getPoolConfig(address(this));
+        data.isPoolInitialized = poolConfig.isPoolInitialized;
+        data.isPoolPaused = poolConfig.isPoolPaused;
+        data.isPoolInRecoveryMode = poolConfig.isPoolInRecoveryMode;
+
+        // Base Pool (live frame)
         data.balancesLiveScaled18 = _vault.getCurrentLiveBalances(address(this));
         (, data.tokenRates) = _vault.getPoolTokenRates(address(this));
-        data.staticSwapFeePercentage = _vault.getStaticSwapFeePercentage((address(this)));
+        data.staticSwapFeePercentage = _vault.getStaticSwapFeePercentage(address(this));
         data.totalSupply = totalSupply();
 
+        // Base Pool (last-interaction frame: Vault-stored derived balances)
+        (, , , data.balancesLastInteractionScaled18) = _vault.getPoolTokenInfo(address(this));
+
+        // ReClamm stored state
         data.lastTimestamp = _lastTimestamp;
         data.lastVirtualBalances = _getLastVirtualBalances();
         data.dailyPriceShiftBase = _dailyPriceShiftBase;
@@ -542,15 +553,23 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.priceRatioUpdateStartTime = state.priceRatioUpdateStartTime;
         data.priceRatioUpdateEndTime = state.priceRatioUpdateEndTime;
 
-        PoolConfig memory poolConfig = _vault.getPoolConfig(address(this));
-        data.isPoolInitialized = poolConfig.isPoolInitialized;
-        data.isPoolPaused = poolConfig.isPoolPaused;
-        data.isPoolInRecoveryMode = poolConfig.isPoolInRecoveryMode;
-
-        // If the pool is not initialized, virtual balances will be zero and `_computeCurrentPriceRatio` would revert.
+        // If the pool is not initialized, virtual balances may be zero and price-range math can revert (e.g., 0/0).
         if (data.isPoolInitialized) {
-            data.currentPriceRatio = _computeCurrentPriceRatio();
-            data.currentFourthRootPriceRatio = ReClammMath.fourthRootScaled18(data.currentPriceRatio);
+            // Live frame ratios
+            (uint256 vALive, uint256 vBLive, ) = _computeCurrentVirtualBalances(data.balancesLiveScaled18);
+            data.currentPriceRatioLive = ReClammMath.computePriceRatio(data.balancesLiveScaled18, vALive, vBLive);
+            data.currentFourthRootPriceRatioLive = ReClammMath.fourthRootScaled18(data.currentPriceRatioLive);
+
+            // Last-interaction frame ratios
+            (uint256 vASnap, uint256 vBSnap, ) = _computeCurrentVirtualBalances(data.balancesLastInteractionScaled18);
+            data.currentPriceRatioLastInteraction = ReClammMath.computePriceRatio(
+                data.balancesLastInteractionScaled18,
+                vASnap,
+                vBSnap
+            );
+            data.currentFourthRootPriceRatioLastInteraction = ReClammMath.fourthRootScaled18(
+                data.currentPriceRatioLastInteraction
+            );
         }
     }
 
