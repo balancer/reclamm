@@ -108,7 +108,7 @@ struct ReClammPoolImmutableData {
  * Derived ratios in both frames:
  * @param currentPriceRatioLive Price ratio computed from live balances and time-adjusted virtual balances
  * @param currentFourthRootPriceRatioLive Fourth root of currentPriceRatioLive
- * @param currentPriceRatioLastInteraction Price ratio computed from last-interaction balances and time-adjusted virtual balances
+ * @param currentPriceRatioLastInteraction Price ratio (last-interaction balances and time-adjusted virtual balances)
  * @param currentFourthRootPriceRatioLastInteraction Fourth root of currentPriceRatioLastInteraction
  *
  * Price ratio update schedule (stored state):
