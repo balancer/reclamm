@@ -131,7 +131,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         bool tokenAWithRate,
         bool tokenBWithRate
     ) public {
-        initialAmount = bound(initialAmount, 1e18, _INITIAL_AMOUNT);
+        initialAmount = bound(initialAmount, _INITIAL_AMOUNT * 1e6, _INITIAL_AMOUNT * 1e9);
         rateA = bound(rateA, 1e18, 100e18);
         rateB = bound(rateB, 1e18, 100e18);
         IERC20[] memory sortedTokens = InputHelpers.sortTokens(
@@ -197,6 +197,9 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
         _initPool(newPool, initialBalancesRawGivenA, 0);
         _validatePostInitConditions(newPool, expectedSpotPrice);
+        vm.stopPrank();
+
+        _validateActualSpotPrice(newPool);
     }
 
     function testComputeInitialBalancesUsdcEth() public {
@@ -209,7 +212,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         _tokenAPriceIncludesRate = false;
         _tokenBPriceIncludesRate = false;
 
-        uint256 initialAmount = 100e6;
+        uint256 initialAmount = 10_000_000e6;
 
         (address newPool, ) = _createPool(sortedTokens.asAddress(), "BeforeInitTest");
 
@@ -262,6 +265,9 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
         uint256 spotPriceGivenWeth = ReClammPool(newPool).computeCurrentSpotPrice();
         assertApproxEqRel(spotPriceGivenUsdc, spotPriceGivenWeth, 0.01e16, "Spot prices are not equal");
+        vm.stopPrank();
+
+        _validateActualSpotPrice(newPool);
     }
 
     function testComputeInitialBalancesUsdcEthFlagsTrue() public {
@@ -274,7 +280,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         _tokenAPriceIncludesRate = true;
         _tokenBPriceIncludesRate = true;
 
-        uint256 initialAmount = 100e6;
+        uint256 initialAmount = 10_000_000e6;
 
         (address newPool, ) = _createPool(sortedTokens.asAddress(), "BeforeInitTest");
 
@@ -327,6 +333,9 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
         uint256 spotPriceGivenWeth = ReClammPool(newPool).computeCurrentSpotPrice();
         assertApproxEqRel(spotPriceGivenUsdc, spotPriceGivenWeth, 0.01e16, "Spot prices are not equal");
+        vm.stopPrank();
+
+        _validateActualSpotPrice(newPool);
     }
 
     function testComputeInitialBalancesUsdcWstEth() public {
@@ -347,7 +356,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         _rateProviderA.mockRate(wstEthRate);
         _rateProviderB.mockRate(FixedPoint.ONE);
 
-        uint256 initialAmount = 100e6;
+        uint256 initialAmount = 10_000_000e6;
 
         (address newPool, ) = _createPool(sortedTokens.asAddress(), "BeforeInitTest");
 
@@ -396,6 +405,9 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
         uint256 spotPriceGivenWstEth = ReClammPool(newPool).computeCurrentSpotPrice();
         assertApproxEqRel(spotPriceGivenUsdc, spotPriceGivenWstEth, 0.1e16, "Spot prices are not equal");
+        vm.stopPrank();
+
+        _validateActualSpotPrice(newPool);
     }
 
     function testComputeInitialBalancesUsdcWaEth() public {
@@ -413,7 +425,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         _tokenBPriceIncludesRate = false;
         _rateProviderA.mockRate(waWethRate);
         _rateProviderB.mockRate(FixedPoint.ONE);
-        uint256 initialAmount = 100e6;
+        uint256 initialAmount = 10_000_000e6;
 
         (address newPool, ) = _createPool(sortedTokens.asAddress(), "BeforeInitTest");
 
@@ -461,6 +473,9 @@ contract ReClammPoolInitTest is BaseReClammTest {
         _validatePostInitConditions(newPool, expectedSpotPrice);
         uint256 spotPriceGivenWaEth = ReClammPool(newPool).computeCurrentSpotPrice();
         assertApproxEqRel(spotPriceGivenUsdc, spotPriceGivenWaEth, 0.1e16, "Spot prices are not equal");
+        vm.stopPrank();
+
+        _validateActualSpotPrice(newPool);
     }
 
     function testComputeInitialBalancesWaUsdcWaEth() public {
@@ -479,7 +494,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         _tokenBPriceIncludesRate = true;
         _rateProviderA.mockRate(waWethRate);
         _rateProviderB.mockRate(waUsdcRate);
-        uint256 initialAmount = 100e6;
+        uint256 initialAmount = 10_000_000e6;
 
         (address newPool, ) = _createPool(sortedTokens.asAddress(), "BeforeInitTest");
 
@@ -527,6 +542,9 @@ contract ReClammPoolInitTest is BaseReClammTest {
         _validatePostInitConditions(newPool, expectedSpotPrice);
         uint256 spotPriceGivenWaEth = ReClammPool(newPool).computeCurrentSpotPrice();
         assertApproxEqRel(spotPriceGivenWaUsdc, spotPriceGivenWaEth, 0.1e16, "Spot prices are not equal");
+        vm.stopPrank();
+
+        _validateActualSpotPrice(newPool);
     }
 
     function testComputeInitialBalancesWaUsdcWaEurc() public {
@@ -550,7 +568,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         _tokenBPriceIncludesRate = true;
         _rateProviderA.mockRate(waEurcRate);
         _rateProviderB.mockRate(waUsdcRate);
-        uint256 initialAmount = 100e6;
+        uint256 initialAmount = 10_000_000e6;
 
         (address newPool, ) = _createPool(sortedTokens.asAddress(), "BeforeInitTest");
 
@@ -598,6 +616,9 @@ contract ReClammPoolInitTest is BaseReClammTest {
         _validatePostInitConditions(newPool, expectedSpotPrice);
         uint256 spotPriceGivenWaEurc = ReClammPool(newPool).computeCurrentSpotPrice();
         assertApproxEqRel(spotPriceGivenWaUsdc, spotPriceGivenWaEurc, 0.1e16, "Spot prices are not equal");
+        vm.stopPrank();
+
+        _validateActualSpotPrice(newPool);
     }
 
     function testComputeInitialBalancesWstEthsDai() public {
@@ -617,7 +638,7 @@ contract ReClammPoolInitTest is BaseReClammTest {
         _tokenBPriceIncludesRate = false;
         _rateProviderA.mockRate(waWethRate);
         _rateProviderB.mockRate(waUsdcRate);
-        uint256 initialAmount = 100e6;
+        uint256 initialAmount = 10_000_000e6;
 
         (address newPool, ) = _createPool(sortedTokens.asAddress(), "BeforeInitTest");
 
@@ -665,6 +686,9 @@ contract ReClammPoolInitTest is BaseReClammTest {
         _validatePostInitConditions(newPool, expectedSpotPrice);
         uint256 spotPriceGivenWstEth = ReClammPool(newPool).computeCurrentSpotPrice();
         assertApproxEqRel(spotPriceGivenSDai, spotPriceGivenWstEth, 0.1e16, "Spot prices are not equal");
+        vm.stopPrank();
+
+        _validateActualSpotPrice(newPool);
     }
 
     function _validatePostInitConditions(address pool, uint256 expectedSpotPrice) private view {
@@ -691,5 +715,42 @@ contract ReClammPoolInitTest is BaseReClammTest {
             _INITIAL_PARAMS_ERROR,
             "Wrong target price after initialization with rate"
         );
+    }
+
+    function _validateActualSpotPrice(address pool) private {
+        uint256 spotPrice = ReClammPool(pool).computeCurrentSpotPrice();
+        IERC20[] memory tokens = vault.getPoolTokens(pool);
+
+        // Spot price is defined as the amount of input tokens required to get a single unit of output token
+        // when dismissing price impact.
+        // E.g. for an ETH/USDC pool where ETH is token A and USDC is token B, the spot price is how much USDC
+        // is needed per unit of ETH.
+        // Therefore, token B is token in.
+        IERC20 tokenIn = tokens[b];
+        IERC20 tokenOut = tokens[a];
+
+        // Use a small amount to minimize price impact (1/100th of a token in raw amounts)
+        uint256 smallAmountIn = FixedPoint.ONE / 10 ** (18 - IERC20Metadata(address(tokenIn)).decimals()) / 100;
+        uint256 smallAmountOut = FixedPoint.ONE / 10 ** (18 - IERC20Metadata(address(tokenOut)).decimals()) / 100;
+
+        uint256 snapshotId = vm.snapshotState();
+
+        _prankStaticCall();
+        uint256 actualAmountOut = router.querySwapSingleTokenExactIn(
+            pool,
+            tokenIn,
+            tokenOut,
+            smallAmountIn.mulDown(spotPrice),
+            address(this),
+            ""
+        );
+        assertApproxEqRel(
+            smallAmountOut,
+            actualAmountOut,
+            0.01e16,
+            "A small test swap does not verify the expected spot price after initialization"
+        );
+
+        vm.revertToState(snapshotId);
     }
 }
