@@ -40,15 +40,17 @@ contract ReClammPoolHelper {
     ) external view returns (uint256[] memory initialBalancesRaw) {
         IERC20[] memory tokens = vault.getPoolTokens(address(pool));
 
-        (uint256 referenceTokenIdx, uint256 otherTokenIdx) = tokens[a] == referenceToken ? (a, b) : (b, a);
+        (uint256 referenceTokenIdx, uint256 otherTokenIdx) = address(tokens[a]) == address(referenceToken)
+            ? (a, b)
+            : (b, a);
 
-        if (referenceTokenIdx == b && referenceToken != tokens[b]) {
+        if (referenceTokenIdx == b && address(referenceToken) != address(tokens[b])) {
             revert IVaultErrors.InvalidToken();
         }
 
         (uint256 rateA, uint256 rateB) = _getTokenRates(address(pool));
         uint256 balanceRatioScaled18 = _computeInitialBalanceRatioScaled18(IReClammPool(pool), rateA, rateB);
-        (uint256 rateReferenceToken, uint256 rateOtherToken) = tokens[a] == referenceToken
+        (uint256 rateReferenceToken, uint256 rateOtherToken) = address(tokens[a]) == address(referenceToken)
             ? (rateA, rateB)
             : (rateB, rateA);
 
@@ -265,5 +267,17 @@ contract ReClammPoolHelper {
 
     function _computeMaxPrice(uint256 currentInvariant, uint256 virtualBalanceA) internal pure returns (uint256) {
         return currentInvariant.divDown(virtualBalanceA.mulDown(virtualBalanceA));
+    }
+
+    function computeCurrentSpotPrice(address pool) external view returns (uint256) {
+        (, uint256[] memory tokenRates) = vault.getPoolTokenRates(pool);
+        uint256[] memory balancesScaled18 = vault.getCurrentLiveBalances(pool);
+        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = IReClammPool(pool)
+            .computeCurrentVirtualBalances();
+
+        // Undo rate effects to return the spot price in terms of actual token amounts.
+        return
+            ((balancesScaled18[b] + currentVirtualBalanceB) * tokenRates[a]) /
+            (balancesScaled18[a] + currentVirtualBalanceA).mulUp(tokenRates[b]);
     }
 }
