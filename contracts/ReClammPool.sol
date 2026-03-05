@@ -440,9 +440,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         ) = _getRealAndVirtualBalances();
 
         // Undo rate effects to return the spot price in terms of actual token amounts.
+        // This computation doesn't favor the Vault in any way as it is an external getter; we round down the result.
         return
             ((balancesScaled18[b] + currentVirtualBalanceB) * tokenRates[a]) /
-            (balancesScaled18[a] + currentVirtualBalanceA).mulDown(tokenRates[b]);
+            (balancesScaled18[a] + currentVirtualBalanceA).mulUp(tokenRates[b]);
     }
 
     function _getRealAndVirtualBalances()
