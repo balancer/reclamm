@@ -300,12 +300,25 @@ interface IReClammPool is IBasePool {
         returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed);
 
     /**
-     * @notice Computes the current target price. This is the ratio of the total (i.e., real + virtual) balances (B/A).
-     * @dev Given the nature of the internal pool maths (particularly when virtual balances are shifting), it is not
+     * @notice Computes the current spot price of token B in terms of token A: i.e., how many token A units are
+     * required to purchase one token B, or equivalently, how many token A units you receive per token B sold.
+     * @dev The price is expressed as token/token (e.g., wstETH/USDC), not underlying/underlying (e.g. ETH/USDC).
+     * This matches what a swapper experiences: if this function returns 3000, then swapping 3000 USDC yields
+     * approximately 1 wstETH. Internally, the spot price is derived from live (rate-scaled) balances plus virtual
+     * balances, then adjusted by the ratio of token rates (rateA / rateB) to convert from the underlying/underlying
+     * price that the AMM math operates on to the token/token price that callers expect. For pools with no rate
+     * providers (or rate = 1), the two are identical.
+     *
+     * Note that `initialTargetPrice` may have been specified in either token or underlying terms depending on
+     * `tokenAPriceIncludesRate` / `tokenBPriceIncludesRate`, so it cannot in general be directly compared to this
+     * return value.
+     *
+     * Given the nature of the internal pool math (particularly when virtual balances are shifting), it is not
      * recommended to use this pool as a price oracle.
-     * @return currentTargetPrice Target price at the current pool state (real and virtual balances)
+     *
+     * @return currentSpotPrice Spot price at the current pool state (real and virtual balances), in token/token terms
      */
-    function computeCurrentSpotPrice() external view returns (uint256 currentTargetPrice);
+    function computeCurrentSpotPrice() external view returns (uint256 currentSpotPrice);
 
     /**
      * @notice Getter for the timestamp of the last user interaction.
