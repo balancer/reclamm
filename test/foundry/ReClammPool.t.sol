@@ -1705,13 +1705,17 @@ contract ReClammPoolTest is BaseReClammTest {
         (uint256 expectedFromStale, , ) = ReClammPoolMock(pool).computeCurrentVirtualBalances(committedBalances);
         assertNotEq(expectedFromLive, expectedFromStale, "Virtual balance paths do not diverge");
 
+        // Trigger a state-mutating operation to force `_updateVirtualBalances()` to commit the computed virtual
+        // balances to storage. The exponent value is unchanged; this call is the mechanism to flush the time-adjusted
+        // virtual balances so they can be read back via `getLastVirtualBalances()`.
         vm.prank(admin);
         ReClammPool(pool).setDailyPriceShiftExponent(_DEFAULT_DAILY_PRICE_SHIFT_EXPONENT);
 
+        // The stored virtual balance should exactly match what would be computed from live balances, confirming that
+        // `_updateVirtualBalances` used `getCurrentLiveBalances()` rather than the stale committed balances
+        // injected above.
         (uint256 storedA, ) = ReClammPool(pool).getLastVirtualBalances();
-        uint256 diffFromLive = storedA > expectedFromLive ? storedA - expectedFromLive : expectedFromLive - storedA;
-        uint256 diffFromStale = storedA > expectedFromStale ? storedA - expectedFromStale : expectedFromStale - storedA;
-        assertLt(diffFromLive, diffFromStale, "Stored virtual balance A is closer to stale than to live");
+        assertEq(storedA, expectedFromLive, "Stored virtual balance A does not match live-balance computation");
     }
 
     function _createStandardPool(
