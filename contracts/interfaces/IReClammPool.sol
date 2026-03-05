@@ -273,8 +273,7 @@ interface IReClammPool is IBasePool {
      * The "target" range is then defined as a subset of this total price range, with the margin trimmed symmetrically
      * from each side. The pool endeavors to adjust this range as necessary to keep the current market price within it.
      *
-     * This function uses last-committed pool balances, so it reflects the state after the last operation rather than
-     * any in-progress Vault transaction.
+     * This function uses current live balances and time-adjusted virtual balances.
      *
      * @return minPrice The lower limit of the current total price range
      * @return maxPrice The upper limit of the current total price range
