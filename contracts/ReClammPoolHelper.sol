@@ -40,15 +40,17 @@ contract ReClammPoolHelper {
     ) external view returns (uint256[] memory initialBalancesRaw) {
         IERC20[] memory tokens = vault.getPoolTokens(address(pool));
 
-        (uint256 referenceTokenIdx, uint256 otherTokenIdx) = tokens[a] == referenceToken ? (a, b) : (b, a);
+        (uint256 referenceTokenIdx, uint256 otherTokenIdx) = address(tokens[a]) == address(referenceToken)
+            ? (a, b)
+            : (b, a);
 
-        if (referenceTokenIdx == b && referenceToken != tokens[b]) {
+        if (referenceTokenIdx == b && address(referenceToken) != address(tokens[b])) {
             revert IVaultErrors.InvalidToken();
         }
 
         (uint256 rateA, uint256 rateB) = _getTokenRates(address(pool));
         uint256 balanceRatioScaled18 = _computeInitialBalanceRatioScaled18(IReClammPool(pool), rateA, rateB);
-        (uint256 rateReferenceToken, uint256 rateOtherToken) = tokens[a] == referenceToken
+        (uint256 rateReferenceToken, uint256 rateOtherToken) = address(tokens[a]) == address(referenceToken)
             ? (rateA, rateB)
             : (rateB, rateA);
 
@@ -265,5 +267,37 @@ contract ReClammPoolHelper {
 
     function _computeMaxPrice(uint256 currentInvariant, uint256 virtualBalanceA) internal pure returns (uint256) {
         return currentInvariant.divDown(virtualBalanceA.mulDown(virtualBalanceA));
+    }
+
+    /**
+     * @notice Computes the current spot price of token B in terms of token A: i.e., how many token A units are
+     * required to purchase one token B, or equivalently, how many token A units you receive per token B sold.
+     * @dev The price is expressed as token/token (e.g., wstETH/USDC), not underlying/underlying (e.g. ETH/USDC).
+     * This matches what a swapper experiences: if this function returns 3000, then swapping 3000 USDC yields
+     * approximately 1 wstETH. Internally, the spot price is derived from live (rate-scaled) balances plus virtual
+     * balances, then adjusted by the ratio of token rates (rateA / rateB) to convert from the underlying/underlying
+     * price that the AMM math operates on to the token/token price that callers expect. For pools with no rate
+     * providers (or rate = 1), the two are identical.
+     *
+     * Note that `initialTargetPrice` may have been specified in either token or underlying terms depending on
+     * `tokenAPriceIncludesRate` / `tokenBPriceIncludesRate`, so it cannot in general be directly compared to this
+     * return value.
+     *
+     * It is meant to be called off-chain. Given the nature of the internal pool math (particularly when virtual
+     * balances are shifting), this function **cannot be used as a price oracle**.
+     *
+     * @param pool The address of the pool
+     * @return currentSpotPrice Spot price at the current pool state (real and virtual balances), in token/token terms
+     */
+    function computeCurrentSpotPrice(address pool) external view returns (uint256) {
+        (, uint256[] memory tokenRates) = vault.getPoolTokenRates(pool);
+        uint256[] memory balancesScaled18 = vault.getCurrentLiveBalances(pool);
+        (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = IReClammPool(pool)
+            .computeCurrentVirtualBalances();
+
+        // Undo rate effects to return the spot price in terms of actual token amounts.
+        return
+            ((balancesScaled18[b] + currentVirtualBalanceB) * tokenRates[a]) /
+            (balancesScaled18[a] + currentVirtualBalanceA).mulUp(tokenRates[b]);
     }
 }
