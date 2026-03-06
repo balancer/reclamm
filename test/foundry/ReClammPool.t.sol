@@ -978,7 +978,7 @@ contract ReClammPoolTest is BaseReClammTest {
         uint64 centerednessMarginAbove100 = uint64(FixedPoint.ONE + 1);
         vm.prank(admin);
         vm.expectRevert(IReClammPool.InvalidCenterednessMargin.selector);
-        ReClammPool(pool).setCenterednessMargin(centerednessMarginAbove100);
+        ReClammPoolMock(pool).setReClammCenterednessMargin(centerednessMarginAbove100);
     }
 
     function testSetCenterednessMarginPermissioned() public {
@@ -1066,18 +1066,6 @@ contract ReClammPoolTest is BaseReClammTest {
         ReClammPoolMock(pool).setLastVirtualBalances(newLastVirtualBalances);
 
         assertFalse(ReClammPool(pool).isPoolWithinTargetRange(), "Actual value still in range");
-
-        // Must advance time, or it will return the last virtual balances. If the calculation used the last virtual
-        // balances, it would return false (per calculation above).
-        //
-        // Since it is using the current price ratio, it should return false and the virtual balances should be
-        // updated.
-        vm.warp(block.timestamp + 100);
-        (bool resultWithAlternateGetter, bool virtualBalancesChanged) = ReClammPool(pool)
-            .isPoolWithinTargetRangeUsingCurrentVirtualBalances();
-
-        assertFalse(resultWithAlternateGetter, "Actual value still in range with alternate getter");
-        assertTrue(virtualBalancesChanged, "Last != current virtual balances");
     }
 
     function testInRangeUpdatingVirtualBalancesSetCenterednessMargin() public {
@@ -1689,6 +1677,45 @@ contract ReClammPoolTest is BaseReClammTest {
         PoolRoleAccounts memory roleAccounts = vault.getPoolRoleAccounts(pool);
 
         assertEq(roleAccounts.poolCreator, alice, "Wrong pool creator");
+    }
+
+    function testUpdateVirtualBalancesUsesCurrentLiveBalances() public {
+        // Set pool clearly out of range with A dominant (above center).
+        _setPoolBalances(100e18, 5e18);
+        ReClammPoolMock(pool).setLastTimestamp(block.timestamp);
+        skip(6 hours);
+
+        uint256[] memory rawBalances = vault.getRawBalances(pool);
+        uint256[] memory liveBalances = vault.getCurrentLiveBalances(pool);
+
+        // Set stale lastBalancesLiveScaled18 to the mirror image: B dominant (below center).
+        // This flips isAboveCenter, causing virtual balances to shift in the opposite direction.
+        uint256[] memory staleLastLive = new uint256[](2);
+        staleLastLive[a] = liveBalances[b]; // swap A and B values
+        staleLastLive[b] = liveBalances[a];
+
+        (IERC20[] memory tokens, , , ) = vault.getPoolTokenInfo(pool);
+        vault.manualSetPoolTokensAndBalances(pool, tokens, rawBalances, staleLastLive);
+
+        (, , , uint256[] memory committedBalances) = vault.getPoolTokenInfo(pool);
+        uint256[] memory currentLiveBalances = vault.getCurrentLiveBalances(pool);
+        assertNotEq(committedBalances[a], currentLiveBalances[a], "No divergence between committed and live");
+
+        (uint256 expectedFromLive, , ) = ReClammPoolMock(pool).computeCurrentVirtualBalances(currentLiveBalances);
+        (uint256 expectedFromStale, , ) = ReClammPoolMock(pool).computeCurrentVirtualBalances(committedBalances);
+        assertNotEq(expectedFromLive, expectedFromStale, "Virtual balance paths do not diverge");
+
+        // Trigger a state-mutating operation to force `_updateVirtualBalances()` to commit the computed virtual
+        // balances to storage. The exponent value is unchanged; this call is the mechanism to flush the time-adjusted
+        // virtual balances so they can be read back via `getLastVirtualBalances()`.
+        vm.prank(admin);
+        ReClammPool(pool).setDailyPriceShiftExponent(_DEFAULT_DAILY_PRICE_SHIFT_EXPONENT);
+
+        // The stored virtual balance should exactly match what would be computed from live balances, confirming that
+        // `_updateVirtualBalances` used `getCurrentLiveBalances()` rather than the stale committed balances
+        // injected above.
+        (uint256 storedA, ) = ReClammPool(pool).getLastVirtualBalances();
+        assertEq(storedA, expectedFromLive, "Stored virtual balance A does not match live-balance computation");
     }
 
     function _createStandardPool(

@@ -14,7 +14,7 @@ import "@balancer-labs/v3-vault/test/foundry/utils/BaseMedusaTest.sol";
 
 import { ReClammPoolFactory } from "../../contracts/ReClammPoolFactory.sol";
 import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
-import { ReClammPriceParams } from "../../../contracts/lib/ReClammPoolFactoryLib.sol";
+import { ReClammPriceParams } from "../../contracts/lib/ReClammPoolFactoryLib.sol";
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
 import { ReClammPoolHelper } from "../../contracts/ReClammPoolHelper.sol";
 import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
@@ -67,15 +67,17 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
             "RECLAMM",
             vault.buildTokenConfig(tokens),
             roleAccounts,
-            0,
+            0.001e16, // minimum swap fee percentage; zeroed out below for fuzz testing
             priceParams,
-            1e18, // 100% daily price shift exponent
-            10e16, // 10% margin
+            1e18,
+            10e16,
             ""
         );
 
         // Compute the initial balance ratio so that the target price of the pool is respected.
-        initialBalances[1] = initialBalances[0].mulDown(ReClammPoolMock(newPool).computeInitialBalanceRatio());
+        uint256[] memory initBalances = ReClammPool(newPool).computeInitialBalancesRaw(tokens[0], initialBalances[0]);
+        initialBalances[0] = initBalances[0];
+        initialBalances[1] = initBalances[1];
 
         // Initialize liquidity of new pool.
         medusa.prank(lp);
@@ -206,17 +208,19 @@ contract SwapReClammMedusaTest is BaseMedusaTest {
         exactBptOut = bound(exactBptOut, 1e18, oldTotalSupply);
 
         medusa.prank(lp);
-        router.addLiquidityProportional(
-            address(pool),
-            [MAX_UINT256, MAX_UINT256].toMemoryArray(),
-            exactBptOut,
-            false,
-            bytes("")
-        );
-
-        uint256 newTotalSupply = ReClammPool(address(pool)).totalSupply();
-        uint256 proportion = newTotalSupply.divDown(oldTotalSupply);
-        invariantProportion = invariantProportion.mulDown(proportion);
+        try
+            router.addLiquidityProportional(
+                address(pool),
+                [MAX_UINT256, MAX_UINT256].toMemoryArray(),
+                exactBptOut,
+                false,
+                bytes("")
+            )
+        {
+            uint256 newTotalSupply = ReClammPool(address(pool)).totalSupply();
+            uint256 proportion = newTotalSupply.divDown(oldTotalSupply);
+            invariantProportion = invariantProportion.mulDown(proportion);
+        } catch {}
     }
 
     function computeRemoveLiquidity(uint256 exactBptIn) public {

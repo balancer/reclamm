@@ -124,6 +124,12 @@ struct ReClammPoolDynamicData {
     bool isPoolInRecoveryMode;
 }
 
+/**
+ * @notice Interface for the ReClamm Pool.
+ * @dev Extends the Balancer Base Pool with additional state and functions for dynamic price ranges and virtual
+ * balance, specific to ReClamm pools. The view functions are designed to be called off-chain by a frontend or
+ * monitoring bot, and should not be used as on-chain price or state oracles.
+ */
 interface IReClammPool is IBasePool {
     /********************************************************
                            Events
@@ -253,7 +259,7 @@ interface IReClammPool is IBasePool {
      * @notice Compute the initialization amounts, given a reference token and amount.
      * @dev Convenience function to compute the initial funding amount for the second token, given the first. It
      * returns the amount of tokens in raw amounts, which can be used as-is to initialize the pool using a standard
-     * router.
+     * router. It is meant to be called off-chain by a deployment script or frontend.
      *
      * @param referenceToken The token whose amount is known
      * @param referenceAmountInRaw The amount of the reference token to be used for initialization, in raw amounts
@@ -273,9 +279,7 @@ interface IReClammPool is IBasePool {
      * The "target" range is then defined as a subset of this total price range, with the margin trimmed symmetrically
      * from each side. The pool endeavors to adjust this range as necessary to keep the current market price within it.
      *
-     * The computation involves the current live balances (though it should not be sensitive to them), so manipulating
-     * the result of this function is theoretically possible while the Vault is unlocked. Ensure that the Vault is
-     * locked before calling this function if this side effect is undesired (does not apply to off-chain calls).
+     * This function uses current live balances and time-adjusted virtual balances.
      *
      * @return minPrice The lower limit of the current total price range
      * @return maxPrice The upper limit of the current total price range
@@ -289,8 +293,7 @@ interface IReClammPool is IBasePool {
      * the target range, or the price ratio is updating, this function will calculate the new virtual balances based on
      * the timestamp of the last user interaction. Note that virtual balances are always scaled18 values.
      *
-     * Current virtual balances might change as a result of an operation, manipulating the value to some degree.
-     * Ensure that the vault is locked before calling this function if this side effect is undesired.
+     * This function uses current live balances and time-adjusted virtual balances.
      *
      * @return currentVirtualBalanceA The current virtual balance of token A
      * @return currentVirtualBalanceB The current virtual balance of token B
@@ -315,8 +318,8 @@ interface IReClammPool is IBasePool {
      * `tokenAPriceIncludesRate` / `tokenBPriceIncludesRate`, so it cannot in general be directly compared to this
      * return value.
      *
-     * Given the nature of the internal pool math (particularly when virtual balances are shifting), it is not
-     * recommended to use this pool as a price oracle.
+     * It is meant to be called off-chain. Given the nature of the internal pool math (particularly when virtual
+     * balances are shifting), this function **cannot be used as a price oracle**.
      *
      * @return currentSpotPrice Spot price at the current pool state (real and virtual balances), in token/token terms
      */
@@ -387,65 +390,41 @@ interface IReClammPool is IBasePool {
     /**
      * @notice Compute whether the pool is within the target price range.
      * @dev The pool is considered to be in the target range when the centeredness is greater than or equal to the
-     * centeredness margin (i.e., the price is within the subset of the total price range defined by the centeredness
-     * margin).
+     * centeredness margin (i.e., the price is within the subset of the total price range defined by the
+     * centeredness margin).
      *
-     * Note that this function reports the state *after* the last operation. It is not very meaningful during or
-     * outside an operation, as the current or next operation could change it. If this is unlikely (e.g., for high-
-     * liquidity pools with high centeredness and small swaps), it may nonetheless be useful for some applications,
-     * such as off-chain indicators.
-     *
-     * The state depends on the current balances and centeredness margin, and it uses the *last* virtual balances in
-     * the calculation. This is fine because the real balances can only change during an operation, and the margin can
-     * only change through the permissioned setter - both of which update the virtual balances. So it is not possible
-     * for the current and last virtual balances to get out-of-sync.
-     *
-     * The range calculation is affected by the current live balances, so manipulating the result of this function
-     * is possible while the Vault is unlocked. Ensure that the Vault is locked before calling this function if this
-     * side effect is undesired (does not apply to off-chain calls).
+     * This function uses live balances (rate-scaled and yield-fee-adjusted from the last settled state) and time-
+     * adjusted virtual balances. Callers should not use this as a security gate within a Vault transaction, as the
+     * vault may be unlocked and balances manipulable via transient liquidity. It is meant to be called off-chain.
      *
      * @return isWithinTargetRange True if pool centeredness is greater than or equal to the centeredness margin
      */
     function isPoolWithinTargetRange() external view returns (bool isWithinTargetRange);
 
     /**
-     * @notice Compute whether the pool is within the target price range, recomputing the virtual balances.
-     * @dev The pool is considered to be in the target range when the centeredness is greater than the centeredness
-     * margin (i.e., the price is within the subset of the total price range defined by the centeredness margin.)
-     *
-     * This function is identical to `isPoolWithinTargetRange` above, except that it recomputes and uses the current
-     * instead of the last virtual balances. As noted above, these should normally give the same result.
-     *
-     * @return isWithinTargetRange True if pool centeredness is greater than the centeredness margin
-     * @return virtualBalancesChanged True if the current virtual balances would not match the last virtual balances
-     */
-    function isPoolWithinTargetRangeUsingCurrentVirtualBalances()
-        external
-        view
-        returns (bool isWithinTargetRange, bool virtualBalancesChanged);
-
-    /**
      * @notice Compute the current pool centeredness (a measure of how unbalanced the pool is).
      * @dev A value of 0 means the pool is at the edge of the price range (i.e., one of the real balances is zero).
      * A value of FixedPoint.ONE means the balances (and market price) are exactly in the middle of the range.
      *
-     * The centeredness margin is affected by the current live balances, so manipulating the result of this function
-     * is possible while the Vault is unlocked. Ensure that the Vault is locked before calling this function if this
-     * side effect is undesired (does not apply to off-chain calls).
+     * This function uses live balances (rate-scaled and yield-fee-adjusted from the last settled state) and time-
+     * adjusted virtual balances. Callers should not use this as a security gate within a Vault transaction, as the
+     * vault may be unlocked and balances manipulable via transient liquidity. It is meant to be called off-chain.
      *
-     * @return poolCenteredness The current centeredness margin (as a 18-decimal FP value)
+     * @return poolCenteredness The current pool centeredness (as an 18-decimal FP value)
      * @return isPoolAboveCenter True if the pool is above the center, false otherwise
      */
     function computeCurrentPoolCenteredness() external view returns (uint256 poolCenteredness, bool isPoolAboveCenter);
 
     /**
      * @notice Get dynamic pool data relevant to swap/add/remove calculations.
+     * @dev This is meant to be called off-chain (e.g., by a frontend / monitor).
      * @return data A struct containing all dynamic ReClamm pool parameters
      */
     function getReClammPoolDynamicData() external view returns (ReClammPoolDynamicData memory data);
 
     /**
      * @notice Get immutable pool data relevant to swap/add/remove calculations.
+     * @dev This is meant to be called off-chain (e.g., by a frontend / monitor).
      * @return data A struct containing all immutable ReClamm pool parameters
      */
     function getReClammPoolImmutableData() external view returns (ReClammPoolImmutableData memory data);
