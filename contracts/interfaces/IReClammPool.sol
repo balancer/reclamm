@@ -293,7 +293,7 @@ interface IReClammPool is IBasePool {
      * the target range, or the price ratio is updating, this function will calculate the new virtual balances based on
      * the timestamp of the last user interaction. Note that virtual balances are always scaled18 values.
      *
-     * This function uses last-committed pool balances and does not reflect any in-progress Vault operation.
+     * This function uses current live balances and time-adjusted virtual balances.
      *
      * @return currentVirtualBalanceA The current virtual balance of token A
      * @return currentVirtualBalanceB The current virtual balance of token B
