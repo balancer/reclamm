@@ -12,12 +12,13 @@ import { IRateProvider } from "@balancer-labs/v3-interfaces/contracts/solidity-u
 import { BaseContractsDeployer } from "@balancer-labs/v3-solidity-utils/test/foundry/utils/BaseContractsDeployer.sol";
 import { CastingHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/CastingHelpers.sol";
 
+import { ReClammPoolParams } from "../../../contracts/interfaces/IReClammPool.sol";
 import { ReClammMath, a, b } from "../../../contracts/lib/ReClammMath.sol";
 import { ReClammPoolFactory } from "../../../contracts/ReClammPoolFactory.sol";
 import { ReClammPoolHelper } from "../../../contracts/ReClammPoolHelper.sol";
 import { ReClammPriceParams } from "../../../contracts/lib/ReClammPoolFactoryLib.sol";
 import { ReClammPoolFactoryMock } from "../../../contracts/test/ReClammPoolFactoryMock.sol";
-import { ReClammPoolParams } from "../../../contracts/interfaces/IReClammPool.sol";
+import { ReClammPool } from "../../../contracts/ReClammPool.sol";
 /**
  * @dev This contract contains functions for deploying mocks and contracts related to the "ReClamm Pool". These
  * functions should have support for reusing artifacts from the hardhat compilation.
@@ -153,6 +154,19 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
 
     function deployReClammPoolFactoryWithDefaultParams(IVault vault) internal returns (ReClammPoolFactory) {
         return deployReClammPoolFactory(vault, 1 days, defaultParams.factoryVersion, defaultParams.poolVersion);
+    }
+
+    function deployStandaloneReClammPool(
+        ReClammPoolParams memory params,
+        IVault vault,
+        ReClammPoolHelper helper
+    ) internal returns (ReClammPool) {
+        if (reusingArtifacts) {
+            return
+                ReClammPool(deployCode(_computeReClammPath(type(ReClammPool).name), abi.encode(params, vault, helper)));
+        } else {
+            return new ReClammPool(params, vault, helper);
+        }
     }
 
     function deployReClammPoolFactory(

@@ -22,6 +22,7 @@ import { PoolInfo } from "@balancer-labs/v3-pool-utils/contracts/PoolInfo.sol";
 import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
 
 import { PriceRatioState, ReClammMath, a, b } from "./lib/ReClammMath.sol";
+import { ReClammPoolFactoryLib } from "./lib/ReClammPoolFactoryLib.sol";
 import { ReClammPoolHelper } from "./ReClammPoolHelper.sol";
 import "./interfaces/IReClammPool.sol";
 
@@ -52,10 +53,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     // Price ratio updates must have both a minimum duration and a maximum daily rate. For instance, an update rate of
     // FP 2 means the ratio one day later must be at least half and at most double the rate at the start of the update.
     uint256 internal constant _MIN_PRICE_RATIO_UPDATE_DURATION = 1 days;
-
-    // Price ratio below 1 breaks pool math. Also, tight ratios close to FP(1) may cause virtual balances to grow
-    // excessively, potentially causing numerical issues. In practice, such tight ratios should not be needed.
-    uint256 internal constant _MIN_PRICE_RATIO = 1.0001e18; // 0.01% above FP(1)
 
     // There is also a minimum delta, to keep the math well-behaved.
     uint256 internal constant _MIN_PRICE_RATIO_DELTA = 1e6;
@@ -145,18 +142,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _helper = helper;
         _BALANCE_RATIO_AND_PRICE_TOLERANCE = helper.BALANCE_RATIO_AND_PRICE_TOLERANCE();
 
-        if (
-            params.initialMinPrice == 0 ||
-            params.initialMaxPrice == 0 ||
-            params.initialTargetPrice == 0 ||
-            params.initialTargetPrice < params.initialMinPrice ||
-            params.initialTargetPrice > params.initialMaxPrice ||
-            params.initialMinPrice >= params.initialMaxPrice
-        ) {
-            // If any of these prices were 0, pool initialization would revert with a numerical error.
-            // For good measure, we also ensure the target is within the range.
-            revert InvalidInitialPrice();
-        }
+        ReClammPoolFactoryLib.validatePriceParams(params);
 
         // Initialize immutable params. These are only used during pool initialization.
         _INITIAL_MIN_PRICE = params.initialMinPrice;
@@ -572,7 +558,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.initialCenterednessMargin = _INITIAL_CENTEREDNESS_MARGIN;
 
         // Operating Limits
-        data.minPriceRatio = _MIN_PRICE_RATIO;
+        data.minPriceRatio = ReClammPoolFactoryLib.MIN_PRICE_RATIO;
         data.maxCenterednessMargin = _MAX_CENTEREDNESS_MARGIN;
         data.maxDailyPriceShiftExponent = _MAX_DAILY_PRICE_SHIFT_EXPONENT;
         data.maxDailyPriceRatioUpdateRate = _MAX_DAILY_PRICE_RATIO_UPDATE_RATE;
@@ -596,8 +582,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         onlySwapFeeManagerOrGovernance(address(this))
         returns (uint256 actualPriceRatioUpdateStartTime)
     {
-        if (endPriceRatio < _MIN_PRICE_RATIO) {
-            revert EndPriceRatioBelowMin(endPriceRatio);
+        if (endPriceRatio < ReClammPoolFactoryLib.MIN_PRICE_RATIO) {
+            revert TargetPriceRatioBelowMin(endPriceRatio);
         }
 
         actualPriceRatioUpdateStartTime = GradualValueChange.resolveStartTime(
