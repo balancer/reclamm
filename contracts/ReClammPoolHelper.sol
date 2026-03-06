@@ -286,6 +286,7 @@ contract ReClammPoolHelper {
      * It is meant to be called off-chain. Given the nature of the internal pool math (particularly when virtual
      * balances are shifting), this function **cannot be used as a price oracle**.
      *
+     * @param pool The address of the pool
      * @return currentSpotPrice Spot price at the current pool state (real and virtual balances), in token/token terms
      */
     function computeCurrentSpotPrice(address pool) external view returns (uint256) {
