@@ -701,6 +701,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     ) external onlyWhenInitialized onlyWhenVaultIsLocked onlySwapFeeManagerOrGovernance(address(this)) {
         uint256[] memory balancesScaled18 = _updateVirtualBalances();
 
+        // Virtual balances are updated in the call above, so we can just read last virtual balances here.
         (uint256 centeredness, ) = ReClammMath.computeCenteredness(
             balancesScaled18,
             _lastVirtualBalanceA,
@@ -711,6 +712,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         // immediately place the pool outside of the target range. This is important because an excessively high margin
         // could be used maliciously to manipulate the pool price by forcing it to stay within an excessively tight
         // range. The new margin must also not be higher than the current centeredness, to prevent similar manipulation.
+        // It is possible to bypass this check with settled swaps before and after setting the new margin;
+        // this is a best-effort check to prevent accidental misconfigurations.
         require(centeredness >= _centerednessMargin && centeredness >= newCenterednessMargin, PoolOutsideTargetRange());
 
         _setCenterednessMargin(newCenterednessMargin);
