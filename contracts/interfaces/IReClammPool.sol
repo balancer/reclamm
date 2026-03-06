@@ -304,8 +304,6 @@ interface IReClammPool is IBasePool {
         view
         returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed);
 
-
-
     /**
      * @notice Getter for the timestamp of the last user interaction.
      * @return lastTimestamp The timestamp of the operation
