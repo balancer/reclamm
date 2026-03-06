@@ -428,11 +428,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         (, currentVirtualBalanceA, currentVirtualBalanceB, changed) = _getRealAndVirtualBalances();
     }
 
-    /// @inheritdoc IReClammPool
-    function computeCurrentSpotPrice() external view returns (uint256) {
-        return _helper.computeCurrentSpotPrice(address(this));
-    }
-
     /**
      * @notice Returns current live pool balances and time-adjusted virtual balances.
      * @dev Both balances and virtual balances are in the same underlying/rate-scaled space, which is required
