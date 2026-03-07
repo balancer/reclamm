@@ -677,7 +677,11 @@ library ReClammMath {
     ) internal pure returns (uint256 priceRatio) {
         (uint256 minPrice, uint256 maxPrice) = computePriceRange(balancesScaled18, virtualBalanceA, virtualBalanceB);
 
-        return maxPrice.divUp(minPrice);
+        // This value is used as the denominator in the rate check (endPriceRatio / startPriceRatio). Rounding down
+        // makes startPriceRatio smaller, which makes the computed rate appear larger, which makes the rate check
+        // harder to pass. This is the conservative direction, consistent with the initialization code (see
+        // computeTheoreticalPriceRatioAndBalances), which also uses divDown.
+        return maxPrice.divDown(minPrice);
     }
 
     /**
