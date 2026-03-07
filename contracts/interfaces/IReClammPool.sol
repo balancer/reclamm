@@ -73,8 +73,12 @@ struct ReClammPoolImmutableData {
 /**
  * @notice Snapshot of current ReClamm Pool data that can change.
  * @dev Note that live balances will not necessarily be accurate if the pool is in Recovery Mode. Withdrawals
- * in Recovery Mode do not make external calls (including those necessary for updating live balances), so if
- * there are withdrawals, raw and live balances will be out of sync until Recovery Mode is disabled.
+ * in Recovery Mode bypass hooks, so virtual balances are not scaled down along with the real balances. If there
+ * are withdrawals, raw and live balances will be out of sync until Recovery Mode is disabled.
+ *
+ * Normally pools that go into recovery do not come back, but it is possible. If so, the pool would operate post-
+ * recovery with inflated virtual depth until the price drifts out of range (triggering a VB shift) or governance
+ * forces recalibration by calling `setDailyPriceShiftExponent` or `setCenterednessMargin`.
  *
  * Base Pool:
  * @param balancesLiveScaled18 Token balances after paying yield fees, applying decimal scaling and rates
