@@ -344,7 +344,7 @@ export function computePriceRatio(
   virtualBalanceB: bigint
 ): bigint {
   const [minPrice, maxPrice] = computePriceRange(balancesScaled18, virtualBalanceA, virtualBalanceB);
-  return fpDivUp(maxPrice, minPrice);
+  return fpDivDown(maxPrice, minPrice);
 }
 
 function powDown(x: bigint, y: bigint): bigint {
