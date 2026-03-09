@@ -16,11 +16,12 @@ import { InputHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 
 import { PriceRatioState, ReClammMath, a, b } from "../../contracts/lib/ReClammMath.sol";
-import { ReClammPriceParams } from "../../contracts/lib/ReClammPoolFactoryLib.sol";
+import { ReClammPoolFactoryLib, ReClammPriceParams } from "../../contracts/lib/ReClammPoolFactoryLib.sol";
 import { ReClammPoolFactoryMock } from "../../contracts/test/ReClammPoolFactoryMock.sol";
 import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
 import { ReClammMathMock } from "../../contracts/test/ReClammMathMock.sol";
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
+import { ReClammPoolFactory } from "../../contracts/ReClammPoolFactory.sol";
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
 import {
     IReClammPool,
@@ -507,7 +508,7 @@ contract ReClammPoolTest is BaseReClammTest {
         uint256 priceRatioUpdateStartTime = block.timestamp;
         uint256 priceRatioUpdateEndTime = block.timestamp + 1 days;
 
-        vm.expectRevert(abi.encodeWithSelector(IReClammPool.EndPriceRatioBelowMin.selector, newPriceRatio));
+        vm.expectRevert(abi.encodeWithSelector(IReClammPool.PriceRatioBelowMin.selector, newPriceRatio));
         vm.prank(admin);
         ReClammPool(pool).startPriceRatioUpdate(newPriceRatio, priceRatioUpdateStartTime, priceRatioUpdateEndTime);
     }
@@ -1165,7 +1166,7 @@ contract ReClammPoolTest is BaseReClammTest {
         });
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
-        new ReClammPool(params, vault, _helper);
+        deployStandaloneReClammPool(params, vault, _helper);
     }
 
     function testCreateWithTargetUnderMinPrice() public {
@@ -1183,7 +1184,7 @@ contract ReClammPoolTest is BaseReClammTest {
         });
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
-        new ReClammPool(params, vault, _helper);
+        deployStandaloneReClammPool(params, vault, _helper);
     }
 
     function testCreateWithInvalidMaxPrice() public {
@@ -1201,7 +1202,7 @@ contract ReClammPoolTest is BaseReClammTest {
         });
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
-        new ReClammPool(params, vault, _helper);
+        deployStandaloneReClammPool(params, vault, _helper);
     }
 
     function testCreateWithTargetOverMaxPrice() public {
@@ -1219,7 +1220,7 @@ contract ReClammPoolTest is BaseReClammTest {
         });
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
-        new ReClammPool(params, vault, _helper);
+        deployStandaloneReClammPool(params, vault, _helper);
     }
 
     function testCreateWithInvalidTargetPrice() public {
@@ -1237,7 +1238,75 @@ contract ReClammPoolTest is BaseReClammTest {
         });
 
         vm.expectRevert(IReClammPool.InvalidInitialPrice.selector);
-        new ReClammPool(params, vault, _helper);
+        deployStandaloneReClammPool(params, vault, _helper);
+    }
+
+    function testCreatePoolWithInvalidPriceRatio() public {
+        uint256 minPrice = 1000e18;
+        uint256 maxPrice = minPrice.mulDown(ReClammPoolFactoryLib.MIN_PRICE_RATIO) - 1;
+        uint256 targetPrice = (minPrice + maxPrice) / 2;
+
+        // Override pool factory (we want the real one, not the mock factory).
+        ReClammPoolFactory poolFactory = deployReClammPoolFactoryWithDefaultParams(vault);
+
+        string memory name = "ReClamm Pool";
+        string memory symbol = "RECLAMM_POOL";
+
+        IERC20[] memory sortedTokens = InputHelpers.sortTokens(
+            [address(usdc), address(dai)].toMemoryArray().asIERC20()
+        );
+
+        PoolRoleAccounts memory roleAccounts;
+
+        roleAccounts = PoolRoleAccounts({ pauseManager: address(0), swapFeeManager: admin, poolCreator: alice });
+
+        ReClammPriceParams memory priceParams = ReClammPriceParams({
+            initialMinPrice: minPrice,
+            initialMaxPrice: maxPrice,
+            initialTargetPrice: targetPrice,
+            tokenAPriceIncludesRate: _tokenAPriceIncludesRate,
+            tokenBPriceIncludesRate: _tokenBPriceIncludesRate
+        });
+
+        IRateProvider[] memory rateProviders = new IRateProvider[](2);
+        rateProviders[a] = _rateProviderA;
+        rateProviders[b] = _rateProviderB;
+
+        TokenConfig[] memory tokenConfig = vault.buildTokenConfig(sortedTokens, rateProviders);
+
+        vm.expectRevert(abi.encodeWithSelector(IReClammPool.PriceRatioBelowMin.selector, maxPrice.divDown(minPrice)));
+        poolFactory.create(
+            name,
+            symbol,
+            tokenConfig,
+            roleAccounts,
+            _DEFAULT_SWAP_FEE,
+            priceParams,
+            _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
+            _DEFAULT_CENTEREDNESS_MARGIN,
+            bytes32(saltNumber++)
+        );
+    }
+
+    function testCreateStandalonePoolWithInvalidPriceRatio() public {
+        uint256 minPrice = 1000e18;
+        uint256 maxPrice = minPrice.mulDown(ReClammPoolFactoryLib.MIN_PRICE_RATIO) - 1;
+        uint256 targetPrice = (minPrice + maxPrice) / 2;
+        ReClammPoolParams memory params = ReClammPoolParams({
+            name: "ReClamm Pool",
+            symbol: "FAIL_POOL",
+            version: "1",
+            dailyPriceShiftExponent: 1e18,
+            centerednessMargin: 0.2e18,
+            initialMinPrice: minPrice,
+            initialMaxPrice: maxPrice,
+            initialTargetPrice: targetPrice,
+            tokenAPriceIncludesRate: false,
+            tokenBPriceIncludesRate: false
+        });
+
+        vm.expectRevert(abi.encodeWithSelector(IReClammPool.PriceRatioBelowMin.selector, maxPrice.divDown(minPrice)));
+        deployStandaloneReClammPool(params, vault, _helper);
     }
 
     function testOnBeforeInitializeEvents() public {

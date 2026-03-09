@@ -76,25 +76,22 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
         liquidityManagement.enableDonation = false;
         liquidityManagement.disableUnbalancedLiquidity = true;
 
-        pool = _create(
-            abi.encode(
-                ReClammPoolParams({
-                    name: name,
-                    symbol: symbol,
-                    version: _poolVersion,
-                    initialMinPrice: priceParams.initialMinPrice,
-                    initialMaxPrice: priceParams.initialMaxPrice,
-                    initialTargetPrice: priceParams.initialTargetPrice,
-                    tokenAPriceIncludesRate: priceParams.tokenAPriceIncludesRate,
-                    tokenBPriceIncludesRate: priceParams.tokenBPriceIncludesRate,
-                    dailyPriceShiftExponent: dailyPriceShiftExponent,
-                    centerednessMargin: centerednessMargin.toUint64()
-                }),
-                getVault(),
-                reClammPoolHelper
-            ),
-            salt
-        );
+        ReClammPoolParams memory poolParams = ReClammPoolParams({
+            name: name,
+            symbol: symbol,
+            version: _poolVersion,
+            initialMinPrice: priceParams.initialMinPrice,
+            initialMaxPrice: priceParams.initialMaxPrice,
+            initialTargetPrice: priceParams.initialTargetPrice,
+            tokenAPriceIncludesRate: priceParams.tokenAPriceIncludesRate,
+            tokenBPriceIncludesRate: priceParams.tokenBPriceIncludesRate,
+            dailyPriceShiftExponent: dailyPriceShiftExponent,
+            centerednessMargin: centerednessMargin.toUint64()
+        });
+
+        ReClammPoolFactoryLib.validatePriceParams(poolParams);
+
+        pool = _create(abi.encode(poolParams, getVault(), reClammPoolHelper), salt);
 
         _registerPoolWithVault(
             pool,
