@@ -69,7 +69,7 @@ library ReClammPoolFactoryLib {
 
         uint256 initialPriceRatio = params.initialMaxPrice.divDown(params.initialMinPrice);
         if (initialPriceRatio < MIN_PRICE_RATIO) {
-            revert IReClammPool.TargetPriceRatioBelowMin(initialPriceRatio);
+            revert IReClammPool.PriceRatioBelowMin(initialPriceRatio);
         }
     }
 }

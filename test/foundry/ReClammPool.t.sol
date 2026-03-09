@@ -508,7 +508,7 @@ contract ReClammPoolTest is BaseReClammTest {
         uint256 priceRatioUpdateStartTime = block.timestamp;
         uint256 priceRatioUpdateEndTime = block.timestamp + 1 days;
 
-        vm.expectRevert(abi.encodeWithSelector(IReClammPool.TargetPriceRatioBelowMin.selector, newPriceRatio));
+        vm.expectRevert(abi.encodeWithSelector(IReClammPool.PriceRatioBelowMin.selector, newPriceRatio));
         vm.prank(admin);
         ReClammPool(pool).startPriceRatioUpdate(newPriceRatio, priceRatioUpdateStartTime, priceRatioUpdateEndTime);
     }
@@ -1274,9 +1274,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         TokenConfig[] memory tokenConfig = vault.buildTokenConfig(sortedTokens, rateProviders);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(IReClammPool.TargetPriceRatioBelowMin.selector, maxPrice.divDown(minPrice))
-        );
+        vm.expectRevert(abi.encodeWithSelector(IReClammPool.PriceRatioBelowMin.selector, maxPrice.divDown(minPrice)));
         poolFactory.create(
             name,
             symbol,
@@ -1307,9 +1305,7 @@ contract ReClammPoolTest is BaseReClammTest {
             tokenBPriceIncludesRate: false
         });
 
-        vm.expectRevert(
-            abi.encodeWithSelector(IReClammPool.TargetPriceRatioBelowMin.selector, maxPrice.divDown(minPrice))
-        );
+        vm.expectRevert(abi.encodeWithSelector(IReClammPool.PriceRatioBelowMin.selector, maxPrice.divDown(minPrice)));
         deployStandaloneReClammPool(params, vault, _helper);
     }
 

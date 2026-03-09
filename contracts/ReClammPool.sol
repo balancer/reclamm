@@ -583,7 +583,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         returns (uint256 actualPriceRatioUpdateStartTime)
     {
         if (endPriceRatio < ReClammPoolFactoryLib.MIN_PRICE_RATIO) {
-            revert TargetPriceRatioBelowMin(endPriceRatio);
+            revert PriceRatioBelowMin(endPriceRatio);
         }
 
         actualPriceRatioUpdateStartTime = GradualValueChange.resolveStartTime(
