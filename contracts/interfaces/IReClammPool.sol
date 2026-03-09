@@ -211,8 +211,8 @@ interface IReClammPool is IBasePool {
     /// @notice The daily price shift exponent is too high.
     error DailyPriceShiftExponentTooHigh();
 
-    /// @notice The end price ratio is too low.
-    error EndPriceRatioBelowMin(uint256 endPriceRatio);
+    /// @notice The price ratio is too low.
+    error PriceRatioBelowMin(uint256 priceRatio);
 
     /// @notice The difference between end time and start time is too short for the price ratio update.
     error PriceRatioUpdateDurationTooShort();
