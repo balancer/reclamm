@@ -36,8 +36,10 @@ library ReClammPoolFactoryLib {
 
     // Price ratio below 1 breaks pool math. Also, tight ratios close to FP(1) may cause virtual balances to grow
     // excessively, potentially causing numerical issues. In practice, such tight ratios should not be needed.
-    // solhint-disable-next-line private-vars-leading-underscore
+    // solhint-disable private-vars-leading-underscore
     uint256 internal constant MIN_PRICE_RATIO = 1.0001e18; // 0.01% above FP(1)
+    uint256 internal constant MAX_PRICE_RATIO = 20e18; // FP(20)
+    // solhint-enable private-vars-leading-underscore
 
     function validateTokenConfig(TokenConfig[] memory tokens, ReClammPriceParams memory priceParams) internal pure {
         // The ReClammPool only supports 2 tokens.
@@ -68,8 +70,11 @@ library ReClammPoolFactoryLib {
         }
 
         uint256 initialPriceRatio = params.initialMaxPrice.divDown(params.initialMinPrice);
+
         if (initialPriceRatio < MIN_PRICE_RATIO) {
             revert IReClammPool.PriceRatioBelowMin(initialPriceRatio);
+        } else if (initialPriceRatio > MAX_PRICE_RATIO) {
+            revert IReClammPool.PriceRatioAboveMax(initialPriceRatio);
         }
     }
 }

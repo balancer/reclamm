@@ -62,6 +62,7 @@ struct ReClammPoolImmutableData {
     uint256 initialCenterednessMargin;
     // Operating Limits
     uint256 minPriceRatio;
+    uint256 maxPriceRatio;
     uint256 maxCenterednessMargin;
     uint256 maxDailyPriceShiftExponent;
     uint256 maxDailyPriceRatioUpdateRate;
@@ -213,6 +214,9 @@ interface IReClammPool is IBasePool {
 
     /// @notice The price ratio is too low.
     error PriceRatioBelowMin(uint256 priceRatio);
+
+    /// @notice The price ratio is too high.
+    error PriceRatioAboveMax(uint256 priceRatio);
 
     /// @notice The difference between end time and start time is too short for the price ratio update.
     error PriceRatioUpdateDurationTooShort();
