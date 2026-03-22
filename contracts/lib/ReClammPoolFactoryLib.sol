@@ -34,10 +34,25 @@ struct ReClammPriceParams {
 library ReClammPoolFactoryLib {
     using FixedPoint for uint256;
 
+    // solhint-disable private-vars-leading-underscore
+
     // Price ratio below 1 breaks pool math. Also, tight ratios close to FP(1) may cause virtual balances to grow
     // excessively, potentially causing numerical issues. In practice, such tight ratios should not be needed.
-    // solhint-disable-next-line private-vars-leading-underscore
+    // Minimum allowed price ratio (max price / min price). Price ratios below 1 break pool math; ratios very close
+    // to 1 cause virtual balances to grow extremely large (Va ~= Ra / (sqrt(Q) - 1)), which risks numerical overflow
+    // in downstream calculations. 0.01% above FP(1) provides a practical lower bound while still supporting
+    // tightly-pegged stable pairs.
     uint256 internal constant MIN_PRICE_RATIO = 1.0001e18; // 0.01% above FP(1)
+
+    // Maximum allowed price ratio (max price / min price). At Q = 20, the pool still provides meaningful capital
+    // efficiency (~1.9x vs a standard constant-product AMM). This is set just above the highest price ratio observed
+    // for realistic token pairs. For example, the ETH/BTC all-time range is ~9.2x, and stablecoin de-pegs (excluding
+    // catastrophic collapses like UST) have peaked at ~1.2x. A cap of 20 prevents pools from operating in regimes
+    // where the concentrated liquidity benefit is marginal and the virtual balance math is under stress, without
+    // restricting any legitimate deployment.
+    uint256 internal constant MAX_PRICE_RATIO = 20e18; // FP(20)
+
+    // solhint-enable private-vars-leading-underscore
 
     function validateTokenConfig(TokenConfig[] memory tokens, ReClammPriceParams memory priceParams) internal pure {
         // The ReClammPool only supports 2 tokens.
@@ -68,8 +83,11 @@ library ReClammPoolFactoryLib {
         }
 
         uint256 initialPriceRatio = params.initialMaxPrice.divDown(params.initialMinPrice);
+
         if (initialPriceRatio < MIN_PRICE_RATIO) {
             revert IReClammPool.PriceRatioBelowMin(initialPriceRatio);
+        } else if (initialPriceRatio > MAX_PRICE_RATIO) {
+            revert IReClammPool.PriceRatioAboveMax(initialPriceRatio);
         }
     }
 }
