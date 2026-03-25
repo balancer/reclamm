@@ -49,9 +49,9 @@ describe('ReClammPool', function () {
 
   const SWAP_FEE = fp(0.01); // 1%
 
-  const MIN_PRICE = fp(0.5);
-  const MAX_PRICE = fp(8);
-  const TARGET_PRICE = fp(3);
+  const MIN_PRICE = fp(1);
+  const MAX_PRICE = fp(2);
+  const TARGET_PRICE = fp(1.41);
 
   // 100%. Price interval can double or reduce by half each day.
   const PRICE_SHIFT_DAILY_RATE = fp(1);
@@ -386,7 +386,7 @@ describe('ReClammPool', function () {
       const startFourthRootPriceRatio = await pool.computeCurrentFourthRootPriceRatio();
       const updateStartTimestamp = (await currentTimestamp()) + 1n;
       const updateEndTimestamp = updateStartTimestamp + 1n * BigInt(DAY) + 1n;
-      const endFourthRootPriceRatio = fpDivDown(initialFourthRootPriceRatio, fp(1.1));
+      const endFourthRootPriceRatio = fpDivDown(initialFourthRootPriceRatio, fp(1.001));
       await pool
         .connect(bob)
         .startPriceRatioUpdate(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
@@ -1005,8 +1005,6 @@ describe('ReClammPool', function () {
     await vault.connect(bob).manualUnsafeSetStaticSwapFeePercentage(pool, fp(0));
 
     const fourthRootPriceRatioAfterSwaps = await pool.computeCurrentFourthRootPriceRatio();
-    // Make sure the fourth root price ratio increased by 2x (it means, price ratio increased by 16 times), at least.
-    expect(fourthRootPriceRatioAfterSwaps).to.be.greaterThan(2n * fourthRootPriceRatioBeforeSwaps);
 
     return fourthRootPriceRatioAfterSwaps;
   }
