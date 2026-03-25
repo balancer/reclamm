@@ -309,7 +309,11 @@ library ReClammMath {
      *    is updating).
      * 3. Track the market price by moving the price interval (if the pool is outside the target range).
      *
-     * Note: Virtual balances will be rounded down so that the swap result favors the Vault.
+     * Note: Virtual balances are computed to favor the Vault in most paths. However, denominator terms in
+     * `computeVirtualBalancesUpdatingPriceRange` and `computeVirtualBalancesUpdatingPriceRatio` use `mulDown`,
+     * which rounds those denominators down and can produce sub-wei upward rounding in `virtualBalanceUndervalued`.
+     * The swap-level rounding (integer division for EXACT_IN, `mulDivUp` for EXACT_OUT) independently and
+     * decisively favors the Vault regardless of VB rounding direction.
      *
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param lastVirtualBalanceA The last virtual balance of token A
