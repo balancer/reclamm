@@ -57,7 +57,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
             defaultTargetPrice: 1e18,
             defaultTokenAPriceIncludesRate: false,
             defaultTokenBPriceIncludesRate: false,
-            defaultDailyPriceShiftExponent: 100e16, // 100%
+            defaultDailyPriceShiftExponent: 20e16, // 20%
             defaultCenterednessMargin: 10e16, // 10%
             poolVersion: "ReClamm Pool v1",
             factoryVersion: "ReClamm Pool Factory v1"

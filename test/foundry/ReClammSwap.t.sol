@@ -127,7 +127,7 @@ contract ReClammSwapTest is BaseReClammTest {
         newPriceRatio = newPriceRatio.mulDown(newPriceRatio);
 
         vm.prank(admin);
-        ReClammPool(pool).startPriceRatioUpdate(newPriceRatio, block.timestamp, block.timestamp + 5 days);
+        ReClammPool(pool).startPriceRatioUpdate(newPriceRatio, block.timestamp, block.timestamp + 30 days);
 
         vm.warp(block.timestamp + 6 hours);
 
@@ -310,7 +310,7 @@ contract ReClammSwapTest is BaseReClammTest {
         newPriceRatio = newPriceRatio.mulDown(newPriceRatio);
 
         vm.prank(admin);
-        ReClammPool(pool).startPriceRatioUpdate(newPriceRatio, block.timestamp, block.timestamp + 5 days);
+        ReClammPool(pool).startPriceRatioUpdate(newPriceRatio, block.timestamp, block.timestamp + 30 days);
 
         vm.warp(block.timestamp + 6 hours);
 
