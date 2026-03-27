@@ -559,6 +559,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         // Operating Limits
         data.minPriceRatio = ReClammPoolFactoryLib.MIN_PRICE_RATIO;
+        data.maxPriceRatio = ReClammPoolFactoryLib.MAX_PRICE_RATIO;
         data.maxCenterednessMargin = _MAX_CENTEREDNESS_MARGIN;
         data.maxDailyPriceShiftExponent = _MAX_DAILY_PRICE_SHIFT_EXPONENT;
         data.maxDailyPriceRatioUpdateRate = _MAX_DAILY_PRICE_RATIO_UPDATE_RATE;
@@ -584,6 +585,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     {
         if (endPriceRatio < ReClammPoolFactoryLib.MIN_PRICE_RATIO) {
             revert PriceRatioBelowMin(endPriceRatio);
+        } else if (endPriceRatio > ReClammPoolFactoryLib.MAX_PRICE_RATIO) {
+            revert PriceRatioAboveMax(endPriceRatio);
         }
 
         actualPriceRatioUpdateStartTime = GradualValueChange.resolveStartTime(

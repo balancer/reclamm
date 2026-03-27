@@ -13,6 +13,7 @@ import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/Fixe
 
 import { ReClammMathMock } from "../../contracts/test/ReClammMathMock.sol";
 import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
+import { ReClammPoolFactoryLib } from "../../contracts/lib/ReClammPoolFactoryLib.sol";
 import { ReClammMath } from "../../contracts/lib/ReClammMath.sol";
 
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
@@ -85,7 +86,11 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
         uint256 newTargetPrice
     ) public {
         newMinPrice = bound(newMinPrice, _MIN_PRICE, _MAX_PRICE.divDown(_MIN_PRICE_RATIO));
-        newMaxPrice = bound(newMaxPrice, newMinPrice.mulUp(_MIN_PRICE_RATIO), _MAX_PRICE);
+        newMaxPrice = bound(
+            newMaxPrice,
+            newMinPrice.mulUp(_MIN_PRICE_RATIO),
+            newMinPrice.mulDown(ReClammPoolFactoryLib.MAX_PRICE_RATIO)
+        );
         newTargetPrice = bound(
             newTargetPrice,
             newMinPrice + newMinPrice.mulDown((_MIN_PRICE_RATIO - FixedPoint.ONE) / 2),
