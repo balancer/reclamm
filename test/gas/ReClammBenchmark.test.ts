@@ -64,7 +64,7 @@ class ReClammBenchmark extends Benchmark {
       roleAccounts,
       fp(0.1), // 10% swap fee percentage
       priceParams,
-      fp(1), // 100% price shift daily rate
+      fp(0.2), // 20% price shift daily rate
       fp(0.2), // 20% centeredness margin
       salt
     );
