@@ -45,9 +45,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 internal constant _MAX_CENTEREDNESS_MARGIN = 90e16; // 90%
 
     // The daily price shift exponent is a percentage that defines the speed at which the virtual balances will change
-    // over the course of one day. A value of 100% (i.e, FP 1) means that the min and max prices will double (or halve)
+    // over the course of one day. A value of 20% means that the min and max prices will increase (or decrease) by 20%
     // every day, until the pool price is within the range defined by the margin. This constant defines the maximum
-    // "price shift" velocity.
+    // "price shift" velocity. It is set conservatively to limit LP value erosion rate and reduce manipulation
+    // incentives, while remaining responsive enough to track realistic market movements.
     uint256 internal constant _MAX_DAILY_PRICE_SHIFT_EXPONENT = 20e16; // 20%
 
     // Price ratio updates must have both a minimum duration and a maximum daily rate. For instance, an update rate of
