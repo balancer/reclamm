@@ -1366,6 +1366,128 @@ contract ReClammPoolTest is BaseReClammTest {
         deployStandaloneReClammPool(params, vault, _helper);
     }
 
+    function testCreatePoolWithDailyPriceShiftExponentTooHigh() public {
+        // Override pool factory (we want the real one, not the mock factory).
+        ReClammPoolFactory poolFactory = deployReClammPoolFactoryWithDefaultParams(vault);
+
+        string memory name = "ReClamm Pool";
+        string memory symbol = "RECLAMM_POOL";
+
+        IERC20[] memory sortedTokens = InputHelpers.sortTokens(
+            [address(usdc), address(dai)].toMemoryArray().asIERC20()
+        );
+
+        PoolRoleAccounts memory roleAccounts;
+
+        roleAccounts = PoolRoleAccounts({ pauseManager: address(0), swapFeeManager: admin, poolCreator: alice });
+
+        ReClammPriceParams memory priceParams = ReClammPriceParams({
+            initialMinPrice: _DEFAULT_MIN_PRICE,
+            initialMaxPrice: _DEFAULT_MAX_PRICE,
+            initialTargetPrice: _DEFAULT_TARGET_PRICE,
+            tokenAPriceIncludesRate: _tokenAPriceIncludesRate,
+            tokenBPriceIncludesRate: _tokenBPriceIncludesRate
+        });
+
+        IRateProvider[] memory rateProviders = new IRateProvider[](2);
+        rateProviders[a] = _rateProviderA;
+        rateProviders[b] = _rateProviderB;
+
+        TokenConfig[] memory tokenConfig = vault.buildTokenConfig(sortedTokens, rateProviders);
+
+        vm.expectRevert(IReClammPool.DailyPriceShiftExponentTooHigh.selector);
+        poolFactory.create(
+            name,
+            symbol,
+            tokenConfig,
+            roleAccounts,
+            _DEFAULT_SWAP_FEE,
+            priceParams,
+            ReClammPoolFactoryLib.MAX_DAILY_PRICE_SHIFT_EXPONENT + 1,
+            _DEFAULT_CENTEREDNESS_MARGIN,
+            bytes32(saltNumber++)
+        );
+    }
+
+    function testCreateStandalonePoolWithDailyPriceShiftExponentTooHigh() public {
+        ReClammPoolParams memory params = ReClammPoolParams({
+            name: "ReClamm Pool",
+            symbol: "FAIL_POOL",
+            version: "1",
+            dailyPriceShiftExponent: ReClammPoolFactoryLib.MAX_DAILY_PRICE_SHIFT_EXPONENT + 1,
+            centerednessMargin: _DEFAULT_CENTEREDNESS_MARGIN,
+            initialMinPrice: _DEFAULT_MIN_PRICE,
+            initialMaxPrice: _DEFAULT_MAX_PRICE,
+            initialTargetPrice: _DEFAULT_TARGET_PRICE,
+            tokenAPriceIncludesRate: false,
+            tokenBPriceIncludesRate: false
+        });
+
+        vm.expectRevert(IReClammPool.DailyPriceShiftExponentTooHigh.selector);
+        deployStandaloneReClammPool(params, vault, _helper);
+    }
+
+    function testCreatePoolWithCenterednessMarginTooHigh() public {
+        // Override pool factory (we want the real one, not the mock factory).
+        ReClammPoolFactory poolFactory = deployReClammPoolFactoryWithDefaultParams(vault);
+
+        string memory name = "ReClamm Pool";
+        string memory symbol = "RECLAMM_POOL";
+
+        IERC20[] memory sortedTokens = InputHelpers.sortTokens(
+            [address(usdc), address(dai)].toMemoryArray().asIERC20()
+        );
+
+        PoolRoleAccounts memory roleAccounts;
+
+        roleAccounts = PoolRoleAccounts({ pauseManager: address(0), swapFeeManager: admin, poolCreator: alice });
+
+        ReClammPriceParams memory priceParams = ReClammPriceParams({
+            initialMinPrice: _DEFAULT_MIN_PRICE,
+            initialMaxPrice: _DEFAULT_MAX_PRICE,
+            initialTargetPrice: _DEFAULT_TARGET_PRICE,
+            tokenAPriceIncludesRate: _tokenAPriceIncludesRate,
+            tokenBPriceIncludesRate: _tokenBPriceIncludesRate
+        });
+
+        IRateProvider[] memory rateProviders = new IRateProvider[](2);
+        rateProviders[a] = _rateProviderA;
+        rateProviders[b] = _rateProviderB;
+
+        TokenConfig[] memory tokenConfig = vault.buildTokenConfig(sortedTokens, rateProviders);
+
+        vm.expectRevert(IReClammPool.InvalidCenterednessMargin.selector);
+        poolFactory.create(
+            name,
+            symbol,
+            tokenConfig,
+            roleAccounts,
+            _DEFAULT_SWAP_FEE,
+            priceParams,
+            _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
+            ReClammPoolFactoryLib.MAX_CENTEREDNESS_MARGIN + 1,
+            bytes32(saltNumber++)
+        );
+    }
+
+    function testCreateStandalonePoolWithCenterednessMarginTooHigh() public {
+        ReClammPoolParams memory params = ReClammPoolParams({
+            name: "ReClamm Pool",
+            symbol: "FAIL_POOL",
+            version: "1",
+            dailyPriceShiftExponent: _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
+            centerednessMargin: uint64(ReClammPoolFactoryLib.MAX_CENTEREDNESS_MARGIN + 1),
+            initialMinPrice: _DEFAULT_MIN_PRICE,
+            initialMaxPrice: _DEFAULT_MAX_PRICE,
+            initialTargetPrice: _DEFAULT_TARGET_PRICE,
+            tokenAPriceIncludesRate: false,
+            tokenBPriceIncludesRate: false
+        });
+
+        vm.expectRevert(IReClammPool.InvalidCenterednessMargin.selector);
+        deployStandaloneReClammPool(params, vault, _helper);
+    }
+
     function testOnBeforeInitializeEvents() public {
         (address newPool, ) = _createPool([address(usdc), address(dai)].toMemoryArray(), "New Test Pool");
         (IERC20[] memory tokens, , , ) = vault.getPoolTokenInfo(newPool);
