@@ -41,15 +41,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     uint256 internal constant _MIN_SWAP_FEE_PERCENTAGE = 0.001e16; // 0.001%
     uint256 internal constant _MAX_SWAP_FEE_PERCENTAGE = 10e16; // 10%
 
-    // The maximum pool centeredness allowed to consider the pool within the target range.
-    uint256 internal constant _MAX_CENTEREDNESS_MARGIN = 90e16; // 90%
-
-    // The daily price shift exponent is a percentage that defines the speed at which the virtual balances will change
-    // over the course of one day. A value of 100% (i.e, FP 1) means that the min and max prices will double (or halve)
-    // every day, until the pool price is within the range defined by the margin. This constant defines the maximum
-    // "price shift" velocity.
-    uint256 internal constant _MAX_DAILY_PRICE_SHIFT_EXPONENT = 100e16; // 100%
-
     // Price ratio updates must have both a minimum duration and a maximum daily rate. For instance, an update rate of
     // FP 2 means the ratio one day later must be at least half and at most double the rate at the start of the update.
     uint256 internal constant _MIN_PRICE_RATIO_UPDATE_DURATION = 1 days;
@@ -67,7 +58,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     // Price ratio updates must have a maximum daily rate. For instance, an update rate of FP 2 means the ratio one
     // day later must be at least half and at most double the rate at the start of the update.
-    // This value is calculated at construction time based on `_MAX_DAILY_PRICE_SHIFT_EXPONENT`.
+    // This value is calculated at construction time based on `ReClammPoolFactoryLib.MAX_DAILY_PRICE_SHIFT_EXPONENT`.
     uint256 internal immutable _MAX_DAILY_PRICE_RATIO_UPDATE_RATE;
 
     // These immutables are only used during initialization, to set the virtual balances and price ratio in a more
@@ -155,11 +146,14 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _TOKEN_A_PRICE_INCLUDES_RATE = params.tokenAPriceIncludesRate;
         _TOKEN_B_PRICE_INCLUDES_RATE = params.tokenBPriceIncludesRate;
 
-        // The maximum daily price ratio change rate is given by 2^_MAX_DAILY_PRICE_SHIFT_EXPONENT.
+        // The maximum daily price ratio change rate is 2^ReClammPoolFactoryLib.MAX_DAILY_PRICE_SHIFT_EXPONENT.
         // This is somewhat arbitrary, but it makes sense to link these rates; i.e., we are setting the maximum speed
         // of expansion or contraction to equal the maximum speed of the price shift. It is expressed as a multiple;
         // i.e., 8e18 means it can change by 8x per day.
-        _MAX_DAILY_PRICE_RATIO_UPDATE_RATE = FixedPoint.powUp(2e18, _MAX_DAILY_PRICE_SHIFT_EXPONENT);
+        _MAX_DAILY_PRICE_RATIO_UPDATE_RATE = FixedPoint.powUp(
+            2e18,
+            ReClammPoolFactoryLib.MAX_DAILY_PRICE_SHIFT_EXPONENT
+        );
     }
 
     /********************************************************
@@ -560,8 +554,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         // Operating Limits
         data.minPriceRatio = ReClammPoolFactoryLib.MIN_PRICE_RATIO;
         data.maxPriceRatio = ReClammPoolFactoryLib.MAX_PRICE_RATIO;
-        data.maxCenterednessMargin = _MAX_CENTEREDNESS_MARGIN;
-        data.maxDailyPriceShiftExponent = _MAX_DAILY_PRICE_SHIFT_EXPONENT;
+        data.maxCenterednessMargin = ReClammPoolFactoryLib.MAX_CENTEREDNESS_MARGIN;
+        data.maxDailyPriceShiftExponent = ReClammPoolFactoryLib.MAX_DAILY_PRICE_SHIFT_EXPONENT;
         data.maxDailyPriceRatioUpdateRate = _MAX_DAILY_PRICE_RATIO_UPDATE_RATE;
         data.minPriceRatioUpdateDuration = _MIN_PRICE_RATIO_UPDATE_DURATION;
         data.minPriceRatioDelta = _MIN_PRICE_RATIO_DELTA;
@@ -777,7 +771,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     function _setDailyPriceShiftExponent(uint256 dailyPriceShiftExponent) internal returns (uint256) {
-        if (dailyPriceShiftExponent > _MAX_DAILY_PRICE_SHIFT_EXPONENT) {
+        if (dailyPriceShiftExponent > ReClammPoolFactoryLib.MAX_DAILY_PRICE_SHIFT_EXPONENT) {
             revert DailyPriceShiftExponentTooHigh();
         }
 
@@ -803,7 +797,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
      * @param centerednessMargin The new centerednessMargin value, which must be within the target range
      */
     function _setCenterednessMargin(uint256 centerednessMargin) internal {
-        if (centerednessMargin > _MAX_CENTEREDNESS_MARGIN) {
+        if (centerednessMargin > ReClammPoolFactoryLib.MAX_CENTEREDNESS_MARGIN) {
             revert InvalidCenterednessMargin();
         }
 

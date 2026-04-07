@@ -52,6 +52,15 @@ library ReClammPoolFactoryLib {
     // restricting any legitimate deployment.
     uint256 internal constant MAX_PRICE_RATIO = 20e18; // FP(20)
 
+    // The maximum pool centeredness allowed to consider the pool within the target range.
+    uint256 internal constant MAX_CENTEREDNESS_MARGIN = 90e16; // 90%
+
+    // The daily price shift exponent is a percentage that defines the speed at which the virtual balances will change
+    // over the course of one day. A value of 100% (i.e, FP 1) means the min and max prices will double (or halve)
+    // every day, until the pool price is within the range defined by the margin. This constant defines the maximum
+    // "price shift" velocity.
+    uint256 internal constant MAX_DAILY_PRICE_SHIFT_EXPONENT = 100e16; // 100%
+
     // solhint-enable private-vars-leading-underscore
 
     function validateTokenConfig(TokenConfig[] memory tokens, ReClammPriceParams memory priceParams) internal pure {
@@ -69,6 +78,14 @@ library ReClammPoolFactoryLib {
     }
 
     function validatePriceParams(ReClammPoolParams memory params) internal pure {
+        if (params.dailyPriceShiftExponent > MAX_DAILY_PRICE_SHIFT_EXPONENT) {
+            revert IReClammPool.DailyPriceShiftExponentTooHigh();
+        }
+
+        if (params.centerednessMargin > MAX_CENTEREDNESS_MARGIN) {
+            revert IReClammPool.InvalidCenterednessMargin();
+        }
+
         if (
             params.initialMinPrice == 0 ||
             params.initialMaxPrice == 0 ||
