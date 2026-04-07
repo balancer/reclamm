@@ -534,14 +534,20 @@ library ReClammMath {
         );
 
         // Ensure that Vo does not go below the minimum allowed value (corresponding to centeredness == 1).
+        // We need to use `divUp` here to ensure that Vu_denominator is positive (see comment below).
         virtualBalanceOvervalued = Math.max(
             virtualBalanceOvervalued,
-            balancesScaledOvervalued.divDown(sqrtScaled18(sqrtPriceRatio) - FixedPoint.ONE)
+            balancesScaledOvervalued.divUp(sqrtScaled18(sqrtPriceRatio) - FixedPoint.ONE)
         );
 
+        // Vo is at least Ro / (sqrt(Qo) - 1) because of the clamp applied above (unless Ro == 0).
+        // The denominator for Vu is (Qo - 1) * Vo - Ro.
+        // Replacing for the minimum Vo, we get Vu_denominator_min = (Qo - 1) / (sqrt(Qo) - 1) * Ro - Ro.'
+        // Since Qo > 1 and sqrt(Qo) < Qo, then (Qo - 1) / (sqrt(Qo) - 1) > 1, and Vu_denominator_min positive on paper.
+        // In order to ensure that Vu_denominator is positive in practice, we use `mulUp`.
         virtualBalanceUndervalued =
             (balancesScaledUndervalued * (virtualBalanceOvervalued + balancesScaledOvervalued)) /
-            ((sqrtPriceRatio - FixedPoint.ONE).mulDown(virtualBalanceOvervalued) - balancesScaledOvervalued);
+            ((sqrtPriceRatio - FixedPoint.ONE).mulUp(virtualBalanceOvervalued) - balancesScaledOvervalued);
 
         (newVirtualBalanceA, newVirtualBalanceB) = isPoolAboveCenter
             ? (virtualBalanceUndervalued, virtualBalanceOvervalued)
