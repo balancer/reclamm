@@ -30,6 +30,20 @@ library ReClammMath {
     /// @notice The swap result is greater than the real balance of the token (i.e., the balance would drop below zero).
     error AmountOutGreaterThanBalance();
 
+    /// @notice A virtual balance fell below the minimum safe value for downstream calculations.
+    error VirtualBalanceTooLow();
+
+    // The minimum value a virtual balance can have before downstream calculations are no longer numerically safe.
+    // The mathematical floor is 1e9: this falls out of squaring an 18-decimal fixed-point number, since
+    // `mulDown(V, V) = (V * V) / 1e18` underflows to zero whenever `V < 1e9`, and `computePriceRange` then divides by
+    // that zero. 1e12 (~1e-6 of an 18-decimal token) is a heuristic safety margin a few orders of magnitude above that
+    // floor. A higher floor like FP(1) was considered and rejected as potentially too restrictive: there's no
+    // guarantee that a legitimate pool can't have a VB in the 1e16-1e17 range, and reverting on a healthy pool is
+    // worse than the failure this guard prevents. 1e12 is low enough that no realistic pool configuration should reach
+    // it without one side being effectively depleted to zero, in which case the pool should be rescued with recovery
+    // mode rather than continue using unsafe values.
+    uint256 internal constant _MIN_VIRTUAL_BALANCE = 1e12;
+
     // When a pool is outside the target range, we start adjusting the price range by altering the virtual balances,
     // which affects the price. At a DailyPriceShiftExponent of 100%, we want to be able to change the price by a factor
     // of two: either doubling or halving it over the course of a day (86,400 seconds). The virtual balances must
@@ -309,9 +323,10 @@ library ReClammMath {
      *    is updating).
      * 3. Track the market price by moving the price interval (if the pool is outside the target range).
      *
-     * Note: Virtual balances are computed to favor the Vault in most paths. However, denominator terms in
-     * `computeVirtualBalancesUpdatingPriceRange` and `computeVirtualBalancesUpdatingPriceRatio` use `mulDown`,
-     * which rounds those denominators down and can produce sub-wei upward rounding in `virtualBalanceUndervalued`.
+     * Note: Virtual balances are computed to favor the Vault along most paths. The denominator term in
+     * `computeVirtualBalancesUpdatingPriceRange` uses `mulUp` to keep `Vu_denominator` strictly positive under
+     * fixed-point rounding, which can produce sub-wei downward rounding in `virtualBalanceUndervalued`.
+     * `computeVirtualBalancesUpdatingPriceRatio` uses raw integer arithmetic for its denominator, which truncates.
      * The swap-level rounding (integer division for EXACT_IN, `mulDivUp` for EXACT_OUT) independently and
      * decisively favors the Vault regardless of VB rounding direction.
      *
@@ -494,6 +509,16 @@ library ReClammMath {
         uint32 currentTimestamp,
         uint32 lastTimestamp
     ) internal pure returns (uint256 newVirtualBalanceA, uint256 newVirtualBalanceB) {
+        // Guard against virtual balances that have decreased below the safe operating floor. Below the threshold
+        // `_MIN_VIRTUAL_BALANCE`, `mulDown(V, V)` in `computePriceRange` (called transitively below) can underflow to
+        // zero and brick the pool. Reverting cleanly here lets the pool be recovered instead of silently getting
+        // "stuck." The check is scoped to this function (and therefore to the out-of-range path) because small virtual
+        // balances are not in themselves a problem for swaps or liquidity changes (e.g., they can arise from near-
+        // complete proportional removal). They only reach the code that can underflow when the pool is out of range.
+        if (virtualBalanceA < _MIN_VIRTUAL_BALANCE || virtualBalanceB < _MIN_VIRTUAL_BALANCE) {
+            revert VirtualBalanceTooLow();
+        }
+
         uint256 sqrtPriceRatio = sqrtScaled18(computePriceRatio(balancesScaled18, virtualBalanceA, virtualBalanceB));
 
         // The overvalued token is the one with a lower token balance (therefore, rarer and more valuable).
