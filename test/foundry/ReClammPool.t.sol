@@ -1151,6 +1151,52 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(maxPrice, _DEFAULT_MAX_PRICE);
     }
 
+    function testComputeCurrentVirtualBalancesBeforeInitialized() public {
+        address newPool = _createUninitializedPool();
+
+        vm.expectRevert(IReClammPool.PoolNotInitialized.selector);
+        ReClammPool(newPool).computeCurrentVirtualBalances();
+    }
+
+    function testComputeCurrentFourthRootPriceRatioBeforeInitialized() public {
+        address newPool = _createUninitializedPool();
+
+        vm.expectRevert(IReClammPool.PoolNotInitialized.selector);
+        ReClammPool(newPool).computeCurrentFourthRootPriceRatio();
+    }
+
+    function testComputeCurrentPriceRatioBeforeInitialized() public {
+        address newPool = _createUninitializedPool();
+
+        vm.expectRevert(IReClammPool.PoolNotInitialized.selector);
+        ReClammPool(newPool).computeCurrentPriceRatio();
+    }
+
+    function testIsPoolWithinTargetRangeBeforeInitialized() public {
+        address newPool = _createUninitializedPool();
+
+        vm.expectRevert(IReClammPool.PoolNotInitialized.selector);
+        ReClammPool(newPool).isPoolWithinTargetRange();
+    }
+
+    function testComputeCurrentPoolCenterednessBeforeInitialized() public {
+        address newPool = _createUninitializedPool();
+
+        vm.expectRevert(IReClammPool.PoolNotInitialized.selector);
+        ReClammPool(newPool).computeCurrentPoolCenteredness();
+    }
+
+    function _createUninitializedPool() internal returns (address newPool) {
+        IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens);
+
+        (newPool, ) = _createPool(
+            [address(sortedTokens[a]), address(sortedTokens[b])].toMemoryArray(),
+            "BeforeInitTest"
+        );
+
+        assertFalse(vault.isPoolInitialized(newPool), "Pool is initialized");
+    }
+
     function testComputePriceRangeAfterInitialized() public view {
         assertTrue(vault.isPoolInitialized(pool), "Pool is initialized");
         assertFalse(vault.isUnlocked(), "Vault is unlocked");
