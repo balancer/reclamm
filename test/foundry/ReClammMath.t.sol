@@ -657,7 +657,7 @@ contract ReClammMathTest is BaseReClammTest {
     /// @dev In the worst case scenario, Vu_denominator should be strictly positive to avoid underflow.
     function testVirtualBalanceUndervaluedDenominatorUnderflowRoEqualThan0__Fuzz(uint256 sqrtPriceRatio) public view {
         sqrtPriceRatio = bound(sqrtPriceRatio, _MIN_SQRT_PRICE_RATIO, _MAX_SQRT_PRICE_RATIO);
-        // Ro can't be 0 in this case
+        // Ro is 0 in this case (the depleted-side scenario).
         uint256 balanceScaledOvervalued = 0;
 
         // See testVirtualBalanceOvervalued__Fuzz.
