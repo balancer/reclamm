@@ -515,6 +515,9 @@ library ReClammMath {
         // "stuck." The check is scoped to this function (and therefore to the out-of-range path) because small virtual
         // balances are not in themselves a problem for swaps or liquidity changes (e.g., they can arise from near-
         // complete proportional removal). They only reach the code that can underflow when the pool is out of range.
+        // Note that if this guard triggers, the pool is permanently bricked, since all paths that would update the
+        // virtual balances (including swaps and liquidity changes) would hit this same check and revert. A pool in
+        // this state would need to be placed in recovery mode to allow LPs to exit.
         if (virtualBalanceA < _MIN_VIRTUAL_BALANCE || virtualBalanceB < _MIN_VIRTUAL_BALANCE) {
             revert VirtualBalanceTooLow();
         }
