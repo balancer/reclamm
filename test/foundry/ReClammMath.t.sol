@@ -15,6 +15,7 @@ import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
 contract ReClammMathTest is BaseReClammTest {
     using ArrayHelpers for *;
     using FixedPoint for uint256;
+    using ReClammMath for uint256;
 
     uint256 private constant _MAX_CENTEREDNESS_ERROR_ABS = 5e7;
     uint256 private constant _MAX_PRICE_ERROR_ABS = 3e16;
@@ -634,7 +635,8 @@ contract ReClammMathTest is BaseReClammTest {
         assertTrue(isAboveCenter, "Not above center with B = 0");
     }
 
-    function testVirtualBalanceUndervaluedDenominatorUnderflow__Fuzz(
+    /// @dev In the worst case scenario, Vu_denominator should be strictly positive to avoid underflow.
+    function testVirtualBalanceUndervaluedDenominatorUnderflowRoGreaterThan0__Fuzz(
         uint256 sqrtPriceRatio,
         uint256 balanceScaledOvervalued
     ) public view {
@@ -650,5 +652,35 @@ contract ReClammMathTest is BaseReClammTest {
         ) - balanceScaledOvervalued);
 
         assertGt(virtualBalanceUndervaluedDenominator, 0, "Virtual balance undervalued denominator should be positive");
+    }
+
+    /// @dev In the worst case scenario, Vu_denominator should be strictly positive to avoid underflow.
+    function testVirtualBalanceUndervaluedDenominatorUnderflowRoEqualThan0__Fuzz(uint256 sqrtPriceRatio) public view {
+        sqrtPriceRatio = bound(sqrtPriceRatio, _MIN_SQRT_PRICE_RATIO, _MAX_SQRT_PRICE_RATIO);
+        // Ro can't be 0 in this case
+        uint256 balanceScaledOvervalued = 0;
+
+        // See testVirtualBalanceOvervalued__Fuzz.
+        uint256 minVirtualBalanceOvervalued = 1;
+
+        uint256 virtualBalanceUndervaluedDenominator = ((sqrtPriceRatio - FixedPoint.ONE).mulUp(
+            minVirtualBalanceOvervalued
+        ) - balanceScaledOvervalued);
+
+        assertGt(virtualBalanceUndervaluedDenominator, 0, "Virtual balance undervalued denominator should be positive");
+    }
+
+    /// @dev In the worst case scenario, Vo has to be greater than 0.
+    function testVirtualBalanceOvervalued__Fuzz(uint256 virtualBalanceOvervalued) public pure {
+        virtualBalanceOvervalued = bound(virtualBalanceOvervalued, 1, _MAX_TOKEN_BALANCE);
+
+        uint256 dailyPriceShiftBase = _MAX_DAILY_PRICE_SHIFT_EXPONENT.toDailyPriceShiftBase();
+        uint256 duration = 30 days;
+
+        virtualBalanceOvervalued = virtualBalanceOvervalued.mulUp(
+            dailyPriceShiftBase.powDown(duration * FixedPoint.ONE)
+        );
+
+        assertGt(virtualBalanceOvervalued, 0, "Virtual balance overvalued should be positive");
     }
 }
