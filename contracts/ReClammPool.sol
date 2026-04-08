@@ -373,16 +373,46 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /********************************************************
-                        Pool State Getters
+                       Stored State Getters
     ********************************************************/
 
+    // The getters in this section return values directly from storage. They perform no virtual-balance math and are
+    // safe to call before the pool has been initialized; they will simply return zero values for state that hasn't
+    // been set yet.
+
     /// @inheritdoc IReClammPool
-    function computeInitialBalancesRaw(
-        IERC20 referenceToken,
-        uint256 referenceAmountInRaw
-    ) external view returns (uint256[] memory initialBalancesRaw) {
-        return _helper.computeInitialBalancesRaw(this, referenceToken, referenceAmountInRaw);
+    function getLastTimestamp() external view returns (uint32) {
+        return _lastTimestamp;
     }
+
+    /// @inheritdoc IReClammPool
+    function getLastVirtualBalances() external view returns (uint256 virtualBalanceA, uint256 virtualBalanceB) {
+        return (_lastVirtualBalanceA, _lastVirtualBalanceB);
+    }
+
+    /// @inheritdoc IReClammPool
+    function getCenterednessMargin() external view returns (uint256) {
+        return _centerednessMargin;
+    }
+
+    /// @inheritdoc IReClammPool
+    function getDailyPriceShiftExponent() external view returns (uint256) {
+        return _dailyPriceShiftBase.toDailyPriceShiftExponent();
+    }
+
+    /// @inheritdoc IReClammPool
+    function getDailyPriceShiftBase() external view returns (uint256) {
+        return _dailyPriceShiftBase;
+    }
+
+    /// @inheritdoc IReClammPool
+    function getPriceRatioState() external view returns (PriceRatioState memory) {
+        return _priceRatioState;
+    }
+
+    /********************************************************
+                        Live State Getters
+    ********************************************************/
 
     /// @inheritdoc IReClammPool
     function computeCurrentPriceRange() external view returns (uint256 minPrice, uint256 maxPrice) {
@@ -404,23 +434,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             maxPrice = _INITIAL_MAX_PRICE;
         }
     }
-
-    // The view functions below all derive their results from live + virtual balances. Before initialization, the
-    // virtual balances are zero (they're set in `onBeforeInitialize`), so the underlying math is undefined: it either
-    // reverts with a low-level division-by-zero or returns numerically meaningless values like centeredness 0 (which
-    // would otherwise mean "the pool is at the edge of its price range"). To make this state explicit and to give
-    // callers a clean error rather than an arithmetic failure, these functions revert with `PoolNotInitialized` when
-    // called on a created-but-uninitialized pool.
-    //
-    // Two adjacent read paths are intentionally NOT gated this way:
-    //   - `computeCurrentPriceRange` returns the configured `_INITIAL_MIN_PRICE` / `_INITIAL_MAX_PRICE` before init,
-    //     because the configured range is a meaningful answer to "what range will this pool operate in?". The
-    //     ratio/centeredness/within-range concepts have no comparable meaningful pre-init answer.
-    //   - `getReClammPoolDynamicData` doesn't revert; it leaves the live-state-derived fields zeroed out so that
-    //     integrations can still inspect static fields (rates, fees, supply) on a freshly deployed pool.
-    //
-    // Callers who want the configured initial values (e.g. the implied initial price ratio) should read them from
-    // `getReClammPoolImmutableData()` and compute as needed, not call these getters.
 
     /// @inheritdoc IReClammPool
     function computeCurrentVirtualBalances()
@@ -458,33 +471,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function getLastTimestamp() external view returns (uint32) {
-        return _lastTimestamp;
-    }
-
-    /// @inheritdoc IReClammPool
-    function getLastVirtualBalances() external view returns (uint256 virtualBalanceA, uint256 virtualBalanceB) {
-        return (_lastVirtualBalanceA, _lastVirtualBalanceB);
-    }
-
-    /// @inheritdoc IReClammPool
-    function getCenterednessMargin() external view returns (uint256) {
-        return _centerednessMargin;
-    }
-
-    /// @inheritdoc IReClammPool
-    function getDailyPriceShiftExponent() external view returns (uint256) {
-        return _dailyPriceShiftBase.toDailyPriceShiftExponent();
-    }
-
-    /// @inheritdoc IReClammPool
-    function getDailyPriceShiftBase() external view returns (uint256) {
-        return _dailyPriceShiftBase;
-    }
-
-    /// @inheritdoc IReClammPool
-    function getPriceRatioState() external view returns (PriceRatioState memory) {
-        return _priceRatioState;
+    function computeCurrentPriceRatio() external view onlyWhenInitialized returns (uint256) {
+        return _computeCurrentPriceRatio();
     }
 
     /// @inheritdoc IReClammPool
@@ -493,8 +481,15 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function computeCurrentPriceRatio() external view onlyWhenInitialized returns (uint256) {
-        return _computeCurrentPriceRatio();
+    function computeCurrentPoolCenteredness() external view onlyWhenInitialized returns (uint256, bool) {
+        (
+            uint256[] memory balancesScaled18,
+            uint256 currentVirtualBalanceA,
+            uint256 currentVirtualBalanceB,
+
+        ) = _getRealAndVirtualBalances();
+
+        return ReClammMath.computeCenteredness(balancesScaled18, currentVirtualBalanceA, currentVirtualBalanceB);
     }
 
     /// @inheritdoc IReClammPool
@@ -515,16 +510,16 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             );
     }
 
+    /********************************************************
+                        Off-chain Helpers
+    ********************************************************/
+
     /// @inheritdoc IReClammPool
-    function computeCurrentPoolCenteredness() external view onlyWhenInitialized returns (uint256, bool) {
-        (
-            uint256[] memory balancesScaled18,
-            uint256 currentVirtualBalanceA,
-            uint256 currentVirtualBalanceB,
-
-        ) = _getRealAndVirtualBalances();
-
-        return ReClammMath.computeCenteredness(balancesScaled18, currentVirtualBalanceA, currentVirtualBalanceB);
+    function computeInitialBalancesRaw(
+        IERC20 referenceToken,
+        uint256 referenceAmountInRaw
+    ) external view returns (uint256[] memory initialBalancesRaw) {
+        return _helper.computeInitialBalancesRaw(this, referenceToken, referenceAmountInRaw);
     }
 
     /// @inheritdoc IReClammPool
@@ -590,7 +585,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.balanceRatioAndPriceTolerance = _BALANCE_RATIO_AND_PRICE_TOLERANCE;
     }
 
-    /********************************************************   
+    /********************************************************
                         Pool State Setters
     ********************************************************/
 
@@ -786,8 +781,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         );
     }
 
-    /// Using the pool balances to update the virtual balances is dangerous with an unlocked vault, since the balances
-    /// are manipulable.
+    // Using the pool balances to update the virtual balances is dangerous with an unlocked vault, since the balances
+    // are manipulable.
     function _setDailyPriceShiftExponentAndUpdateVirtualBalances(
         uint256 dailyPriceShiftExponent
     ) internal returns (uint256) {
