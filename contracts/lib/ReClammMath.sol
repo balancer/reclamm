@@ -509,7 +509,7 @@ library ReClammMath {
         uint32 lastTimestamp
     ) internal pure returns (uint256 newVirtualBalanceA, uint256 newVirtualBalanceB) {
         // Guard against virtual balances that have decreased below the safe operating floor. Below the threshold
-        // `_MIN_VIRTUAL_BALANCE`, `mulDown(V, V)` in `computePriceRange` (called transitively below) can underflow to
+        // `_MIN_VIRTUAL_BALANCE`, `mulDown(V, V)` in `computePriceRange` (called transitively below) can round to
         // zero and brick the pool. Reverting cleanly here lets the pool be recovered instead of silently getting
         // "stuck." The check is scoped to this function (and therefore to the out-of-range path) because small virtual
         // balances are not in themselves a problem for swaps or liquidity changes (e.g., they can arise from near-
