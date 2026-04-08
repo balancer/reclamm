@@ -40,8 +40,7 @@ library ReClammMath {
     // floor. A higher floor like FP(1) was considered and rejected as potentially too restrictive: there's no
     // guarantee that a legitimate pool can't have a VB in the 1e16-1e17 range, and reverting on a healthy pool is
     // worse than the failure this guard prevents. 1e12 is low enough that no realistic pool configuration should reach
-    // it without one side being effectively depleted to zero, in which case the pool should be rescued with recovery
-    // mode rather than continue using unsafe values.
+    // it without one side being effectively depleted to zero.
     uint256 internal constant _MIN_VIRTUAL_BALANCE = 1e12;
 
     // When a pool is outside the target range, we start adjusting the price range by altering the virtual balances,
