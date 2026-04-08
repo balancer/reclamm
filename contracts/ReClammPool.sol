@@ -405,10 +405,28 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         }
     }
 
+    // The view functions below all derive their results from live + virtual balances. Before initialization, the
+    // virtual balances are zero (they're set in `onBeforeInitialize`), so the underlying math is undefined: it either
+    // reverts with a low-level division-by-zero or returns numerically meaningless values like centeredness 0 (which
+    // would otherwise mean "the pool is at the edge of its price range"). To make this state explicit and to give
+    // callers a clean error rather than an arithmetic failure, these functions revert with `PoolNotInitialized` when
+    // called on a created-but-uninitialized pool.
+    //
+    // Two adjacent read paths are intentionally NOT gated this way:
+    //   - `computeCurrentPriceRange` returns the configured `_INITIAL_MIN_PRICE` / `_INITIAL_MAX_PRICE` before init,
+    //     because the configured range is a meaningful answer to "what range will this pool operate in?". The
+    //     ratio/centeredness/within-range concepts have no comparable meaningful pre-init answer.
+    //   - `getReClammPoolDynamicData` doesn't revert; it leaves the live-state-derived fields zeroed out so that
+    //     integrations can still inspect static fields (rates, fees, supply) on a freshly deployed pool.
+    //
+    // Callers who want the configured initial values (e.g. the implied initial price ratio) should read them from
+    // `getReClammPoolImmutableData()` and compute as needed, not call these getters.
+
     /// @inheritdoc IReClammPool
     function computeCurrentVirtualBalances()
         external
         view
+        onlyWhenInitialized
         returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed)
     {
         (, currentVirtualBalanceA, currentVirtualBalanceB, changed) = _getRealAndVirtualBalances();
@@ -470,17 +488,17 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function computeCurrentFourthRootPriceRatio() external view returns (uint256) {
+    function computeCurrentFourthRootPriceRatio() external view onlyWhenInitialized returns (uint256) {
         return ReClammMath.fourthRootScaled18(_computeCurrentPriceRatio());
     }
 
     /// @inheritdoc IReClammPool
-    function computeCurrentPriceRatio() external view returns (uint256) {
+    function computeCurrentPriceRatio() external view onlyWhenInitialized returns (uint256) {
         return _computeCurrentPriceRatio();
     }
 
     /// @inheritdoc IReClammPool
-    function isPoolWithinTargetRange() external view returns (bool) {
+    function isPoolWithinTargetRange() external view onlyWhenInitialized returns (bool) {
         (
             uint256[] memory balancesScaled18,
             uint256 currentVirtualBalanceA,
@@ -498,7 +516,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /// @inheritdoc IReClammPool
-    function computeCurrentPoolCenteredness() external view returns (uint256, bool) {
+    function computeCurrentPoolCenteredness() external view onlyWhenInitialized returns (uint256, bool) {
         (
             uint256[] memory balancesScaled18,
             uint256 currentVirtualBalanceA,
@@ -533,7 +551,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.isPoolPaused = poolConfig.isPoolPaused;
         data.isPoolInRecoveryMode = poolConfig.isPoolInRecoveryMode;
 
-        // If the pool is not initialized, virtual balances will be zero and `_computeCurrentPriceRatio` would revert.
+        // The price ratio is derived from live + virtual balances; before initialization, virtual balances are zero
+        // and `_computeCurrentPriceRatio` would revert (the public `computeCurrentPriceRatio` getter explicitly
+        // reverts with `PoolNotInitialized` for the same reason). Skip the computation here so that integrations
+        // can still call `getReClammPoolDynamicData` on a freshly deployed pool. The ratio fields stay zero, while
+        // the static fields (rates, fees, supply) remain readable.
         if (data.isPoolInitialized) {
             data.currentPriceRatio = _computeCurrentPriceRatio();
             data.currentFourthRootPriceRatio = ReClammMath.fourthRootScaled18(data.currentPriceRatio);

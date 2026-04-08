@@ -287,7 +287,11 @@ interface IReClammPool is IBasePool {
      * The "target" range is then defined as a subset of this total price range, with the margin trimmed symmetrically
      * from each side. The pool endeavors to adjust this range as necessary to keep the current market price within it.
      *
-     * This function uses current live balances and time-adjusted virtual balances.
+     * This function uses current live balances and time-adjusted virtual balances. Note that, unlike the other
+     * `compute*` getters on this interface, this function does NOT revert before initialization: it returns the
+     * configured `initialMinPrice` / `initialMaxPrice` instead. The configured range is a meaningful answer to "what
+     * range will this pool operate in?" even before the pool has live balances; the same is not true of the price
+     * ratio, virtual balances, centeredness, or in-range status, which all revert with `PoolNotInitialized`.
      *
      * @return minPrice The lower limit of the current total price range
      * @return maxPrice The upper limit of the current total price range
@@ -301,7 +305,8 @@ interface IReClammPool is IBasePool {
      * the target range, or the price ratio is updating, this function will calculate the new virtual balances based on
      * the timestamp of the last user interaction. Note that virtual balances are always scaled18 values.
      *
-     * This function uses current live balances and time-adjusted virtual balances.
+     * This function uses current live balances and time-adjusted virtual balances. Reverts with `PoolNotInitialized`
+     * if called before initialization, since virtual balances are zero in that state.
      *
      * @return currentVirtualBalanceA The current virtual balance of token A
      * @return currentVirtualBalanceB The current virtual balance of token B
@@ -361,6 +366,10 @@ interface IReClammPool is IBasePool {
      * @dev The price ratio is the ratio of the max price to the min price, according to current real and virtual
      * balances. This function returns its fourth root.
      *
+     * Reverts with `PoolNotInitialized` if called before initialization, since virtual balances are zero in that
+     * state and there is no live price ratio to compute. Callers wanting the configured initial ratio should derive
+     * it from `getReClammPoolImmutableData()` (`initialMaxPrice / initialMinPrice`).
+     *
      * @return currentFourthRootPriceRatio The current fourth root of price ratio
      */
     function computeCurrentFourthRootPriceRatio() external view returns (uint256 currentFourthRootPriceRatio);
@@ -369,6 +378,10 @@ interface IReClammPool is IBasePool {
      * @notice Computes the current price ratio.
      * @dev The price ratio is the ratio of the max price to the min price, according to current real and virtual
      * balances.
+     *
+     * Reverts with `PoolNotInitialized` if called before initialization, since virtual balances are zero in that
+     * state and there is no live price ratio to compute. Callers wanting the configured initial ratio should derive
+     * it from `getReClammPoolImmutableData()` (`initialMaxPrice / initialMinPrice`).
      *
      * @return currentPriceRatio The current price ratio
      */
@@ -384,6 +397,9 @@ interface IReClammPool is IBasePool {
      * adjusted virtual balances. Callers should not use this as a security gate within a Vault transaction, as the
      * vault may be unlocked and balances manipulable via transient liquidity. It is meant to be called off-chain.
      *
+     * Reverts with `PoolNotInitialized` if called before initialization, since "in target range" is undefined when
+     * there are no live balances to compare against the margin.
+     *
      * @return isWithinTargetRange True if pool centeredness is greater than or equal to the centeredness margin
      */
     function isPoolWithinTargetRange() external view returns (bool isWithinTargetRange);
@@ -396,6 +412,10 @@ interface IReClammPool is IBasePool {
      * This function uses live balances (rate-scaled and yield-fee-adjusted from the last settled state) and time-
      * adjusted virtual balances. Callers should not use this as a security gate within a Vault transaction, as the
      * vault may be unlocked and balances manipulable via transient liquidity. It is meant to be called off-chain.
+     *
+     * Reverts with `PoolNotInitialized` if called before initialization. Without it, the underlying math would
+     * short-circuit to a centeredness of 0 (because real balances are zero), which would falsely suggest the pool
+     * is at the edge of its price range rather than uninitialized.
      *
      * @return poolCenteredness The current pool centeredness (as an 18-decimal FP value)
      * @return isPoolAboveCenter True if the pool is above the center, false otherwise
