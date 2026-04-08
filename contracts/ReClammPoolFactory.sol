@@ -89,7 +89,7 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
             centerednessMargin: centerednessMargin.toUint64()
         });
 
-        ReClammPoolFactoryLib.validatePriceParams(poolParams);
+        ReClammPoolFactoryLib.validatePoolParams(poolParams);
 
         pool = _create(abi.encode(poolParams, getVault(), reClammPoolHelper), salt);
 

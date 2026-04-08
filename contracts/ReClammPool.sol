@@ -133,7 +133,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _helper = helper;
         _BALANCE_RATIO_AND_PRICE_TOLERANCE = helper.BALANCE_RATIO_AND_PRICE_TOLERANCE();
 
-        ReClammPoolFactoryLib.validatePriceParams(params);
+        ReClammPoolFactoryLib.validatePoolParams(params);
 
         // Initialize immutable params. These are only used during pool initialization.
         _INITIAL_MIN_PRICE = params.initialMinPrice;
