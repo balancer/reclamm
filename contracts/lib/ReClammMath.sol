@@ -725,11 +725,10 @@ library ReClammMath {
         // P_min(a) = Vb^2 / invariant
         minPrice = (virtualBalanceB * virtualBalanceB) / currentInvariant;
 
-        // Similarly, P_max(a) = (Rb_max + Vb) / Va
-        // We don't have Rb_max, but: invariant = (Rb_max + Vb) * Va
-        // Then, (Rb_max + Vb) = invariant / Va, and:
-        // P_max(a) = invariant / Va^2
-        maxPrice = currentInvariant.divDown(virtualBalanceA.mulDown(virtualBalanceA));
+        // P_max(a) = invariant / Va^2 = priceRatio * P_min(a). We compute it via the second form to avoid
+        // `mulDown(Va, Va)`, which underflows whenever Va < 1e9. `computePriceRatio` uses an algebraic
+        // rearrangement that is robust at any positive virtual balance.
+        maxPrice = computePriceRatio(balancesScaled18, virtualBalanceA, virtualBalanceB).mulDown(minPrice);
     }
 
     /**
