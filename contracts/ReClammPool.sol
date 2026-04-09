@@ -365,7 +365,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         // VBs below the floor (or to zero by integer truncation) in the first place. The practical effect is that
         // some BPT is "soft-locked": an LP cannot burn an amount that would push the post-scaling virtual balances
         // below `_MIN_VIRTUAL_BALANCE`.
-        ReClammMath.ensureVirtualBalancesAboveFloor(currentVirtualBalanceA, currentVirtualBalanceB);
+        ReClammMath.ensureMinimumVirtualBalances(currentVirtualBalanceA, currentVirtualBalanceB);
 
         _setLastVirtualBalances(currentVirtualBalanceA, currentVirtualBalanceB);
         _updateTimestamp();

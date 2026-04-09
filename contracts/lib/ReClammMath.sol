@@ -514,7 +514,7 @@ library ReClammMath {
         // "stuck." Reaching this point means the pool is out of range and a path that updates virtual balances is
         // actually being taken; it does not fire on swaps or liquidity changes that happen to read small VBs without
         // routing through the out-of-range update.
-        ensureVirtualBalancesAboveFloor(virtualBalanceA, virtualBalanceB);
+        ensureMinimumVirtualBalances(virtualBalanceA, virtualBalanceB);
 
         uint256 sqrtPriceRatio = sqrtScaled18(computePriceRatio(balancesScaled18, virtualBalanceA, virtualBalanceB));
 
@@ -804,7 +804,7 @@ library ReClammMath {
      * @param virtualBalanceA Virtual balance of token A
      * @param virtualBalanceB Virtual balance of token B
      */
-    function ensureVirtualBalancesAboveFloor(uint256 virtualBalanceA, uint256 virtualBalanceB) internal pure {
+    function ensureMinimumVirtualBalances(uint256 virtualBalanceA, uint256 virtualBalanceB) internal pure {
         if (virtualBalanceA < _MIN_VIRTUAL_BALANCE || virtualBalanceB < _MIN_VIRTUAL_BALANCE) {
             revert VirtualBalanceTooLow();
         }
