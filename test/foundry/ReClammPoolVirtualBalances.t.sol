@@ -269,17 +269,28 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
     }
 
     function testRemoveLiquidity__Fuzz(uint256 exactBptAmountIn) public {
-        exactBptAmountIn = bound(exactBptAmountIn, 1e8, ReClammPool(pool).balanceOf(lp));
-
         uint256 currentTotalSupply = ReClammPool(pool).totalSupply();
 
         uint256[] memory virtualBalances = new uint256[](2);
+        uint256 minVirtualBalance;
         {
             (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, ) = ReClammPool(pool)
                 .computeCurrentVirtualBalances();
             virtualBalances[daiIdx] = daiIdx < usdcIdx ? currentVirtualBalanceA : currentVirtualBalanceB;
             virtualBalances[usdcIdx] = daiIdx < usdcIdx ? currentVirtualBalanceB : currentVirtualBalanceA;
+            minVirtualBalance = currentVirtualBalanceA < currentVirtualBalanceB
+                ? currentVirtualBalanceA
+                : currentVirtualBalanceB;
         }
+
+        // Cap bptIn so the post-removal scaled virtual balances stay safely above the floor (1e12). Use a 10x
+        // headroom (2e13 instead of 1e12) so the bound is robust to integer rounding in the proportional scale.
+        uint256 maxBptAmountIn = currentTotalSupply - Math.ceilDiv(currentTotalSupply * 2e13, minVirtualBalance);
+        uint256 lpBalance = ReClammPool(pool).balanceOf(lp);
+        if (maxBptAmountIn > lpBalance) {
+            maxBptAmountIn = lpBalance;
+        }
+        exactBptAmountIn = bound(exactBptAmountIn, 1e8, maxBptAmountIn);
 
         uint256 invariantBefore = _getCurrentInvariant();
         (, , uint256[] memory balancesBefore, ) = vault.getPoolTokenInfo(pool);
