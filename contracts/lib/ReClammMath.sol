@@ -529,19 +529,31 @@ library ReClammMath {
         // Cap the duration (time between operations) at 30 days, to ensure `powDown` does not overflow.
         uint256 duration = Math.min(currentTimestamp - lastTimestamp, 30 days);
 
-        virtualBalanceOvervalued = virtualBalanceOvervalued.mulDown(
+        // Vo should always be greater than 0 to prevent divisions by 0 in calculations downstream.
+        // Using `mulUp` ensures that no matter how small Vo is at this point, the update will be > 0.
+        virtualBalanceOvervalued = virtualBalanceOvervalued.mulUp(
             dailyPriceShiftBase.powDown(duration * FixedPoint.ONE)
         );
 
         // Ensure that Vo does not go below the minimum allowed value (corresponding to centeredness == 1).
+        // We need to use `divUp` here to ensure that Vu_denominator is positive (see comment below).
         virtualBalanceOvervalued = Math.max(
             virtualBalanceOvervalued,
-            balancesScaledOvervalued.divDown(sqrtScaled18(sqrtPriceRatio) - FixedPoint.ONE)
+            balancesScaledOvervalued.divUp(sqrtScaled18(sqrtPriceRatio) - FixedPoint.ONE)
         );
 
+        // For Ro != 0:
+        // Vo is at least Ro / (sqrt(Qo) - 1) because of the clamp applied above.
+        // The denominator for Vu is (Qo - 1) * Vo - Ro.
+        // Replacing for the minimum Vo, we get Vu_denominator_min = (Qo - 1) / (sqrt(Qo) - 1) * Ro - Ro.'
+        // Since Qo > 1 and sqrt(Qo) < Qo, then (Qo - 1) / (sqrt(Qo) - 1) > 1, and Vu_denominator_min positive on paper.
+        // In order to ensure that Vu_denominator is positive in practice, we use `mulUp`.
+        // For Ro == 0:
+        // Vo should be at least 1 wei based on the clamp applied above. Then, the denominator should be at least 1
+        // by using `mulUp`.
         virtualBalanceUndervalued =
             (balancesScaledUndervalued * (virtualBalanceOvervalued + balancesScaledOvervalued)) /
-            ((sqrtPriceRatio - FixedPoint.ONE).mulDown(virtualBalanceOvervalued) - balancesScaledOvervalued);
+            ((sqrtPriceRatio - FixedPoint.ONE).mulUp(virtualBalanceOvervalued) - balancesScaledOvervalued);
 
         (newVirtualBalanceA, newVirtualBalanceB) = isPoolAboveCenter
             ? (virtualBalanceUndervalued, virtualBalanceOvervalued)
