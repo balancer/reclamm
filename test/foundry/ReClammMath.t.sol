@@ -7,6 +7,7 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 
+import { ReClammPoolFactoryLib } from "../../contracts/lib/ReClammPoolFactoryLib.sol";
 import { ReClammMathMock } from "../../contracts/test/ReClammMathMock.sol";
 import { ReClammMath, a, b } from "../../contracts/lib/ReClammMath.sol";
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
@@ -14,11 +15,20 @@ import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
 contract ReClammMathTest is BaseReClammTest {
     using ArrayHelpers for *;
     using FixedPoint for uint256;
+    using ReClammMath for uint256;
 
     uint256 private constant _MAX_CENTEREDNESS_ERROR_ABS = 5e7;
     uint256 private constant _MAX_PRICE_ERROR_ABS = 3e16;
 
+    uint256 private immutable _MIN_SQRT_PRICE_RATIO;
+    uint256 private immutable _MAX_SQRT_PRICE_RATIO;
+
     ReClammMathMock internal mathContract;
+
+    constructor() {
+        _MIN_SQRT_PRICE_RATIO = ReClammMath.sqrtScaled18(ReClammPoolFactoryLib.MIN_PRICE_RATIO);
+        _MAX_SQRT_PRICE_RATIO = ReClammMath.sqrtScaled18(ReClammPoolFactoryLib.MAX_PRICE_RATIO);
+    }
 
     function setUp() public override {
         super.setUp();
@@ -623,5 +633,54 @@ contract ReClammMathTest is BaseReClammTest {
 
         (, isAboveCenter) = ReClammMath.computeCenteredness(balancesScaled18, virtualBalanceA, virtualBalanceB);
         assertTrue(isAboveCenter, "Not above center with B = 0");
+    }
+
+    /// @dev In the worst case scenario, Vu_denominator should be strictly positive to avoid underflow.
+    function testVirtualBalanceUndervaluedDenominatorUnderflowRoGreaterThan0__Fuzz(
+        uint256 sqrtPriceRatio,
+        uint256 balanceScaledOvervalued
+    ) public view {
+        sqrtPriceRatio = bound(sqrtPriceRatio, _MIN_SQRT_PRICE_RATIO, _MAX_SQRT_PRICE_RATIO);
+        // Ro can't be 0 in this case.
+        balanceScaledOvervalued = bound(balanceScaledOvervalued, 1, _MAX_TOKEN_BALANCE);
+
+        uint256 minVirtualBalanceOvervalued = balanceScaledOvervalued.divUp(
+            ReClammMath.sqrtScaled18(sqrtPriceRatio) - FixedPoint.ONE
+        );
+        uint256 virtualBalanceUndervaluedDenominator = ((sqrtPriceRatio - FixedPoint.ONE).mulUp(
+            minVirtualBalanceOvervalued
+        ) - balanceScaledOvervalued);
+
+        assertGt(virtualBalanceUndervaluedDenominator, 0, "Virtual balance undervalued denominator should be positive");
+    }
+
+    /// @dev In the worst case scenario, Vu_denominator should be strictly positive to avoid underflow.
+    function testVirtualBalanceUndervaluedDenominatorUnderflowRoEqualThan0__Fuzz(uint256 sqrtPriceRatio) public view {
+        sqrtPriceRatio = bound(sqrtPriceRatio, _MIN_SQRT_PRICE_RATIO, _MAX_SQRT_PRICE_RATIO);
+        // Ro is 0 in this case (the depleted-side scenario).
+        uint256 balanceScaledOvervalued = 0;
+
+        // See testVirtualBalanceOvervalued__Fuzz.
+        uint256 minVirtualBalanceOvervalued = 1;
+
+        uint256 virtualBalanceUndervaluedDenominator = ((sqrtPriceRatio - FixedPoint.ONE).mulUp(
+            minVirtualBalanceOvervalued
+        ) - balanceScaledOvervalued);
+
+        assertGt(virtualBalanceUndervaluedDenominator, 0, "Virtual balance undervalued denominator should be positive");
+    }
+
+    /// @dev In the worst case scenario, Vo has to be greater than 0.
+    function testVirtualBalanceOvervalued__Fuzz(uint256 virtualBalanceOvervalued) public pure {
+        virtualBalanceOvervalued = bound(virtualBalanceOvervalued, 1, _MAX_TOKEN_BALANCE);
+
+        uint256 dailyPriceShiftBase = _MAX_DAILY_PRICE_SHIFT_EXPONENT.toDailyPriceShiftBase();
+        uint256 duration = 30 days;
+
+        virtualBalanceOvervalued = virtualBalanceOvervalued.mulUp(
+            dailyPriceShiftBase.powDown(duration * FixedPoint.ONE)
+        );
+
+        assertGt(virtualBalanceOvervalued, 0, "Virtual balance overvalued should be positive");
     }
 }
