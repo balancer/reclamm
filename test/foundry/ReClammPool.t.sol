@@ -914,10 +914,11 @@ contract ReClammPoolTest is BaseReClammTest {
             lastVirtualBalancesBeforeSet[daiIdx],
             "DAI virtual balance remains unchanged"
         );
-        assertNotEq(
+        // USDC virtual balance does not move.
+        assertEq(
             virtualBalancesBefore[usdcIdx],
             lastVirtualBalancesBeforeSet[usdcIdx],
-            "USDC virtual balance remains unchanged"
+            "USDC virtual balance changed"
         );
 
         uint256 newDailyPriceShiftExponent = 80e16;

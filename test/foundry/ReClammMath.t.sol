@@ -6,9 +6,11 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
+import "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { ReClammMathMock } from "../../contracts/test/ReClammMathMock.sol";
 import { ReClammMath, a, b } from "../../contracts/lib/ReClammMath.sol";
+import { ReClammPoolFactoryLib } from "../../contracts/lib/ReClammPoolFactoryLib.sol";
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
 
 contract ReClammMathTest is BaseReClammTest {
@@ -546,6 +548,85 @@ contract ReClammMathTest is BaseReClammTest {
         // 0.00000001% error tolerance.
         assertApproxEqRel(computedMinPrice, minPrice, 1e8, "Min price does not match");
         assertApproxEqRel(computedMaxPrice, maxPrice, 1e8, "Max price does not match");
+    }
+
+    /**
+     * @dev Compute price ratio using a wide range of inputs, and check that it does not revert.
+     * Results are narrowed down to focus the computation around price ratios that are relavant in practice
+     */
+    function testComputePriceRatio__Fuzz(
+        uint256 balanceA,
+        uint256 balanceB,
+        uint256 virtualBalanceA,
+        uint256 virtualBalanceB
+    ) public pure {
+        balanceA = bound(balanceA, 0, _MAX_TOKEN_BALANCE / 100);
+        balanceB = bound(balanceB, balanceA < 1e12 ? 1e12 : 0, _MAX_TOKEN_BALANCE / 100);
+        virtualBalanceA = bound(virtualBalanceA, 1, 1e6 * 1e18);
+        virtualBalanceB = bound(virtualBalanceB, virtualBalanceA < 1e12 ? 1e12 : 1, 1e6 * 1e18);
+
+        uint256[] memory balancesScaled18 = new uint256[](2);
+        balancesScaled18[a] = balanceA;
+        balancesScaled18[b] = balanceB;
+
+        uint256 sqrtPriceRatio = (FixedPoint.ONE + balancesScaled18[a].divDown(virtualBalanceA)).mulDown(
+            FixedPoint.ONE + balancesScaled18[b].divDown(virtualBalanceB)
+        );
+
+        // if sqrtPriceRatio is max price ratio, actual price ratio is max price ratio square, which is way above the
+        // maximum allowed.
+        // This test just checks whether the math is sound for a wide range of inputs, but in practice the ranges
+        // should be much more constrained.
+        vm.assume(sqrtPriceRatio <= ReClammPoolFactoryLib.MAX_PRICE_RATIO);
+
+        uint256 priceRatio = ReClammMath.computePriceRatio(balancesScaled18, virtualBalanceA, virtualBalanceB);
+        vm.assume(priceRatio >= ReClammPoolFactoryLib.MIN_PRICE_RATIO);
+    }
+
+    /**
+     * @dev Compare price ratio computation against the ratio between max price / min price, for a (not so) wide range
+     * of inputs.
+     */
+    function testComputePriceRatioComparison__Fuzz(
+        uint256 balanceA,
+        uint256 balanceB,
+        uint256 virtualBalanceA,
+        uint256 virtualBalanceB
+    ) public pure {
+        balanceA = bound(balanceA, 0, 100e18);
+        balanceB = bound(balanceB, balanceA < 1e12 ? 1e12 : 0, 100e18);
+        virtualBalanceA = bound(virtualBalanceA, 1e18, 1e6 * 1e18);
+        virtualBalanceB = bound(virtualBalanceB, 1e18, 1e6 * 1e18);
+
+        uint256[] memory balancesScaled18 = new uint256[](2);
+        balancesScaled18[a] = balanceA;
+        balancesScaled18[b] = balanceB;
+
+        uint256 sqrtPriceRatio = (FixedPoint.ONE + balancesScaled18[a].divDown(virtualBalanceA)).mulDown(
+            FixedPoint.ONE + balancesScaled18[b].divDown(virtualBalanceB)
+        );
+
+        // if sqrtPriceRatio is max price ratio, actual price ratio is max price ratio square, which is way above the
+        // maximum allowed.
+        // This test just checks whether the math is sound for a wide range of inputs, but in practice the ranges
+        // should be much more constrained.
+        vm.assume(sqrtPriceRatio <= ReClammPoolFactoryLib.MAX_PRICE_RATIO);
+
+        uint256 priceRatio = ReClammMath.computePriceRatio(balancesScaled18, virtualBalanceA, virtualBalanceB);
+        vm.assume(priceRatio >= ReClammPoolFactoryLib.MIN_PRICE_RATIO);
+
+        (uint256 minPrice, uint256 maxPrice) = ReClammMath.computePriceRange(
+            balancesScaled18,
+            virtualBalanceA,
+            virtualBalanceB
+        );
+        uint256 priceRatioFromPriceRange = maxPrice.divDown(minPrice);
+        assertApproxEqRel(
+            priceRatio,
+            priceRatioFromPriceRange,
+            0.001e16,
+            "Price ratio from computePriceRatio does not match price ratio from computePriceRange"
+        );
     }
 
     function _calculateCurrentSqrtPriceRatio(

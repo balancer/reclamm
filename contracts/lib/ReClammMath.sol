@@ -666,8 +666,9 @@ library ReClammMath {
 
     /**
      * @notice Compute the price ratio of the pool by dividing the maximum price by the minimum price.
-     * @dev The price ratio is calculated as maxPrice/minPrice, where maxPrice and minPrice are obtained
-     * from computePriceRange.
+     * @dev The price ratio is calculated as maxPrice/minPrice, simplifying the formula algebraically to prevent
+     * overflow issues along the way. The final expression depends on balances and virtual balances directly, as
+     * opposed to the invariant or other intermediate results such as the maximum price or the minimum price itself.
      *
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param virtualBalanceA Virtual balance of token A
@@ -679,10 +680,18 @@ library ReClammMath {
         uint256 virtualBalanceA,
         uint256 virtualBalanceB
     ) internal pure returns (uint256 priceRatio) {
-        (uint256 minPrice, uint256 maxPrice) = computePriceRange(balancesScaled18, virtualBalanceA, virtualBalanceB);
+        // See computePriceRange for the derivation of P_max and P_min:
+        // - P_max(a) = invariant / Va^2
+        // - P_min(a) = Vb^2 / invariant
+        // Then, P_max(a) / P_min(a) = invariant^2 / (Va^2 * Vb^2), and since invariant = (Ra + Va)(Rb + Vb),
+        // we can substitute it and simplify the equation to get:
+        // P_max(a) / P_min(a) = [(1 + Ra/Va) * (1 + Rb/Vb)]^2
 
-        // Round down for consistency with initialization (computeTheoreticalPriceRatioAndBalances).
-        return maxPrice.divDown(minPrice);
+        // Compute inner terms first, and then multiply by itself.
+        uint256 sqrtPriceRatio = (FixedPoint.ONE + balancesScaled18[a].divDown(virtualBalanceA)).mulDown(
+            FixedPoint.ONE + balancesScaled18[b].divDown(virtualBalanceB)
+        );
+        return sqrtPriceRatio.mulDown(sqrtPriceRatio);
     }
 
     /**
