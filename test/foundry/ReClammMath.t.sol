@@ -577,7 +577,7 @@ contract ReClammMathTest is BaseReClammTest {
         // maximum allowed.
         // This test just checks whether the math is sound for a wide range of inputs, but in practice the ranges
         // should be much more constrained.
-        vm.assume(sqrtPriceRatio <= ReClammPoolFactoryLib.MAX_PRICE_RATIO);
+        vm.assume(sqrtPriceRatio <= ReClammPoolFactoryLib.MAX_PRICE_RATIO * 10);
 
         uint256 priceRatio = ReClammMath.computePriceRatio(balancesScaled18, virtualBalanceA, virtualBalanceB);
         vm.assume(priceRatio >= ReClammPoolFactoryLib.MIN_PRICE_RATIO);
@@ -610,7 +610,7 @@ contract ReClammMathTest is BaseReClammTest {
         // maximum allowed.
         // This test just checks whether the math is sound for a wide range of inputs, but in practice the ranges
         // should be much more constrained.
-        vm.assume(sqrtPriceRatio <= ReClammPoolFactoryLib.MAX_PRICE_RATIO);
+        vm.assume(sqrtPriceRatio <= ReClammPoolFactoryLib.MAX_PRICE_RATIO * 10);
 
         uint256 priceRatio = ReClammMath.computePriceRatio(balancesScaled18, virtualBalanceA, virtualBalanceB);
         vm.assume(priceRatio >= ReClammPoolFactoryLib.MIN_PRICE_RATIO);
