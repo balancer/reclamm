@@ -58,7 +58,7 @@ library ReClammMath {
      * @param dailyPriceShiftBase Internal time constant used to update virtual balances (1 - tau)
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @param centerednessMargin A symmetrical measure of how closely an unbalanced pool can approach the limits of the
-     * price range before it is considered outside the target range
+     * price range while remaining in the target range; the pool is in range when centeredness >= margin
      * @param priceRatioState A struct containing start and end price ratios and a time interval
      * @param rounding Rounding direction to consider when computing the invariant
      * @return invariant The invariant of the pool
@@ -320,7 +320,7 @@ library ReClammMath {
      * @param lastVirtualBalanceB The last virtual balance of token B
      * @param dailyPriceShiftBase Internal time constant used to update virtual balances (1 - tau)
      * @param lastTimestamp The timestamp of the last user interaction with the pool
-     * @param centerednessMargin A limit of the pool centeredness that defines if pool is outside the target range
+     * @param centerednessMargin Threshold defining the target range; the pool is in range when centeredness >= margin
      * @param storedPriceRatioState A struct containing start and end price ratios and a time interval
      * @return currentVirtualBalanceA The current virtual balance of token A
      * @return currentVirtualBalanceB The current virtual balance of token B
@@ -567,7 +567,7 @@ library ReClammMath {
      * @param virtualBalanceA The last virtual balances of token A
      * @param virtualBalanceB The last virtual balances of token B
      * @param centerednessMargin A symmetrical measure of how closely an unbalanced pool can approach the limits of the
-     * price range before it is considered out of range
+     * price range while remaining in the target range; the pool is in range when centeredness >= margin
      * @return isWithinTargetRange Whether the pool is within the target price range
      */
     function isPoolWithinTargetRange(
