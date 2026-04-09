@@ -366,6 +366,13 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         currentVirtualBalanceA = (currentVirtualBalanceA * bptDelta) / poolTotalSupply;
         currentVirtualBalanceB = (currentVirtualBalanceB * bptDelta) / poolTotalSupply;
 
+        // Revert if virtual balances would leave the pool in an unrecoverable state. The downstream out-of-range
+        // update path enforces the same floor; checking here prevents a near-total proportional removal from scaling
+        // VBs below the floor (or to zero by integer truncation) in the first place. The practical effect is that
+        // some BPT is "soft-locked": an LP cannot burn an amount that would push the post-scaling virtual balances
+        // below `_MIN_VIRTUAL_BALANCE`.
+        ReClammMath.ensureVirtualBalancesAboveFloor(currentVirtualBalanceA, currentVirtualBalanceB);
+
         _setLastVirtualBalances(currentVirtualBalanceA, currentVirtualBalanceB);
         _updateTimestamp();
 

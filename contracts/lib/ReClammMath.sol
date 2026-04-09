@@ -511,15 +511,10 @@ library ReClammMath {
         // Guard against virtual balances that have decreased below the safe operating floor. Below the threshold
         // `_MIN_VIRTUAL_BALANCE`, `mulDown(V, V)` in `computePriceRange` (called transitively below) can round to
         // zero and brick the pool. Reverting cleanly here lets the pool be recovered instead of silently getting
-        // "stuck." The check is scoped to this function (and therefore to the out-of-range path) because small virtual
-        // balances are not in themselves a problem for swaps or liquidity changes (e.g., they can arise from near-
-        // complete proportional removal). They only reach the code that can underflow when the pool is out of range.
-        // Note that if this guard triggers, the pool is permanently bricked, since all paths that would update the
-        // virtual balances (including swaps and liquidity changes) would hit this same check and revert. A pool in
-        // this state would need to be placed in recovery mode to allow LPs to exit.
-        if (virtualBalanceA < _MIN_VIRTUAL_BALANCE || virtualBalanceB < _MIN_VIRTUAL_BALANCE) {
-            revert VirtualBalanceTooLow();
-        }
+        // "stuck." Reaching this point means the pool is out of range and a path that updates virtual balances is
+        // actually being taken; it does not fire on swaps or liquidity changes that happen to read small VBs without
+        // routing through the out-of-range update.
+        ensureVirtualBalancesAboveFloor(virtualBalanceA, virtualBalanceB);
 
         uint256 sqrtPriceRatio = sqrtScaled18(computePriceRatio(balancesScaled18, virtualBalanceA, virtualBalanceB));
 
@@ -797,5 +792,21 @@ library ReClammMath {
      */
     function fourthRootScaled18(uint256 valueScaled18) internal pure returns (uint256) {
         return Math.sqrt(Math.sqrt(valueScaled18 * FixedPoint.ONE) * FixedPoint.ONE);
+    }
+
+    /**
+     * @notice Revert if either virtual balance is below the safe operating floor.
+     * @dev Used both inside the out-of-range update path (where small VBs would otherwise underflow
+     * `mulDown(V, V)` in `computePriceRange`) and at the call site where new virtual balances are committed
+     * to storage after a proportional removal, to prevent the pool from being scaled into an unrecoverable
+     * state.
+     *
+     * @param virtualBalanceA Virtual balance of token A
+     * @param virtualBalanceB Virtual balance of token B
+     */
+    function ensureVirtualBalancesAboveFloor(uint256 virtualBalanceA, uint256 virtualBalanceB) internal pure {
+        if (virtualBalanceA < _MIN_VIRTUAL_BALANCE || virtualBalanceB < _MIN_VIRTUAL_BALANCE) {
+            revert VirtualBalanceTooLow();
+        }
     }
 }
