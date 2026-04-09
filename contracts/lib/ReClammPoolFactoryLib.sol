@@ -52,6 +52,18 @@ library ReClammPoolFactoryLib {
     // restricting any legitimate deployment.
     uint256 internal constant MAX_PRICE_RATIO = 20e18; // FP(20)
 
+    // Maximum centeredness margin. The margin defines a sub-range of the total price range; the pool is "in target
+    // range" only when its centeredness meets or exceeds this threshold. At 100%, the pool would always have to be
+    // exactly centered, which is impossible since any swap moves it. Capping at 90% leaves a thin but non-zero working
+    // margin, while still allowing operators who want very tight in-range definitions.
+    uint256 internal constant MAX_CENTEREDNESS_MARGIN = 90e16; // 90%
+
+    // The daily price shift exponent is a percentage that defines the speed at which the virtual balances will change
+    // over the course of one day. A value of 100% (i.e, FP 1) means the min and max prices will double (or halve)
+    // every day, until the pool price is within the range defined by the margin. This constant defines the maximum
+    // "price shift" velocity.
+    uint256 internal constant MAX_DAILY_PRICE_SHIFT_EXPONENT = 100e16; // 100%
+
     // solhint-enable private-vars-leading-underscore
 
     function validateTokenConfig(TokenConfig[] memory tokens, ReClammPriceParams memory priceParams) internal pure {
@@ -68,7 +80,19 @@ library ReClammPoolFactoryLib {
         }
     }
 
-    function validatePriceParams(ReClammPoolParams memory params) internal pure {
+    function validatePoolParams(ReClammPoolParams memory params) internal pure {
+        // Note that there is no minimum for the daily price shift exponent, as a value of 0 (no price shift) is a
+        // valid configuration.
+        if (params.dailyPriceShiftExponent > MAX_DAILY_PRICE_SHIFT_EXPONENT) {
+            revert IReClammPool.DailyPriceShiftExponentTooHigh();
+        }
+
+        // Likewise, there is no minimum for the centeredness margin. A value of 0 is a valid configuration: the
+        // target range becomes the full price range, so the pool is always considered in range.
+        if (params.centerednessMargin > MAX_CENTEREDNESS_MARGIN) {
+            revert IReClammPool.InvalidCenterednessMargin();
+        }
+
         if (
             params.initialMinPrice == 0 ||
             params.initialMaxPrice == 0 ||
