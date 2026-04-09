@@ -351,6 +351,6 @@ contract ReClammPoolVirtualBalancesTest is BaseReClammTest {
             .computeTheoreticalPriceRatioAndBalances(newMinPrice, newMaxPrice, newTargetPrice);
 
         (uint256 centeredness, ) = ReClammMath.computeCenteredness(balances, virtualBalanceA, virtualBalanceB);
-        vm.assume(centeredness > _DEFAULT_CENTEREDNESS_MARGIN);
+        vm.assume(centeredness >= _DEFAULT_CENTEREDNESS_MARGIN);
     }
 }

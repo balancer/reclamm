@@ -641,7 +641,7 @@ contract ReClammMathTest is BaseReClammTest {
         uint256 balanceScaledOvervalued
     ) public view {
         sqrtPriceRatio = bound(sqrtPriceRatio, _MIN_SQRT_PRICE_RATIO, _MAX_SQRT_PRICE_RATIO);
-        // Ro can't be 0 in this case
+        // Ro can't be 0 in this case.
         balanceScaledOvervalued = bound(balanceScaledOvervalued, 1, _MAX_TOKEN_BALANCE);
 
         uint256 minVirtualBalanceOvervalued = balanceScaledOvervalued.divUp(
