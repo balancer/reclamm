@@ -2,12 +2,15 @@
 
 pragma solidity ^0.8.24;
 
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+
 import { TokenConfig, TokenType } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultErrors.sol";
 
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 
 import { IReClammPool, ReClammPoolParams } from "../interfaces/IReClammPool.sol";
+import { ReClammMath } from "./ReClammMath.sol";
 
 /**
  * @notice ReClammPool initialization parameters.
@@ -106,12 +109,37 @@ library ReClammPoolFactoryLib {
             revert IReClammPool.InvalidInitialPrice();
         }
 
+        validateTargetPrice(params);
+
         uint256 initialPriceRatio = params.initialMaxPrice.divDown(params.initialMinPrice);
 
         if (initialPriceRatio < MIN_PRICE_RATIO) {
             revert IReClammPool.PriceRatioBelowMin(initialPriceRatio);
         } else if (initialPriceRatio > MAX_PRICE_RATIO) {
             revert IReClammPool.PriceRatioAboveMax(initialPriceRatio);
+        }
+    }
+
+    /// @notice Reverts if initial target price is outside the target range defined by the centeredness margin.
+    function validateTargetPrice(ReClammPoolParams memory params) internal pure {
+        uint256 sqrtMinPrice = ReClammMath.sqrtScaled18(params.initialMinPrice);
+        uint256 sqrtMaxPrice = ReClammMath.sqrtScaled18(params.initialMaxPrice);
+        uint256 sqrtTargetPrice = ReClammMath.sqrtScaled18(params.initialTargetPrice);
+
+        uint256 numerator = sqrtTargetPrice.mulDown(sqrtTargetPrice - sqrtMinPrice);
+        uint256 denominator = sqrtMinPrice.mulDown(sqrtMaxPrice - sqrtTargetPrice);
+
+        if (numerator == 0 || denominator == 0) {
+            // This does not make sense; the pool is out of range regardless the centeredness margin.
+            revert IReClammPool.InvalidInitialTargetPrice();
+        }
+
+        uint256 x1 = numerator.divDown(denominator);
+        uint256 x2 = denominator.divDown(numerator);
+        uint256 centeredness = Math.min(x1, x2);
+
+        if (centeredness < params.centerednessMargin) {
+            revert IReClammPool.InvalidInitialTargetPrice();
         }
     }
 }
