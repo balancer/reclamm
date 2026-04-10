@@ -11,7 +11,6 @@ import "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 import { ReClammPoolFactoryLib } from "../../contracts/lib/ReClammPoolFactoryLib.sol";
 import { ReClammMathMock } from "../../contracts/test/ReClammMathMock.sol";
 import { ReClammMath, a, b } from "../../contracts/lib/ReClammMath.sol";
-import { ReClammPoolFactoryLib } from "../../contracts/lib/ReClammPoolFactoryLib.sol";
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
 
 contract ReClammMathTest is BaseReClammTest {
