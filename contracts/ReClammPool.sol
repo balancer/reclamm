@@ -38,6 +38,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     // This means they have 0.00001% resolution (i.e., any non-zero bits < 1e11 will cause precision loss).
     // Minimum values help make the math well-behaved (i.e., the swap fee should overwhelm any rounding error).
     // Maximum values protect users by preventing permissioned actors from setting excessively high swap fees.
+    // Note: the minimum swap fee also bounds the pool's resistance to round-trip repricing extraction.
+    // At 0.001%, shift rates up to 5% are safe (47-second breakeven). See `setDailyPriceShiftExponent` for details.
     uint256 internal constant _MIN_SWAP_FEE_PERCENTAGE = 0.001e16; // 0.001%
     uint256 internal constant _MAX_SWAP_FEE_PERCENTAGE = 10e16; // 10%
 
@@ -657,6 +659,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         returns (uint256)
     {
         // Update virtual balances before updating the daily price shift exponent.
+        // NOTE: increasing the shift rate increases the pool's exposure to round-trip repricing extraction.
+        // Ensure the swap fee is at least `shift_rate_pct * 0.0002%` to maintain a safe breakeven time.
+        // See the interface NatSpec for the full analysis.
         return _setDailyPriceShiftExponentAndUpdateVirtualBalances(newDailyPriceShiftExponent);
     }
 

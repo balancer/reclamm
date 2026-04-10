@@ -456,6 +456,25 @@ interface IReClammPool is IBasePool {
      * Range_old * 2^(newDailyPriceShiftExponent / 100), or
      * Range_old / 2^(newDailyPriceShiftExponent / 100)
      *
+     * The daily price shift rate interacts with the swap fee to determine the pool's resistance to round-trip
+     * repricing extraction. When the pool is out of range, virtual balances decay over time; an actor who pushes
+     * the pool past the centeredness margin and later unwinds against the repriced curve can profit if enough time
+     * passes. The minimum time for this to break even (the "breakeven time") is approximately:
+     *
+     *   breakeven_seconds ~= 47 * (min_safe_fee / swap_fee) * (5 / shift_rate_pct)
+     *
+     * where `swap_fee` is the pool's swap fee percentage and `shift_rate_pct` is this exponent expressed as a
+     * whole number (e.g., 100 for 100%). A 47-second breakeven (approximately 4 Ethereum mainnet blocks) provides
+     * adequate time for arbitrage to close the gap on any actively traded pair. The minimum swap fee to achieve
+     * this threshold is:
+     *
+     *   min_safe_fee = shift_rate_pct * 0.0002%
+     *
+     * At shift rates up to 5%, the current pool minimum swap fee (0.001%) is sufficient. Higher shift rates
+     * require a proportionally higher swap fee. This constraint cannot be enforced on-chain because the shift
+     * rate and swap fee are governed independently. Operators should verify the swap fee is adequate when
+     * adjusting the shift rate upward.
+     *
      * @param newDailyPriceShiftExponent The new daily price shift exponent
      * @return actualNewDailyPriceShiftExponent The actual new daily price shift exponent, after accounting for
      * precision loss incurred when dealing with the internal representation of the exponent
