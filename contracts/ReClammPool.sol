@@ -764,10 +764,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256 updateDuration
     ) internal pure returns (uint256) {
         uint256 priceRatioMultiple = endPriceRatio > startPriceRatio
-            ? FixedPoint.divUp(endPriceRatio, startPriceRatio)
-            : FixedPoint.divUp(startPriceRatio, endPriceRatio);
+            ? endPriceRatio.divUp(startPriceRatio)
+            : startPriceRatio.divUp(endPriceRatio);
         uint256 exponent = FixedPoint.divUp(1 days, updateDuration);
-        return FixedPoint.powUp(priceRatioMultiple, exponent);
+        return priceRatioMultiple.powUp(exponent);
     }
 
     /// Using the pool balances to update the virtual balances is dangerous with an unlocked vault, since the balances
