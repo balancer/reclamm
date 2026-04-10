@@ -425,6 +425,20 @@ interface IReClammPool is IBasePool {
      * @dev The price ratio is calculated by interpolating between the start and end times. The start price ratio will
      * be set to the current fourth root price ratio of the pool. This is a permissioned function.
      *
+     * Unlike `setDailyPriceShiftExponent` and `setCenterednessMargin`, this function does not require
+     * `onlyWhenVaultIsLocked`. This is intentional. Adding the lock requirement would introduce a DoS vector:
+     * an attacker could keep the Vault perpetually unlocked (e.g., via MEV) to prevent governance from calling this
+     * function. `onlyWhenVaultIsLocked` is also not effective protection for admin setters in general, because a
+     * caller can lock the Vault after manipulating balances (flash loan, swap, exit callback, then call the setter).
+     * The real protection is that this is a permissioned function: the caller is trusted to execute it in a clean
+     * context (i.e., not from within a Vault callback or in the same transaction as a balance-manipulating operation).
+     *
+     * This function calls `_updateVirtualBalances()`, which reads live Vault balances. However, if a swap has
+     * already occurred in the current block, `_updateVirtualBalances()` short-circuits because `lastTimestamp`
+     * equals `block.timestamp`, so virtual balances are not recomputed from potentially distorted balances.
+     * The start price ratio anchor is still derived from current live balances and existing virtual balances,
+     * so the caller should ensure balances are not transiently manipulated when this function is called.
+     *
      * @param endPriceRatio The new ending value of the price ratio, as a floating point value (e.g., 8 = 8e18)
      * @param priceRatioUpdateStartTime The timestamp when the price ratio update will start
      * @param priceRatioUpdateEndTime The timestamp when the price ratio update will end
@@ -441,6 +455,9 @@ interface IReClammPool is IBasePool {
      * @dev The price ratio is calculated by interpolating between the start and end times. The new end price ratio
      * will be set to the current one at the current timestamp, effectively pausing the update.
      * This is a permissioned function.
+     *
+     * Does not require `onlyWhenVaultIsLocked` for the same reasons as `startPriceRatioUpdate`; see its
+     * documentation for the details.
      */
     function stopPriceRatioUpdate() external;
 
