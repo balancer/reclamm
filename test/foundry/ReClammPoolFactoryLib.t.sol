@@ -15,10 +15,7 @@ contract ReClammPoolFactoryLibTest is Test {
               External wrappers for `vm.expectRevert`
     ********************************************************/
 
-    function callValidateTokenConfig(
-        TokenConfig[] memory tokens,
-        ReClammPriceParams memory priceParams
-    ) external pure {
+    function callValidateTokenConfig(TokenConfig[] memory tokens, ReClammPriceParams memory priceParams) external pure {
         ReClammPoolFactoryLib.validateTokenConfig(tokens, priceParams);
     }
 
@@ -73,10 +70,7 @@ contract ReClammPoolFactoryLibTest is Test {
             });
     }
 
-    function _buildTokens(
-        TokenType typeA,
-        TokenType typeB
-    ) internal pure returns (TokenConfig[] memory tokens) {
+    function _buildTokens(TokenType typeA, TokenType typeB) internal pure returns (TokenConfig[] memory tokens) {
         tokens = new TokenConfig[](2);
         tokens[0].tokenType = typeA;
         tokens[1].tokenType = typeB;
@@ -345,9 +339,7 @@ contract ReClammPoolFactoryLibTest is Test {
         params.initialMaxPrice = 1e18 + 1;
         params.initialTargetPrice = 1e18;
 
-        vm.expectRevert(
-            abi.encodeWithSelector(IReClammPool.PriceRatioBelowMin.selector, uint256(1e18 + 1))
-        );
+        vm.expectRevert(abi.encodeWithSelector(IReClammPool.PriceRatioBelowMin.selector, uint256(1e18 + 1)));
         ReClammPoolFactoryLib.validatePoolParams(params);
     }
 
@@ -371,9 +363,7 @@ contract ReClammPoolFactoryLibTest is Test {
         params.initialMaxPrice = 21e18;
         params.initialTargetPrice = 10e18;
 
-        vm.expectRevert(
-            abi.encodeWithSelector(IReClammPool.PriceRatioAboveMax.selector, uint256(21e18))
-        );
+        vm.expectRevert(abi.encodeWithSelector(IReClammPool.PriceRatioAboveMax.selector, uint256(21e18)));
         ReClammPoolFactoryLib.validatePoolParams(params);
     }
 
