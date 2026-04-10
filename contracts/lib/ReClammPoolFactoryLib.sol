@@ -122,6 +122,11 @@ library ReClammPoolFactoryLib {
 
     /// @notice Reverts if initial target price is outside the target range defined by the centeredness margin.
     function validateTargetPrice(ReClammPoolParams memory params) internal pure {
+        if (params.centerednessMargin == 0) {
+            // With a 0 margin, any target price within the min-max range is valid; return early.
+            return;
+        }
+
         uint256 sqrtMinPrice = ReClammMath.sqrtScaled18(params.initialMinPrice);
         uint256 sqrtMaxPrice = ReClammMath.sqrtScaled18(params.initialMaxPrice);
         uint256 sqrtTargetPrice = ReClammMath.sqrtScaled18(params.initialTargetPrice);

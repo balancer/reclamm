@@ -11,18 +11,6 @@ import { IReClammPool, ReClammPoolParams } from "../../contracts/interfaces/IReC
 import { ReClammPoolFactoryLib, ReClammPriceParams } from "../../contracts/lib/ReClammPoolFactoryLib.sol";
 
 contract ReClammPoolFactoryLibTest is Test {
-    /********************************************************
-              External wrappers for `vm.expectRevert`
-    ********************************************************/
-
-    function callValidateTokenConfig(TokenConfig[] memory tokens, ReClammPriceParams memory priceParams) external pure {
-        ReClammPoolFactoryLib.validateTokenConfig(tokens, priceParams);
-    }
-
-    function callValidatePoolParams(ReClammPoolParams memory params) external pure {
-        ReClammPoolFactoryLib.validatePoolParams(params);
-    }
-
     // Mirrors the library constants so expected values are visible at test sites.
     uint256 internal constant _MIN_PRICE_RATIO = 1.0001e18;
     uint256 internal constant _MAX_PRICE_RATIO = 20e18;
@@ -36,6 +24,12 @@ contract ReClammPoolFactoryLibTest is Test {
     uint256 internal constant _VALID_TARGET_PRICE = 2e18;
     uint256 internal constant _VALID_DAILY_PRICE_SHIFT_EXPONENT = 50e16;
     uint64 internal constant _VALID_CENTEREDNESS_MARGIN = 20e16;
+
+    // ETH/USDC pool defaults for validateTargetPrice tests.
+    // Price of 1 ETH expressed in USDC (18-decimal fixed point).
+    uint256 internal constant _ETH_USDC_MIN_PRICE = 1500e18;
+    uint256 internal constant _ETH_USDC_MAX_PRICE = 3000e18;
+    uint256 internal constant _ETH_USDC_TARGET_PRICE = 2000e18;
 
     /********************************************************
                                 Helpers
@@ -74,6 +68,21 @@ contract ReClammPoolFactoryLibTest is Test {
         tokens = new TokenConfig[](2);
         tokens[0].tokenType = typeA;
         tokens[1].tokenType = typeB;
+    }
+
+    function _buildEthUsdcParams() internal pure returns (ReClammPoolParams memory params) {
+        params = ReClammPoolParams({
+            name: "ETH-USDC",
+            symbol: "ETH-USDC",
+            version: "v1",
+            dailyPriceShiftExponent: _VALID_DAILY_PRICE_SHIFT_EXPONENT,
+            centerednessMargin: _VALID_CENTEREDNESS_MARGIN,
+            initialMinPrice: _ETH_USDC_MIN_PRICE,
+            initialMaxPrice: _ETH_USDC_MAX_PRICE,
+            initialTargetPrice: _ETH_USDC_TARGET_PRICE,
+            tokenAPriceIncludesRate: false,
+            tokenBPriceIncludesRate: false
+        });
     }
 
     /********************************************************
@@ -329,17 +338,18 @@ contract ReClammPoolFactoryLibTest is Test {
         ReClammPoolFactoryLib.validatePoolParams(params);
     }
 
-    // Branch: `initialPriceRatio < MIN_PRICE_RATIO`. With min = 1e18 and max = 1e18 + 1, the
-    // ratio is (max * 1e18) / min = 1e18 + 1, which is below 1.0001e18. Target = 1e18 is within
-    // [min, max) so the initial price check passes and we reach the ratio check.
+    // Branch: `initialPriceRatio < MIN_PRICE_RATIO`. With min = 1e18 and max = 1e18 + 1e10, the
+    // ratio ≈ 1 + 1e-8, well below the 1.0001 floor. The target is centered so that
+    // `validateTargetPrice` passes before the price-ratio check is reached.
     /// forge-config: default.allow_internal_expect_revert = true
     function testValidatePoolParamsPriceRatioBelowMinReverts() public {
         ReClammPoolParams memory params = _buildParams();
         params.initialMinPrice = 1e18;
-        params.initialMaxPrice = 1e18 + 1;
-        params.initialTargetPrice = 1e18;
+        params.initialMaxPrice = 1e18 + 1e10;
+        params.initialTargetPrice = 1e18 + 5e9;
+        params.centerednessMargin = 0;
 
-        vm.expectRevert(abi.encodeWithSelector(IReClammPool.PriceRatioBelowMin.selector, uint256(1e18 + 1)));
+        vm.expectRevert(abi.encodeWithSelector(IReClammPool.PriceRatioBelowMin.selector, uint256(1e18 + 1e10)));
         ReClammPoolFactoryLib.validatePoolParams(params);
     }
 
@@ -368,12 +378,14 @@ contract ReClammPoolFactoryLibTest is Test {
     }
 
     // Boundary: `initialPriceRatio == MAX_PRICE_RATIO` is allowed (strict `>`).
+    // Centeredness margin is set to 0 to isolate the price-ratio boundary check.
     /// forge-config: default.allow_internal_expect_revert = true
     function testValidatePoolParamsPriceRatioAtMaxSucceeds() public pure {
         ReClammPoolParams memory params = _buildParams();
         params.initialMinPrice = 1e18;
         params.initialMaxPrice = 20e18;
         params.initialTargetPrice = 10e18;
+        params.centerednessMargin = 0;
 
         ReClammPoolFactoryLib.validatePoolParams(params);
     }
@@ -382,6 +394,160 @@ contract ReClammPoolFactoryLibTest is Test {
     /// forge-config: default.allow_internal_expect_revert = true
     function testValidatePoolParamsAllValidSucceeds() public pure {
         ReClammPoolParams memory params = _buildParams();
+        ReClammPoolFactoryLib.validatePoolParams(params);
+    }
+
+    /********************************************************
+                        validateTargetPrice
+
+        Prices are expressed as ETH/USDC (18 decimals).
+        Default range: min = 1500, max = 3000, target = 2000.
+        Price ratio = 2 (within [1.0001, 20]).
+    ********************************************************/
+
+    // --- Happy-path ---
+
+    // Default ETH/USDC pool: target = 2000, range [1500, 3000], margin = 20%.
+    // Centeredness ≈ 68.8%, well above the 20% margin.
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testValidateTargetPriceCenteredTargetSucceeds() public pure {
+        ReClammPoolParams memory params = _buildEthUsdcParams();
+        ReClammPoolFactoryLib.validatePoolParams(params);
+    }
+
+    // Target at the geometric mean (sqrt(1500 * 3000) ≈ 2121 USDC) is perfectly centered.
+    // Centeredness ≈ 100%, passes even with the maximum allowed margin (90%).
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testValidateTargetPriceGeometricMeanHighMarginSucceeds() public pure {
+        ReClammPoolParams memory params = _buildEthUsdcParams();
+        params.initialTargetPrice = 2121e18;
+        params.centerednessMargin = uint64(_MAX_CENTEREDNESS_MARGIN); // 90%
+
+        ReClammPoolFactoryLib.validatePoolParams(params);
+    }
+
+    // Slightly skewed toward max (target = 2500), but centeredness ≈ 32.8% is above the 20% margin.
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testValidateTargetPriceModeratelySkewedSucceeds() public pure {
+        ReClammPoolParams memory params = _buildEthUsdcParams();
+        params.initialTargetPrice = 2500e18;
+
+        ReClammPoolFactoryLib.validatePoolParams(params);
+    }
+
+    // Target = 2000 with a 60% margin. Centeredness ≈ 68.8% clears the bar.
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testValidateTargetPriceHighMarginSucceeds() public pure {
+        ReClammPoolParams memory params = _buildEthUsdcParams();
+        params.centerednessMargin = 60e16; // 60%
+
+        ReClammPoolFactoryLib.validatePoolParams(params);
+    }
+
+    // Target just above min (1501 USDC) with zero margin: any positive centeredness passes.
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testValidateTargetPriceTargetNearMinZeroMarginSucceeds() public pure {
+        ReClammPoolParams memory params = _buildEthUsdcParams();
+        params.initialTargetPrice = 1501e18;
+        params.centerednessMargin = 0.001e16; // 0.001%
+
+        ReClammPoolFactoryLib.validatePoolParams(params);
+    }
+
+    // Target just below max (2999 USDC) with zero margin: any positive centeredness passes.
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testValidateTargetPriceTargetNearMaxZeroMarginSucceeds() public pure {
+        ReClammPoolParams memory params = _buildEthUsdcParams();
+        params.initialTargetPrice = 2999e18;
+        params.centerednessMargin = 0.001e16; // 0.001%
+
+        ReClammPoolFactoryLib.validatePoolParams(params);
+    }
+
+    // Always ok with 0 margin
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testValidateTargetPriceTargetAtEdgeZeroMargin() public pure {
+        ReClammPoolParams memory params = _buildEthUsdcParams();
+        params.initialTargetPrice = _ETH_USDC_MIN_PRICE;
+        params.centerednessMargin = 0;
+
+        ReClammPoolFactoryLib.validatePoolParams(params);
+
+        params.initialTargetPrice = _ETH_USDC_MAX_PRICE - 1;
+        ReClammPoolFactoryLib.validatePoolParams(params);
+    }
+
+    // --- Revert: numerator / denominator zero ---
+
+    // Target = min + 1 wei. Integer sqrt rounds sqrtTarget to sqrtMin, so numerator still = 0.
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testValidateTargetPriceTargetOneWeiAboveMinReverts() public {
+        ReClammPoolParams memory params = _buildEthUsdcParams();
+        params.initialTargetPrice = _ETH_USDC_MIN_PRICE + 1;
+        params.centerednessMargin = 1;
+
+        vm.expectRevert(IReClammPool.InvalidInitialTargetPrice.selector);
+        ReClammPoolFactoryLib.validatePoolParams(params);
+
+        // Target = max − 1 wei. Integer sqrt rounds sqrtTarget to sqrtMax, so denominator = 0.
+        params.initialTargetPrice = _ETH_USDC_MAX_PRICE - 1;
+        params.centerednessMargin = 1;
+
+        vm.expectRevert(IReClammPool.InvalidInitialTargetPrice.selector);
+        ReClammPoolFactoryLib.validatePoolParams(params);
+    }
+
+    // --- Revert: centeredness below margin ---
+
+    // Target near min (1501 USDC), centeredness ≈ 0.08%. Even a 1% margin rejects it.
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testValidateTargetPriceTargetNearMinWithMarginReverts() public {
+        ReClammPoolParams memory params = _buildEthUsdcParams();
+        params.initialTargetPrice = 1501e18;
+        params.centerednessMargin = 1e16; // 1%
+
+        vm.expectRevert(IReClammPool.InvalidInitialTargetPrice.selector);
+        ReClammPoolFactoryLib.validatePoolParams(params);
+    }
+
+    // Target near max (2999 USDC), centeredness ≈ 0.04%. Even a 1% margin rejects it.
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testValidateTargetPriceTargetNearMaxWithMarginReverts() public {
+        ReClammPoolParams memory params = _buildEthUsdcParams();
+        params.initialTargetPrice = 2999e18;
+        params.centerednessMargin = 1e16; // 1%
+
+        vm.expectRevert(IReClammPool.InvalidInitialTargetPrice.selector);
+        ReClammPoolFactoryLib.validatePoolParams(params);
+    }
+
+    // Heavily skewed toward max (target = 2800), centeredness ≈ 9.6%, below the 20% margin.
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testValidateTargetPriceHeavilySkewedTowardMaxReverts() public {
+        ReClammPoolParams memory params = _buildEthUsdcParams();
+        params.initialTargetPrice = 2800e18;
+
+        vm.expectRevert(IReClammPool.InvalidInitialTargetPrice.selector);
+        ReClammPoolFactoryLib.validatePoolParams(params);
+    }
+
+    // Heavily skewed toward min (target = 1600), centeredness ≈ 8.9%, below the 20% margin.
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testValidateTargetPriceHeavilySkewedTowardMinReverts() public {
+        ReClammPoolParams memory params = _buildEthUsdcParams();
+        params.initialTargetPrice = 1600e18;
+
+        vm.expectRevert(IReClammPool.InvalidInitialTargetPrice.selector);
+        ReClammPoolFactoryLib.validatePoolParams(params);
+    }
+
+    // Target = 2000 with a 70% margin. Centeredness ≈ 68.8% is just below the bar.
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testValidateTargetPriceMarginExceedsCenterednessReverts() public {
+        ReClammPoolParams memory params = _buildEthUsdcParams();
+        params.centerednessMargin = 70e16; // 70%
+
+        vm.expectRevert(IReClammPool.InvalidInitialTargetPrice.selector);
         ReClammPoolFactoryLib.validatePoolParams(params);
     }
 }
