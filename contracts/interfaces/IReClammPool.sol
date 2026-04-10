@@ -459,16 +459,22 @@ interface IReClammPool is IBasePool {
      * The daily price shift rate interacts with the swap fee to determine the pool's resistance to round-trip
      * repricing extraction. When the pool is out of range, virtual balances decay over time; an actor who pushes
      * the pool past the centeredness margin and later unwinds against the repriced curve can profit if enough time
-     * passes. The minimum time for this to break even (the "breakeven time") is approximately:
+     * passes. The minimum wait before such a round trip breaks even scales linearly with the swap fee and inversely
+     * with the shift rate. Empirically, the breakeven time in seconds is approximately:
      *
-     *   breakeven_seconds ~= 47 * (min_safe_fee / swap_fee) * (5 / shift_rate_pct)
+     *   breakeven_seconds ~= swap_fee_pct / (shift_rate_pct * 0.0002%)
      *
-     * where `swap_fee` is the pool's swap fee percentage and `shift_rate_pct` is this exponent expressed as a
-     * whole number (e.g., 100 for 100%). A 47-second breakeven (approximately 4 Ethereum mainnet blocks) provides
-     * adequate time for arbitrage to close the gap on any actively traded pair. The minimum swap fee to achieve
-     * this threshold is:
+     * where `swap_fee_pct` is the pool's swap fee as a percentage, and `shift_rate_pct` is this exponent expressed
+     * as a whole number (e.g., 100 for 100%). The minimum swap fee needed to guarantee a given breakeven time is:
      *
-     *   min_safe_fee = shift_rate_pct * 0.0002%
+     *   min_safe_fee = shift_rate_pct * 0.0002% * target_breakeven_seconds
+     *
+     * For reference, at the current pool minimum fee of 0.001% and a 5% shift rate, the breakeven is ~47 seconds
+     * (approximately 4 Ethereum mainnet blocks). Empirical MEV research shows that drastic price dislocations on
+     * monitored pools are corrected within 1-2 blocks on mainnet, and that larger dislocations are corrected
+     * faster, not slower. Pools with sufficient TVL to make this attack economically viable are also the pools
+     * most actively monitored by arbitrageurs, making 47 seconds a very conservative upper bound in practice.
+     * L2s with faster block times are even safer: the price changes less per block, extending the breakeven time.
      *
      * At shift rates up to 5%, the current pool minimum swap fee (0.001%) is sufficient. Higher shift rates
      * require a proportionally higher swap fee. This constraint cannot be enforced on-chain because the shift
