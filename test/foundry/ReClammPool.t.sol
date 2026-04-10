@@ -1787,6 +1787,100 @@ contract ReClammPoolTest is BaseReClammTest {
         assertApproxEqRel(maxPriceAfter, expectedMaxPrice, 1e14, "Max price did not move as expected");
     }
 
+    /**
+     * @notice Demonstrates that price range movement exceeds the VB decay rate when Ro > 0 (high price direction).
+     * @dev The existing `testDailyPriceShiftExponentHighPrice__Fuzz` and `LowPrice__Fuzz` tests drain the overvalued
+     * real balance to zero before measuring, which is the one case where price movement exactly equals VB decay.
+     * This test performs a partial drain (leaving Ro > 0) and verifies that the actual price movement is strictly
+     * faster than `2^exponent` per day.
+     */
+    function testPriceShiftFasterThanExponentWhenRoPositiveHighPrice() public {
+        uint256 exponent = _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT;
+
+        (IERC20[] memory tokens, , uint256[] memory balances, ) = vault.getPoolTokenInfo(pool);
+
+        // Partial drain: remove 80% of token A (enough to go out of range with the default 20% centeredness
+        // margin, but leaves the overvalued side's real balance positive). Adjust if defaults change.
+        uint256 amountAOut = (balances[a] * 80) / 100;
+
+        vm.prank(alice);
+        router.swapSingleTokenExactOut(
+            pool,
+            tokens[b],
+            tokens[a],
+            amountAOut,
+            MAX_UINT256,
+            MAX_UINT256,
+            false,
+            bytes("")
+        );
+
+        // Confirm we're out of range but token A is not fully drained.
+        (, , uint256[] memory postSwapBalances, ) = vault.getPoolTokenInfo(pool);
+        assertGt(postSwapBalances[a], 0, "Token A should not be fully drained");
+        assertFalse(ReClammPool(pool).isPoolWithinTargetRange(), "Pool should be out of range");
+
+        // Skip 1 second to commit the post-swap state, then record prices.
+        skip(1 seconds);
+
+        (uint256 minPriceBefore, uint256 maxPriceBefore) = ReClammPool(pool).computeCurrentPriceRange();
+
+        skip(1 days);
+
+        (uint256 minPriceAfter, uint256 maxPriceAfter) = ReClammPool(pool).computeCurrentPriceRange();
+
+        // The VB decay predicts prices move by a factor of 2^exponent. With Ro > 0, actual movement is faster.
+        // After draining A, the pool is "above center" (isPoolAboveCenter = true). In the code, the "overvalued"
+        // side is B (the side with the accumulated large real balance), which is the side whose virtual balance
+        // decays. Prices (denominated in B/A) move upward.
+        uint256 expectedMinPrice = minPriceBefore.mulDown(uint256(2e18).powDown(exponent));
+        uint256 expectedMaxPrice = maxPriceBefore.mulDown(uint256(2e18).powDown(exponent));
+
+        assertGt(minPriceAfter, expectedMinPrice, "Min price should move faster than 2^exponent when Ro > 0");
+        assertGt(maxPriceAfter, expectedMaxPrice, "Max price should move faster than 2^exponent when Ro > 0");
+    }
+
+    /// @notice Same as the high-price variant, but drains token B to test the low-price direction.
+    function testPriceShiftFasterThanExponentWhenRoPositiveLowPrice() public {
+        uint256 exponent = _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT;
+
+        (IERC20[] memory tokens, , uint256[] memory balances, ) = vault.getPoolTokenInfo(pool);
+
+        // Partial drain: remove 80% of token B. Adjust if defaults change.
+        uint256 amountBOut = (balances[b] * 80) / 100;
+
+        vm.prank(alice);
+        router.swapSingleTokenExactOut(
+            pool,
+            tokens[a],
+            tokens[b],
+            amountBOut,
+            MAX_UINT256,
+            MAX_UINT256,
+            false,
+            bytes("")
+        );
+
+        (, , uint256[] memory postSwapBalances, ) = vault.getPoolTokenInfo(pool);
+        assertGt(postSwapBalances[b], 0, "Token B should not be fully drained");
+        assertFalse(ReClammPool(pool).isPoolWithinTargetRange(), "Pool should be out of range");
+
+        skip(1 seconds);
+
+        (uint256 minPriceBefore, uint256 maxPriceBefore) = ReClammPool(pool).computeCurrentPriceRange();
+
+        skip(1 days);
+
+        (uint256 minPriceAfter, uint256 maxPriceAfter) = ReClammPool(pool).computeCurrentPriceRange();
+
+        // After draining B, prices (B/A) move downward. The actual movement should be faster than 1/2^exponent.
+        uint256 expectedMinPrice = minPriceBefore.divDown(uint256(2e18).powDown(exponent));
+        uint256 expectedMaxPrice = maxPriceBefore.divDown(uint256(2e18).powDown(exponent));
+
+        assertLt(minPriceAfter, expectedMinPrice, "Min price should move faster than 1/2^exponent when Ro > 0");
+        assertLt(maxPriceAfter, expectedMaxPrice, "Max price should move faster than 1/2^exponent when Ro > 0");
+    }
+
     function testPriceRangeShiftStop__Fuzz(uint256 margin, uint256 priceShiftExponent, uint256 longDelay) public {
         uint256 shortDelay = 5 hours;
 
