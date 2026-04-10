@@ -360,6 +360,15 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         currentVirtualBalanceA = (currentVirtualBalanceA * bptDelta) / poolTotalSupply;
         currentVirtualBalanceB = (currentVirtualBalanceB * bptDelta) / poolTotalSupply;
 
+        // Revert if the post-scaling virtual balances would be zero. This can only happen on a near-total proportional
+        // burn by a sole (or effectively sole) LP, where `bptDelta` shrinks to `POOL_MINIMUM_TOTAL_SUPPLY` and the
+        // multiplication above integer-truncates one of the virtual balances to zero. The math elsewhere is robust at
+        // any positive virtual balance except exactly zero. In that case, `computePriceRatio` would fail with a
+        // division by zero, and permanently brick the pool.
+        if (currentVirtualBalanceA == 0 || currentVirtualBalanceB == 0) {
+            revert ZeroVirtualBalance();
+        }
+
         _setLastVirtualBalances(currentVirtualBalanceA, currentVirtualBalanceB);
         _updateTimestamp();
 
