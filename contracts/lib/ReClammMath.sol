@@ -735,11 +735,18 @@ library ReClammMath {
         // We don't have Ra_max, but: invariant = (Ra_max + Va) * Vb
         // Then, (Va + Ra_max) = invariant / Vb, and:
         // P_min(a) = Vb^2 / invariant
+        // minPrice can technically underflow for low virtual balances and a high invariant. But this should only
+        // happen for price ratios that are outside the normal operating range of the pool.
         minPrice = (virtualBalanceB * virtualBalanceB) / currentInvariant;
 
-        // P_max(a) = invariant / Va^2 = priceRatio * P_min(a). We compute it via the second form to avoid
-        // `mulDown(Va, Va)`, which underflows whenever Va < 1e9. `computePriceRatio` uses an algebraic
-        // rearrangement that is robust at any positive virtual balance.
+        // Similarly, P_max(a) = (Rb_max + Vb) / Va
+        // We don't have Rb_max, but: invariant = (Rb_max + Vb) * Va
+        // Then, (Rb_max + Vb) = invariant / Va, and:
+        // P_max(a) = invariant / Va^2
+        // On the other hand, by definition:
+        // P_max(a) = priceRatio * P_min(a)
+        // We compute it via the second form to avoid `mulDown(Va, Va)`, which underflows whenever Va < 1e9.
+        // `computePriceRatio` uses an algebraic rearrangement that is robust at any positive virtual balance.
         maxPrice = computePriceRatio(balancesScaled18, virtualBalanceA, virtualBalanceB).mulDown(minPrice);
     }
 
