@@ -409,6 +409,15 @@ library ReClammMath {
      * Substitute [3] in [2]. Then, isolate one of the V's. Finally, replace the isolated V in [1]. We get a quadratic
      * equation that will be solved in this function.
      *
+     * Because centeredness is computed from the current live balances and the last stored virtual balances, any
+     * swap that occurs during an active price ratio update will change the centeredness that gets preserved. This
+     * creates MEV around governance-initiated price ratio updates: a searcher can swap before the update settles
+     * to skew centeredness, then reverse after the widened ratio locks in the skewed state. The extractable value
+     * scales with both pool depth and widening magnitude. For the worst case (a 2x widening, the maximum allowed
+     * daily rate), a swap fee of at least ~2% is needed to neutralize the round trip. Smaller widenings require
+     * proportionally lower fees. Governance should prefer gradual updates (smaller ratio changes over longer
+     * durations) to limit the extractable value per update step.
+     *
      * @param currentFourthRootPriceRatio The current fourth root of the price ratio of the pool
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param lastVirtualBalanceA The last virtual balance of token A
