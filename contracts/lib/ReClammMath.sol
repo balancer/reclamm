@@ -608,12 +608,13 @@ library ReClammMath {
         uint256 denominator = virtualBalanceA * balancesScaled18[b];
 
         // The centeredness is defined between 0 and 1. If the numerator is greater than the denominator, we compute
-        // the inverse ratio.
+        // the inverse ratio. Uses Math.mulDiv instead of divDown to avoid intermediate overflow when
+        // balancesScaled18[i] * virtualBalance[j] * 1e18 would exceed uint256.
         if (numerator <= denominator) {
-            poolCenteredness = numerator.divDown(denominator);
+            poolCenteredness = Math.mulDiv(numerator, FixedPoint.ONE, denominator);
             isPoolAboveCenter = false;
         } else {
-            poolCenteredness = denominator.divDown(numerator);
+            poolCenteredness = Math.mulDiv(denominator, FixedPoint.ONE, numerator);
             isPoolAboveCenter = true;
         }
 
