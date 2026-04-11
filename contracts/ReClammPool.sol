@@ -288,6 +288,14 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         (uint256 virtualBalanceA, uint256 virtualBalanceB, uint256 priceRatio) = _helper
             .computeInitialVirtualBalancesAndRatio(balancesScaled18);
 
+        // Defense-in-depth check: the factory's validateTargetPrice uses a closed-form sqrt-based approximation of
+        // centeredness from the configured prices. This check uses the actual computed virtual balances and rate-
+        // adjusted balances, so it catches any divergence due to rounding between the two formulas.
+        (uint256 centeredness, ) = ReClammMath.computeCenteredness(balancesScaled18, virtualBalanceA, virtualBalanceB);
+        if (centeredness < _INITIAL_CENTEREDNESS_MARGIN) {
+            revert PoolOutsideTargetRange();
+        }
+
         _setLastVirtualBalances(virtualBalanceA, virtualBalanceB);
         _startPriceRatioUpdate(priceRatio, block.timestamp, block.timestamp);
         // Set dynamic parameters.
