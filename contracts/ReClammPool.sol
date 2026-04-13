@@ -600,6 +600,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                         Pool State Setters
     ********************************************************/
 
+    // NOTE: `startPriceRatioUpdate` and `stopPriceRatioUpdate` intentionally omit `onlyWhenVaultIsLocked`.
+    // See the interface NatSpec for the details.
+
     /// @inheritdoc IReClammPool
     function startPriceRatioUpdate(
         uint256 endPriceRatio,
