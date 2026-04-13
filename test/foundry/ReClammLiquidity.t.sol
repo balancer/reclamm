@@ -522,3 +522,33 @@ contract ReClammLiquidityTest is BaseReClammTest {
         );
     }
 }
+
+/**
+ * @notice Regression for the sole-LP full-burn bricking case at maximum price ratio.
+ * @dev When the sole LP burns their entire BPT (everything except the locked POOL_MINIMUM_TOTAL_SUPPLY = 1e6),
+ * the proportional scaling `(oldVB * 1e6) / oldTotalSupply` integer-truncates the smaller virtual balance to
+ * zero whenever `oldVB < oldTotalSupply / 1e6`. This holds in the maximum-price-ratio config (Va is small
+ * relative to totalSupply because Va is divided by `sqrt(priceRatio) - 1`, which is largest at high ratios).
+ *
+ * Without the guard in `onBeforeRemoveLiquidity`, the post-burn state has `Va == 0`, and every subsequent
+ * call into `computePriceRatio` divides by zero. The hook rejects the burn at the source, leaving the LP
+ * with a small "soft-locked" amount of BPT they cannot burn proportionally (but can still burn after a
+ * second LP joins, at which point the math works out differently).
+ */
+contract ReClammMaxRatioFullBurnTest is BaseReClammTest {
+    function setUp() public override {
+        // Maximum allowed price ratio (20). At this config, Va is small enough relative to totalSupply that
+        // a sole-LP full burn truncates Va to zero.
+        setInitializationPrices(100e18, 2000e18, 447.21e18);
+        super.setUp();
+    }
+
+    function testFullBurnReverts() public {
+        uint256 lpBalance = ReClammPool(pool).balanceOf(lp);
+        uint256[] memory minAmountsOut = new uint256[](2);
+
+        vm.prank(lp);
+        vm.expectRevert(IReClammPool.ZeroVirtualBalance.selector);
+        router.removeLiquidityProportional(pool, lpBalance, minAmountsOut, false, "");
+    }
+}
