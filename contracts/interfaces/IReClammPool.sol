@@ -448,6 +448,9 @@ interface IReClammPool is IBasePool {
      * The start price ratio anchor is still derived from current live balances and existing virtual balances,
      * so the caller should ensure balances are not transiently manipulated when this function is called.
      *
+     * In any case, trusted execution contexts are always preferable when calling permissioned functions from multisigs
+     * (i.e. sign and execute right after the last signature, without giving away the execution to a frontrunner).
+     *
      * @param endPriceRatio The new ending value of the price ratio, as a floating point value (e.g., 8 = 8e18)
      * @param priceRatioUpdateStartTime The timestamp when the price ratio update will start
      * @param priceRatioUpdateEndTime The timestamp when the price ratio update will end
@@ -467,6 +470,10 @@ interface IReClammPool is IBasePool {
      *
      * Does not require `onlyWhenVaultIsLocked` for the same reasons as `startPriceRatioUpdate`; see its
      * documentation for the details.
+     *
+     * Trusted execution contexts are always preferable when calling permissioned functions from multisigs
+     * (i.e. sign and execute right after the last signature, without giving away the execution to a frontrunner).
+     *
      */
     function stopPriceRatioUpdate() external;
 
@@ -507,6 +514,9 @@ interface IReClammPool is IBasePool {
      * rate and swap fee are governed independently. Operators should verify the swap fee is adequate when
      * adjusting the shift rate upward.
      *
+     * In any case, trusted execution contexts are always preferable when calling permissioned functions from multisigs
+     * (i.e. sign and execute right after the last signature, without giving away the execution to a frontrunner).
+     *
      * @param newDailyPriceShiftExponent The new daily price shift exponent
      * @return actualNewDailyPriceShiftExponent The actual new daily price shift exponent, after accounting for
      * precision loss incurred when dealing with the internal representation of the exponent
@@ -519,6 +529,9 @@ interface IReClammPool is IBasePool {
      * @notice Set the centeredness margin.
      * @dev This function is considered a user action, so it will update the last timestamp and virtual balances.
      * This is a permissioned function.
+     *
+     * Trusted execution contexts are always preferable when calling permissioned functions from multisigs
+     * (i.e. sign and execute right after the last signature, without giving away the execution to a frontrunner).
      *
      * @param newCenterednessMargin The new centeredness margin
      */
