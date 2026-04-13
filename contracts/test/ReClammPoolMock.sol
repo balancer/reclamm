@@ -89,4 +89,12 @@ contract ReClammPoolMock is ReClammPool {
     ) external returns (uint256 startPriceRatio) {
         return _startPriceRatioUpdate(endPriceRatio, priceRatioUpdateStartTime, priceRatioUpdateEndTime);
     }
+
+    function computeDailyPriceRatioUpdateRate(
+        uint256 startPriceRatio,
+        uint256 endPriceRatio,
+        uint256 updateDuration
+    ) external pure returns (uint256) {
+        return _computeDailyPriceRatioUpdateRate(startPriceRatio, endPriceRatio, updateDuration);
+    }
 }
