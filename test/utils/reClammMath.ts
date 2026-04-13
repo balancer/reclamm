@@ -333,7 +333,9 @@ export function computePriceRange(
   const invariant = pureComputeInvariant(balancesScaled18, [virtualBalanceA, virtualBalanceB], Rounding.ROUND_DOWN);
 
   const minPrice = (virtualBalanceB * virtualBalanceB) / invariant;
-  const maxPrice = fpDivDown(invariant, fpMulDown(virtualBalanceA, virtualBalanceA));
+  // maxPrice = priceRatio * minPrice. Computing it this way avoids `mulDown(Va, Va)`, which underflows
+  // whenever Va < 1e9. Mirrors the Solidity implementation in ReClammMath.sol.
+  const maxPrice = fpMulDown(computePriceRatio(balancesScaled18, virtualBalanceA, virtualBalanceB), minPrice);
 
   return [minPrice, maxPrice];
 }
@@ -343,8 +345,14 @@ export function computePriceRatio(
   virtualBalanceA: bigint,
   virtualBalanceB: bigint
 ): bigint {
-  const [minPrice, maxPrice] = computePriceRange(balancesScaled18, virtualBalanceA, virtualBalanceB);
-  return fpDivDown(maxPrice, minPrice);
+  // priceRatio = maxPrice/minPrice = (invariant/Va^2) / (Vb^2/invariant) = ((1 + Ra/Va)(1 + Rb/Vb))^2.
+  // Uses the joint form so the underflow boundary is `Va*Vb < 1e18` instead of `Va < 1e9`. Mirrors the
+  // Solidity implementation in ReClammMath.sol.
+  const sqrtPriceRatio = fpMulDown(
+    FP_ONE + fpDivDown(balancesScaled18[0], virtualBalanceA),
+    FP_ONE + fpDivDown(balancesScaled18[1], virtualBalanceB)
+  );
+  return fpMulDown(sqrtPriceRatio, sqrtPriceRatio);
 }
 
 function powDown(x: bigint, y: bigint): bigint {

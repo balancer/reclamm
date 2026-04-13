@@ -503,6 +503,31 @@ contract ReClammPoolTest is BaseReClammTest {
         ReClammPool(pool).startPriceRatioUpdate(newPriceRatio, priceRatioUpdateStartTime, priceRatioUpdateEndTime);
     }
 
+    /**
+     * @notice Proves that the exponential daily-rate formula allows a 7× price ratio update over 3 days, while
+     * the old linear formula would have incorrectly rejected it.
+     * @dev Linear rate: (14/2) × (1/3) ≈ 2.333 > 2 — would fail.
+     * Exponential rate: (14/2)^(1/3) = 7^(1/3) ≈ 1.913 < 2 — passes.
+     */
+    function testDailyPriceRatioUpdateRateExponentialVsLinear() public view {
+        uint256 maxDailyPriceRatioUpdateRate = IReClammPool(pool)
+            .getReClammPoolImmutableData()
+            .maxDailyPriceRatioUpdateRate;
+
+        // The old linear formula: (max/min) × (1 day / duration).
+        // With startPriceRatio=2e18, endPriceRatio=14e18, duration=3 days this gives 7/3 ≈ 2.333.
+        uint256 linearRate = FixedPoint.divUp(14e18 * 1 days, 2e18 * 3 days);
+        assertGt(linearRate, maxDailyPriceRatioUpdateRate, "linear rate should exceed the limit");
+
+        // The new exponential formula: (max/min)^(1 day / duration).
+        // With startPriceRatio=2e18, endPriceRatio=14e18, duration=3 days this gives 7^(1/3) ≈ 1.913.
+        uint256 exponentialRate = ReClammPoolMock(pool).computeDailyPriceRatioUpdateRate(2e18, 14e18, 3 days);
+        assertLe(exponentialRate, maxDailyPriceRatioUpdateRate, "exponential rate should be within the limit");
+
+        // 7^(1/3) ≈ 1.91293e18, tolerance of 1e14 (0.01% precision).
+        assertApproxEqAbs(exponentialRate, 1.91293e18, 1e14, "exponential rate should be ~7^(1/3)");
+    }
+
     function testSetPriceRatioTooLow() public {
         uint256 newPriceRatio = ReClammPoolFactoryLib.MIN_PRICE_RATIO - 1;
         uint256 priceRatioUpdateStartTime = block.timestamp;
@@ -914,11 +939,8 @@ contract ReClammPoolTest is BaseReClammTest {
             lastVirtualBalancesBeforeSet[daiIdx],
             "DAI virtual balance remains unchanged"
         );
-        assertNotEq(
-            virtualBalancesBefore[usdcIdx],
-            lastVirtualBalancesBeforeSet[usdcIdx],
-            "USDC virtual balance remains unchanged"
-        );
+        // USDC virtual balance does not move.
+        assertEq(virtualBalancesBefore[usdcIdx], lastVirtualBalancesBeforeSet[usdcIdx], "USDC virtual balance changed");
 
         uint256 newDailyPriceShiftExponent = 80e16;
         uint128 dailyPriceShiftBase = ReClammMath.toDailyPriceShiftBase(newDailyPriceShiftExponent).toUint128();
