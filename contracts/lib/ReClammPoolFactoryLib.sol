@@ -61,10 +61,10 @@ library ReClammPoolFactoryLib {
     // margin, while still allowing operators who want very tight in-range definitions.
     uint256 internal constant MAX_CENTEREDNESS_MARGIN = 90e16; // 90%
 
-    // The daily price shift exponent is a percentage that defines the speed at which the virtual balances will change
-    // over the course of one day. A value of 100% (i.e, FP 1) means the min and max prices will double (or halve)
-    // every day, until the pool price is within the range defined by the margin. This constant defines the maximum
-    // "price shift" velocity.
+    // The daily price shift exponent controls how fast the price range shifts toward the market price when the pool
+    // is outside the target range. At 100% (i.e., FP 1), the range shifts at approximately 2x per day. The exact
+    // rate is state-dependent: it equals 2^exponent per day when the out-of-range side holds no real balance, and
+    // is faster otherwise. This constant defines the maximum allowed exponent.
     uint256 internal constant MAX_DAILY_PRICE_SHIFT_EXPONENT = 100e16; // 100%
 
     // solhint-enable private-vars-leading-underscore

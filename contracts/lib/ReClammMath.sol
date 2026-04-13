@@ -31,9 +31,12 @@ library ReClammMath {
     error AmountOutGreaterThanBalance();
 
     // When a pool is outside the target range, we start adjusting the price range by altering the virtual balances,
-    // which affects the price. At a DailyPriceShiftExponent of 100%, we want to be able to change the price by a factor
-    // of two: either doubling or halving it over the course of a day (86,400 seconds). The virtual balances must
-    // change at the same rate. Therefore, if we want to double it in a day:
+    // which affects the price. The DailyPriceShiftExponent controls how fast the price range shifts toward the
+    // market price. Internally, it is calibrated against the overvalued virtual balance: at 100%, that VB doubles
+    // (or halves) over the course of a day (86,400 seconds). The undervalued virtual balance is then derived from
+    // the invariant geometry, so the actual movement of minPrice and maxPrice is state-dependent: it equals
+    // 2^exponent per day when the out-of-range side holds no real balance, and is faster otherwise.
+    // The derivation below solves for the per-second decay factor that doubles the VB in one day:
     //
     // 1. `V_next = 2*V_current`
     // 2. In the equation `V_next = V_current * (1 - tau)^(n+1)`, isolate tau.
