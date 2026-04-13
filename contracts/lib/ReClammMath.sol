@@ -675,8 +675,9 @@ library ReClammMath {
 
     /**
      * @notice Compute the price ratio of the pool by dividing the maximum price by the minimum price.
-     * @dev The price ratio is calculated as maxPrice/minPrice, where maxPrice and minPrice are obtained
-     * from computePriceRange.
+     * @dev The price ratio is calculated as maxPrice/minPrice, simplifying the formula algebraically to prevent
+     * overflow issues along the way. The final expression depends on balances and virtual balances directly, as
+     * opposed to the invariant or other intermediate results such as the maximum price or the minimum price itself.
      *
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param virtualBalanceA Virtual balance of token A
@@ -688,10 +689,18 @@ library ReClammMath {
         uint256 virtualBalanceA,
         uint256 virtualBalanceB
     ) internal pure returns (uint256 priceRatio) {
-        (uint256 minPrice, uint256 maxPrice) = computePriceRange(balancesScaled18, virtualBalanceA, virtualBalanceB);
+        // See computePriceRange for the derivation of P_max and P_min:
+        // - P_max(a) = invariant / Va^2
+        // - P_min(a) = Vb^2 / invariant
+        // Then, P_max(a) / P_min(a) = invariant^2 / (Va^2 * Vb^2), and since invariant = (Ra + Va)(Rb + Vb),
+        // we can substitute it and simplify the equation to get:
+        // P_max(a) / P_min(a) = [(1 + Ra/Va) * (1 + Rb/Vb)]^2
 
-        // Round down for consistency with initialization (computeTheoreticalPriceRatioAndBalances).
-        return maxPrice.divDown(minPrice);
+        // Compute inner terms first, and then multiply by itself.
+        uint256 sqrtPriceRatio = (FixedPoint.ONE + balancesScaled18[a].divDown(virtualBalanceA)).mulDown(
+            FixedPoint.ONE + balancesScaled18[b].divDown(virtualBalanceB)
+        );
+        return sqrtPriceRatio.mulDown(sqrtPriceRatio);
     }
 
     /**
@@ -723,13 +732,19 @@ library ReClammMath {
         // We don't have Ra_max, but: invariant = (Ra_max + Va) * Vb
         // Then, (Va + Ra_max) = invariant / Vb, and:
         // P_min(a) = Vb^2 / invariant
+        // minPrice can technically underflow for low virtual balances and a high invariant. But this should only
+        // happen for price ratios that are outside the normal operating range of the pool.
         minPrice = (virtualBalanceB * virtualBalanceB) / currentInvariant;
 
         // Similarly, P_max(a) = (Rb_max + Vb) / Va
         // We don't have Rb_max, but: invariant = (Rb_max + Vb) * Va
         // Then, (Rb_max + Vb) = invariant / Va, and:
         // P_max(a) = invariant / Va^2
-        maxPrice = currentInvariant.divDown(virtualBalanceA.mulDown(virtualBalanceA));
+        // On the other hand, by definition:
+        // P_max(a) = priceRatio * P_min(a)
+        // We compute it via the second form to avoid `mulDown(Va, Va)`, which underflows whenever Va < 1e9.
+        // `computePriceRatio` uses an algebraic rearrangement that is robust at any positive virtual balance.
+        maxPrice = computePriceRatio(balancesScaled18, virtualBalanceA, virtualBalanceB).mulDown(minPrice);
     }
 
     /**
