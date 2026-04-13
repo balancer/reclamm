@@ -577,6 +577,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         onlySwapFeeManagerOrGovernance(address(this))
         returns (uint256 actualPriceRatioUpdateStartTime)
     {
+        // Note: If the initial price range was 1,000 - 4,000, with a target price of 2,000, the raw ratio
+        // is 4 (`startPriceRatio` ~ 1.414). If the new fourth root is 1.682, the new `endPriceRatio` is 1.682^4 ~ 8.
+        // Since the centeredness remains constant, the new range would NOT be 1,000 - 8,000, but
+        // [C / sqrt(8), C * sqrt(8)], or about 707 - 5657.
+
         if (endPriceRatio < ReClammPoolFactoryLib.MIN_PRICE_RATIO) {
             revert PriceRatioBelowMin(endPriceRatio);
         } else if (endPriceRatio > ReClammPoolFactoryLib.MAX_PRICE_RATIO) {
