@@ -345,6 +345,14 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         // This hook makes sure that the virtual balances are decreased in the same proportion as the real balances
         // after removing liquidity. This is needed to keep the pool centeredness and price ratio constant.
+        //
+        // Note: when a proportional remove follows an add in the same transaction, the Vault charges a round-trip fee
+        // on the remove outputs. This is an intentional Vault-level guardrail: adding and removing in the same session
+        // is not something a legitimate user would normally do, and the fee helps ensure the round trip is not
+        // profitable. This hook commits virtual balances before that fee is applied, so the stored VBs will be
+        // slightly lower than a perfect proportional scaling of the post-fee real balances. The effect is small
+        // (bounded by swapFeePercentage * proportionRemoved) and leaves the pool with slightly more real balance
+        // relative to its virtual balances, marginally improving centeredness.
 
         uint256 poolTotalSupply = _vault.totalSupply(pool);
         uint256 bptDelta = poolTotalSupply - exactBptAmountIn;
