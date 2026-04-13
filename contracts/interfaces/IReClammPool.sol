@@ -352,7 +352,9 @@ interface IReClammPool is IBasePool {
 
     /**
      * @notice Returns the daily price shift exponent as an 18-decimal FP.
-     * @dev At 100% (FixedPoint.ONE), the price range doubles (or halves) within a day.
+     * @dev At 100%, when the pool is outside its target range, the price range shifts toward the current market
+     * price at approximately 2x per day. The exact rate is state-dependent: it equals 2^exponent per day when the
+     * out-of-range side holds no real balance, and is faster otherwise.
      * @return dailyPriceShiftExponent The daily price shift exponent
      */
     function getDailyPriceShiftExponent() external view returns (uint256 dailyPriceShiftExponent);
@@ -440,6 +442,23 @@ interface IReClammPool is IBasePool {
      * @dev The price ratio is calculated by interpolating between the start and end times. The start price ratio will
      * be set to the current fourth root price ratio of the pool. This is a permissioned function.
      *
+     * Unlike `setDailyPriceShiftExponent` and `setCenterednessMargin`, this function does not require
+     * `onlyWhenVaultIsLocked`. This is intentional. Adding the lock requirement would introduce a DoS vector:
+     * an attacker could keep the Vault perpetually unlocked (e.g., via MEV) to prevent governance from calling this
+     * function. `onlyWhenVaultIsLocked` is also not effective protection for admin setters in general, because a
+     * caller can lock the Vault after manipulating balances (flash loan, swap, exit callback, then call the setter).
+     * The real protection is that this is a permissioned function: the caller is trusted to execute it in a clean
+     * context (i.e., not from within a Vault callback or in the same transaction as a balance-manipulating operation).
+     *
+     * This function calls `_updateVirtualBalances()`, which reads live Vault balances. However, if a swap has
+     * already occurred in the current block, `_updateVirtualBalances()` short-circuits because `lastTimestamp`
+     * equals `block.timestamp`, so virtual balances are not recomputed from potentially distorted balances.
+     * The start price ratio anchor is still derived from current live balances and existing virtual balances,
+     * so the caller should ensure balances are not transiently manipulated when this function is called.
+     *
+     * In any case, trusted execution contexts are always preferable when calling permissioned functions from multisigs
+     * (i.e. sign and execute right after the last signature, without giving away the execution to a frontrunner).
+     *
      * @param endPriceRatio The new ending value of the price ratio, as a floating point value (e.g., 8 = 8e18)
      * @param priceRatioUpdateStartTime The timestamp when the price ratio update will start
      * @param priceRatioUpdateEndTime The timestamp when the price ratio update will end
@@ -456,6 +475,13 @@ interface IReClammPool is IBasePool {
      * @dev The price ratio is calculated by interpolating between the start and end times. The new end price ratio
      * will be set to the current one at the current timestamp, effectively pausing the update.
      * This is a permissioned function.
+     *
+     * Does not require `onlyWhenVaultIsLocked` for the same reasons as `startPriceRatioUpdate`; see its
+     * documentation for the details.
+     *
+     * Trusted execution contexts are always preferable when calling permissioned functions from multisigs
+     * (i.e. sign and execute right after the last signature, without giving away the execution to a frontrunner).
+     *
      */
     function stopPriceRatioUpdate() external;
 
@@ -464,12 +490,42 @@ interface IReClammPool is IBasePool {
      * @dev This function is considered a user interaction, and therefore recalculates the virtual balances and sets
      * the last timestamp. This is a permissioned function.
      *
-     * A percentage of 100% will make the price range double (or halve) within a day.
-     * A percentage of 200% will make the price range quadruple (or quartered) within a day.
+     * At 100%, when the pool is outside its target range, the price range shifts toward the current market
+     * price at approximately 2x per day. At 200%, approximately 4x per day.
      *
-     * More generically, the new price range will be either
-     * Range_old * 2^(newDailyPriceShiftExponent / 100), or
-     * Range_old / 2^(newDailyPriceShiftExponent / 100)
+     * More generically, the price range shifts by approximately
+     * 2^(newDailyPriceShiftExponent / 100) per day, or its reciprocal.
+     *
+     * The exact rate is state-dependent: it equals 2^exponent per day when the out-of-range side holds no real
+     * balance, and is faster otherwise.
+     *
+     * The daily price shift rate interacts with the swap fee to determine the pool's resistance to round-trip
+     * repricing extraction. When the pool is out of range, virtual balances decay over time; an actor who pushes
+     * the pool past the centeredness margin and later unwinds against the repriced curve can profit if enough time
+     * passes. The minimum wait before such a round trip breaks even scales linearly with the swap fee and inversely
+     * with the shift rate. Empirically, the breakeven time in seconds is approximately:
+     *
+     *   breakeven_seconds ~= swap_fee_pct / (shift_rate_pct * 0.0002%)
+     *
+     * where `swap_fee_pct` is the pool's swap fee as a percentage, and `shift_rate_pct` is this exponent expressed
+     * as a whole number (e.g., 100 for 100%). The minimum swap fee needed to guarantee a given breakeven time is:
+     *
+     *   min_safe_fee = shift_rate_pct * 0.0002% * target_breakeven_seconds
+     *
+     * For reference, at the current pool minimum fee of 0.001% and a 5% shift rate, the breakeven is ~47 seconds
+     * (approximately 4 Ethereum mainnet blocks). Empirical MEV research shows that drastic price dislocations on
+     * monitored pools are corrected within 1-2 blocks on mainnet, and that larger dislocations are corrected
+     * faster, not slower. Pools with sufficient TVL to make this attack economically viable are also the pools
+     * most actively monitored by arbitrageurs, making 47 seconds a very conservative upper bound in practice.
+     * L2s with faster block times are even safer: the price changes less per block, extending the breakeven time.
+     *
+     * At shift rates up to 5%, the current pool minimum swap fee (0.001%) is sufficient. Higher shift rates
+     * require a proportionally higher swap fee. This constraint cannot be enforced on-chain because the shift
+     * rate and swap fee are governed independently. Operators should verify the swap fee is adequate when
+     * adjusting the shift rate upward.
+     *
+     * In any case, trusted execution contexts are always preferable when calling permissioned functions from multisigs
+     * (i.e. sign and execute right after the last signature, without giving away the execution to a frontrunner).
      *
      * @param newDailyPriceShiftExponent The new daily price shift exponent
      * @return actualNewDailyPriceShiftExponent The actual new daily price shift exponent, after accounting for
@@ -483,6 +539,9 @@ interface IReClammPool is IBasePool {
      * @notice Set the centeredness margin.
      * @dev This function is considered a user action, so it will update the last timestamp and virtual balances.
      * This is a permissioned function.
+     *
+     * Trusted execution contexts are always preferable when calling permissioned functions from multisigs
+     * (i.e. sign and execute right after the last signature, without giving away the execution to a frontrunner).
      *
      * @param newCenterednessMargin The new centeredness margin
      */

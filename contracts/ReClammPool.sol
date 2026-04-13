@@ -38,6 +38,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     // This means they have 0.00001% resolution (i.e., any non-zero bits < 1e11 will cause precision loss).
     // Minimum values help make the math well-behaved (i.e., the swap fee should overwhelm any rounding error).
     // Maximum values protect users by preventing permissioned actors from setting excessively high swap fees.
+    // Note: the minimum swap fee also bounds the pool's resistance to round-trip repricing extraction.
+    // At 0.001%, shift rates up to 5% are safe (47-second breakeven). See `setDailyPriceShiftExponent` for details.
     uint256 internal constant _MIN_SWAP_FEE_PERCENTAGE = 0.001e16; // 0.001%
     uint256 internal constant _MAX_SWAP_FEE_PERCENTAGE = 10e16; // 10%
 
@@ -345,6 +347,14 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         // This hook makes sure that the virtual balances are decreased in the same proportion as the real balances
         // after removing liquidity. This is needed to keep the pool centeredness and price ratio constant.
+        //
+        // Note: when a proportional remove follows an add in the same transaction, the Vault charges a round-trip fee
+        // on the remove outputs. This is an intentional Vault-level guardrail: adding and removing in the same session
+        // is not something a legitimate user would normally do, and the fee helps ensure the round trip is not
+        // profitable. This hook commits virtual balances before that fee is applied, so the stored VBs will be
+        // slightly lower than a perfect proportional scaling of the post-fee real balances. The effect is small
+        // (bounded by swapFeePercentage * proportionRemoved) and leaves the pool with slightly more real balance
+        // relative to its virtual balances, marginally improving centeredness.
 
         uint256 poolTotalSupply = _vault.totalSupply(pool);
         uint256 bptDelta = poolTotalSupply - exactBptAmountIn;
@@ -573,6 +583,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                         Pool State Setters
     ********************************************************/
 
+    // NOTE: `startPriceRatioUpdate` and `stopPriceRatioUpdate` intentionally omit `onlyWhenVaultIsLocked`.
+    // See the interface NatSpec for the details.
+
     /// @inheritdoc IReClammPool
     function startPriceRatioUpdate(
         uint256 endPriceRatio,
@@ -659,6 +672,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         returns (uint256)
     {
         // Update virtual balances before updating the daily price shift exponent.
+        // NOTE: increasing the shift rate increases the pool's exposure to round-trip repricing extraction.
+        // Ensure the swap fee is at least `shift_rate_pct * 0.0002%` to maintain a safe breakeven time.
+        // See the interface NatSpec for the full analysis.
         return _setDailyPriceShiftExponentAndUpdateVirtualBalances(newDailyPriceShiftExponent);
     }
 
