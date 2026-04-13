@@ -1820,6 +1820,11 @@ contract ReClammPoolTest is BaseReClammTest {
      * virtual balances move, compounding the price effect. A useful heuristic: with default pool parameters
      * (Q0 = 2, lambda ~ 0.5 at 100% exponent), the excess is roughly 1 + 2*rho, where
      * rho = Ro / ((Q0-1) * Vo). Each 1% of rho adds about 2% extra price-range speed beyond the calibrated rate.
+     *
+     * The excess is effectively unbounded: the exact formula has ((Q0-1)*lambda*Vo - Ro) in the denominator,
+     * which shrinks toward zero as rho approaches the centeredness clamp. The clamp prevents a singularity,
+     * but near-clamp states can see excess factors of 4-5x with default parameters (i.e., prices moving
+     * 8-10x/day instead of the calibrated 2x). The 80% drain in this test is a moderate case (rho ~ 5-12%).
      */
     function testPriceShiftFasterThanExponentWhenRoPositiveHighPrice() public {
         uint256 exponent = _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT;
@@ -1865,6 +1870,8 @@ contract ReClammPoolTest is BaseReClammTest {
         uint256 expectedMinPrice = minPriceBefore.mulDown(uint256(2e18).powDown(exponent));
         uint256 expectedMaxPrice = maxPriceBefore.mulDown(uint256(2e18).powDown(exponent));
 
+        // With default parameters and an 80% drain, prices move ~11% faster than the VB-only prediction
+        // (2.23x vs 2x per day). The exact percentage depends on Ro/Vo and Q0; see the analytical check below.
         assertGt(minPriceAfter, expectedMinPrice, "Min price should move faster than 2^exponent when Ro > 0");
         assertGt(maxPriceAfter, expectedMaxPrice, "Max price should move faster than 2^exponent when Ro > 0");
 
@@ -1956,6 +1963,8 @@ contract ReClammPoolTest is BaseReClammTest {
         uint256 expectedMinPrice = minPriceBefore.divDown(uint256(2e18).powDown(exponent));
         uint256 expectedMaxPrice = maxPriceBefore.divDown(uint256(2e18).powDown(exponent));
 
+        // With default parameters and an 80% drain, prices drop ~21% more than the VB-only prediction
+        // (0.39x vs 0.50x per day). Larger than the high-price test because Rb/Vb > Ra/Va in this pool.
         assertLt(minPriceAfter, expectedMinPrice, "Min price should move faster than 1/2^exponent when Ro > 0");
         assertLt(maxPriceAfter, expectedMaxPrice, "Max price should move faster than 1/2^exponent when Ro > 0");
 
