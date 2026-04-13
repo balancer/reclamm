@@ -1449,6 +1449,42 @@ contract ReClammPoolTest is BaseReClammTest {
         deployStandaloneReClammPool(params, vault, _helper);
     }
 
+    function testCreateStandalonePoolWithDailyPriceShiftExponentTooLow() public {
+        ReClammPoolParams memory params = ReClammPoolParams({
+            name: "ReClamm Pool",
+            symbol: "FAIL_POOL",
+            version: "1",
+            dailyPriceShiftExponent: ReClammPoolFactoryLib.MIN_NONZERO_DAILY_PRICE_SHIFT_EXPONENT - 1,
+            centerednessMargin: _DEFAULT_CENTEREDNESS_MARGIN,
+            initialMinPrice: _DEFAULT_MIN_PRICE,
+            initialMaxPrice: _DEFAULT_MAX_PRICE,
+            initialTargetPrice: _DEFAULT_TARGET_PRICE,
+            tokenAPriceIncludesRate: false,
+            tokenBPriceIncludesRate: false
+        });
+
+        vm.expectRevert(IReClammPool.DailyPriceShiftExponentTooLow.selector);
+        deployStandaloneReClammPool(params, vault, _helper);
+    }
+
+    function testCreateStandalonePoolWithDailyPriceShiftExponentZero() public {
+        ReClammPoolParams memory params = ReClammPoolParams({
+            name: "ReClamm Pool",
+            symbol: "ZERO_SHIFT",
+            version: "1",
+            dailyPriceShiftExponent: 0,
+            centerednessMargin: _DEFAULT_CENTEREDNESS_MARGIN,
+            initialMinPrice: _DEFAULT_MIN_PRICE,
+            initialMaxPrice: _DEFAULT_MAX_PRICE,
+            initialTargetPrice: _DEFAULT_TARGET_PRICE,
+            tokenAPriceIncludesRate: false,
+            tokenBPriceIncludesRate: false
+        });
+
+        // Zero is a valid configuration (disables price shifting). Should not revert.
+        deployStandaloneReClammPool(params, vault, _helper);
+    }
+
     function testCreatePoolWithCenterednessMarginTooHigh() public {
         // Override pool factory (we want the real one, not the mock factory).
         ReClammPoolFactory poolFactory = deployReClammPoolFactoryWithDefaultParams(vault);
@@ -1587,6 +1623,28 @@ contract ReClammPoolTest is BaseReClammTest {
         vm.prank(admin);
         vm.expectRevert(IReClammPool.DailyPriceShiftExponentTooHigh.selector);
         ReClammPool(pool).setDailyPriceShiftExponent(newDailyPriceShiftExponent);
+    }
+
+    function testSetDailyPriceShiftExponentTooLow() public {
+        // Any nonzero value below the integer-division threshold (124649) silently truncates to zero
+        // in toDailyPriceShiftBase. The validation rejects these.
+        vm.prank(admin);
+        vm.expectRevert(IReClammPool.DailyPriceShiftExponentTooLow.selector);
+        ReClammPool(pool).setDailyPriceShiftExponent(ReClammPoolFactoryLib.MIN_NONZERO_DAILY_PRICE_SHIFT_EXPONENT - 1);
+    }
+
+    function testSetDailyPriceShiftExponentZeroAllowed() public {
+        // Zero explicitly disables price shifting and should not revert.
+        vm.prank(admin);
+        ReClammPool(pool).setDailyPriceShiftExponent(0);
+        assertEq(ReClammPool(pool).getDailyPriceShiftExponent(), 0);
+    }
+
+    function testSetDailyPriceShiftExponentAtMinimum() public {
+        // The minimum nonzero value should be accepted.
+        vm.prank(admin);
+        ReClammPool(pool).setDailyPriceShiftExponent(ReClammPoolFactoryLib.MIN_NONZERO_DAILY_PRICE_SHIFT_EXPONENT);
+        assertGt(ReClammPool(pool).getDailyPriceShiftExponent(), 0);
     }
 
     function testSetLastVirtualBalances() public {
