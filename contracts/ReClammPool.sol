@@ -811,9 +811,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     function _setDailyPriceShiftExponent(uint256 dailyPriceShiftExponent) internal returns (uint256) {
-        if (dailyPriceShiftExponent > ReClammPoolFactoryLib.MAX_DAILY_PRICE_SHIFT_EXPONENT) {
-            revert DailyPriceShiftExponentTooHigh();
-        }
+        ReClammPoolFactoryLib.validateDailyPriceShiftExponent(dailyPriceShiftExponent);
 
         uint256 dailyPriceShiftBase = dailyPriceShiftExponent.toDailyPriceShiftBase();
         // There might be precision loss when adjusting to the internal representation, so we need to

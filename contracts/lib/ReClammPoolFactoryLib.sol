@@ -64,6 +64,12 @@ library ReClammPoolFactoryLib {
     // is faster otherwise. This constant defines the maximum allowed exponent.
     uint256 internal constant MAX_DAILY_PRICE_SHIFT_EXPONENT = 100e16; // 100%
 
+    // Minimum nonzero daily price shift exponent. The internal conversion
+    // `toDailyPriceShiftBase` divides by ReClammMath._PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT (124649).
+    // Any nonzero exponent below this threshold truncates to zero in integer division, silently disabling
+    // price-range tracking. Zero itself is allowed (explicitly disables shifting).
+    uint256 internal constant MIN_NONZERO_DAILY_PRICE_SHIFT_EXPONENT = 124649;
+
     // solhint-enable private-vars-leading-underscore
 
     function validateTokenConfig(TokenConfig[] memory tokens, ReClammPriceParams memory priceParams) internal pure {
@@ -81,11 +87,7 @@ library ReClammPoolFactoryLib {
     }
 
     function validatePoolParams(ReClammPoolParams memory params) internal pure {
-        // Note that there is no minimum for the daily price shift exponent, as a value of 0 (no price shift) is a
-        // valid configuration.
-        if (params.dailyPriceShiftExponent > MAX_DAILY_PRICE_SHIFT_EXPONENT) {
-            revert IReClammPool.DailyPriceShiftExponentTooHigh();
-        }
+        validateDailyPriceShiftExponent(params.dailyPriceShiftExponent);
 
         // Likewise, there is no minimum for the centeredness margin. A value of 0 is a valid configuration: the
         // target range becomes the full price range, so the pool is always considered in range.
@@ -112,6 +114,17 @@ library ReClammPoolFactoryLib {
             revert IReClammPool.PriceRatioBelowMin(initialPriceRatio);
         } else if (initialPriceRatio > MAX_PRICE_RATIO) {
             revert IReClammPool.PriceRatioAboveMax(initialPriceRatio);
+        }
+    }
+
+    // Validates that a daily price shift exponent is either zero (disabled) or above the integer-division threshold
+    // that would silently truncate to zero. Also enforces the upper bound.
+    function validateDailyPriceShiftExponent(uint256 dailyPriceShiftExponent) internal pure {
+        if (dailyPriceShiftExponent != 0 && dailyPriceShiftExponent < MIN_NONZERO_DAILY_PRICE_SHIFT_EXPONENT) {
+            revert IReClammPool.DailyPriceShiftExponentTooLow();
+        }
+        if (dailyPriceShiftExponent > MAX_DAILY_PRICE_SHIFT_EXPONENT) {
+            revert IReClammPool.DailyPriceShiftExponentTooHigh();
         }
     }
 }
