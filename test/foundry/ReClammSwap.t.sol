@@ -2,6 +2,8 @@
 
 pragma solidity ^0.8.24;
 
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 
@@ -392,5 +394,67 @@ contract ReClammSwapTest is BaseReClammTest {
     ) internal view {
         assertNotEq(virtualBalances1[daiIdx], virtualBalances2[daiIdx], "DAI virtual balances remain unchanged");
         assertNotEq(virtualBalances1[usdcIdx], virtualBalances2[usdcIdx], "USDC virtual balances remain unchanged");
+    }
+}
+
+/**
+ * @notice Regression for the original Cantina report on the long-idle bricked-pool scenario.
+ * @dev Reproduces the path that originally bricked the pool: drain one side via a swap, idle for ~12 days
+ * so the lazy out-of-range update decays the smaller virtual balance below the historical safe floor (1e9),
+ * then make a small swap. Under the old `mulDown(Va, Va)` formulation, the small swap (and any subsequent
+ * operation) would panic with division by zero in `computePriceRange`. Under the algebraically rearranged
+ * `computePriceRatio` (which avoids `mulDown(Va, Va)` entirely), the swap succeeds and the pool stays
+ * usable even with one virtual balance well below 1e9.
+ *
+ * The pool init amount is intentionally small so the post-decay virtual balance lands in the historically
+ * unsafe range, exercising the math at the small-VB regime that the rearrangement is designed to handle.
+ */
+contract ReClammLongIdleDrainTest is BaseReClammTest {
+    function setUp() public override {
+        poolInitAmount = 1e12;
+        super.setUp();
+    }
+
+    function testLongIdleDrainStaysUsable() public {
+        (, , uint256[] memory balancesBeforeDrain, ) = vault.getPoolTokenInfo(pool);
+
+        // Identify token A (the one we will drain, sorted index 0) and token B (sorted index 1).
+        (address tokenA, address tokenB) = daiIdx == 0 ? (address(dai), address(usdc)) : (address(usdc), address(dai));
+
+        // Drain all of token A by swapping token B in.
+        vm.prank(alice);
+        router.swapSingleTokenExactOut(
+            pool,
+            IERC20(tokenB),
+            IERC20(tokenA),
+            balancesBeforeDrain[0],
+            MAX_UINT256,
+            MAX_UINT256,
+            false,
+            bytes("")
+        );
+
+        // Long idle period that drives the lazy virtual balance update down toward the historical 1e9 floor.
+        vm.warp(block.timestamp + 11 days + 22 hours);
+
+        // First small swap. Under the old math this committed a degraded virtual balance to storage; under
+        // the new math the result is well-defined and the swap succeeds.
+        vm.prank(alice);
+        router.swapSingleTokenExactIn(pool, IERC20(tokenB), IERC20(tokenA), 1, 0, MAX_UINT256, false, bytes(""));
+
+        (uint256 vaAfterFirstSwap, uint256 vbAfterFirstSwap) = ReClammPool(pool).getLastVirtualBalances();
+        assertLt(vaAfterFirstSwap, 1e9, "Va should have decayed below the historical safe floor");
+        assertGt(vaAfterFirstSwap, 0, "Va should be strictly positive");
+        assertGt(vbAfterFirstSwap, 0, "Vb should be strictly positive");
+
+        // A short additional idle period.
+        vm.warp(block.timestamp + 1 hours);
+
+        // Under the old math, both of the following would panic with division by zero. Under the new math
+        // they both succeed.
+        ReClammPool(pool).computeCurrentVirtualBalances();
+
+        vm.prank(alice);
+        router.swapSingleTokenExactIn(pool, IERC20(tokenB), IERC20(tokenA), 1, 0, MAX_UINT256, false, bytes(""));
     }
 }

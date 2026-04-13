@@ -259,6 +259,15 @@ interface IReClammPool is IBasePool {
     /// @notice Hook was invoked with the wrong pool address.
     error InvalidPoolArgument(address pool);
 
+    /**
+     * @notice A proportional removal would scale a virtual balance to zero.
+     * @dev Reverted from `onBeforeRemoveLiquidity` when the post-scaling virtual balances would integer-truncate
+     * to zero. This is only reachable when a sole (or effectively sole) LP burns enough BPT that
+     * `(oldVirtualBalance * bptDelta) / oldTotalSupply` rounds down to zero. Allowing it through would brick the
+     * pool, since `computePriceRatio` then divides by zero on every subsequent call.
+     */
+    error ZeroVirtualBalance();
+
     /********************************************************
                        Stored State Getters
     ********************************************************/
