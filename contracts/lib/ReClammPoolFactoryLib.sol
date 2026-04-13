@@ -98,7 +98,7 @@ library ReClammPoolFactoryLib {
             params.initialMaxPrice == 0 ||
             params.initialTargetPrice == 0 ||
             params.initialTargetPrice < params.initialMinPrice ||
-            params.initialTargetPrice > params.initialMaxPrice ||
+            params.initialTargetPrice >= params.initialMaxPrice ||
             params.initialMinPrice >= params.initialMaxPrice
         ) {
             // If any of these prices were 0, pool initialization would revert with a numerical error.
