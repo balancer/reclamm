@@ -1792,7 +1792,7 @@ contract ReClammPoolTest is BaseReClammTest {
      * @dev The existing `testDailyPriceShiftExponentHighPrice__Fuzz` and `LowPrice__Fuzz` tests drain the overvalued
      * real balance to zero before measuring, which is the one case where price movement exactly equals VB decay.
      * This test performs a partial drain (leaving Ro > 0) and verifies that the actual price movement is strictly
-     * faster than `2^exponent` per day.
+     * faster than `2^exponent` per day, then checks the exact analytical relationship.
      */
     function testPriceShiftFasterThanExponentWhenRoPositiveHighPrice() public {
         uint256 exponent = _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT;
@@ -1820,6 +1820,9 @@ contract ReClammPoolTest is BaseReClammTest {
         assertGt(postSwapBalances[a], 0, "Token A should not be fully drained");
         assertFalse(ReClammPool(pool).isPoolWithinTargetRange(), "Pool should be out of range");
 
+        // Snapshot stored pool state for the analytical formula.
+        ReClammPoolDynamicData memory dynData = ReClammPool(pool).getReClammPoolDynamicData();
+
         // Skip 1 second to commit the post-swap state, then record prices.
         skip(1 seconds);
 
@@ -1829,15 +1832,58 @@ contract ReClammPoolTest is BaseReClammTest {
 
         (uint256 minPriceAfter, uint256 maxPriceAfter) = ReClammPool(pool).computeCurrentPriceRange();
 
-        // The VB decay predicts prices move by a factor of 2^exponent. With Ro > 0, actual movement is faster.
-        // After draining A, the pool is "above center" (isPoolAboveCenter = true). In the code, the "overvalued"
-        // side is B (the side with the accumulated large real balance), which is the side whose virtual balance
-        // decays. Prices (denominated in B/A) move upward.
+        // After draining A, the pool is below center (isPoolAboveCenter = false). The overvalued VB is A
+        // (the scarce side whose virtual balance decays). Prices (B/A) move upward as Va decays.
+        // With Ro > 0 the actual movement is strictly faster than the VB-only prediction.
         uint256 expectedMinPrice = minPriceBefore.mulDown(uint256(2e18).powDown(exponent));
         uint256 expectedMaxPrice = maxPriceBefore.mulDown(uint256(2e18).powDown(exponent));
 
         assertGt(minPriceAfter, expectedMinPrice, "Min price should move faster than 2^exponent when Ro > 0");
         assertGt(maxPriceAfter, expectedMaxPrice, "Max price should move faster than 2^exponent when Ro > 0");
+
+        // Quantify the excess using the analytical relationship. For the below-center branch, the exact
+        // price factor is:
+        //   (1/lambda) x [(lambda*Vo + Ro) / (Vo + Ro)] x [((Q0-1)*Vo - Ro) / ((Q0-1)*lambda*Vo - Ro)]
+        // where Vo = stored overvalued virtual balance (A when below center),
+        //       Ro = real balance on the overvalued side (A's remaining 20%),
+        //       Q0 = sqrt(priceRatio) from stored virtual balances,
+        //       lambda = dailyPriceShiftBase^86400 (per-day VB multiplier, < 1).
+        // The bracketed excess equals 1 only when Ro = 0 (tested by the fuzz tests above).
+        {
+            uint256 Vo = dynData.lastVirtualBalances[a];
+            uint256 Ro = dynData.balancesLiveScaled18[a];
+            uint256 Q0 = mathMock.sqrtScaled18(
+                mathMock.computePriceRatio(
+                    dynData.balancesLiveScaled18,
+                    dynData.lastVirtualBalances[a],
+                    dynData.lastVirtualBalances[b]
+                )
+            );
+            uint256 lambda = dynData.dailyPriceShiftBase.powDown(86400 * FixedPoint.ONE);
+
+            uint256 D = Q0 - FixedPoint.ONE;
+            uint256 lambdaVo = lambda.mulDown(Vo);
+
+            // excess = [(lambda*Vo + Ro) / (Vo + Ro)] x [((Q0-1)*Vo - Ro) / ((Q0-1)*lambda*Vo - Ro)]
+            uint256 analyticalExcess = (lambdaVo + Ro).divDown(Vo + Ro).mulDown(Vo.mulDown(D) - Ro).divDown(
+                lambdaVo.mulDown(D) - Ro
+            );
+
+            uint256 predictedFactor = FixedPoint.ONE.divDown(lambda).mulDown(analyticalExcess);
+
+            assertApproxEqRel(
+                minPriceAfter.divDown(minPriceBefore),
+                predictedFactor,
+                1e14,
+                "Min price factor should match analytical formula"
+            );
+            assertApproxEqRel(
+                maxPriceAfter.divDown(maxPriceBefore),
+                predictedFactor,
+                1e14,
+                "Max price factor should match analytical formula"
+            );
+        }
     }
 
     /// @notice Same as the high-price variant, but drains token B to test the low-price direction.
@@ -1865,6 +1911,9 @@ contract ReClammPoolTest is BaseReClammTest {
         assertGt(postSwapBalances[b], 0, "Token B should not be fully drained");
         assertFalse(ReClammPool(pool).isPoolWithinTargetRange(), "Pool should be out of range");
 
+        // Snapshot stored pool state for the analytical formula.
+        ReClammPoolDynamicData memory dynData = ReClammPool(pool).getReClammPoolDynamicData();
+
         skip(1 seconds);
 
         (uint256 minPriceBefore, uint256 maxPriceBefore) = ReClammPool(pool).computeCurrentPriceRange();
@@ -1873,12 +1922,58 @@ contract ReClammPoolTest is BaseReClammTest {
 
         (uint256 minPriceAfter, uint256 maxPriceAfter) = ReClammPool(pool).computeCurrentPriceRange();
 
-        // After draining B, prices (B/A) move downward. The actual movement should be faster than 1/2^exponent.
+        // After draining B, the pool is above center (isPoolAboveCenter = true). The overvalued VB is B
+        // (the scarce side whose virtual balance decays). Prices (B/A) move downward.
+        // With Ro > 0 the actual movement is strictly faster than the VB-only prediction.
         uint256 expectedMinPrice = minPriceBefore.divDown(uint256(2e18).powDown(exponent));
         uint256 expectedMaxPrice = maxPriceBefore.divDown(uint256(2e18).powDown(exponent));
 
         assertLt(minPriceAfter, expectedMinPrice, "Min price should move faster than 1/2^exponent when Ro > 0");
         assertLt(maxPriceAfter, expectedMaxPrice, "Max price should move faster than 1/2^exponent when Ro > 0");
+
+        // Quantify the excess using the analytical relationship. For the above-center branch, the exact
+        // price factor is:
+        //   lambda x [((Q0-1)*lambda*Vo - Ro) / ((Q0-1)*Vo - Ro)] x [(Vo + Ro) / (lambda*Vo + Ro)]
+        // where Vo = stored overvalued virtual balance (B when above center),
+        //       Ro = real balance on the overvalued side (B's remaining 20%),
+        //       Q0 = sqrt(priceRatio) from stored virtual balances,
+        //       lambda = dailyPriceShiftBase^86400 (per-day VB multiplier, < 1).
+        // The bracketed excess equals 1 only when Ro = 0 (tested by the fuzz tests above).
+        {
+            uint256 Vo = dynData.lastVirtualBalances[b];
+            uint256 Ro = dynData.balancesLiveScaled18[b];
+            uint256 Q0 = mathMock.sqrtScaled18(
+                mathMock.computePriceRatio(
+                    dynData.balancesLiveScaled18,
+                    dynData.lastVirtualBalances[a],
+                    dynData.lastVirtualBalances[b]
+                )
+            );
+            uint256 lambda = dynData.dailyPriceShiftBase.powDown(86400 * FixedPoint.ONE);
+
+            uint256 D = Q0 - FixedPoint.ONE;
+            uint256 lambdaVo = lambda.mulDown(Vo);
+
+            // excess = [((Q0-1)*lambda*Vo - Ro) / ((Q0-1)*Vo - Ro)] x [(Vo + Ro) / (lambda*Vo + Ro)]
+            uint256 analyticalExcess = (lambdaVo.mulDown(D) - Ro).divDown(Vo.mulDown(D) - Ro).mulDown(Vo + Ro).divDown(
+                lambdaVo + Ro
+            );
+
+            uint256 predictedFactor = lambda.mulDown(analyticalExcess);
+
+            assertApproxEqRel(
+                minPriceAfter.divDown(minPriceBefore),
+                predictedFactor,
+                1e14,
+                "Min price factor should match analytical formula"
+            );
+            assertApproxEqRel(
+                maxPriceAfter.divDown(maxPriceBefore),
+                predictedFactor,
+                1e14,
+                "Max price factor should match analytical formula"
+            );
+        }
     }
 
     function testPriceRangeShiftStop__Fuzz(uint256 margin, uint256 priceShiftExponent, uint256 longDelay) public {
