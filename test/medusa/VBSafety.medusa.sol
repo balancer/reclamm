@@ -143,25 +143,10 @@ contract VBSafetyMedusaTest is BaseMedusaTest {
         }
     }
 
-    /**
-     * @notice Remove proportional liquidity. Each successful call increments the rounding counter.
-     * @dev Skip (return) conditions use return, never revert(). Reverts from the protocol itself are allowed and
-     * contribute to the natural revert rate.
-     */
+    /// @notice Remove proportional liquidity. Each successful call increments the rounding counter.
     function removeLiquidityProportional(uint256 exactBptIn) external {
         uint256 totalSupply = ReClammPool(address(pool)).totalSupply();
         exactBptIn = bound(exactBptIn, 1e18, totalSupply);
-
-        // Skip if the remove would leave balances below the pool minimum (legitimate revert path,
-        // but we skip rather than let it revert so it doesn't inflate the unknown-revert count).
-        (, , uint256[] memory balances, ) = vault.getPoolTokenInfo(address(pool));
-        uint256 proportion = (totalSupply - exactBptIn).divDown(totalSupply);
-        if (
-            balances[0].mulDown(proportion) < MIN_RECLAMM_TOKEN_BALANCE ||
-            balances[1].mulDown(proportion) < MIN_RECLAMM_TOKEN_BALANCE
-        ) {
-            return;
-        }
 
         uint256 supplyBefore = totalSupply;
 
@@ -251,10 +236,8 @@ contract VBSafetyMedusaTest is BaseMedusaTest {
             return true;
         }
 
-        // Skip if reference values are zero (should not happen post-initialization).
-        if (supplyRef == 0 || vbARef == 0 || vbBRef == 0) {
-            return true;
-        }
+        // Should not happen post-initialization.
+        assert(supplyRef > 0 && vbARef > 0 && vbBRef > 0);
 
         // Check VB A: |vbARef * totalSupply - vbA * supplyRef| <= nLiquidityOps * supplyRef
         uint256 crossRef_A = vbARef * totalSupply;
