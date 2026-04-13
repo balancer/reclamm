@@ -346,7 +346,9 @@ interface IReClammPool is IBasePool {
 
     /**
      * @notice Returns the daily price shift exponent as an 18-decimal FP.
-     * @dev At 100% (FixedPoint.ONE), the price range doubles (or halves) within a day.
+     * @dev At 100%, when the pool is outside its target range, the price range shifts toward the current market
+     * price at approximately 2x per day. The exact rate is state-dependent: it equals 2^exponent per day when the
+     * out-of-range side holds no real balance, and is faster otherwise.
      * @return dailyPriceShiftExponent The daily price shift exponent
      */
     function getDailyPriceShiftExponent() external view returns (uint256 dailyPriceShiftExponent);
@@ -482,12 +484,14 @@ interface IReClammPool is IBasePool {
      * @dev This function is considered a user interaction, and therefore recalculates the virtual balances and sets
      * the last timestamp. This is a permissioned function.
      *
-     * A percentage of 100% will make the price range double (or halve) within a day.
-     * A percentage of 200% will make the price range quadruple (or quartered) within a day.
+     * At 100%, when the pool is outside its target range, the price range shifts toward the current market
+     * price at approximately 2x per day. At 200%, approximately 4x per day.
      *
-     * More generically, the new price range will be either
-     * Range_old * 2^(newDailyPriceShiftExponent / 100), or
-     * Range_old / 2^(newDailyPriceShiftExponent / 100)
+     * More generically, the price range shifts by approximately
+     * 2^(newDailyPriceShiftExponent / 100) per day, or its reciprocal.
+     *
+     * The exact rate is state-dependent: it equals 2^exponent per day when the out-of-range side holds no real
+     * balance, and is faster otherwise.
      *
      * The daily price shift rate interacts with the swap fee to determine the pool's resistance to round-trip
      * repricing extraction. When the pool is out of range, virtual balances decay over time; an actor who pushes
