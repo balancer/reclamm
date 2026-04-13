@@ -700,9 +700,7 @@ library ReClammMath {
         // P_max(a) / P_min(a) = [(1 + Ra/Va) * (1 + Rb/Vb)]^2
 
         // Compute inner terms first, and then multiply by itself.
-        uint256 sqrtPriceRatio = (FixedPoint.ONE + balancesScaled18[a].divDown(virtualBalanceA)).mulDown(
-            FixedPoint.ONE + balancesScaled18[b].divDown(virtualBalanceB)
-        );
+        uint256 sqrtPriceRatio = ((balancesScaled18[a] + virtualBalanceA) * (balancesScaled18[b] + virtualBalanceB)) / (virtualBalanceA.mulUp(virtualBalanceB));
         return sqrtPriceRatio.mulDown(sqrtPriceRatio);
     }
 
