@@ -1793,6 +1793,11 @@ contract ReClammPoolTest is BaseReClammTest {
      * real balance to zero before measuring, which is the one case where price movement exactly equals VB decay.
      * This test performs a partial drain (leaving Ro > 0) and verifies that the actual price movement is strictly
      * faster than `2^exponent` per day, then checks the exact analytical relationship.
+     *
+     * The excess speed comes from the undervalued VB adjusting when the overvalued VB decays: when Ro > 0, both
+     * virtual balances move, compounding the price effect. A useful heuristic: with default pool parameters
+     * (Q0 = 2, lambda ~ 0.5 at 100% exponent), the excess is roughly 1 + 2*rho, where
+     * rho = Ro / ((Q0-1) * Vo). Each 1% of rho adds about 2% extra price-range speed beyond the calibrated rate.
      */
     function testPriceShiftFasterThanExponentWhenRoPositiveHighPrice() public {
         uint256 exponent = _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT;
@@ -1841,14 +1846,15 @@ contract ReClammPoolTest is BaseReClammTest {
         assertGt(minPriceAfter, expectedMinPrice, "Min price should move faster than 2^exponent when Ro > 0");
         assertGt(maxPriceAfter, expectedMaxPrice, "Max price should move faster than 2^exponent when Ro > 0");
 
-        // Quantify the excess using the analytical relationship. For the below-center branch, the exact
-        // price factor is:
-        //   (1/lambda) x [(lambda*Vo + Ro) / (Vo + Ro)] x [((Q0-1)*Vo - Ro) / ((Q0-1)*lambda*Vo - Ro)]
-        // where Vo = stored overvalued virtual balance (A when below center),
-        //       Ro = real balance on the overvalued side (A's remaining 20%),
-        //       Q0 = sqrt(priceRatio) from stored virtual balances,
-        //       lambda = dailyPriceShiftBase^86400 (per-day VB multiplier, < 1).
-        // The bracketed excess equals 1 only when Ro = 0 (tested by the fuzz tests above).
+        // Quantify the excess. The price shift decomposes into two multiplicative parts:
+        //   1. (1/lambda): the calibrated part from overvalued VB decay.
+        //   2. Vu_after/Vu_before: the uncalibrated adjustment of the undervalued VB.
+        // When Ro = 0 the Vu formula reduces to Ru/(Q0-1), independent of Vo, so Vu doesn't change and
+        // the excess is 1 (the degenerate case tested by the fuzz tests). When Ro > 0, decaying Vo also
+        // shifts Vu, compounding the price effect. Ru cancels in the Vu ratio, leaving:
+        //   excess = [(lambda*Vo + Ro) / (Vo + Ro)] x [((Q0-1)*Vo - Ro) / ((Q0-1)*lambda*Vo - Ro)]
+        // To first order in rho = Ro/((Q0-1)*Vo): excess ~ 1 + rho*Q0*(1-lambda)/lambda.
+        // With defaults (Q0=2, lambda~0.5) that is roughly 1 + 2*rho.
         {
             uint256 Vo = dynData.lastVirtualBalances[a];
             uint256 Ro = dynData.balancesLiveScaled18[a];
@@ -1931,14 +1937,12 @@ contract ReClammPoolTest is BaseReClammTest {
         assertLt(minPriceAfter, expectedMinPrice, "Min price should move faster than 1/2^exponent when Ro > 0");
         assertLt(maxPriceAfter, expectedMaxPrice, "Max price should move faster than 1/2^exponent when Ro > 0");
 
-        // Quantify the excess using the analytical relationship. For the above-center branch, the exact
-        // price factor is:
-        //   lambda x [((Q0-1)*lambda*Vo - Ro) / ((Q0-1)*Vo - Ro)] x [(Vo + Ro) / (lambda*Vo + Ro)]
-        // where Vo = stored overvalued virtual balance (B when above center),
-        //       Ro = real balance on the overvalued side (B's remaining 20%),
-        //       Q0 = sqrt(priceRatio) from stored virtual balances,
-        //       lambda = dailyPriceShiftBase^86400 (per-day VB multiplier, < 1).
-        // The bracketed excess equals 1 only when Ro = 0 (tested by the fuzz tests above).
+        // Quantify the excess. Same decomposition as the high-price test (see comment there):
+        //   price factor = lambda x (Vu_before/Vu_after)
+        // The Vu ratio (excess) is the reciprocal of the below-center form because price moves the
+        // opposite direction. Ru cancels, leaving:
+        //   excess = [((Q0-1)*lambda*Vo - Ro) / ((Q0-1)*Vo - Ro)] x [(Vo + Ro) / (lambda*Vo + Ro)]
+        // Same first-order bound: excess ~ 1 - rho*Q0*(1-lambda)/lambda (< 1 when Ro > 0).
         {
             uint256 Vo = dynData.lastVirtualBalances[b];
             uint256 Ro = dynData.balancesLiveScaled18[b];
