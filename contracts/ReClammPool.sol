@@ -48,8 +48,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     // There is also a minimum delta, to keep the math well-behaved.
     uint256 internal constant _MIN_PRICE_RATIO_DELTA = 1e6;
 
-    uint256 internal constant _MAX_TOKEN_DECIMALS = 18;
-
     // solhint-disable-next-line immutable-vars-naming
     ReClammPoolHelper internal immutable _helper;
 
