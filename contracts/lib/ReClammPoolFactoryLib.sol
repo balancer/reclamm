@@ -135,7 +135,9 @@ library ReClammPoolFactoryLib {
         uint256 denominator = sqrtMinPrice.mulDown(sqrtMaxPrice - sqrtTargetPrice);
 
         if (numerator == 0 || denominator == 0) {
-            // This does not make sense; the pool is out of range regardless the centeredness margin.
+            // Reaching here means the target is so close to min or max that sqrt rounding collapses the distance to
+            // zero, which would produce a division by zero below. The pool is out of range regardless of the
+            // centeredness margin.
             revert IReClammPool.InvalidInitialTargetPrice();
         }
 

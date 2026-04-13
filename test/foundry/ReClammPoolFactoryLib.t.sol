@@ -464,9 +464,9 @@ contract ReClammPoolFactoryLibTest is Test {
         ReClammPoolFactoryLib.validatePoolParams(params);
     }
 
-    // Always ok with 0 margin
+    // Target at min price with zero margin: early return skips the centeredness check.
     /// forge-config: default.allow_internal_expect_revert = true
-    function testValidateTargetPriceTargetAtEdgeZeroMargin() public pure {
+    function testValidateTargetPriceTargetAtMinZeroMargin() public pure {
         ReClammPoolParams memory params = _buildEthUsdcParams();
         params.initialTargetPrice = _ETH_USDC_MIN_PRICE;
         params.centerednessMargin = 0;
