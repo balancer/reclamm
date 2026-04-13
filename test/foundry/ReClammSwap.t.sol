@@ -399,6 +399,68 @@ contract ReClammSwapTest is BaseReClammTest {
 }
 
 /**
+ * @notice Regression for the original Cantina report on the long-idle bricked-pool scenario.
+ * @dev Reproduces the path that originally bricked the pool: drain one side via a swap, idle for ~12 days
+ * so the lazy out-of-range update decays the smaller virtual balance below the historical safe floor (1e9),
+ * then make a small swap. Under the old `mulDown(Va, Va)` formulation, the small swap (and any subsequent
+ * operation) would panic with division by zero in `computePriceRange`. Under the algebraically rearranged
+ * `computePriceRatio` (which avoids `mulDown(Va, Va)` entirely), the swap succeeds and the pool stays
+ * usable even with one virtual balance well below 1e9.
+ *
+ * The pool init amount is intentionally small so the post-decay virtual balance lands in the historically
+ * unsafe range, exercising the math at the small-VB regime that the rearrangement is designed to handle.
+ */
+contract ReClammLongIdleDrainTest is BaseReClammTest {
+    function setUp() public override {
+        poolInitAmount = 1e12;
+        super.setUp();
+    }
+
+    function testLongIdleDrainStaysUsable() public {
+        (, , uint256[] memory balancesBeforeDrain, ) = vault.getPoolTokenInfo(pool);
+
+        // Identify token A (the one we will drain, sorted index 0) and token B (sorted index 1).
+        (address tokenA, address tokenB) = daiIdx == 0 ? (address(dai), address(usdc)) : (address(usdc), address(dai));
+
+        // Drain all of token A by swapping token B in.
+        vm.prank(alice);
+        router.swapSingleTokenExactOut(
+            pool,
+            IERC20(tokenB),
+            IERC20(tokenA),
+            balancesBeforeDrain[0],
+            MAX_UINT256,
+            MAX_UINT256,
+            false,
+            bytes("")
+        );
+
+        // Long idle period that drives the lazy virtual balance update down toward the historical 1e9 floor.
+        vm.warp(block.timestamp + 11 days + 22 hours);
+
+        // First small swap. Under the old math this committed a degraded virtual balance to storage; under
+        // the new math the result is well-defined and the swap succeeds.
+        vm.prank(alice);
+        router.swapSingleTokenExactIn(pool, IERC20(tokenB), IERC20(tokenA), 1, 0, MAX_UINT256, false, bytes(""));
+
+        (uint256 vaAfterFirstSwap, uint256 vbAfterFirstSwap) = ReClammPool(pool).getLastVirtualBalances();
+        assertLt(vaAfterFirstSwap, 1e9, "Va should have decayed below the historical safe floor");
+        assertGt(vaAfterFirstSwap, 0, "Va should be strictly positive");
+        assertGt(vbAfterFirstSwap, 0, "Vb should be strictly positive");
+
+        // A short additional idle period.
+        vm.warp(block.timestamp + 1 hours);
+
+        // Under the old math, both of the following would panic with division by zero. Under the new math
+        // they both succeed.
+        ReClammPool(pool).computeCurrentVirtualBalances();
+
+        vm.prank(alice);
+        router.swapSingleTokenExactIn(pool, IERC20(tokenB), IERC20(tokenA), 1, 0, MAX_UINT256, false, bytes(""));
+    }
+}
+
+/**
  * @notice Documents the MEV surface around in-range price ratio widening updates.
  * @dev When a price ratio update is active, `computeVirtualBalancesUpdatingPriceRatio` preserves the pool's current
  * centeredness at the new (wider) ratio. Because centeredness is computed from live balances, a swap during the
@@ -413,6 +475,11 @@ contract ReClammSwapTest is BaseReClammTest {
  */
 contract ReClammPriceRatioWideningRoundTripTest is BaseReClammTest {
     using FixedPoint for *;
+
+    // Use a duration slightly above 1 day so the 2x widening stays just under the maximum allowed daily
+    // rate. At exactly 1 day the rate lands right on the boundary and rounding in divUp/powUp can push
+    // the computed rate a hair above the max, causing PriceRatioUpdateTooFast.
+    uint256 private constant _UPDATE_DURATION = 1 days + 1 minutes;
 
     function setUp() public override {
         // Match the audit's witness: min/max/target = 1000/4000/2000.
@@ -453,9 +520,9 @@ contract ReClammPriceRatioWideningRoundTripTest is BaseReClammTest {
         skip(1 seconds);
 
         vm.prank(admin);
-        ReClammPool(pool).startPriceRatioUpdate(8e18, block.timestamp, block.timestamp + 1 days);
+        ReClammPool(pool).startPriceRatioUpdate(8e18, block.timestamp, block.timestamp + _UPDATE_DURATION);
 
-        skip(1 days);
+        skip(_UPDATE_DURATION);
 
         vm.prank(alice);
         router.swapSingleTokenExactIn(pool, tokenB, tokenA, amountBReceived, 0, MAX_UINT256, false, bytes(""));
@@ -509,9 +576,9 @@ contract ReClammPriceRatioWideningRoundTripTest is BaseReClammTest {
             skip(1 seconds);
 
             vm.prank(admin);
-            ReClammPool(pool).startPriceRatioUpdate(8e18, block.timestamp, block.timestamp + 1 days);
+            ReClammPool(pool).startPriceRatioUpdate(8e18, block.timestamp, block.timestamp + _UPDATE_DURATION);
 
-            skip(1 days);
+            skip(_UPDATE_DURATION);
 
             vm.prank(alice);
             router.swapSingleTokenExactIn(pool, tokenB, tokenA, amountBReceived, 0, MAX_UINT256, false, bytes(""));
@@ -558,8 +625,8 @@ contract ReClammPriceRatioWideningRoundTripTest is BaseReClammTest {
 
         skip(1 seconds);
         vm.prank(admin);
-        ReClammPool(pool).startPriceRatioUpdate(8e18, block.timestamp, block.timestamp + 1 days);
-        skip(1 days);
+        ReClammPool(pool).startPriceRatioUpdate(8e18, block.timestamp, block.timestamp + _UPDATE_DURATION);
+        skip(_UPDATE_DURATION);
 
         vm.prank(alice);
         router.swapSingleTokenExactIn(pool, tokenB, tokenA, bReceived, 0, MAX_UINT256, false, bytes(""));

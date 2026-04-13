@@ -38,6 +38,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     // This means they have 0.00001% resolution (i.e., any non-zero bits < 1e11 will cause precision loss).
     // Minimum values help make the math well-behaved (i.e., the swap fee should overwhelm any rounding error).
     // Maximum values protect users by preventing permissioned actors from setting excessively high swap fees.
+    // Note: the minimum swap fee also bounds the pool's resistance to round-trip repricing extraction.
+    // At 0.001%, shift rates up to 5% are safe (47-second breakeven). See `setDailyPriceShiftExponent` for details.
     uint256 internal constant _MIN_SWAP_FEE_PERCENTAGE = 0.001e16; // 0.001%
     uint256 internal constant _MAX_SWAP_FEE_PERCENTAGE = 10e16; // 10%
 
@@ -47,8 +49,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     // There is also a minimum delta, to keep the math well-behaved.
     uint256 internal constant _MIN_PRICE_RATIO_DELTA = 1e6;
-
-    uint256 internal constant _MAX_TOKEN_DECIMALS = 18;
 
     // solhint-disable-next-line immutable-vars-naming
     ReClammPoolHelper internal immutable _helper;
@@ -347,6 +347,14 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         // This hook makes sure that the virtual balances are decreased in the same proportion as the real balances
         // after removing liquidity. This is needed to keep the pool centeredness and price ratio constant.
+        //
+        // Note: when a proportional remove follows an add in the same transaction, the Vault charges a round-trip fee
+        // on the remove outputs. This is an intentional Vault-level guardrail: adding and removing in the same session
+        // is not something a legitimate user would normally do, and the fee helps ensure the round trip is not
+        // profitable. This hook commits virtual balances before that fee is applied, so the stored VBs will be
+        // slightly lower than a perfect proportional scaling of the post-fee real balances. The effect is small
+        // (bounded by swapFeePercentage * proportionRemoved) and leaves the pool with slightly more real balance
+        // relative to its virtual balances, marginally improving centeredness.
 
         uint256 poolTotalSupply = _vault.totalSupply(pool);
         uint256 bptDelta = poolTotalSupply - exactBptAmountIn;
@@ -359,6 +367,15 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         // The virtual balances are not used in proportional add/remove calculations.
         currentVirtualBalanceA = (currentVirtualBalanceA * bptDelta) / poolTotalSupply;
         currentVirtualBalanceB = (currentVirtualBalanceB * bptDelta) / poolTotalSupply;
+
+        // Revert if the post-scaling virtual balances would be zero. This can only happen on a near-total proportional
+        // burn by a sole (or effectively sole) LP, where `bptDelta` shrinks to `POOL_MINIMUM_TOTAL_SUPPLY` and the
+        // multiplication above integer-truncates one of the virtual balances to zero. The math elsewhere is robust at
+        // any positive virtual balance except exactly zero. In that case, `computePriceRatio` would fail with a
+        // division by zero, and permanently brick the pool.
+        if (currentVirtualBalanceA == 0 || currentVirtualBalanceB == 0) {
+            revert ZeroVirtualBalance();
+        }
 
         _setLastVirtualBalances(currentVirtualBalanceA, currentVirtualBalanceB);
         _updateTimestamp();
@@ -566,6 +583,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                         Pool State Setters
     ********************************************************/
 
+    // NOTE: `startPriceRatioUpdate` and `stopPriceRatioUpdate` intentionally omit `onlyWhenVaultIsLocked`.
+    // See the interface NatSpec for the details.
+
     /// @inheritdoc IReClammPool
     function startPriceRatioUpdate(
         uint256 endPriceRatio,
@@ -577,6 +597,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         onlySwapFeeManagerOrGovernance(address(this))
         returns (uint256 actualPriceRatioUpdateStartTime)
     {
+        // Note: If the initial price range was 1,000 - 4,000, with a target price of 2,000, the raw ratio
+        // is 4 (`startPriceRatio` ~ 1.414). If the new fourth root is 1.682, the new `endPriceRatio` is 1.682^4 ~ 8.
+        // Since the centeredness remains constant, the new range would NOT be 1,000 - 8,000, but
+        // [C / sqrt(8), C * sqrt(8)], or about 707 - 5657.
+
         if (endPriceRatio < ReClammPoolFactoryLib.MIN_PRICE_RATIO) {
             revert PriceRatioBelowMin(endPriceRatio);
         } else if (endPriceRatio > ReClammPoolFactoryLib.MAX_PRICE_RATIO) {
@@ -614,20 +639,10 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             revert PriceRatioDeltaBelowMin(priceRatioDelta);
         }
 
-        // Compute the rate of change, as a multiple of the present value per day. For example, if the initial price
-        // range was 1,000 - 4,000, with a target price of 2,000, the raw ratio would be 4 (`startPriceRatio` ~ 1.414).
-        // If the new fourth root is 1.682, the new `endPriceRatio` would be 1.682^4 ~ 8. Note that since the
-        // centeredness remains constant, the new range would NOT be 1,000 - 8,000, but [C / sqrt(8), C * sqrt(8)],
-        // or about 707 - 5657.
-        //
-        // If the `updateDuration is 1 day, the time periods cancel, so `actualDailyPriceRatioUpdateRate` is simply
-        // given by: `endPriceRatio` / `startPriceRatio`; or 8 / 4 = 2: doubling once per day.
-        // All values are 18-decimal fixed point.
-        uint256 actualDailyPriceRatioUpdateRate = endPriceRatio > startPriceRatio
-            ? FixedPoint.divUp(endPriceRatio * 1 days, startPriceRatio * updateDuration)
-            : FixedPoint.divUp(startPriceRatio * 1 days, endPriceRatio * updateDuration);
-
-        if (actualDailyPriceRatioUpdateRate > _MAX_DAILY_PRICE_RATIO_UPDATE_RATE) {
+        if (
+            _computeDailyPriceRatioUpdateRate(startPriceRatio, endPriceRatio, updateDuration) >
+            _MAX_DAILY_PRICE_RATIO_UPDATE_RATE
+        ) {
             revert PriceRatioUpdateTooFast();
         }
     }
@@ -657,6 +672,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         returns (uint256)
     {
         // Update virtual balances before updating the daily price shift exponent.
+        // NOTE: increasing the shift rate increases the pool's exposure to round-trip repricing extraction.
+        // Ensure the swap fee is at least `shift_rate_pct * 0.0002%` to maintain a safe breakeven time.
+        // See the interface NatSpec for the full analysis.
         return _setDailyPriceShiftExponentAndUpdateVirtualBalances(newDailyPriceShiftExponent);
     }
 
@@ -756,6 +774,28 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                 priceRatioUpdateEndTime
             )
         );
+    }
+
+    /**
+     * @notice Computes the effective daily price ratio update rate for a given start/end ratio and duration.
+     * @dev The rate is exponential: `(max(end, start) / min(end, start))^(1 day / updateDuration)`.
+     * All inputs and the return value are 18-decimal fixed point.
+     *
+     * @param startPriceRatio The price ratio at the start of the update
+     * @param endPriceRatio The price ratio at the end of the update
+     * @param updateDuration The duration of the update in seconds
+     * @return The effective daily price ratio change factor (>= FP(1))
+     */
+    function _computeDailyPriceRatioUpdateRate(
+        uint256 startPriceRatio,
+        uint256 endPriceRatio,
+        uint256 updateDuration
+    ) internal pure returns (uint256) {
+        uint256 priceRatioMultiple = endPriceRatio > startPriceRatio
+            ? endPriceRatio.divUp(startPriceRatio)
+            : startPriceRatio.divUp(endPriceRatio);
+        uint256 exponent = FixedPoint.divUp(1 days, updateDuration);
+        return priceRatioMultiple.powUp(exponent);
     }
 
     /// Using the pool balances to update the virtual balances is dangerous with an unlocked vault, since the balances
