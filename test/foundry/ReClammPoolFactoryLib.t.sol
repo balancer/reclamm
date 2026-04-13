@@ -472,8 +472,15 @@ contract ReClammPoolFactoryLibTest is Test {
         params.centerednessMargin = 0;
 
         ReClammPoolFactoryLib.validatePoolParams(params);
+    }
 
+    // Target one wei below max price with zero margin: early return skips the centeredness check.
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testValidateTargetPriceTargetOneWeiBelowMaxZeroMarginSucceeds() public pure {
+        ReClammPoolParams memory params = _buildEthUsdcParams();
         params.initialTargetPrice = _ETH_USDC_MAX_PRICE - 1;
+        params.centerednessMargin = 0;
+
         ReClammPoolFactoryLib.validatePoolParams(params);
     }
 
@@ -488,8 +495,12 @@ contract ReClammPoolFactoryLibTest is Test {
 
         vm.expectRevert(IReClammPool.InvalidInitialTargetPrice.selector);
         ReClammPoolFactoryLib.validatePoolParams(params);
+    }
 
-        // Target = max − 1 wei. Integer sqrt rounds sqrtTarget to sqrtMax, so denominator = 0.
+    // Target = max - 1 wei. Integer sqrt rounds sqrtTarget to sqrtMax, so denominator = 0.
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testValidateTargetPriceTargetOneWeiBelowMaxReverts() public {
+        ReClammPoolParams memory params = _buildEthUsdcParams();
         params.initialTargetPrice = _ETH_USDC_MAX_PRICE - 1;
         params.centerednessMargin = 1;
 
@@ -548,6 +559,18 @@ contract ReClammPoolFactoryLibTest is Test {
         params.centerednessMargin = 70e16; // 70%
 
         vm.expectRevert(IReClammPool.InvalidInitialTargetPrice.selector);
+        ReClammPoolFactoryLib.validatePoolParams(params);
+    }
+
+    // --- Boundary: centeredness == margin (check is <, not <=) ---
+
+    // Target = 2000 yields centeredness ≈ 68.8%. Setting margin to 68% (just below) confirms the
+    // boundary: centeredness >= margin should pass.
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testValidateTargetPriceMarginEqualsCenterednessSucceeds() public pure {
+        ReClammPoolParams memory params = _buildEthUsdcParams();
+        params.centerednessMargin = 68e16; // 68%, just below the ~68.8% centeredness
+
         ReClammPoolFactoryLib.validatePoolParams(params);
     }
 }
