@@ -6,6 +6,7 @@ import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 
+import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
 
 /**
@@ -36,6 +37,9 @@ contract VBSafetyFuzzTest is BaseReClammTest {
      * @notice After any successful proportional remove, the remaining supply >= POOL_MINIMUM_TOTAL_SUPPLY.
      * @dev This is the Vault-level guarantee that the derivation (Section 1c) depends on: VBs can only round to zero
      * when supply equals the permanently locked minimum (1e6).
+     *
+     * A near-total burn can also be rejected by the pool's ZeroVirtualBalance guard: when bptDelta is small
+     * enough that `VB * bptDelta / totalSupply` truncates to zero, the pool reverts to prevent bricking.
      */
     function testBptDeltaLowerBound__Fuzz(uint256 exactBptAmountIn) public {
         uint256 poolTotalSupply = vault.totalSupply(pool);
@@ -50,6 +54,9 @@ contract VBSafetyFuzzTest is BaseReClammTest {
         if (bptDelta < POOL_MINIMUM_TOTAL_SUPPLY) {
             // The Vault should revert when the burn would violate minimum supply.
             vm.expectRevert();
+        } else if (_wouldZeroAVirtualBalance(poolTotalSupply, bptDelta)) {
+            // The pool's ZeroVirtualBalance guard reverts when VB scaling truncates to zero.
+            vm.expectRevert(IReClammPool.ZeroVirtualBalance.selector);
         }
 
         vm.prank(lp);
@@ -91,10 +98,8 @@ contract VBSafetyFuzzTest is BaseReClammTest {
 
         vm.assume(lpBalance > 0);
 
-        // Ensure the remove won't violate minimum supply.
-        uint256 maxRemove = poolTotalSupply > POOL_MINIMUM_TOTAL_SUPPLY
-            ? poolTotalSupply - POOL_MINIMUM_TOTAL_SUPPLY
-            : 0;
+        // Ensure the remove won't violate minimum supply or trigger ZeroVirtualBalance.
+        uint256 maxRemove = _maxSafeRemove(poolTotalSupply);
         vm.assume(maxRemove > 0);
         exactBptAmountIn = bound(exactBptAmountIn, 1, Math.min(lpBalance, maxRemove));
 
@@ -155,9 +160,9 @@ contract VBSafetyFuzzTest is BaseReClammTest {
         uint256 lpBalance = vault.balanceOf(pool, lp);
 
         vm.assume(lpBalance > 0);
-        uint256 maxRemove = poolTotalSupply > POOL_MINIMUM_TOTAL_SUPPLY
-            ? poolTotalSupply - POOL_MINIMUM_TOTAL_SUPPLY
-            : 0;
+
+        // Ensure the remove won't violate minimum supply or trigger ZeroVirtualBalance.
+        uint256 maxRemove = _maxSafeRemove(poolTotalSupply);
         vm.assume(maxRemove > 0);
         exactBptAmountIn = bound(exactBptAmountIn, 1, Math.min(lpBalance, maxRemove));
 
@@ -182,5 +187,28 @@ contract VBSafetyFuzzTest is BaseReClammTest {
                 "Both VBs positive but all real balances are zero -- pool has phantom value"
             );
         }
+    }
+
+    /// @dev Returns true if scaling VBs by `bptDelta / totalSupply` would truncate either VB to zero.
+    function _wouldZeroAVirtualBalance(uint256 totalSupply, uint256 bptDelta) internal view returns (bool) {
+        (uint256[] memory vb, ) = _computeCurrentVirtualBalances(pool);
+        return (vb[0] * bptDelta) / totalSupply == 0 || (vb[1] * bptDelta) / totalSupply == 0;
+    }
+
+    /// @dev Returns the maximum BPT that can be removed without hitting minimum supply or VB zeroing.
+    function _maxSafeRemove(uint256 totalSupply) internal view returns (uint256) {
+        // Start from the minimum-supply bound.
+        uint256 maxFromSupply = totalSupply > POOL_MINIMUM_TOTAL_SUPPLY ? totalSupply - POOL_MINIMUM_TOTAL_SUPPLY : 0;
+
+        // Additionally, bptDelta must be large enough that VB * bptDelta / totalSupply > 0.
+        // That means bptDelta > totalSupply / VB, i.e., exactBptAmountIn < totalSupply - ceil(totalSupply / VB).
+        (uint256[] memory vb, ) = _computeCurrentVirtualBalances(pool);
+        uint256 minDeltaA = vb[0] > 0 ? (totalSupply + vb[0] - 1) / vb[0] : totalSupply;
+        uint256 minDeltaB = vb[1] > 0 ? (totalSupply + vb[1] - 1) / vb[1] : totalSupply;
+        uint256 minDelta = Math.max(minDeltaA, minDeltaB);
+
+        uint256 maxFromVb = totalSupply > minDelta ? totalSupply - minDelta : 0;
+
+        return Math.min(maxFromSupply, maxFromVb);
     }
 }
