@@ -10,52 +10,57 @@ import { IReClammPool } from "../../contracts/interfaces/IReClammPool.sol";
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
 
 /**
- * @notice Foundry fuzz tests verifying virtual balance safety properties from vb-zeroing-derivation.md.
- * @dev These tests mechanically verify the key results of the VB zeroing derivation.
+ * @notice Abstract base for virtual-balance safety fuzz tests. Concrete subclasses configure different pool
+ * parameter regimes (price ratio, target position) via `_configureInitialPrices`, so the same properties are
+ * exercised across the operating envelope. This guards against tests that pass only by chance at default
+ * parameters.
  *
- * The Vault's minimum BPT supply guarantee (supply >= 1e6) is the foundation for all VB safety. bptDelta
- * (post-burn supply) is always >= 1e6 for any successful remove (Section 1a of the derivation).
+ * @dev Properties verified (from vb-zeroing-derivation.md):
  *
- * VB/supply ratio is preserved through proportional operations, with at most 1 unit of rounding error per
- * integer division (Section 1b of the derivation).
+ * 1. bptDelta lower bound: After any successful proportional remove, the remaining supply is >=
+ *    POOL_MINIMUM_TOTAL_SUPPLY (Section 1a).
  *
- * Positive VBs imply economic value: if both VBs > 0, at least one real balance > 0. VBs cannot be positive
- * while the pool holds no tokens (Section 1d of the derivation).
+ * 2. VB/supply ratio preservation: Proportional removes preserve VB/supply within 1 unit of rounding per
+ *    integer division (Section 1b).
+ *
+ * 3. VB-RB proportional scaling: Proportional removes scale real balances and virtual balances by the same
+ *    factor (bptDelta / totalSupply). This is stronger than the original "non-zero VB implies non-zero RB"
+ *    check, which was only meaningful at certain parameter combinations. Cross-multiplied form (to avoid
+ *    division) verifies: RB_old * supply_new ~= RB_new * supply_old, and similarly for VBs.
  */
-contract VBSafetyFuzzTest is BaseReClammTest {
+abstract contract VBSafetyFuzzBase is BaseReClammTest {
     using ArrayHelpers for *;
 
     function setUp() public virtual override {
         // Disable price shift so VBs only change through add/remove hooks, not time-based drift.
         setDailyPriceShiftExponent(0);
+        _configureInitialPrices();
         super.setUp();
     }
 
-    // bptDelta Lower Bound
+    /// @dev Subclasses override to set `_initialMinPrice`, `_initialMaxPrice`, and `_initialTargetPrice` via
+    /// `setInitializationPrices` before the pool is deployed. Empty in the default case.
+    function _configureInitialPrices() internal virtual;
+
+    // ---- bptDelta lower bound ----
 
     /**
      * @notice After any successful proportional remove, the remaining supply >= POOL_MINIMUM_TOTAL_SUPPLY.
-     * @dev This is the Vault-level guarantee that the derivation (Section 1c) depends on: VBs can only round to zero
-     * when supply equals the permanently locked minimum (1e6).
-     *
-     * A near-total burn can also be rejected by the pool's ZeroVirtualBalance guard: when bptDelta is small
-     * enough that `VB * bptDelta / totalSupply` truncates to zero, the pool reverts to prevent bricking.
+     * @dev A near-total burn can also be rejected by the pool's ZeroVirtualBalance guard: when bptDelta is
+     * small enough that `VB * bptDelta / totalSupply` truncates to zero, the pool reverts to prevent bricking.
      */
     function testBptDeltaLowerBound__Fuzz(uint256 exactBptAmountIn) public {
         uint256 poolTotalSupply = vault.totalSupply(pool);
         uint256 lpBalance = vault.balanceOf(pool, lp);
 
-        // LP must have BPT to remove.
         vm.assume(lpBalance > 0);
         exactBptAmountIn = bound(exactBptAmountIn, 1, lpBalance);
 
         uint256 bptDelta = poolTotalSupply - exactBptAmountIn;
 
         if (bptDelta < POOL_MINIMUM_TOTAL_SUPPLY) {
-            // The Vault should revert when the burn would violate minimum supply.
             vm.expectRevert();
         } else if (_wouldZeroAVirtualBalance(poolTotalSupply, bptDelta)) {
-            // The pool's ZeroVirtualBalance guard reverts when VB scaling truncates to zero.
             vm.expectRevert(IReClammPool.ZeroVirtualBalance.selector);
         }
 
@@ -68,46 +73,29 @@ contract VBSafetyFuzzTest is BaseReClammTest {
             bytes("")
         );
 
-        // If we reach here, the remove succeeded. Verify the post-conditions.
         uint256 newSupply = vault.totalSupply(pool);
-
-        // Core guarantee: supply never drops below the minimum.
         assertGe(newSupply, POOL_MINIMUM_TOTAL_SUPPLY, "Supply dropped below POOL_MINIMUM_TOTAL_SUPPLY");
-
-        // Derived: bptDelta >= 1 (the pool cannot be fully drained).
         assertGe(bptDelta, 1, "bptDelta must be >= 1");
     }
 
-    // VB Ratio Preservation
+    // ---- VB/supply ratio preservation ----
 
     /**
-     * @notice VB/supply is preserved through proportional removes, up to 1 unit of rounding per integer division.
-     * @dev This is discussed in derivation Section 1b.
-     *
-     * Cross-multiply to verify without division:
-     *   VB_old * supply_new ≈ VB_new * supply_old
-     * The maximum deviation from one floor() operation is:
-     *   |VB_old * supply_new - VB_new * supply_old| <= supply_old
-     * because floor(VB * delta / supply) drops at most (supply-1)/supply of one VB unit,
-     * and VB * delta / supply - floor(VB * delta / supply) < 1, so the cross-product difference is < supply_old.
-     *
+     * @notice VB/supply is preserved through proportional removes, up to 1 unit of rounding.
+     * @dev Cross-multiplied form: |VB_old * supply_new - VB_new * supply_old| <= supply_old.
      */
     function testVbRatioPreservation__Fuzz(uint256 exactBptAmountIn) public {
         uint256 poolTotalSupply = vault.totalSupply(pool);
         uint256 lpBalance = vault.balanceOf(pool, lp);
 
         vm.assume(lpBalance > 0);
-
-        // Ensure the remove won't violate minimum supply or trigger ZeroVirtualBalance.
         uint256 maxRemove = _maxSafeRemove(poolTotalSupply);
         vm.assume(maxRemove > 0);
         exactBptAmountIn = bound(exactBptAmountIn, 1, Math.min(lpBalance, maxRemove));
 
-        // Record pre-remove state.
         (uint256[] memory vbBefore, ) = _computeCurrentVirtualBalances(pool);
         uint256 supplyBefore = poolTotalSupply;
 
-        // Perform proportional remove.
         vm.prank(lp);
         router.removeLiquidityProportional(
             pool,
@@ -117,56 +105,38 @@ contract VBSafetyFuzzTest is BaseReClammTest {
             bytes("")
         );
 
-        // Record post-remove state.
         (uint256[] memory vbAfter, ) = _computeCurrentVirtualBalances(pool);
         uint256 supplyAfter = vault.totalSupply(pool);
 
-        // Verify ratio preservation for each VB via cross-multiplication.
-        // VB_old * supply_new should be close to VB_new * supply_old.
         _assertRatioPreserved(vbBefore[0], vbAfter[0], supplyBefore, supplyAfter, "VBa");
         _assertRatioPreserved(vbBefore[1], vbAfter[1], supplyBefore, supplyAfter, "VBb");
     }
 
-    function _assertRatioPreserved(
-        uint256 vbOld,
-        uint256 vbNew,
-        uint256 supplyOld,
-        uint256 supplyNew,
-        string memory label
-    ) internal pure {
-        if (vbOld == 0 || supplyNew == 0) {
-            return;
-        }
-
-        uint256 crossOld = vbOld * supplyNew;
-        uint256 crossNew = vbNew * supplyOld;
-
-        uint256 diff = crossOld > crossNew ? crossOld - crossNew : crossNew - crossOld;
-
-        // Maximum cross-product deviation from one floor() operation is (supply_old - 1).
-        // We use supply_old as the bound (inclusive) for simplicity.
-        assertLe(diff, supplyOld, string.concat(label, " ratio deviation exceeds 1-unit rounding bound"));
-    }
-
-    // VB Non-Zero Implies Economic Value
+    // ---- VB-RB proportional scaling ----
 
     /**
-     * @notice If both VBs are positive after any operation, at least one real balance is also positive.
-     * @dev This verifies that VBs cannot be positive while the pool holds no real tokens (derivation Section 1d:
-     * VB zeroing implies real balance zeroing).
+     * @notice Real balances and virtual balances scale by the same proportional factor through proportional
+     * removes. This replaces the weaker "non-zero VB implies non-zero RB" property, which was only meaningful
+     * at certain parameter combinations. The underlying safety guarantee is that the remove hook and the
+     * Vault's real-balance accounting apply the same `bptDelta / totalSupply` multiplier; this test verifies
+     * that, independent of pool parameters.
+     *
+     * Cross-multiplied form (no division):
+     *   |RB_old * supply_new - RB_new * supply_old| <= supply_old
+     * bounds the rounding error at one integer division per balance.
      */
-    function testVbNonZeroImpliesEconomicValue__Fuzz(uint256 exactBptAmountIn) public {
+    function testVbRbProportionalScaling__Fuzz(uint256 exactBptAmountIn) public {
         uint256 poolTotalSupply = vault.totalSupply(pool);
         uint256 lpBalance = vault.balanceOf(pool, lp);
 
         vm.assume(lpBalance > 0);
-
-        // Ensure the remove won't violate minimum supply or trigger ZeroVirtualBalance.
         uint256 maxRemove = _maxSafeRemove(poolTotalSupply);
         vm.assume(maxRemove > 0);
         exactBptAmountIn = bound(exactBptAmountIn, 1, Math.min(lpBalance, maxRemove));
 
-        // Perform proportional remove.
+        (, , uint256[] memory rbBefore, ) = vault.getPoolTokenInfo(pool);
+        uint256 supplyBefore = poolTotalSupply;
+
         vm.prank(lp);
         router.removeLiquidityProportional(
             pool,
@@ -176,17 +146,33 @@ contract VBSafetyFuzzTest is BaseReClammTest {
             bytes("")
         );
 
-        // Read post-operation state.
-        (uint256[] memory vbAfter, ) = _computeCurrentVirtualBalances(pool);
-        (, , uint256[] memory realBalancesAfter, ) = vault.getPoolTokenInfo(pool);
+        (, , uint256[] memory rbAfter, ) = vault.getPoolTokenInfo(pool);
+        uint256 supplyAfter = vault.totalSupply(pool);
 
-        // Property: if both VBs are positive, the pool must hold real tokens.
-        if (vbAfter[0] > 0 && vbAfter[1] > 0) {
-            assertTrue(
-                realBalancesAfter[0] > 0 || realBalancesAfter[1] > 0,
-                "Both VBs positive but all real balances are zero -- pool has phantom value"
-            );
+        // Real balances scale by the same proportional factor as virtual balances. Verify with the same
+        // cross-multiplication bound used for VBs.
+        _assertRatioPreserved(rbBefore[0], rbAfter[0], supplyBefore, supplyAfter, "RBa");
+        _assertRatioPreserved(rbBefore[1], rbAfter[1], supplyBefore, supplyAfter, "RBb");
+    }
+
+    // ---- helpers ----
+
+    function _assertRatioPreserved(
+        uint256 oldVal,
+        uint256 newVal,
+        uint256 supplyOld,
+        uint256 supplyNew,
+        string memory label
+    ) internal pure {
+        if (oldVal == 0 || supplyNew == 0) {
+            return;
         }
+
+        uint256 crossOld = oldVal * supplyNew;
+        uint256 crossNew = newVal * supplyOld;
+
+        uint256 diff = crossOld > crossNew ? crossOld - crossNew : crossNew - crossOld;
+        assertLe(diff, supplyOld, string.concat(label, " ratio deviation exceeds 1-unit rounding bound"));
     }
 
     /// @dev Returns true if scaling VBs by `bptDelta / totalSupply` would truncate either VB to zero.
@@ -197,11 +183,8 @@ contract VBSafetyFuzzTest is BaseReClammTest {
 
     /// @dev Returns the maximum BPT that can be removed without hitting minimum supply or VB zeroing.
     function _maxSafeRemove(uint256 totalSupply) internal view returns (uint256) {
-        // Start from the minimum-supply bound.
         uint256 maxFromSupply = totalSupply > POOL_MINIMUM_TOTAL_SUPPLY ? totalSupply - POOL_MINIMUM_TOTAL_SUPPLY : 0;
 
-        // Additionally, bptDelta must be large enough that VB * bptDelta / totalSupply > 0.
-        // That means bptDelta > totalSupply / VB, i.e., exactBptAmountIn < totalSupply - ceil(totalSupply / VB).
         (uint256[] memory vb, ) = _computeCurrentVirtualBalances(pool);
         uint256 minDeltaA = vb[0] > 0 ? (totalSupply + vb[0] - 1) / vb[0] : totalSupply;
         uint256 minDeltaB = vb[1] > 0 ? (totalSupply + vb[1] - 1) / vb[1] : totalSupply;
@@ -210,5 +193,44 @@ contract VBSafetyFuzzTest is BaseReClammTest {
         uint256 maxFromVb = totalSupply > minDelta ? totalSupply - minDelta : 0;
 
         return Math.min(maxFromSupply, maxFromVb);
+    }
+}
+
+/// @notice Default parameters: priceRatio = 4, target at geometric center.
+contract VBSafetyFuzzDefaultTest is VBSafetyFuzzBase {
+    function _configureInitialPrices() internal override {
+        // Use inherited defaults.
+    }
+}
+
+/// @notice Max price ratio (20), target near geometric center. Exercises the most asymmetric VB regime.
+contract VBSafetyFuzzMaxRatioTest is VBSafetyFuzzBase {
+    function _configureInitialPrices() internal override {
+        // priceRatio = 20, target at geometric mean (sqrt(1 * 20) ~= 4.47)
+        setInitializationPrices(1e18, 20e18, 4.47e18);
+    }
+}
+
+/// @notice Min price ratio (just above 1.1). Tightest range; VBs are very large relative to real balances.
+contract VBSafetyFuzzMinRatioTest is VBSafetyFuzzBase {
+    function _configureInitialPrices() internal override {
+        // priceRatio = 1.1, target at geometric mean (sqrt(1 * 1.1) ~= 1.0488)
+        setInitializationPrices(1e18, 1.1e18, 1.0488e18);
+    }
+}
+
+/// @notice Target near the upper edge of the range. Real balance of A is small relative to Va.
+contract VBSafetyFuzzTargetNearMaxTest is VBSafetyFuzzBase {
+    function _configureInitialPrices() internal override {
+        // priceRatio = 4, target near maxPrice. _checkInitializationPrices bounds how close.
+        setInitializationPrices(1000e18, 4000e18, 3800e18);
+    }
+}
+
+/// @notice Target near the lower edge of the range. Real balance of B is small relative to Vb.
+contract VBSafetyFuzzTargetNearMinTest is VBSafetyFuzzBase {
+    function _configureInitialPrices() internal override {
+        // priceRatio = 4, target near minPrice.
+        setInitializationPrices(1000e18, 4000e18, 1100e18);
     }
 }
