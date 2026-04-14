@@ -11,6 +11,7 @@ import { ReClammPoolMock } from "../../contracts/test/ReClammPoolMock.sol";
 import { ReClammMathMock } from "../../contracts/test/ReClammMathMock.sol";
 import { ReClammPool } from "../../contracts/ReClammPool.sol";
 import { BaseReClammTest } from "./utils/BaseReClammTest.sol";
+import { a, b } from "../../contracts/lib/ReClammMath.sol";
 
 contract ReClammSwapTest is BaseReClammTest {
     using FixedPoint for *;
@@ -456,5 +457,181 @@ contract ReClammLongIdleDrainTest is BaseReClammTest {
 
         vm.prank(alice);
         router.swapSingleTokenExactIn(pool, IERC20(tokenB), IERC20(tokenA), 1, 0, MAX_UINT256, false, bytes(""));
+    }
+}
+
+/**
+ * @notice Documents the MEV surface around in-range price ratio widening updates.
+ * @dev When a price ratio update is active, `computeVirtualBalancesUpdatingPriceRatio` preserves the pool's current
+ * centeredness at the new (wider) ratio. Because centeredness is computed from live balances, a swap during the
+ * update window changes the centeredness that gets locked in, and the widening amplifies the attacker-chosen
+ * imbalance.
+ *
+ * Whether this is profitable depends on pool depth: the extraction scales with pool size (wider pool = less
+ * price impact per unit of imbalance), so deeper pools are more exposed. The tests below confirm the finding
+ * is real at sufficient pool depth and document the fee threshold that neutralizes it.
+ *
+ * Governance should prefer gradual price ratio updates over large instantaneous ones to limit this surface.
+ */
+contract ReClammPriceRatioWideningRoundTripTest is BaseReClammTest {
+    using FixedPoint for *;
+
+    // Use a duration slightly above 1 day so the 2x widening stays just under the maximum allowed daily
+    // rate. At exactly 1 day the rate lands right on the boundary and rounding in divUp/powUp can push
+    // the computed rate a hair above the max, causing PriceRatioUpdateTooFast.
+    uint256 private constant _UPDATE_DURATION = 1 days + 1 minutes;
+
+    function setUp() public override {
+        // Match the audit's witness: min/max/target = 1000/4000/2000.
+        setInitializationPrices(1000e18, 4000e18, 2000e18);
+        // Large pool (~414k A after init at target=2000). The extraction scales with pool depth.
+        poolInitAmount = 414_000e18;
+        super.setUp();
+    }
+
+    /// @dev Reproduces the audit finding. Confirms the round trip is profitable at zero fees with a 2x
+    /// widening at the audit's specific parameters, documenting the real extraction magnitude.
+    function testWideningRoundTripProfitableAtLargePoolSize() public {
+        vault.manualUnsafeSetStaticSwapFeePercentage(pool, 0);
+
+        (IERC20[] memory tokens, , , ) = vault.getPoolTokenInfo(pool);
+        IERC20 tokenA = tokens[a];
+        IERC20 tokenB = tokens[b];
+
+        uint256 attackerABefore = tokenA.balanceOf(alice);
+
+        // 100k A on a ~414k-A pool, matching the audit's witness.
+        uint256 swapAmount = 100_000e18;
+
+        vm.prank(alice);
+        uint256 amountBReceived = router.swapSingleTokenExactIn(
+            pool,
+            tokenA,
+            tokenB,
+            swapAmount,
+            0,
+            MAX_UINT256,
+            false,
+            bytes("")
+        );
+
+        assertTrue(ReClammPool(pool).isPoolWithinTargetRange(), "Pool should still be in range after setup swap");
+
+        skip(1 seconds);
+
+        vm.prank(admin);
+        ReClammPool(pool).startPriceRatioUpdate(8e18, block.timestamp, block.timestamp + _UPDATE_DURATION);
+
+        skip(_UPDATE_DURATION);
+
+        vm.prank(alice);
+        router.swapSingleTokenExactIn(pool, tokenB, tokenA, amountBReceived, 0, MAX_UINT256, false, bytes(""));
+
+        uint256 attackerAAfter = tokenA.balanceOf(alice);
+
+        // At zero fees and large pool depth, the widening extraction is real and profitable.
+        assertGt(attackerAAfter, attackerABefore, "Round trip should profit at large pool size with zero fees");
+
+        // The profit should be material. The audit's witness shows ~2.55% of the swap amount.
+        uint256 profit = attackerAAfter - attackerABefore;
+        uint256 profitBps = (profit * 10000) / swapAmount;
+        assertGt(profitBps, 200, "Profit should be at least 2% of swap amount");
+    }
+
+    /// @dev Same large-pool scenario, but with a swap fee. Searches for the fee that neutralizes the profit.
+    function testWideningRoundTripNeutralizedByFees() public {
+        (IERC20[] memory tokens, , , ) = vault.getPoolTokenInfo(pool);
+        IERC20 tokenA = tokens[a];
+        IERC20 tokenB = tokens[b];
+
+        uint256 swapAmount = 100_000e18;
+
+        // Binary search for the minimum fee that makes the round trip unprofitable.
+        // The threshold scales with widening magnitude; 2x is the maximum allowed per day.
+        uint256 low = 1; // 0.001%
+        uint256 high = 3000; // 3%
+
+        while (low < high) {
+            uint256 mid = (low + high) / 2;
+            uint256 fee = mid * 0.001e16;
+
+            uint256 snap = vm.snapshotState();
+
+            vault.manualUnsafeSetStaticSwapFeePercentage(pool, fee);
+
+            uint256 attackerABefore = tokenA.balanceOf(alice);
+
+            vm.prank(alice);
+            uint256 amountBReceived = router.swapSingleTokenExactIn(
+                pool,
+                tokenA,
+                tokenB,
+                swapAmount,
+                0,
+                MAX_UINT256,
+                false,
+                bytes("")
+            );
+
+            skip(1 seconds);
+
+            vm.prank(admin);
+            ReClammPool(pool).startPriceRatioUpdate(8e18, block.timestamp, block.timestamp + _UPDATE_DURATION);
+
+            skip(_UPDATE_DURATION);
+
+            vm.prank(alice);
+            router.swapSingleTokenExactIn(pool, tokenB, tokenA, amountBReceived, 0, MAX_UINT256, false, bytes(""));
+
+            bool profitable = tokenA.balanceOf(alice) > attackerABefore;
+            vm.revertToState(snap);
+
+            if (profitable) {
+                low = mid + 1;
+            } else {
+                high = mid;
+            }
+        }
+
+        uint256 minSafeFee = low * 0.001e16;
+
+        // Confirm the search didn't hit the ceiling.
+        assertLt(low, 3000, "Search hit ceiling; widen the range");
+
+        // A 2x widening (the maximum allowed daily rate) requires a swap fee above this threshold
+        // to neutralize extraction at large pool depth. Smaller widenings require proportionally less.
+        assertLt(minSafeFee, 2e16, "Safe fee for 2x widening should be below 2%");
+
+        // Verify: the search found a real boundary (not already unprofitable at minimum fee).
+        assertGt(low, 1, "Minimum fee already unprofitable; boundary check cannot verify");
+
+        // Verify: one step below the found fee is still profitable, confirming the boundary.
+        uint256 snap = vm.snapshotState();
+        vault.manualUnsafeSetStaticSwapFeePercentage(pool, (low - 1) * 0.001e16);
+
+        uint256 aBefore = tokenA.balanceOf(alice);
+
+        vm.prank(alice);
+        uint256 bReceived = router.swapSingleTokenExactIn(
+            pool,
+            tokenA,
+            tokenB,
+            swapAmount,
+            0,
+            MAX_UINT256,
+            false,
+            bytes("")
+        );
+
+        skip(1 seconds);
+        vm.prank(admin);
+        ReClammPool(pool).startPriceRatioUpdate(8e18, block.timestamp, block.timestamp + _UPDATE_DURATION);
+        skip(_UPDATE_DURATION);
+
+        vm.prank(alice);
+        router.swapSingleTokenExactIn(pool, tokenB, tokenA, bReceived, 0, MAX_UINT256, false, bytes(""));
+
+        assertGt(tokenA.balanceOf(alice), aBefore, "One step below safe fee should still be profitable");
+        vm.revertToState(snap);
     }
 }
