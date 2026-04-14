@@ -43,7 +43,7 @@ struct ReClammPoolParams {
  * @param maxDailyPriceShiftExponent The maximum exponent for the pool's price shift, as an 18-decimal FP percentage
  * @param maxDailyPriceRatioUpdateRate The maximum percentage the price range can expand/contract per day
  * @param minPriceRatioUpdateDuration The minimum duration for the price ratio update, expressed in seconds
- * @param minPriceRatioDelta The minimum absolute difference between current and new fourth root price ratio
+ * @param minPriceRatioDelta The minimum absolute difference between current and new price ratio
  * @param balanceRatioAndPriceTolerance The maximum amount initialized pool parameters can deviate from ideal values
  */
 struct ReClammPoolImmutableData {
@@ -232,8 +232,11 @@ interface IReClammPool is IBasePool {
     /// @notice The rate of change exceeds the maximum daily price ratio rate.
     error PriceRatioUpdateTooFast();
 
-    /// @notice The price ratio being set is too close to the current one.
-    error PriceRatioDeltaBelowMin(uint256 fourthRootPriceRatioDelta);
+    /**
+     * @notice The price ratio being set is too close to the current one.
+     * @param priceRatioDelta The absolute difference between the current and new price ratios
+     */
+    error PriceRatioDeltaBelowMin(uint256 priceRatioDelta);
 
     /// @notice An attempt was made to stop the price ratio update while no update was in progress.
     error PriceRatioNotUpdating();
@@ -264,7 +267,10 @@ interface IReClammPool is IBasePool {
     /// @notice The current price interval or spot price is outside the initialization price range.
     error WrongInitializationPrices();
 
-    /// @notice Hook was invoked with the wrong pool address.
+    /**
+     * @notice The hook was invoked with the wrong pool address.
+     * @param pool The address of the pool that was passed to the hook
+     */
     error InvalidPoolArgument(address pool);
 
     /**
