@@ -78,8 +78,16 @@ struct ReClammPoolImmutableData {
  * are withdrawals, raw and live balances will be out of sync until Recovery Mode is disabled.
  *
  * Normally pools that go into recovery do not come back, but it is possible. If so, the pool would operate post-
- * recovery with inflated virtual depth until the price drifts out of range (triggering a VB shift) or governance
- * forces recalibration by calling `setDailyPriceShiftExponent` or `setCenterednessMargin`.
+ * recovery with inflated virtual depth. Proportional withdrawals scale Ra and Rb by the same factor, leaving
+ * centeredness unchanged, so the out-of-range VB shift does not trigger. Asymmetric swaps may gradually shift
+ * centeredness and eventually trigger recalibration, but this is not guaranteed. `setDailyPriceShiftExponent`
+ * and `setCenterednessMargin` do not recompute VBs from real balances; they only adjust their respective parameter.
+ * The only reliable recalibration path is `startPriceRatioUpdate` with a target that forces VB recomputation.
+ *
+ * Note: disabling Recovery Mode on a ReClamm pool after withdrawals have occurred is not recommended. The inflated
+ * virtual balances cannot be fully corrected without a price ratio update, and the pool's swap curve will not price
+ * accurately until that recalibration is performed. Governance should treat Recovery Mode as one-way for this pool
+ * type.
  *
  * Base Pool:
  * @param balancesLiveScaled18 Token balances after paying yield fees, applying decimal scaling and rates
