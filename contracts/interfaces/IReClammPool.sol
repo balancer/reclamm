@@ -220,6 +220,9 @@ interface IReClammPool is IBasePool {
     /// @notice The daily price shift exponent is too high.
     error DailyPriceShiftExponentTooHigh();
 
+    /// @notice A nonzero daily price shift exponent is below the minimum resolution of the internal conversion.
+    error DailyPriceShiftExponentTooLow();
+
     /// @notice The price ratio is too low.
     error PriceRatioBelowMin(uint256 priceRatio);
 
@@ -324,7 +327,7 @@ interface IReClammPool is IBasePool {
 
     /**
      * @notice Returns the internal time constant representation for the daily price shift exponent (tau).
-     * @dev Equals dailyPriceShiftExponent / _PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT.
+     * @dev Equals 1 - dailyPriceShiftExponent / _PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT.
      * @return dailyPriceShiftBase The internal representation for the daily price shift exponent
      */
     function getDailyPriceShiftBase() external view returns (uint256 dailyPriceShiftBase);
