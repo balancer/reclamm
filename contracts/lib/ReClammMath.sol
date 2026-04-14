@@ -46,7 +46,8 @@ library ReClammMath {
     //
     // This constant shall be used to scale the dailyPriceShiftExponent, which is a percentage, to the actual value of
     // tau that will be used in the formula.
-    uint256 private constant _PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT = 124649;
+    // solhint-disable-next-line private-vars-leading-underscore
+    uint256 internal constant PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT = 124649;
 
     // We need to use a random number to calculate the initial virtual and real balances. This number will be scaled
     // later, during initialization, according to the actual liquidity added. Choosing a large number will maintain
@@ -412,6 +413,15 @@ library ReClammMath {
      * Substitute [3] in [2]. Then, isolate one of the V's. Finally, replace the isolated V in [1]. We get a quadratic
      * equation that will be solved in this function.
      *
+     * Because centeredness is computed from the current live balances and the last stored virtual balances, any
+     * swap that occurs during an active price ratio update will change the centeredness that gets preserved. This
+     * creates MEV around governance-initiated price ratio updates: a searcher can swap before the update settles
+     * to skew centeredness, then reverse after the widened ratio locks in the skewed state. The extractable value
+     * scales with both pool depth and widening magnitude. For the worst case (a 2x widening, the maximum allowed
+     * daily rate), a swap fee of at least ~2% is needed to neutralize the round trip. Smaller widenings require
+     * proportionally lower fees. Governance should prefer gradual updates (smaller ratio changes over longer
+     * durations) to limit the extractable value per update step.
+     *
      * @param currentFourthRootPriceRatio The current fourth root of the price ratio of the pool
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param lastVirtualBalanceA The last virtual balance of token A
@@ -759,7 +769,7 @@ library ReClammMath {
      * @return dailyPriceShiftBase Internal time constant used to update virtual balances (1 - tau)
      */
     function toDailyPriceShiftBase(uint256 dailyPriceShiftExponent) internal pure returns (uint256) {
-        return FixedPoint.ONE - dailyPriceShiftExponent / _PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT;
+        return FixedPoint.ONE - dailyPriceShiftExponent / PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT;
     }
 
     /**
@@ -769,7 +779,7 @@ library ReClammMath {
      * @return dailyPriceShiftExponent The daily price shift exponent as an 18-decimal FP percentage
      */
     function toDailyPriceShiftExponent(uint256 dailyPriceShiftBase) internal pure returns (uint256) {
-        return (FixedPoint.ONE - dailyPriceShiftBase) * _PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT;
+        return (FixedPoint.ONE - dailyPriceShiftBase) * PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT;
     }
 
     /**

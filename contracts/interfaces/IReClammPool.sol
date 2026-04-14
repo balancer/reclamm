@@ -43,7 +43,7 @@ struct ReClammPoolParams {
  * @param maxDailyPriceShiftExponent The maximum exponent for the pool's price shift, as an 18-decimal FP percentage
  * @param maxDailyPriceRatioUpdateRate The maximum percentage the price range can expand/contract per day
  * @param minPriceRatioUpdateDuration The minimum duration for the price ratio update, expressed in seconds
- * @param minPriceRatioDelta The minimum absolute difference between current and new fourth root price ratio
+ * @param minPriceRatioDelta The minimum absolute difference between current and new price ratio
  * @param balanceRatioAndPriceTolerance The maximum amount initialized pool parameters can deviate from ideal values
  */
 struct ReClammPoolImmutableData {
@@ -78,8 +78,16 @@ struct ReClammPoolImmutableData {
  * are withdrawals, raw and live balances will be out of sync until Recovery Mode is disabled.
  *
  * Normally pools that go into recovery do not come back, but it is possible. If so, the pool would operate post-
- * recovery with inflated virtual depth until the price drifts out of range (triggering a VB shift) or governance
- * forces recalibration by calling `setDailyPriceShiftExponent` or `setCenterednessMargin`.
+ * recovery with inflated virtual depth. Proportional withdrawals scale Ra and Rb by the same factor, leaving
+ * centeredness unchanged, so the out-of-range VB shift does not trigger. Asymmetric swaps may gradually shift
+ * centeredness and eventually trigger recalibration, but this is not guaranteed. `setDailyPriceShiftExponent`
+ * and `setCenterednessMargin` do not recompute VBs from real balances; they only adjust their respective parameter.
+ * The only reliable recalibration path is `startPriceRatioUpdate` with a target that forces VB recomputation.
+ *
+ * Note: disabling Recovery Mode on a ReClamm pool after withdrawals have occurred is not recommended. The inflated
+ * virtual balances cannot be fully corrected without a price ratio update, and the pool's swap curve will not price
+ * accurately until that recalibration is performed. Governance should treat Recovery Mode as one-way for this pool
+ * type.
  *
  * Base Pool:
  * @param balancesLiveScaled18 Token balances after paying yield fees, applying decimal scaling and rates
@@ -212,6 +220,9 @@ interface IReClammPool is IBasePool {
     /// @notice The daily price shift exponent is too high.
     error DailyPriceShiftExponentTooHigh();
 
+    /// @notice A nonzero daily price shift exponent is below the minimum resolution of the internal conversion.
+    error DailyPriceShiftExponentTooLow();
+
     /// @notice The price ratio is too low.
     error PriceRatioBelowMin(uint256 priceRatio);
 
@@ -224,8 +235,11 @@ interface IReClammPool is IBasePool {
     /// @notice The rate of change exceeds the maximum daily price ratio rate.
     error PriceRatioUpdateTooFast();
 
-    /// @notice The price ratio being set is too close to the current one.
-    error PriceRatioDeltaBelowMin(uint256 fourthRootPriceRatioDelta);
+    /**
+     * @notice The price ratio being set is too close to the current one.
+     * @param priceRatioDelta The absolute difference between the current and new price ratios
+     */
+    error PriceRatioDeltaBelowMin(uint256 priceRatioDelta);
 
     /// @notice An attempt was made to stop the price ratio update while no update was in progress.
     error PriceRatioNotUpdating();
@@ -256,7 +270,10 @@ interface IReClammPool is IBasePool {
     /// @notice The current price interval or spot price is outside the initialization price range.
     error WrongInitializationPrices();
 
-    /// @notice Hook was invoked with the wrong pool address.
+    /**
+     * @notice The hook was invoked with the wrong pool address.
+     * @param pool The address of the pool that was passed to the hook
+     */
     error InvalidPoolArgument(address pool);
 
     /**
@@ -310,7 +327,7 @@ interface IReClammPool is IBasePool {
 
     /**
      * @notice Returns the internal time constant representation for the daily price shift exponent (tau).
-     * @dev Equals dailyPriceShiftExponent / _PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT.
+     * @dev Equals 1 - dailyPriceShiftExponent / _PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT.
      * @return dailyPriceShiftBase The internal representation for the daily price shift exponent
      */
     function getDailyPriceShiftBase() external view returns (uint256 dailyPriceShiftBase);
