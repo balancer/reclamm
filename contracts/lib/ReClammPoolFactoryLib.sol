@@ -84,11 +84,7 @@ library ReClammPoolFactoryLib {
     function validatePoolParams(ReClammPoolParams memory params) internal pure {
         validateDailyPriceShiftExponent(params.dailyPriceShiftExponent);
 
-        // Likewise, there is no minimum for the centeredness margin. A value of 0 is a valid configuration: the
-        // target range becomes the full price range, so the pool is always considered in range.
-        if (params.centerednessMargin > MAX_CENTEREDNESS_MARGIN) {
-            revert IReClammPool.InvalidCenterednessMargin();
-        }
+        validateCenterednessMargin(params.centerednessMargin);
 
         if (
             params.initialMinPrice == 0 ||
@@ -112,6 +108,18 @@ library ReClammPoolFactoryLib {
         } else if (initialPriceRatio > MAX_PRICE_RATIO) {
             revert IReClammPool.PriceRatioAboveMax(initialPriceRatio);
         }
+    }
+
+    /**
+     * @notice Validates that a centeredness margin does not exceed the maximum.
+     * @dev A value of 0 is a valid configuration: the target range target range becomes the full price range, so the
+     * pool is always considered in range.
+     *
+     * @param centerednessMargin The centeredness margin to validate
+     */
+    function validateCenterednessMargin(uint256 centerednessMargin) internal pure {
+        // solhint-disable-next-line custom-errors
+        require(centerednessMargin <= MAX_CENTEREDNESS_MARGIN, IReClammPool.InvalidCenterednessMargin());
     }
 
     /// @notice Reverts if initial target price is outside the target range defined by the centeredness margin.
