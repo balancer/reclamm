@@ -217,6 +217,9 @@ interface IReClammPool is IBasePool {
     /// @notice An initial price parameter is invalid: zero, or the target falls outside the [min, max] range.
     error InvalidInitialPrice();
 
+    /// @notice The initial target price is outside the target range.
+    error InvalidInitialTargetPrice();
+
     /// @notice The daily price shift exponent is too high.
     error DailyPriceShiftExponentTooHigh();
 

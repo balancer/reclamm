@@ -1408,7 +1408,7 @@ contract ReClammPoolTest is BaseReClammTest {
             _DEFAULT_SWAP_FEE,
             priceParams,
             _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
-            _DEFAULT_CENTEREDNESS_MARGIN,
+            1e16, // centeredness margin
             bytes32(saltNumber++)
         );
     }
