@@ -340,7 +340,6 @@ library ReClammMath {
     ) internal view returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) {
         uint32 currentTimestamp = block.timestamp.toUint32();
 
-
         // Per-block VB freeze: once any interaction in a block triggers VB recomputation and stores the result, all
         // subsequent interactions in the same block reuse the stored values. This is intentional. Without it, multiple
         // interactions within one block could each trigger recomputation at different effective durations, creating a
