@@ -66,12 +66,11 @@ library ReClammPoolFactoryLib {
     uint256 internal constant MAX_DAILY_PRICE_SHIFT_EXPONENT = 100e16; // 100%
 
     // solhint-enable private-vars-leading-underscore
+    // solhint-disable custom-errors
 
     function validateTokenConfig(TokenConfig[] memory tokens, ReClammPriceParams memory priceParams) internal pure {
         // The ReClammPool only supports 2 tokens.
-        if (tokens.length > 2) {
-            revert IVaultErrors.MaxTokens();
-        }
+        require(tokens.length <= 2, IVaultErrors.MaxTokens());
 
         if (priceParams.tokenAPriceIncludesRate && tokens[0].tokenType != TokenType.WITH_RATE) {
             revert IVaultErrors.InvalidTokenType();
@@ -115,14 +114,15 @@ library ReClammPoolFactoryLib {
     // Validates that a daily price shift exponent is either zero (disabled) or above the integer-division threshold
     // that would silently truncate to zero. Also enforces the upper bound.
     function validateDailyPriceShiftExponent(uint256 dailyPriceShiftExponent) internal pure {
-        if (
-            dailyPriceShiftExponent != 0 &&
-            dailyPriceShiftExponent < ReClammMath.PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT
-        ) {
-            revert IReClammPool.DailyPriceShiftExponentTooLow();
-        }
-        if (dailyPriceShiftExponent > MAX_DAILY_PRICE_SHIFT_EXPONENT) {
-            revert IReClammPool.DailyPriceShiftExponentTooHigh();
-        }
+        require(
+            dailyPriceShiftExponent == 0 ||
+                dailyPriceShiftExponent >= ReClammMath.PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT,
+            IReClammPool.DailyPriceShiftExponentTooLow()
+        );
+
+        require(
+            dailyPriceShiftExponent <= MAX_DAILY_PRICE_SHIFT_EXPONENT,
+            IReClammPool.DailyPriceShiftExponentTooHigh()
+        );
     }
 }
