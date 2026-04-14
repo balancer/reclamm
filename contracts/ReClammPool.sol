@@ -384,71 +384,12 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     /********************************************************
-                        Pool State Getters
+                       Stored State Getters
     ********************************************************/
 
-    /// @inheritdoc IReClammPool
-    function computeInitialBalancesRaw(
-        IERC20 referenceToken,
-        uint256 referenceAmountInRaw
-    ) external view returns (uint256[] memory initialBalancesRaw) {
-        return _helper.computeInitialBalancesRaw(this, referenceToken, referenceAmountInRaw);
-    }
-
-    /// @inheritdoc IReClammPool
-    function computeCurrentPriceRange() external view returns (uint256 minPrice, uint256 maxPrice) {
-        if (_vault.isPoolInitialized(address(this))) {
-            (
-                uint256[] memory balancesScaled18,
-                uint256 currentVirtualBalanceA,
-                uint256 currentVirtualBalanceB,
-
-            ) = _getRealAndVirtualBalances();
-
-            (minPrice, maxPrice) = ReClammMath.computePriceRange(
-                balancesScaled18,
-                currentVirtualBalanceA,
-                currentVirtualBalanceB
-            );
-        } else {
-            minPrice = _INITIAL_MIN_PRICE;
-            maxPrice = _INITIAL_MAX_PRICE;
-        }
-    }
-
-    /// @inheritdoc IReClammPool
-    function computeCurrentVirtualBalances()
-        external
-        view
-        returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed)
-    {
-        (, currentVirtualBalanceA, currentVirtualBalanceB, changed) = _getRealAndVirtualBalances();
-    }
-
-    /**
-     * @notice Returns current live pool balances and time-adjusted virtual balances.
-     * @dev Both balances and virtual balances are in the same underlying/rate-scaled space, which is required
-     * for consistent spot price and price ratio calculations. State-mutating paths (onSwap, _updateVirtualBalances)
-     * also operate on live balances, so this keeps the frames consistent.
-     *
-     * @return balancesScaled18 Current live balances, scaled to 18 decimals (decimal scaling and rates applied)
-     * @return currentVirtualBalanceA Current virtual balance of token A, adjusted for time elapsed since last update
-     * @return currentVirtualBalanceB Current virtual balance of token B, adjusted for time elapsed since last update
-     * @return changed True if the virtual balances differ from `lastVirtualBalances`
-     */
-    function _getRealAndVirtualBalances()
-        internal
-        view
-        returns (
-            uint256[] memory balancesScaled18,
-            uint256 currentVirtualBalanceA,
-            uint256 currentVirtualBalanceB,
-            bool changed
-        )
-    {
-        balancesScaled18 = _vault.getCurrentLiveBalances(address(this));
-        (currentVirtualBalanceA, currentVirtualBalanceB, changed) = _computeCurrentVirtualBalances(balancesScaled18);
-    }
+    // The getters in this section return values directly from storage. They perform no virtual-balance math and are
+    // safe to call before the pool has been initialized; they will simply return zero values for state that hasn't
+    // been set yet.
 
     /// @inheritdoc IReClammPool
     function getLastTimestamp() external view returns (uint32) {
@@ -480,18 +421,90 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         return _priceRatioState;
     }
 
+    /********************************************************
+                        Live State Getters
+    ********************************************************/
+
     /// @inheritdoc IReClammPool
-    function computeCurrentFourthRootPriceRatio() external view returns (uint256) {
-        return ReClammMath.fourthRootScaled18(_computeCurrentPriceRatio());
+    function computeCurrentPriceRange() external view returns (uint256 minPrice, uint256 maxPrice) {
+        if (_vault.isPoolInitialized(address(this))) {
+            (
+                uint256[] memory balancesScaled18,
+                uint256 currentVirtualBalanceA,
+                uint256 currentVirtualBalanceB,
+
+            ) = _getRealAndVirtualBalances();
+
+            (minPrice, maxPrice) = ReClammMath.computePriceRange(
+                balancesScaled18,
+                currentVirtualBalanceA,
+                currentVirtualBalanceB
+            );
+        } else {
+            minPrice = _INITIAL_MIN_PRICE;
+            maxPrice = _INITIAL_MAX_PRICE;
+        }
     }
 
     /// @inheritdoc IReClammPool
-    function computeCurrentPriceRatio() external view returns (uint256) {
+    function computeCurrentVirtualBalances()
+        external
+        view
+        onlyWhenInitialized
+        returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed)
+    {
+        (, currentVirtualBalanceA, currentVirtualBalanceB, changed) = _getRealAndVirtualBalances();
+    }
+
+    /**
+     * @notice Returns current live pool balances and time-adjusted virtual balances.
+     * @dev Both balances and virtual balances are in the same underlying/rate-scaled space, which is required
+     * for consistent spot price and price ratio calculations. State-mutating paths (onSwap, _updateVirtualBalances)
+     * also operate on live balances, so this keeps the frames consistent.
+     *
+     * @return balancesScaled18 Current live balances, scaled to 18 decimals (decimal scaling and rates applied)
+     * @return currentVirtualBalanceA Current virtual balance of token A, adjusted for time elapsed since last update
+     * @return currentVirtualBalanceB Current virtual balance of token B, adjusted for time elapsed since last update
+     * @return changed True if the virtual balances differ from `lastVirtualBalances`
+     */
+    function _getRealAndVirtualBalances()
+        internal
+        view
+        returns (
+            uint256[] memory balancesScaled18,
+            uint256 currentVirtualBalanceA,
+            uint256 currentVirtualBalanceB,
+            bool changed
+        )
+    {
+        balancesScaled18 = _vault.getCurrentLiveBalances(address(this));
+        (currentVirtualBalanceA, currentVirtualBalanceB, changed) = _computeCurrentVirtualBalances(balancesScaled18);
+    }
+
+    /// @inheritdoc IReClammPool
+    function computeCurrentPriceRatio() external view onlyWhenInitialized returns (uint256) {
         return _computeCurrentPriceRatio();
     }
 
     /// @inheritdoc IReClammPool
-    function isPoolWithinTargetRange() external view returns (bool) {
+    function computeCurrentFourthRootPriceRatio() external view onlyWhenInitialized returns (uint256) {
+        return ReClammMath.fourthRootScaled18(_computeCurrentPriceRatio());
+    }
+
+    /// @inheritdoc IReClammPool
+    function computeCurrentPoolCenteredness() external view onlyWhenInitialized returns (uint256, bool) {
+        (
+            uint256[] memory balancesScaled18,
+            uint256 currentVirtualBalanceA,
+            uint256 currentVirtualBalanceB,
+
+        ) = _getRealAndVirtualBalances();
+
+        return ReClammMath.computeCenteredness(balancesScaled18, currentVirtualBalanceA, currentVirtualBalanceB);
+    }
+
+    /// @inheritdoc IReClammPool
+    function isPoolWithinTargetRange() external view onlyWhenInitialized returns (bool) {
         (
             uint256[] memory balancesScaled18,
             uint256 currentVirtualBalanceA,
@@ -508,16 +521,16 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             );
     }
 
+    /********************************************************
+                        Off-chain Helpers
+    ********************************************************/
+
     /// @inheritdoc IReClammPool
-    function computeCurrentPoolCenteredness() external view returns (uint256, bool) {
-        (
-            uint256[] memory balancesScaled18,
-            uint256 currentVirtualBalanceA,
-            uint256 currentVirtualBalanceB,
-
-        ) = _getRealAndVirtualBalances();
-
-        return ReClammMath.computeCenteredness(balancesScaled18, currentVirtualBalanceA, currentVirtualBalanceB);
+    function computeInitialBalancesRaw(
+        IERC20 referenceToken,
+        uint256 referenceAmountInRaw
+    ) external view returns (uint256[] memory initialBalancesRaw) {
+        return _helper.computeInitialBalancesRaw(this, referenceToken, referenceAmountInRaw);
     }
 
     /// @inheritdoc IReClammPool
@@ -544,7 +557,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.isPoolPaused = poolConfig.isPoolPaused;
         data.isPoolInRecoveryMode = poolConfig.isPoolInRecoveryMode;
 
-        // If the pool is not initialized, virtual balances will be zero and `_computeCurrentPriceRatio` would revert.
+        // The price ratio is derived from live + virtual balances; before initialization, virtual balances are zero
+        // and `_computeCurrentPriceRatio` would revert (the public `computeCurrentPriceRatio` getter explicitly
+        // reverts with `PoolNotInitialized` for the same reason). Skip the computation here so that integrations
+        // can still call `getReClammPoolDynamicData` on a freshly deployed pool. The ratio fields stay zero, while
+        // the static fields (rates, fees, supply) remain readable.
         if (data.isPoolInitialized) {
             data.currentPriceRatio = _computeCurrentPriceRatio();
             data.currentFourthRootPriceRatio = ReClammMath.fourthRootScaled18(data.currentPriceRatio);
@@ -579,7 +596,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         data.balanceRatioAndPriceTolerance = _BALANCE_RATIO_AND_PRICE_TOLERANCE;
     }
 
-    /********************************************************   
+    /********************************************************
                         Pool State Setters
     ********************************************************/
 
