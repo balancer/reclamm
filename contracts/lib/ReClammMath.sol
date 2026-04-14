@@ -349,6 +349,12 @@ library ReClammMath {
         // updated curve, providing the economic incentive for arbitrageurs to push the pool back toward range. At
         // typical operational configurations (daily shift exponent < 5%), the per-block VB change is much smaller than
         // the minimum round-trip swap fee (2 x 0.001%), making this economically neutral.
+        //
+        // Note: this freeze covers only the time-based VB evolution handled here (price-ratio updates and out-of-range
+        // decay). Proportional add and remove operations also scale VBs via the `onBeforeAddLiquidity` and
+        // `onBeforeRemoveLiquidity` hooks (up on add, down on remove), independently of this computation, and occur
+        // exactly once per operation regardless of block timing. That scaling preserves the Va/Vb ratio, and therefore
+        // also the centeredness and price ratio.
         if (lastTimestamp == currentTimestamp) {
             return (lastVirtualBalanceA, lastVirtualBalanceB, false);
         }
