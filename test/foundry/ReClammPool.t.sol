@@ -1454,7 +1454,7 @@ contract ReClammPoolTest is BaseReClammTest {
             name: "ReClamm Pool",
             symbol: "FAIL_POOL",
             version: "1",
-            dailyPriceShiftExponent: ReClammPoolFactoryLib.MIN_NONZERO_DAILY_PRICE_SHIFT_EXPONENT - 1,
+            dailyPriceShiftExponent: ReClammMath.PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT - 1,
             centerednessMargin: _DEFAULT_CENTEREDNESS_MARGIN,
             initialMinPrice: _DEFAULT_MIN_PRICE,
             initialMaxPrice: _DEFAULT_MAX_PRICE,
@@ -1630,7 +1630,7 @@ contract ReClammPoolTest is BaseReClammTest {
         // in toDailyPriceShiftBase. The validation rejects these.
         vm.prank(admin);
         vm.expectRevert(IReClammPool.DailyPriceShiftExponentTooLow.selector);
-        ReClammPool(pool).setDailyPriceShiftExponent(ReClammPoolFactoryLib.MIN_NONZERO_DAILY_PRICE_SHIFT_EXPONENT - 1);
+        ReClammPool(pool).setDailyPriceShiftExponent(ReClammMath.PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT - 1);
     }
 
     function testSetDailyPriceShiftExponentZeroAllowed() public {
@@ -1643,7 +1643,7 @@ contract ReClammPoolTest is BaseReClammTest {
     function testSetDailyPriceShiftExponentAtMinimum() public {
         // The minimum nonzero value should be accepted.
         vm.prank(admin);
-        ReClammPool(pool).setDailyPriceShiftExponent(ReClammPoolFactoryLib.MIN_NONZERO_DAILY_PRICE_SHIFT_EXPONENT);
+        ReClammPool(pool).setDailyPriceShiftExponent(ReClammMath.PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT);
         assertGt(ReClammPool(pool).getDailyPriceShiftExponent(), 0);
     }
 
