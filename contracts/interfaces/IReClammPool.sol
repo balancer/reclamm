@@ -79,10 +79,10 @@ struct ReClammPoolImmutableData {
  *
  * Normally pools that go into recovery do not come back, but it is possible. If so, the pool would operate post-
  * recovery with inflated virtual depth. Proportional withdrawals scale Ra and Rb by the same factor, leaving
- * centeredness unchanged, so the out-of-range VB shift does not trigger immediately. Subsequent swaps do move
- * centeredness asymmetrically, and will eventually drive the pool out of range, at which point the VB shift
- * gradually recalibrates. `setDailyPriceShiftExponent` and `setCenterednessMargin` do not themselves recompute
- * VBs from real balances; they only adjust their respective parameter.
+ * centeredness unchanged, so the out-of-range VB shift does not trigger. Asymmetric swaps may gradually shift
+ * centeredness and eventually trigger recalibration, but this is not guaranteed. `setDailyPriceShiftExponent`
+ * and `setCenterednessMargin` do not recompute VBs from real balances; they only adjust their respective parameter.
+ * The only reliable recalibration path is `startPriceRatioUpdate` with a target that forces VB recomputation.
  *
  * Base Pool:
  * @param balancesLiveScaled18 Token balances after paying yield fees, applying decimal scaling and rates
