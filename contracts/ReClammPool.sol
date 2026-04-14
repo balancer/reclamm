@@ -837,9 +837,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
      * @param centerednessMargin The new centerednessMargin value, which must be within the target range
      */
     function _setCenterednessMargin(uint256 centerednessMargin) internal {
-        if (centerednessMargin > ReClammPoolFactoryLib.MAX_CENTEREDNESS_MARGIN) {
-            revert InvalidCenterednessMargin();
-        }
+        ReClammPoolFactoryLib.validateCenterednessMargin(centerednessMargin);
 
         // Straight cast is safe since the margin is validated above (and tests ensure the margins fit in uint64).
         _centerednessMargin = uint64(centerednessMargin);
