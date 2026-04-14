@@ -84,6 +84,11 @@ struct ReClammPoolImmutableData {
  * and `setCenterednessMargin` do not recompute VBs from real balances; they only adjust their respective parameter.
  * The only reliable recalibration path is `startPriceRatioUpdate` with a target that forces VB recomputation.
  *
+ * Note: disabling Recovery Mode on a ReClamm pool after withdrawals have occurred is not recommended. The inflated
+ * virtual balances cannot be fully corrected without a price ratio update, and the pool's swap curve will not price
+ * accurately until that recalibration is performed. Governance should treat Recovery Mode as one-way for this pool
+ * type.
+ *
  * Base Pool:
  * @param balancesLiveScaled18 Token balances after paying yield fees, applying decimal scaling and rates
  * @param tokenRates 18-decimal FP values for rate tokens (e.g., yield-bearing), or FP(1) for standard tokens
