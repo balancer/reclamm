@@ -32,8 +32,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     using SafeCast for *;
     using ReClammMath for *;
 
-    // solhint-disable custom-errors
-
     // Fees are 18-decimal, floating point values, which will be stored in the Vault using 24 bits.
     // This means they have 0.00001% resolution (i.e., any non-zero bits < 1e11 will cause precision loss).
     // Minimum values help make the math well-behaved (i.e., the swap fee should overwhelm any rounding error).
@@ -115,9 +113,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     function _ensureVaultIsInitialized() internal view {
-        if (_vault.isPoolInitialized(address(this)) == false) {
-            revert PoolNotInitialized();
-        }
+        require(_vault.isPoolInitialized(address(this)), PoolNotInitialized());
     }
 
     constructor(
@@ -641,9 +637,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         uint256 updateDuration = priceRatioUpdateEndTime - actualPriceRatioUpdateStartTime;
 
         // We've already validated that end time >= start time at this point.
-        if (updateDuration < _MIN_PRICE_RATIO_UPDATE_DURATION) {
-            revert PriceRatioUpdateDurationTooShort();
-        }
+        require(updateDuration >= _MIN_PRICE_RATIO_UPDATE_DURATION, PriceRatioUpdateDurationTooShort());
 
         _updateVirtualBalances();
 
@@ -660,9 +654,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
                 : startPriceRatio - endPriceRatio;
         }
 
-        if (priceRatioDelta < _MIN_PRICE_RATIO_DELTA) {
-            revert PriceRatioDeltaBelowMin(priceRatioDelta);
-        }
+        require(priceRatioDelta >= _MIN_PRICE_RATIO_DELTA, PriceRatioDeltaBelowMin(priceRatioDelta));
 
         if (
             _computeDailyPriceRatioUpdateRate(startPriceRatio, endPriceRatio, updateDuration) >
