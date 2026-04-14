@@ -341,8 +341,21 @@ library ReClammMath {
     ) internal view returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) {
         uint32 currentTimestamp = block.timestamp.toUint32();
 
-        // If the last timestamp is the same as the current timestamp, virtual balances were already reviewed in the
-        // current block.
+        // Per-block VB freeze: once any interaction in a block triggers VB recomputation and stores the result, all
+        // subsequent interactions in the same block reuse the stored values. This is intentional. Without it, multiple
+        // interactions within one block could each trigger recomputation at different effective durations, creating a
+        // within-block manipulation surface. The consequence is that the first mover in each block (e.g., a MEV bot)
+        // captures the VB shift that accumulated since the previous block. When the pool is out of range, this is the
+        // per-block increment of the re-centering mechanism: the first trade in each block executes against the
+        // updated curve, providing the economic incentive for arbitrageurs to push the pool back toward range. At
+        // typical operational configurations (daily shift exponent < 5%), the per-block VB change is much smaller than
+        // the minimum round-trip swap fee (2 x 0.001%), making this economically neutral.
+        //
+        // Note: this freeze covers only the time-based VB evolution handled here (price-ratio updates and out-of-range
+        // decay). Proportional add and remove operations also scale VBs via the `onBeforeAddLiquidity` and
+        // `onBeforeRemoveLiquidity` hooks (up on add, down on remove), independently of this computation, and occur
+        // exactly once per operation regardless of block timing. That scaling preserves the Va/Vb ratio, and therefore
+        // also the centeredness and price ratio.
         if (lastTimestamp == currentTimestamp) {
             return (lastVirtualBalanceA, lastVirtualBalanceB, false);
         }
