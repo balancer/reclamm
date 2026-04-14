@@ -550,12 +550,13 @@ contract ReClammPriceRatioWideningRoundTripTest is BaseReClammTest {
         // The threshold scales with widening magnitude; 2x is the maximum allowed per day.
         uint256 low = 1; // 0.001%
         uint256 high = 3000; // 3%
+        uint256 snap;
 
         while (low < high) {
             uint256 mid = (low + high) / 2;
             uint256 fee = mid * 0.001e16;
 
-            uint256 snap = vm.snapshotState();
+            snap = vm.snapshotState();
 
             vault.manualUnsafeSetStaticSwapFeePercentage(pool, fee);
 
@@ -606,7 +607,7 @@ contract ReClammPriceRatioWideningRoundTripTest is BaseReClammTest {
         assertGt(low, 1, "Minimum fee already unprofitable; boundary check cannot verify");
 
         // Verify: one step below the found fee is still profitable, confirming the boundary.
-        uint256 snap = vm.snapshotState();
+        snap = vm.snapshotState();
         vault.manualUnsafeSetStaticSwapFeePercentage(pool, (low - 1) * 0.001e16);
 
         uint256 aBefore = tokenA.balanceOf(alice);

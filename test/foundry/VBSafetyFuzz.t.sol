@@ -219,18 +219,24 @@ contract VBSafetyFuzzMinRatioTest is VBSafetyFuzzBase {
     }
 }
 
-/// @notice Target near the upper edge of the range. Real balance of A is small relative to Va.
+/**
+ * @notice Target biased toward the upper edge of the range. Real balance of A is small relative to Va.
+ * @dev The init-time centeredness check at the default 20% margin rejects targets too close to maxPrice.
+ * This target yields centeredness ~29%, as close to the upper edge as the margin permits while keeping
+ * headroom against FP rounding.
+ */
 contract VBSafetyFuzzTargetNearMaxTest is VBSafetyFuzzBase {
     function _configureInitialPrices() internal override {
-        // priceRatio = 4, target near maxPrice. _checkInitializationPrices bounds how close.
-        setInitializationPrices(1000e18, 4000e18, 3800e18);
+        setInitializationPrices(1000e18, 4000e18, 2800e18);
     }
 }
 
-/// @notice Target near the lower edge of the range. Real balance of B is small relative to Vb.
+/**
+ * @notice Target biased toward the lower edge of the range. Real balance of B is small relative to Vb.
+ * @dev Same rationale as the near-max variant. This target yields centeredness ~27%.
+ */
 contract VBSafetyFuzzTargetNearMinTest is VBSafetyFuzzBase {
     function _configureInitialPrices() internal override {
-        // priceRatio = 4, target near minPrice.
-        setInitializationPrices(1000e18, 4000e18, 1100e18);
+        setInitializationPrices(1000e18, 4000e18, 1400e18);
     }
 }
