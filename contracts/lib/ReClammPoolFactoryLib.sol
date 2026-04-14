@@ -119,8 +119,7 @@ library ReClammPoolFactoryLib {
      * @param centerednessMargin The centeredness margin to validate
      */
     function validateCenterednessMargin(uint256 centerednessMargin) internal pure {
-        if (centerednessMargin > MAX_CENTEREDNESS_MARGIN) {
-            revert IReClammPool.InvalidCenterednessMargin();
-        }
+        // solhint-disable-next-line custom-errors
+        require(centerednessMargin <= MAX_CENTEREDNESS_MARGIN, IReClammPool.InvalidCenterednessMargin());
     }
 }
