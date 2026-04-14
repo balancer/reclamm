@@ -68,12 +68,11 @@ library ReClammPoolFactoryLib {
     uint256 internal constant MAX_DAILY_PRICE_SHIFT_EXPONENT = 100e16; // 100%
 
     // solhint-enable private-vars-leading-underscore
+    // solhint-disable custom-errors
 
     function validateTokenConfig(TokenConfig[] memory tokens, ReClammPriceParams memory priceParams) internal pure {
         // The ReClammPool only supports 2 tokens.
-        if (tokens.length > 2) {
-            revert IVaultErrors.MaxTokens();
-        }
+        require(tokens.length <= 2, IVaultErrors.MaxTokens());
 
         if (priceParams.tokenAPriceIncludesRate && tokens[0].tokenType != TokenType.WITH_RATE) {
             revert IVaultErrors.InvalidTokenType();
@@ -84,11 +83,7 @@ library ReClammPoolFactoryLib {
     }
 
     function validatePoolParams(ReClammPoolParams memory params) internal pure {
-        // Note that there is no minimum for the daily price shift exponent, as a value of 0 (no price shift) is a
-        // valid configuration.
-        if (params.dailyPriceShiftExponent > MAX_DAILY_PRICE_SHIFT_EXPONENT) {
-            revert IReClammPool.DailyPriceShiftExponentTooHigh();
-        }
+        validateDailyPriceShiftExponent(params.dailyPriceShiftExponent);
 
         // Likewise, there is no minimum for the centeredness margin. A value of 0 is a valid configuration: the
         // target range becomes the full price range, so the pool is always considered in range.
@@ -148,5 +143,20 @@ library ReClammPoolFactoryLib {
         if (centeredness < params.centerednessMargin) {
             revert IReClammPool.InvalidInitialTargetPrice();
         }
+    }
+
+    // Validates that a daily price shift exponent is either zero (disabled) or above the integer-division threshold
+    // that would silently truncate to zero. Also enforces the upper bound.
+    function validateDailyPriceShiftExponent(uint256 dailyPriceShiftExponent) internal pure {
+        require(
+            dailyPriceShiftExponent == 0 ||
+                dailyPriceShiftExponent >= ReClammMath.PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT,
+            IReClammPool.DailyPriceShiftExponentTooLow()
+        );
+
+        require(
+            dailyPriceShiftExponent <= MAX_DAILY_PRICE_SHIFT_EXPONENT,
+            IReClammPool.DailyPriceShiftExponentTooHigh()
+        );
     }
 }
