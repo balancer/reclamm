@@ -172,7 +172,6 @@ library ReClammMath {
             (balancesScaled18[tokenInIndex] + virtualBalanceTokenIn + amountInScaled18);
 
         // Amount out cannot be greater than the real balance of the token in the pool.
-        // solhint-disable-next-line custom-errors
         require(amountOutScaled18 <= balancesScaled18[tokenOutIndex], AmountOutGreaterThanBalance());
     }
 
@@ -221,7 +220,6 @@ library ReClammMath {
         // +--------------------------------------------------+
 
         // Amount out cannot be greater than the real balance of the token in the pool.
-        // solhint-disable-next-line custom-errors
         require(amountOutScaled18 <= balancesScaled18[tokenOutIndex], AmountOutGreaterThanBalance());
 
         (uint256 virtualBalanceTokenIn, uint256 virtualBalanceTokenOut) = tokenInIndex == a

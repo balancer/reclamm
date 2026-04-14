@@ -68,7 +68,6 @@ library ReClammPoolFactoryLib {
     uint256 internal constant MAX_DAILY_PRICE_SHIFT_EXPONENT = 100e16; // 100%
 
     // solhint-enable private-vars-leading-underscore
-    // solhint-disable custom-errors
 
     function validateTokenConfig(TokenConfig[] memory tokens, ReClammPriceParams memory priceParams) internal pure {
         // The ReClammPool only supports 2 tokens.

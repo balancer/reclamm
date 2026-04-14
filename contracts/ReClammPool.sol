@@ -32,8 +32,6 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     using SafeCast for *;
     using ReClammMath for *;
 
-    // solhint-disable custom-errors
-
     // Fees are 18-decimal, floating point values, which will be stored in the Vault using 24 bits.
     // This means they have 0.00001% resolution (i.e., any non-zero bits < 1e11 will cause precision loss).
     // Minimum values help make the math well-behaved (i.e., the swap fee should overwhelm any rounding error).
