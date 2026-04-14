@@ -46,7 +46,8 @@ library ReClammMath {
     //
     // This constant shall be used to scale the dailyPriceShiftExponent, which is a percentage, to the actual value of
     // tau that will be used in the formula.
-    uint256 private constant _PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT = 124649;
+    // solhint-disable-next-line private-vars-leading-underscore
+    uint256 internal constant PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT = 124649;
 
     // We need to use a random number to calculate the initial virtual and real balances. This number will be scaled
     // later, during initialization, according to the actual liquidity added. Choosing a large number will maintain
@@ -759,7 +760,7 @@ library ReClammMath {
      * @return dailyPriceShiftBase Internal time constant used to update virtual balances (1 - tau)
      */
     function toDailyPriceShiftBase(uint256 dailyPriceShiftExponent) internal pure returns (uint256) {
-        return FixedPoint.ONE - dailyPriceShiftExponent / _PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT;
+        return FixedPoint.ONE - dailyPriceShiftExponent / PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT;
     }
 
     /**
@@ -769,7 +770,7 @@ library ReClammMath {
      * @return dailyPriceShiftExponent The daily price shift exponent as an 18-decimal FP percentage
      */
     function toDailyPriceShiftExponent(uint256 dailyPriceShiftBase) internal pure returns (uint256) {
-        return (FixedPoint.ONE - dailyPriceShiftBase) * _PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT;
+        return (FixedPoint.ONE - dailyPriceShiftBase) * PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT;
     }
 
     /**
