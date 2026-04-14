@@ -2,6 +2,8 @@
 
 pragma solidity ^0.8.24;
 
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+
 import { TokenConfig, TokenType } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultErrors.sol";
 
@@ -98,6 +100,8 @@ library ReClammPoolFactoryLib {
             revert IReClammPool.InvalidInitialPrice();
         }
 
+        validateTargetPrice(params);
+
         uint256 initialPriceRatio = params.initialMaxPrice.divDown(params.initialMinPrice);
 
         if (initialPriceRatio < MIN_PRICE_RATIO) {
@@ -117,6 +121,36 @@ library ReClammPoolFactoryLib {
     function validateCenterednessMargin(uint256 centerednessMargin) internal pure {
         // solhint-disable-next-line custom-errors
         require(centerednessMargin <= MAX_CENTEREDNESS_MARGIN, IReClammPool.InvalidCenterednessMargin());
+    }
+
+    /// @notice Reverts if initial target price is outside the target range defined by the centeredness margin.
+    function validateTargetPrice(ReClammPoolParams memory params) internal pure {
+        if (params.centerednessMargin == 0) {
+            // With a 0 margin, any target price within the min-max range is valid; return early.
+            return;
+        }
+
+        uint256 sqrtMinPrice = ReClammMath.sqrtScaled18(params.initialMinPrice);
+        uint256 sqrtMaxPrice = ReClammMath.sqrtScaled18(params.initialMaxPrice);
+        uint256 sqrtTargetPrice = ReClammMath.sqrtScaled18(params.initialTargetPrice);
+
+        uint256 numerator = sqrtTargetPrice.mulDown(sqrtTargetPrice - sqrtMinPrice);
+        uint256 denominator = sqrtMinPrice.mulDown(sqrtMaxPrice - sqrtTargetPrice);
+
+        if (numerator == 0 || denominator == 0) {
+            // Reaching here means the target is so close to min or max that sqrt rounding collapses the distance to
+            // zero, which would produce a division by zero below. The pool is out of range regardless of the
+            // centeredness margin.
+            revert IReClammPool.InvalidInitialTargetPrice();
+        }
+
+        uint256 x1 = numerator.divDown(denominator);
+        uint256 x2 = denominator.divDown(numerator);
+        uint256 centeredness = Math.min(x1, x2);
+
+        if (centeredness < params.centerednessMargin) {
+            revert IReClammPool.InvalidInitialTargetPrice();
+        }
     }
 
     // Validates that a daily price shift exponent is either zero (disabled) or above the integer-division threshold
