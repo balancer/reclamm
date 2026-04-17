@@ -569,29 +569,28 @@ interface IReClammPool is IBasePool {
      * balance, and is faster otherwise.
      *
      * The daily price shift rate interacts with the swap fee to determine the pool's resistance to round-trip
-     * repricing extraction. When the pool is out of range, virtual balances decay over time; an actor who pushes
-     * the pool past the centeredness margin and later unwinds against the repriced curve can profit if enough time
-     * passes. The minimum wait before such a round trip breaks even scales linearly with the swap fee and inversely
-     * with the shift rate. Empirically, the breakeven time in seconds is approximately:
+     * repricing extraction. When the pool is out of range, virtual balances decay over time; an actor who pushes the
+     * pool past the centeredness margin and later unwinds against the repriced curve can profit if enough time passes.
+     * The minimum wait before such a round trip breaks even (the "breakeven time") scales linearly with the swap fee
+     * and inversely with the shift rate:
      *
-     *   breakeven_seconds ~= swap_fee_pct / (shift_rate_pct * 0.0002%)
+     *   breakeven_seconds ~= T_ref * (swap_fee_pct / fee_ref) * (shift_ref / shift_rate_pct)
      *
-     * where `swap_fee_pct` is the pool's swap fee as a percentage, and `shift_rate_pct` is this exponent expressed
-     * as a whole number (e.g., 100 for 100%). The minimum swap fee needed to guarantee a given breakeven time is:
+     * where `swap_fee_pct` is the pool's swap fee as a percentage and `shift_rate_pct` is this exponent expressed as a
+     * percentage (e.g., 5 for 5%). The reference point (T_ref = 47s, fee_ref = 0.001%, shift_ref = 5%) is the
+     * empirically observed first-profitable timestamp from `ReClammRoundTripDesignRiskTest` at the pool's minimum swap
+     * fee and a representative production shift rate. Rearranging, the minimum swap fee that preserves a 47-second
+     * breakeven at a given shift rate:
      *
-     *   min_safe_fee = shift_rate_pct * 0.0002% * target_breakeven_seconds
+     *   min_safe_fee = fee_ref * (shift_rate_pct / shift_ref)
+     *                = 0.001% * (shift_rate_pct / 5%)
      *
-     * For reference, at the current pool minimum fee of 0.001% and a 5% shift rate, the breakeven is ~47 seconds
-     * (approximately 4 Ethereum mainnet blocks). Empirical MEV research shows that drastic price dislocations on
-     * monitored pools are corrected within 1-2 blocks on mainnet, and that larger dislocations are corrected
-     * faster, not slower. Pools with sufficient TVL to make this attack economically viable are also the pools
-     * most actively monitored by arbitrageurs, making 47 seconds a very conservative upper bound in practice.
-     * L2s with faster block times are even safer: the price changes less per block, extending the breakeven time.
-     *
-     * At shift rates up to 5%, the current pool minimum swap fee (0.001%) is sufficient. Higher shift rates
-     * require a proportionally higher swap fee. This constraint cannot be enforced on-chain because the shift
-     * rate and swap fee are governed independently. Operators should verify the swap fee is adequate when
-     * adjusting the shift rate upward.
+     * At the pool's minimum fee of 0.001%, shift rates up to 5% are covered. Higher shift rates require a
+     * proportionally higher fee. At 47 seconds (~4 Ethereum mainnet blocks), empirical MEV research shows that drastic
+     * price dislocations on monitored pools are corrected within 1-2 blocks - and larger dislocations are corrected
+     * faster, not slower, making this a conservative bound in practice. This constraint cannot be enforced on-chain,
+     * because the shift rate and swap fee are governed independently. Operators should verify the swap fee is adequate
+     * whenever the shift rate is adjusted upward.
      *
      * In any case, trusted execution contexts are always preferable when calling permissioned functions from multisigs
      * (i.e. sign and execute right after the last signature, without giving away the execution to a frontrunner).

@@ -37,7 +37,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     // Minimum values help make the math well-behaved (i.e., the swap fee should overwhelm any rounding error).
     // Maximum values protect users by preventing permissioned actors from setting excessively high swap fees.
     // Note: the minimum swap fee also bounds the pool's resistance to round-trip repricing extraction.
-    // At 0.001%, shift rates up to 5% are safe (47-second breakeven). See `setDailyPriceShiftExponent` for details.
+    // At the reference point (fee_ref = 0.001%, shift_ref = 5%), the empirical first-profitable timestamp is
+    // ~47 seconds. Shift rates up to 5% are safe at this fee; higher shift rates need a proportionally higher
+    // fee: min_safe_fee = fee_ref * (shift_rate_pct / shift_ref). See `setDailyPriceShiftExponent` for details.
     uint256 internal constant _MIN_SWAP_FEE_PERCENTAGE = 0.001e16; // 0.001%
     uint256 internal constant _MAX_SWAP_FEE_PERCENTAGE = 10e16; // 10%
 
