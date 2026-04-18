@@ -374,6 +374,31 @@ contract ReClammMathTest is BaseReClammTest {
         }
     }
 
+    function testComputeVirtualBalancesUpdatingPriceRatio_OverflowAtMinPriceRatio() public pure {
+        // Regression test for phantom overflow in computeVirtualBalancesUpdatingPriceRatio. When the target
+        // fourth-root price ratio is just above sqrt(sqrt(MIN_PRICE_RATIO)), the intermediate sqrtPriceRatio sits
+        // just above 1e18, so the denominator `2 * (sqrtPriceRatio - 1e18)` is ~1e14. That amplifies
+        // virtualBalanceUndervalued to ~Ru * 2e4. With both Ru and lastVirtualBalanceOvervalued near the Vault's
+        // uint128 ceiling, the raw product `virtualBalanceUndervalued * lastVirtualBalanceOvervalued` exceeds
+        // uint256.max and reverts with Panic 0x11. Math.mulDiv uses 512-bit intermediate arithmetic to avoid that.
+        uint256 largeBalance = type(uint128).max / 2;
+        uint256 currentFourthRootPriceRatio = 1.000026e18;
+
+        uint256[] memory balancesScaled18 = new uint256[](2);
+        balancesScaled18[a] = largeBalance;
+        balancesScaled18[b] = largeBalance;
+
+        (uint256 virtualBalanceA, uint256 virtualBalanceB) = ReClammMath.computeVirtualBalancesUpdatingPriceRatio(
+            currentFourthRootPriceRatio,
+            balancesScaled18,
+            largeBalance,
+            largeBalance
+        );
+
+        assertGt(virtualBalanceA, 0, "virtualBalanceA should be non-zero");
+        assertGt(virtualBalanceB, 0, "virtualBalanceB should be non-zero");
+    }
+
     function testComputeFourthRootPriceRatioWhenCurrentTimeIsEndTime() public pure {
         uint96 startFourthRootPriceRatio = 100;
         uint96 endFourthRootPriceRatio = 200;
