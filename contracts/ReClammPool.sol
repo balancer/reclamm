@@ -108,11 +108,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     }
 
     modifier onlyWhenInitialized() {
-        _ensureVaultIsInitialized();
+        _ensurePoolIsInitialized();
         _;
     }
 
-    function _ensureVaultIsInitialized() internal view {
+    function _ensurePoolIsInitialized() internal view {
         require(_vault.isPoolInitialized(address(this)), PoolNotInitialized());
     }
 
