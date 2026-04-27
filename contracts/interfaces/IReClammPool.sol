@@ -43,7 +43,7 @@ struct ReClammPoolParams {
  * @param maxDailyPriceShiftExponent The maximum exponent for the pool's price shift, as an 18-decimal FP percentage
  * @param maxDailyPriceRatioUpdateRate The maximum percentage the price range can expand/contract per day
  * @param minPriceRatioUpdateDuration The minimum duration for the price ratio update, expressed in seconds
- * @param minPriceRatioDelta The minimum absolute difference between current and new fourth root price ratio
+ * @param minPriceRatioDelta The minimum absolute difference between current and new price ratio
  * @param balanceRatioAndPriceTolerance The maximum amount initialized pool parameters can deviate from ideal values
  */
 struct ReClammPoolImmutableData {
@@ -78,8 +78,16 @@ struct ReClammPoolImmutableData {
  * are withdrawals, raw and live balances will be out of sync until Recovery Mode is disabled.
  *
  * Normally pools that go into recovery do not come back, but it is possible. If so, the pool would operate post-
- * recovery with inflated virtual depth until the price drifts out of range (triggering a VB shift) or governance
- * forces recalibration by calling `setDailyPriceShiftExponent` or `setCenterednessMargin`.
+ * recovery with inflated virtual depth. Proportional withdrawals scale Ra and Rb by the same factor, leaving
+ * centeredness unchanged, so the out-of-range VB shift does not trigger. Asymmetric swaps may gradually shift
+ * centeredness and eventually trigger recalibration, but this is not guaranteed. `setDailyPriceShiftExponent`
+ * and `setCenterednessMargin` do not recompute VBs from real balances; they only adjust their respective parameter.
+ * The only reliable recalibration path is `startPriceRatioUpdate` with a target that forces VB recomputation.
+ *
+ * Note: disabling Recovery Mode on a ReClamm pool after withdrawals have occurred is not recommended. The inflated
+ * virtual balances cannot be fully corrected without a price ratio update, and the pool's swap curve will not price
+ * accurately until that recalibration is performed. Governance should treat Recovery Mode as one-way for this pool
+ * type.
  *
  * Base Pool:
  * @param balancesLiveScaled18 Token balances after paying yield fees, applying decimal scaling and rates
@@ -187,7 +195,7 @@ interface IReClammPool is IBasePool {
      */
     event LastTimestampUpdated(uint32 lastTimestamp);
 
-    /********************************************************   
+    /********************************************************
                            Errors
     ********************************************************/
 
@@ -206,11 +214,17 @@ interface IReClammPool is IBasePool {
     /// @notice The start time for the price ratio update is invalid (either in the past or after the given end time).
     error InvalidStartTime();
 
-    /// @notice
+    /// @notice An initial price parameter is invalid: zero, or the target falls outside the [min, max] range.
     error InvalidInitialPrice();
+
+    /// @notice The initial target price is outside the target range.
+    error InvalidInitialTargetPrice();
 
     /// @notice The daily price shift exponent is too high.
     error DailyPriceShiftExponentTooHigh();
+
+    /// @notice A nonzero daily price shift exponent is below the minimum resolution of the internal conversion.
+    error DailyPriceShiftExponentTooLow();
 
     /// @notice The price ratio is too low.
     error PriceRatioBelowMin(uint256 priceRatio);
@@ -224,10 +238,13 @@ interface IReClammPool is IBasePool {
     /// @notice The rate of change exceeds the maximum daily price ratio rate.
     error PriceRatioUpdateTooFast();
 
-    /// @dev The price ratio being set is too close to the current one.
-    error PriceRatioDeltaBelowMin(uint256 fourthRootPriceRatioDelta);
+    /**
+     * @notice The price ratio being set is too close to the current one.
+     * @param priceRatioDelta The absolute difference between the current and new price ratios
+     */
+    error PriceRatioDeltaBelowMin(uint256 priceRatioDelta);
 
-    /// @dev An attempt was made to stop the price ratio update while no update was in progress.
+    /// @notice An attempt was made to stop the price ratio update while no update was in progress.
     error PriceRatioNotUpdating();
 
     /**
@@ -238,10 +255,10 @@ interface IReClammPool is IBasePool {
      */
     error ReClammPoolBptRateUnsupported();
 
-    /// @dev `onBeforeInitialize` hook was called more than once.
+    /// @notice `onBeforeInitialize` hook was called more than once.
     error PoolAlreadyInitialized();
 
-    /// @dev Function called before initializing the pool.
+    /// @notice Function called before initializing the pool.
     error PoolNotInitialized();
 
     /**
@@ -256,61 +273,28 @@ interface IReClammPool is IBasePool {
     /// @notice The current price interval or spot price is outside the initialization price range.
     error WrongInitializationPrices();
 
-    // Hook was invoked with the wrong pool address.
+    /**
+     * @notice The hook was invoked with the wrong pool address.
+     * @param pool The address of the pool that was passed to the hook
+     */
     error InvalidPoolArgument(address pool);
 
+    /**
+     * @notice A proportional removal would scale a virtual balance to zero.
+     * @dev Reverted from `onBeforeRemoveLiquidity` when the post-scaling virtual balances would integer-truncate
+     * to zero. This is only reachable when a sole (or effectively sole) LP burns enough BPT that
+     * `(oldVirtualBalance * bptDelta) / oldTotalSupply` rounds down to zero. Allowing it through would brick the
+     * pool, since `computePriceRatio` then divides by zero on every subsequent call.
+     */
+    error ZeroVirtualBalance();
+
     /********************************************************
-                       Pool State Getters
+                       Stored State Getters
     ********************************************************/
 
-    /**
-     * @notice Compute the initialization amounts, given a reference token and amount.
-     * @dev Convenience function to compute the initial funding amount for the second token, given the first. It
-     * returns the amount of tokens in raw amounts, which can be used as-is to initialize the pool using a standard
-     * router. It is meant to be called off-chain by a deployment script or frontend.
-     *
-     * @param referenceToken The token whose amount is known
-     * @param referenceAmountInRaw The amount of the reference token to be used for initialization, in raw amounts
-     * @return initialBalancesRaw Initialization raw balances sorted in token registration order, including the given
-     * amount and a calculated raw amount for the other token
-     */
-    function computeInitialBalancesRaw(
-        IERC20 referenceToken,
-        uint256 referenceAmountInRaw
-    ) external view returns (uint256[] memory initialBalancesRaw);
-
-    /**
-     * @notice Computes the current total price range.
-     * @dev Prices represent the value of token A denominated in token B (i.e., how many B tokens equal the value of
-     * one A token).
-     *
-     * The "target" range is then defined as a subset of this total price range, with the margin trimmed symmetrically
-     * from each side. The pool endeavors to adjust this range as necessary to keep the current market price within it.
-     *
-     * This function uses current live balances and time-adjusted virtual balances.
-     *
-     * @return minPrice The lower limit of the current total price range
-     * @return maxPrice The upper limit of the current total price range
-     */
-    function computeCurrentPriceRange() external view returns (uint256 minPrice, uint256 maxPrice);
-
-    /**
-     * @notice Computes the current virtual balances and a flag indicating whether they have changed.
-     * @dev The current virtual balances are calculated based on the last virtual balances. If the pool is within the
-     * target range and the price ratio is not updating, the virtual balances will not change. If the pool is outside
-     * the target range, or the price ratio is updating, this function will calculate the new virtual balances based on
-     * the timestamp of the last user interaction. Note that virtual balances are always scaled18 values.
-     *
-     * This function uses current live balances and time-adjusted virtual balances.
-     *
-     * @return currentVirtualBalanceA The current virtual balance of token A
-     * @return currentVirtualBalanceB The current virtual balance of token B
-     * @return changed Whether the current virtual balances are different from `lastVirtualBalances`
-     */
-    function computeCurrentVirtualBalances()
-        external
-        view
-        returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed);
+    // The getters in this section return values directly from storage. They perform no virtual-balance math and are
+    // safe to call before the pool has been initialized; they will simply return zero values for state that hasn't
+    // been set yet.
 
     /**
      * @notice Getter for the timestamp of the last user interaction.
@@ -337,14 +321,16 @@ interface IReClammPool is IBasePool {
 
     /**
      * @notice Returns the daily price shift exponent as an 18-decimal FP.
-     * @dev At 100% (FixedPoint.ONE), the price range doubles (or halves) within a day.
+     * @dev At 100%, when the pool is outside its target range, the price range shifts toward the current market
+     * price at approximately 2x per day. The exact rate is state-dependent: it equals 2^exponent per day when the
+     * out-of-range side holds no real balance, and is faster otherwise.
      * @return dailyPriceShiftExponent The daily price shift exponent
      */
     function getDailyPriceShiftExponent() external view returns (uint256 dailyPriceShiftExponent);
 
     /**
      * @notice Returns the internal time constant representation for the daily price shift exponent (tau).
-     * @dev Equals dailyPriceShiftExponent / _PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT.
+     * @dev Equals 1 - dailyPriceShiftExponent / _PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT.
      * @return dailyPriceShiftBase The internal representation for the daily price shift exponent
      */
     function getDailyPriceShiftBase() external view returns (uint256 dailyPriceShiftBase);
@@ -356,23 +342,106 @@ interface IReClammPool is IBasePool {
      */
     function getPriceRatioState() external view returns (PriceRatioState memory priceRatioState);
 
+    /********************************************************
+                        Live State Getters
+    ********************************************************/
+
+    // The getters in this section all derive their results from live balances + time-adjusted virtual balances.
+    // Before initialization, the virtual balances are zero (they're set in `onBeforeInitialize`), so the underlying
+    // math is undefined: it would either revert with a low-level division-by-zero or return a numerically meaningless
+    // value like centeredness 0 (which would otherwise mean "the pool is at the edge of its price range"). To make
+    // this state explicit and give callers a clean error rather than an arithmetic failure, these functions revert
+    // with `PoolNotInitialized` when called on a created-but-uninitialized pool.
+    //
+    // `computeCurrentPriceRange` (the first function below) is the one documented exception: it returns the
+    // configured `initialMinPrice` / `initialMaxPrice` before init, because the configured range is a meaningful
+    // answer to "what range will this pool operate in?". The other concepts (price ratio, virtual balances,
+    // centeredness, within-range) have no comparable meaningful pre-init answer.
+    //
+    // Callers wanting the configured initial values (e.g. the implied initial price ratio) should read them from
+    // `getReClammPoolImmutableData()` and compute as needed, not call these getters.
+
     /**
-     * @notice Computes the current fourth root of price ratio.
-     * @dev The price ratio is the ratio of the max price to the min price, according to current real and virtual
-     * balances. This function returns its fourth root.
+     * @notice Computes the current total price range.
+     * @dev Prices represent the value of token A denominated in token B (i.e., how many B tokens equal the value of
+     * one A token).
      *
-     * @return currentFourthRootPriceRatio The current fourth root of price ratio
+     * The "target" range is then defined as a subset of this total price range, with the margin trimmed symmetrically
+     * from each side. The pool endeavors to adjust this range as necessary to keep the current market price within it.
+     *
+     * This function uses current live balances and time-adjusted virtual balances. Note that, unlike the other
+     * `compute*` getters on this interface, this function does NOT revert before initialization: it returns the
+     * configured `initialMinPrice` / `initialMaxPrice` instead. The configured range is a meaningful answer to "what
+     * range will this pool operate in?" even before the pool has live balances; the same is not true of the price
+     * ratio, virtual balances, centeredness, or in-range status, which all revert with `PoolNotInitialized`.
+     *
+     * @return minPrice The lower limit of the current total price range
+     * @return maxPrice The upper limit of the current total price range
      */
-    function computeCurrentFourthRootPriceRatio() external view returns (uint256 currentFourthRootPriceRatio);
+    function computeCurrentPriceRange() external view returns (uint256 minPrice, uint256 maxPrice);
+
+    /**
+     * @notice Computes the current virtual balances and a flag indicating whether they have changed.
+     * @dev The current virtual balances are calculated based on the last virtual balances. If the pool is within the
+     * target range and the price ratio is not updating, the virtual balances will not change. If the pool is outside
+     * the target range, or the price ratio is updating, this function will calculate the new virtual balances based on
+     * the timestamp of the last user interaction. Note that virtual balances are always scaled18 values.
+     *
+     * This function uses current live balances and time-adjusted virtual balances. Reverts with `PoolNotInitialized`
+     * if called before initialization, since virtual balances are zero in that state.
+     *
+     * @return currentVirtualBalanceA The current virtual balance of token A
+     * @return currentVirtualBalanceB The current virtual balance of token B
+     * @return changed Whether the current virtual balances are different from `lastVirtualBalances`
+     */
+    function computeCurrentVirtualBalances()
+        external
+        view
+        returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed);
 
     /**
      * @notice Computes the current price ratio.
      * @dev The price ratio is the ratio of the max price to the min price, according to current real and virtual
      * balances.
      *
+     * Reverts with `PoolNotInitialized` if called before initialization, since virtual balances are zero in that
+     * state and there is no live price ratio to compute. Callers wanting the configured initial ratio should derive
+     * it from `getReClammPoolImmutableData()` (`initialMaxPrice / initialMinPrice`).
+     *
      * @return currentPriceRatio The current price ratio
      */
     function computeCurrentPriceRatio() external view returns (uint256 currentPriceRatio);
+
+    /**
+     * @notice Computes the current fourth root of price ratio.
+     * @dev The price ratio is the ratio of the max price to the min price, according to current real and virtual
+     * balances. This function returns its fourth root.
+     *
+     * Reverts with `PoolNotInitialized` if called before initialization, since virtual balances are zero in that
+     * state and there is no live price ratio to compute. Callers wanting the configured initial ratio should derive
+     * it from `getReClammPoolImmutableData()` (`initialMaxPrice / initialMinPrice`).
+     *
+     * @return currentFourthRootPriceRatio The current fourth root of price ratio
+     */
+    function computeCurrentFourthRootPriceRatio() external view returns (uint256 currentFourthRootPriceRatio);
+
+    /**
+     * @notice Compute the current pool centeredness (a measure of how unbalanced the pool is).
+     * @dev A value of 0 means the pool is at the edge of the price range (i.e., one of the real balances is zero).
+     * A value of FixedPoint.ONE means the balances (and market price) are exactly in the middle of the range.
+     *
+     * This function uses live balances (rate-scaled and yield-fee-adjusted from the last settled state) and time-
+     * adjusted virtual balances. Callers should not use this as a security gate within a Vault transaction, as the
+     * vault may be unlocked and balances manipulable via transient liquidity. It is meant to be called off-chain.
+     *
+     * Reverts with `PoolNotInitialized` if called before initialization. Without it, the underlying math would
+     * short-circuit to a centeredness of 0 (because real balances are zero), which would falsely suggest the pool
+     * is at the edge of its price range rather than uninitialized.
+     *
+     * @return poolCenteredness The current pool centeredness (as an 18-decimal FP value)
+     * @return isPoolAboveCenter True if the pool is above the center, false otherwise
+     */
+    function computeCurrentPoolCenteredness() external view returns (uint256 poolCenteredness, bool isPoolAboveCenter);
 
     /**
      * @notice Compute whether the pool is within the target price range.
@@ -384,27 +453,44 @@ interface IReClammPool is IBasePool {
      * adjusted virtual balances. Callers should not use this as a security gate within a Vault transaction, as the
      * vault may be unlocked and balances manipulable via transient liquidity. It is meant to be called off-chain.
      *
+     * Reverts with `PoolNotInitialized` if called before initialization, since "in target range" is undefined when
+     * there are no live balances to compare against the margin.
+     *
      * @return isWithinTargetRange True if pool centeredness is greater than or equal to the centeredness margin
      */
     function isPoolWithinTargetRange() external view returns (bool isWithinTargetRange);
 
+    /********************************************************
+                        Off-chain Helpers
+    ********************************************************/
+
+    // The functions in this section are intended to be called off-chain (deployment scripts, frontends, monitoring
+    // bots) rather than from other contracts. Each handles its own pre-initialization story internally where relevant.
+
     /**
-     * @notice Compute the current pool centeredness (a measure of how unbalanced the pool is).
-     * @dev A value of 0 means the pool is at the edge of the price range (i.e., one of the real balances is zero).
-     * A value of FixedPoint.ONE means the balances (and market price) are exactly in the middle of the range.
+     * @notice Compute the initialization amounts, given a reference token and amount.
+     * @dev Convenience function to compute the initial funding amount for the second token, given the first. It
+     * returns the amount of tokens in raw amounts, which can be used as-is to initialize the pool using a standard
+     * router. It is meant to be called off-chain by a deployment script or frontend.
      *
-     * This function uses live balances (rate-scaled and yield-fee-adjusted from the last settled state) and time-
-     * adjusted virtual balances. Callers should not use this as a security gate within a Vault transaction, as the
-     * vault may be unlocked and balances manipulable via transient liquidity. It is meant to be called off-chain.
-     *
-     * @return poolCenteredness The current pool centeredness (as an 18-decimal FP value)
-     * @return isPoolAboveCenter True if the pool is above the center, false otherwise
+     * @param referenceToken The token whose amount is known
+     * @param referenceAmountInRaw The amount of the reference token to be used for initialization, in raw amounts
+     * @return initialBalancesRaw Initialization raw balances sorted in token registration order, including the given
+     * amount and a calculated raw amount for the other token
      */
-    function computeCurrentPoolCenteredness() external view returns (uint256 poolCenteredness, bool isPoolAboveCenter);
+    function computeInitialBalancesRaw(
+        IERC20 referenceToken,
+        uint256 referenceAmountInRaw
+    ) external view returns (uint256[] memory initialBalancesRaw);
 
     /**
      * @notice Get dynamic pool data relevant to swap/add/remove calculations.
      * @dev This is meant to be called off-chain (e.g., by a frontend / monitor).
+     *
+     * Unlike the `compute*` getters in the Live State section, this function does NOT revert before initialization:
+     * it leaves the live-state-derived fields zeroed out so that integrations can still inspect the static fields
+     * (rates, fees, supply) on a freshly deployed pool.
+     *
      * @return data A struct containing all dynamic ReClamm pool parameters
      */
     function getReClammPoolDynamicData() external view returns (ReClammPoolDynamicData memory data);
@@ -425,6 +511,23 @@ interface IReClammPool is IBasePool {
      * @dev The price ratio is calculated by interpolating between the start and end times. The start price ratio will
      * be set to the current fourth root price ratio of the pool. This is a permissioned function.
      *
+     * Unlike `setDailyPriceShiftExponent` and `setCenterednessMargin`, this function does not require
+     * `onlyWhenVaultIsLocked`. This is intentional. Adding the lock requirement would introduce a DoS vector:
+     * an attacker could keep the Vault perpetually unlocked (e.g., via MEV) to prevent governance from calling this
+     * function. `onlyWhenVaultIsLocked` is also not effective protection for admin setters in general, because a
+     * caller can lock the Vault after manipulating balances (flash loan, swap, exit callback, then call the setter).
+     * The real protection is that this is a permissioned function: the caller is trusted to execute it in a clean
+     * context (i.e., not from within a Vault callback or in the same transaction as a balance-manipulating operation).
+     *
+     * This function calls `_updateVirtualBalances()`, which reads live Vault balances. However, if a swap has
+     * already occurred in the current block, `_updateVirtualBalances()` short-circuits because `lastTimestamp`
+     * equals `block.timestamp`, so virtual balances are not recomputed from potentially distorted balances.
+     * The start price ratio anchor is still derived from current live balances and existing virtual balances,
+     * so the caller should ensure balances are not transiently manipulated when this function is called.
+     *
+     * In any case, trusted execution contexts are always preferable when calling permissioned functions from multisigs
+     * (i.e. sign and execute right after the last signature, without giving away the execution to a frontrunner).
+     *
      * @param endPriceRatio The new ending value of the price ratio, as a floating point value (e.g., 8 = 8e18)
      * @param priceRatioUpdateStartTime The timestamp when the price ratio update will start
      * @param priceRatioUpdateEndTime The timestamp when the price ratio update will end
@@ -441,6 +544,13 @@ interface IReClammPool is IBasePool {
      * @dev The price ratio is calculated by interpolating between the start and end times. The new end price ratio
      * will be set to the current one at the current timestamp, effectively pausing the update.
      * This is a permissioned function.
+     *
+     * Does not require `onlyWhenVaultIsLocked` for the same reasons as `startPriceRatioUpdate`; see its
+     * documentation for the details.
+     *
+     * Trusted execution contexts are always preferable when calling permissioned functions from multisigs
+     * (i.e. sign and execute right after the last signature, without giving away the execution to a frontrunner).
+     *
      */
     function stopPriceRatioUpdate() external;
 
@@ -449,12 +559,41 @@ interface IReClammPool is IBasePool {
      * @dev This function is considered a user interaction, and therefore recalculates the virtual balances and sets
      * the last timestamp. This is a permissioned function.
      *
-     * A percentage of 100% will make the price range double (or halve) within a day.
-     * A percentage of 200% will make the price range quadruple (or quartered) within a day.
+     * At 100%, when the pool is outside its target range, the price range shifts toward the current market
+     * price at approximately 2x per day. At 200%, approximately 4x per day.
      *
-     * More generically, the new price range will be either
-     * Range_old * 2^(newDailyPriceShiftExponent / 100), or
-     * Range_old / 2^(newDailyPriceShiftExponent / 100)
+     * More generically, the price range shifts by approximately
+     * 2^(newDailyPriceShiftExponent / 100) per day, or its reciprocal.
+     *
+     * The exact rate is state-dependent: it equals 2^exponent per day when the out-of-range side holds no real
+     * balance, and is faster otherwise.
+     *
+     * The daily price shift rate interacts with the swap fee to determine the pool's resistance to round-trip
+     * repricing extraction. When the pool is out of range, virtual balances decay over time; an actor who pushes the
+     * pool past the centeredness margin and later unwinds against the repriced curve can profit if enough time passes.
+     * The minimum wait before such a round trip breaks even (the "breakeven time") scales linearly with the swap fee
+     * and inversely with the shift rate:
+     *
+     *   breakeven_seconds ~= T_ref * (swap_fee_pct / fee_ref) * (shift_ref / shift_rate_pct)
+     *
+     * where `swap_fee_pct` is the pool's swap fee as a percentage and `shift_rate_pct` is this exponent expressed as a
+     * percentage (e.g., 5 for 5%). The reference point (T_ref = 47s, fee_ref = 0.001%, shift_ref = 5%) is the
+     * empirically observed first-profitable timestamp from `ReClammRoundTripDesignRiskTest` at the pool's minimum swap
+     * fee and a representative production shift rate. Rearranging, the minimum swap fee that preserves a 47-second
+     * breakeven at a given shift rate:
+     *
+     *   min_safe_fee = fee_ref * (shift_rate_pct / shift_ref)
+     *                = 0.001% * (shift_rate_pct / 5%)
+     *
+     * At the pool's minimum fee of 0.001%, shift rates up to 5% are covered. Higher shift rates require a
+     * proportionally higher fee. At 47 seconds (~4 Ethereum mainnet blocks), empirical MEV research shows that drastic
+     * price dislocations on monitored pools are corrected within 1-2 blocks - and larger dislocations are corrected
+     * faster, not slower, making this a conservative bound in practice. This constraint cannot be enforced on-chain,
+     * because the shift rate and swap fee are governed independently. Operators should verify the swap fee is adequate
+     * whenever the shift rate is adjusted upward.
+     *
+     * In any case, trusted execution contexts are always preferable when calling permissioned functions from multisigs
+     * (i.e. sign and execute right after the last signature, without giving away the execution to a frontrunner).
      *
      * @param newDailyPriceShiftExponent The new daily price shift exponent
      * @return actualNewDailyPriceShiftExponent The actual new daily price shift exponent, after accounting for
@@ -468,6 +607,9 @@ interface IReClammPool is IBasePool {
      * @notice Set the centeredness margin.
      * @dev This function is considered a user action, so it will update the last timestamp and virtual balances.
      * This is a permissioned function.
+     *
+     * Trusted execution contexts are always preferable when calling permissioned functions from multisigs
+     * (i.e. sign and execute right after the last signature, without giving away the execution to a frontrunner).
      *
      * @param newCenterednessMargin The new centeredness margin
      */

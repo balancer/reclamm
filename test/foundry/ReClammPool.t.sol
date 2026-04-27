@@ -503,6 +503,31 @@ contract ReClammPoolTest is BaseReClammTest {
         ReClammPool(pool).startPriceRatioUpdate(newPriceRatio, priceRatioUpdateStartTime, priceRatioUpdateEndTime);
     }
 
+    /**
+     * @notice Proves that the exponential daily-rate formula allows a 7× price ratio update over 3 days, while
+     * the old linear formula would have incorrectly rejected it.
+     * @dev Linear rate: (14/2) × (1/3) ≈ 2.333 > 2 — would fail.
+     * Exponential rate: (14/2)^(1/3) = 7^(1/3) ≈ 1.913 < 2 — passes.
+     */
+    function testDailyPriceRatioUpdateRateExponentialVsLinear() public view {
+        uint256 maxDailyPriceRatioUpdateRate = IReClammPool(pool)
+            .getReClammPoolImmutableData()
+            .maxDailyPriceRatioUpdateRate;
+
+        // The old linear formula: (max/min) × (1 day / duration).
+        // With startPriceRatio=2e18, endPriceRatio=14e18, duration=3 days this gives 7/3 ≈ 2.333.
+        uint256 linearRate = FixedPoint.divUp(14e18 * 1 days, 2e18 * 3 days);
+        assertGt(linearRate, maxDailyPriceRatioUpdateRate, "linear rate should exceed the limit");
+
+        // The new exponential formula: (max/min)^(1 day / duration).
+        // With startPriceRatio=2e18, endPriceRatio=14e18, duration=3 days this gives 7^(1/3) ≈ 1.913.
+        uint256 exponentialRate = ReClammPoolMock(pool).computeDailyPriceRatioUpdateRate(2e18, 14e18, 3 days);
+        assertLe(exponentialRate, maxDailyPriceRatioUpdateRate, "exponential rate should be within the limit");
+
+        // 7^(1/3) ≈ 1.91293e18, tolerance of 1e14 (0.01% precision).
+        assertApproxEqAbs(exponentialRate, 1.91293e18, 1e14, "exponential rate should be ~7^(1/3)");
+    }
+
     function testSetPriceRatioTooLow() public {
         uint256 newPriceRatio = ReClammPoolFactoryLib.MIN_PRICE_RATIO - 1;
         uint256 priceRatioUpdateStartTime = block.timestamp;
@@ -914,11 +939,8 @@ contract ReClammPoolTest is BaseReClammTest {
             lastVirtualBalancesBeforeSet[daiIdx],
             "DAI virtual balance remains unchanged"
         );
-        assertNotEq(
-            virtualBalancesBefore[usdcIdx],
-            lastVirtualBalancesBeforeSet[usdcIdx],
-            "USDC virtual balance remains unchanged"
-        );
+        // USDC virtual balance does not move.
+        assertEq(virtualBalancesBefore[usdcIdx], lastVirtualBalancesBeforeSet[usdcIdx], "USDC virtual balance changed");
 
         uint256 newDailyPriceShiftExponent = 15e16;
         uint128 dailyPriceShiftBase = ReClammMath.toDailyPriceShiftBase(newDailyPriceShiftExponent).toUint128();
@@ -1151,6 +1173,52 @@ contract ReClammPoolTest is BaseReClammTest {
         assertEq(maxPrice, _DEFAULT_MAX_PRICE);
     }
 
+    function testComputeCurrentVirtualBalancesBeforeInitialized() public {
+        address newPool = _createUninitializedPool();
+
+        vm.expectRevert(IReClammPool.PoolNotInitialized.selector);
+        ReClammPool(newPool).computeCurrentVirtualBalances();
+    }
+
+    function testComputeCurrentFourthRootPriceRatioBeforeInitialized() public {
+        address newPool = _createUninitializedPool();
+
+        vm.expectRevert(IReClammPool.PoolNotInitialized.selector);
+        ReClammPool(newPool).computeCurrentFourthRootPriceRatio();
+    }
+
+    function testComputeCurrentPriceRatioBeforeInitialized() public {
+        address newPool = _createUninitializedPool();
+
+        vm.expectRevert(IReClammPool.PoolNotInitialized.selector);
+        ReClammPool(newPool).computeCurrentPriceRatio();
+    }
+
+    function testIsPoolWithinTargetRangeBeforeInitialized() public {
+        address newPool = _createUninitializedPool();
+
+        vm.expectRevert(IReClammPool.PoolNotInitialized.selector);
+        ReClammPool(newPool).isPoolWithinTargetRange();
+    }
+
+    function testComputeCurrentPoolCenterednessBeforeInitialized() public {
+        address newPool = _createUninitializedPool();
+
+        vm.expectRevert(IReClammPool.PoolNotInitialized.selector);
+        ReClammPool(newPool).computeCurrentPoolCenteredness();
+    }
+
+    function _createUninitializedPool() internal returns (address newPool) {
+        IERC20[] memory sortedTokens = InputHelpers.sortTokens(tokens);
+
+        (newPool, ) = _createPool(
+            [address(sortedTokens[a]), address(sortedTokens[b])].toMemoryArray(),
+            "BeforeInitTest"
+        );
+
+        assertFalse(vault.isPoolInitialized(newPool), "Pool is initialized");
+    }
+
     function testComputePriceRangeAfterInitialized() public view {
         assertTrue(vault.isPoolInitialized(pool), "Pool is initialized");
         assertFalse(vault.isUnlocked(), "Vault is unlocked");
@@ -1340,7 +1408,7 @@ contract ReClammPoolTest is BaseReClammTest {
             _DEFAULT_SWAP_FEE,
             priceParams,
             _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
-            _DEFAULT_CENTEREDNESS_MARGIN,
+            1e16, // centeredness margin
             bytes32(saltNumber++)
         );
     }
@@ -1363,6 +1431,164 @@ contract ReClammPoolTest is BaseReClammTest {
         });
 
         vm.expectRevert(abi.encodeWithSelector(IReClammPool.PriceRatioBelowMin.selector, maxPrice.divDown(minPrice)));
+        deployStandaloneReClammPool(params, vault, _helper);
+    }
+
+    function testCreatePoolWithDailyPriceShiftExponentTooHigh() public {
+        // Override pool factory (we want the real one, not the mock factory).
+        ReClammPoolFactory poolFactory = deployReClammPoolFactoryWithDefaultParams(vault);
+
+        string memory name = "ReClamm Pool";
+        string memory symbol = "RECLAMM_POOL";
+
+        IERC20[] memory sortedTokens = InputHelpers.sortTokens(
+            [address(usdc), address(dai)].toMemoryArray().asIERC20()
+        );
+
+        PoolRoleAccounts memory roleAccounts;
+
+        roleAccounts = PoolRoleAccounts({ pauseManager: address(0), swapFeeManager: admin, poolCreator: alice });
+
+        ReClammPriceParams memory priceParams = ReClammPriceParams({
+            initialMinPrice: _DEFAULT_MIN_PRICE,
+            initialMaxPrice: _DEFAULT_MAX_PRICE,
+            initialTargetPrice: _DEFAULT_TARGET_PRICE,
+            tokenAPriceIncludesRate: _tokenAPriceIncludesRate,
+            tokenBPriceIncludesRate: _tokenBPriceIncludesRate
+        });
+
+        IRateProvider[] memory rateProviders = new IRateProvider[](2);
+        rateProviders[a] = _rateProviderA;
+        rateProviders[b] = _rateProviderB;
+
+        TokenConfig[] memory tokenConfig = vault.buildTokenConfig(sortedTokens, rateProviders);
+
+        vm.expectRevert(IReClammPool.DailyPriceShiftExponentTooHigh.selector);
+        poolFactory.create(
+            name,
+            symbol,
+            tokenConfig,
+            roleAccounts,
+            _DEFAULT_SWAP_FEE,
+            priceParams,
+            ReClammPoolFactoryLib.MAX_DAILY_PRICE_SHIFT_EXPONENT + 1,
+            _DEFAULT_CENTEREDNESS_MARGIN,
+            bytes32(saltNumber++)
+        );
+    }
+
+    function testCreateStandalonePoolWithDailyPriceShiftExponentTooHigh() public {
+        ReClammPoolParams memory params = ReClammPoolParams({
+            name: "ReClamm Pool",
+            symbol: "FAIL_POOL",
+            version: "1",
+            dailyPriceShiftExponent: ReClammPoolFactoryLib.MAX_DAILY_PRICE_SHIFT_EXPONENT + 1,
+            centerednessMargin: _DEFAULT_CENTEREDNESS_MARGIN,
+            initialMinPrice: _DEFAULT_MIN_PRICE,
+            initialMaxPrice: _DEFAULT_MAX_PRICE,
+            initialTargetPrice: _DEFAULT_TARGET_PRICE,
+            tokenAPriceIncludesRate: false,
+            tokenBPriceIncludesRate: false
+        });
+
+        vm.expectRevert(IReClammPool.DailyPriceShiftExponentTooHigh.selector);
+        deployStandaloneReClammPool(params, vault, _helper);
+    }
+
+    function testCreateStandalonePoolWithDailyPriceShiftExponentTooLow() public {
+        ReClammPoolParams memory params = ReClammPoolParams({
+            name: "ReClamm Pool",
+            symbol: "FAIL_POOL",
+            version: "1",
+            dailyPriceShiftExponent: ReClammMath.PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT - 1,
+            centerednessMargin: _DEFAULT_CENTEREDNESS_MARGIN,
+            initialMinPrice: _DEFAULT_MIN_PRICE,
+            initialMaxPrice: _DEFAULT_MAX_PRICE,
+            initialTargetPrice: _DEFAULT_TARGET_PRICE,
+            tokenAPriceIncludesRate: false,
+            tokenBPriceIncludesRate: false
+        });
+
+        vm.expectRevert(IReClammPool.DailyPriceShiftExponentTooLow.selector);
+        deployStandaloneReClammPool(params, vault, _helper);
+    }
+
+    function testCreateStandalonePoolWithDailyPriceShiftExponentZero() public {
+        ReClammPoolParams memory params = ReClammPoolParams({
+            name: "ReClamm Pool",
+            symbol: "ZERO_SHIFT",
+            version: "1",
+            dailyPriceShiftExponent: 0,
+            centerednessMargin: _DEFAULT_CENTEREDNESS_MARGIN,
+            initialMinPrice: _DEFAULT_MIN_PRICE,
+            initialMaxPrice: _DEFAULT_MAX_PRICE,
+            initialTargetPrice: _DEFAULT_TARGET_PRICE,
+            tokenAPriceIncludesRate: false,
+            tokenBPriceIncludesRate: false
+        });
+
+        // Zero is a valid configuration (disables price shifting). Should not revert.
+        deployStandaloneReClammPool(params, vault, _helper);
+    }
+
+    function testCreatePoolWithCenterednessMarginTooHigh() public {
+        // Override pool factory (we want the real one, not the mock factory).
+        ReClammPoolFactory poolFactory = deployReClammPoolFactoryWithDefaultParams(vault);
+
+        string memory name = "ReClamm Pool";
+        string memory symbol = "RECLAMM_POOL";
+
+        IERC20[] memory sortedTokens = InputHelpers.sortTokens(
+            [address(usdc), address(dai)].toMemoryArray().asIERC20()
+        );
+
+        PoolRoleAccounts memory roleAccounts;
+
+        roleAccounts = PoolRoleAccounts({ pauseManager: address(0), swapFeeManager: admin, poolCreator: alice });
+
+        ReClammPriceParams memory priceParams = ReClammPriceParams({
+            initialMinPrice: _DEFAULT_MIN_PRICE,
+            initialMaxPrice: _DEFAULT_MAX_PRICE,
+            initialTargetPrice: _DEFAULT_TARGET_PRICE,
+            tokenAPriceIncludesRate: _tokenAPriceIncludesRate,
+            tokenBPriceIncludesRate: _tokenBPriceIncludesRate
+        });
+
+        IRateProvider[] memory rateProviders = new IRateProvider[](2);
+        rateProviders[a] = _rateProviderA;
+        rateProviders[b] = _rateProviderB;
+
+        TokenConfig[] memory tokenConfig = vault.buildTokenConfig(sortedTokens, rateProviders);
+
+        vm.expectRevert(IReClammPool.InvalidCenterednessMargin.selector);
+        poolFactory.create(
+            name,
+            symbol,
+            tokenConfig,
+            roleAccounts,
+            _DEFAULT_SWAP_FEE,
+            priceParams,
+            _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
+            ReClammPoolFactoryLib.MAX_CENTEREDNESS_MARGIN + 1,
+            bytes32(saltNumber++)
+        );
+    }
+
+    function testCreateStandalonePoolWithCenterednessMarginTooHigh() public {
+        ReClammPoolParams memory params = ReClammPoolParams({
+            name: "ReClamm Pool",
+            symbol: "FAIL_POOL",
+            version: "1",
+            dailyPriceShiftExponent: _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
+            centerednessMargin: uint64(ReClammPoolFactoryLib.MAX_CENTEREDNESS_MARGIN + 1),
+            initialMinPrice: _DEFAULT_MIN_PRICE,
+            initialMaxPrice: _DEFAULT_MAX_PRICE,
+            initialTargetPrice: _DEFAULT_TARGET_PRICE,
+            tokenAPriceIncludesRate: false,
+            tokenBPriceIncludesRate: false
+        });
+
+        vm.expectRevert(IReClammPool.InvalidCenterednessMargin.selector);
         deployStandaloneReClammPool(params, vault, _helper);
     }
 
@@ -1443,6 +1669,28 @@ contract ReClammPoolTest is BaseReClammTest {
         vm.prank(admin);
         vm.expectRevert(IReClammPool.DailyPriceShiftExponentTooHigh.selector);
         ReClammPool(pool).setDailyPriceShiftExponent(newDailyPriceShiftExponent);
+    }
+
+    function testSetDailyPriceShiftExponentTooLow() public {
+        // Any nonzero value below the integer-division threshold (124649) silently truncates to zero
+        // in toDailyPriceShiftBase. The validation rejects these.
+        vm.prank(admin);
+        vm.expectRevert(IReClammPool.DailyPriceShiftExponentTooLow.selector);
+        ReClammPool(pool).setDailyPriceShiftExponent(ReClammMath.PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT - 1);
+    }
+
+    function testSetDailyPriceShiftExponentZeroAllowed() public {
+        // Zero explicitly disables price shifting and should not revert.
+        vm.prank(admin);
+        ReClammPool(pool).setDailyPriceShiftExponent(0);
+        assertEq(ReClammPool(pool).getDailyPriceShiftExponent(), 0);
+    }
+
+    function testSetDailyPriceShiftExponentAtMinimum() public {
+        // The minimum nonzero value should be accepted.
+        vm.prank(admin);
+        ReClammPool(pool).setDailyPriceShiftExponent(ReClammMath.PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT);
+        assertGt(ReClammPool(pool).getDailyPriceShiftExponent(), 0);
     }
 
     function testSetLastVirtualBalances() public {
@@ -1663,6 +1911,208 @@ contract ReClammPoolTest is BaseReClammTest {
         // Allow for some rounding error
         assertApproxEqRel(minPriceAfter, expectedMinPrice, 1e14, "Min price did not move as expected");
         assertApproxEqRel(maxPriceAfter, expectedMaxPrice, 1e14, "Max price did not move as expected");
+    }
+
+    /**
+     * @notice Demonstrates that price range movement exceeds the VB decay rate when Ro > 0 (high price direction).
+     * @dev The existing `testDailyPriceShiftExponentHighPrice__Fuzz` and `LowPrice__Fuzz` tests drain the overvalued
+     * real balance to zero before measuring, which is the one case where price movement exactly equals VB decay.
+     * This test performs a partial drain (leaving Ro > 0) and verifies that the actual price movement is strictly
+     * faster than `2^exponent` per day, then checks the exact analytical relationship.
+     *
+     * The excess speed comes from the undervalued VB adjusting when the overvalued VB decays: when Ro > 0, both
+     * virtual balances move, compounding the price effect. A useful heuristic: with default pool parameters
+     * (Q0 = 2, lambda ~ 0.5 at 100% exponent), the excess is roughly 1 + 2*rho, where
+     * rho = Ro / ((Q0-1) * Vo). Each 1% of rho adds about 2% extra price-range speed beyond the calibrated rate.
+     *
+     * The excess is effectively unbounded: the exact formula has ((Q0-1)*lambda*Vo - Ro) in the denominator,
+     * which shrinks toward zero as rho approaches the centeredness clamp. The clamp prevents a singularity,
+     * but near-clamp states can see excess factors of 4-5x with default parameters (i.e., prices moving
+     * 8-10x/day instead of the calibrated 2x). The 80% drain in this test is a moderate case (rho ~ 5-12%).
+     */
+    function testPriceShiftFasterThanExponentWhenRoPositiveHighPrice() public {
+        uint256 exponent = _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT;
+
+        (IERC20[] memory tokens, , uint256[] memory balances, ) = vault.getPoolTokenInfo(pool);
+
+        // Partial drain: remove 80% of token A (enough to go out of range with the default 20% centeredness
+        // margin, but leaves the overvalued side's real balance positive). Adjust if defaults change.
+        uint256 amountAOut = (balances[a] * 80) / 100;
+
+        vm.prank(alice);
+        router.swapSingleTokenExactOut(
+            pool,
+            tokens[b],
+            tokens[a],
+            amountAOut,
+            MAX_UINT256,
+            MAX_UINT256,
+            false,
+            bytes("")
+        );
+
+        // Confirm we're out of range but token A is not fully drained.
+        (, , uint256[] memory postSwapBalances, ) = vault.getPoolTokenInfo(pool);
+        assertGt(postSwapBalances[a], 0, "Token A should not be fully drained");
+        assertFalse(ReClammPool(pool).isPoolWithinTargetRange(), "Pool should be out of range");
+
+        // Snapshot stored pool state for the analytical formula.
+        ReClammPoolDynamicData memory dynData = ReClammPool(pool).getReClammPoolDynamicData();
+
+        // Skip 1 second to commit the post-swap state, then record prices.
+        skip(1 seconds);
+
+        (uint256 minPriceBefore, uint256 maxPriceBefore) = ReClammPool(pool).computeCurrentPriceRange();
+
+        skip(1 days);
+
+        (uint256 minPriceAfter, uint256 maxPriceAfter) = ReClammPool(pool).computeCurrentPriceRange();
+
+        // After draining A, the pool is below center (isPoolAboveCenter = false). The overvalued VB is A
+        // (the scarce side whose virtual balance decays). Prices (B/A) move upward as Va decays.
+        // With Ro > 0 the actual movement is strictly faster than the VB-only prediction.
+        uint256 expectedMinPrice = minPriceBefore.mulDown(uint256(2e18).powDown(exponent));
+        uint256 expectedMaxPrice = maxPriceBefore.mulDown(uint256(2e18).powDown(exponent));
+
+        // With default parameters and an 80% drain, prices move ~11% faster than the VB-only prediction
+        // (2.23x vs 2x per day). The exact percentage depends on Ro/Vo and Q0; see the analytical check below.
+        assertGt(minPriceAfter, expectedMinPrice, "Min price should move faster than 2^exponent when Ro > 0");
+        assertGt(maxPriceAfter, expectedMaxPrice, "Max price should move faster than 2^exponent when Ro > 0");
+
+        // Quantify the excess. The price shift decomposes into two multiplicative parts:
+        //   1. (1/lambda): the calibrated part from overvalued VB decay.
+        //   2. Vu_after/Vu_before: the uncalibrated adjustment of the undervalued VB.
+        // When Ro = 0 the Vu formula reduces to Ru/(Q0-1), independent of Vo, so Vu doesn't change and
+        // the excess is 1 (the degenerate case tested by the fuzz tests). When Ro > 0, decaying Vo also
+        // shifts Vu, compounding the price effect. Ru cancels in the Vu ratio, leaving:
+        //   excess = [(lambda*Vo + Ro) / (Vo + Ro)] x [((Q0-1)*Vo - Ro) / ((Q0-1)*lambda*Vo - Ro)]
+        // To first order in rho = Ro/((Q0-1)*Vo): excess ~ 1 + rho*Q0*(1-lambda)/lambda.
+        // With defaults (Q0=2, lambda~0.5) that is roughly 1 + 2*rho.
+        {
+            uint256 Vo = dynData.lastVirtualBalances[a];
+            uint256 Ro = dynData.balancesLiveScaled18[a];
+            uint256 Q0 = mathMock.sqrtScaled18(
+                mathMock.computePriceRatio(
+                    dynData.balancesLiveScaled18,
+                    dynData.lastVirtualBalances[a],
+                    dynData.lastVirtualBalances[b]
+                )
+            );
+            uint256 lambda = dynData.dailyPriceShiftBase.powDown(86400 * FixedPoint.ONE);
+
+            uint256 D = Q0 - FixedPoint.ONE;
+            uint256 lambdaVo = lambda.mulDown(Vo);
+
+            // excess = [(lambda*Vo + Ro) / (Vo + Ro)] x [((Q0-1)*Vo - Ro) / ((Q0-1)*lambda*Vo - Ro)]
+            uint256 analyticalExcess = (lambdaVo + Ro).divDown(Vo + Ro).mulDown(Vo.mulDown(D) - Ro).divDown(
+                lambdaVo.mulDown(D) - Ro
+            );
+
+            uint256 predictedFactor = FixedPoint.ONE.divDown(lambda).mulDown(analyticalExcess);
+
+            assertApproxEqRel(
+                minPriceAfter.divDown(minPriceBefore),
+                predictedFactor,
+                1e14,
+                "Min price factor should match analytical formula"
+            );
+            assertApproxEqRel(
+                maxPriceAfter.divDown(maxPriceBefore),
+                predictedFactor,
+                1e14,
+                "Max price factor should match analytical formula"
+            );
+        }
+    }
+
+    /// @notice Same as the high-price variant, but drains token B to test the low-price direction.
+    function testPriceShiftFasterThanExponentWhenRoPositiveLowPrice() public {
+        uint256 exponent = _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT;
+
+        (IERC20[] memory tokens, , uint256[] memory balances, ) = vault.getPoolTokenInfo(pool);
+
+        // Partial drain: remove 80% of token B. Adjust if defaults change.
+        uint256 amountBOut = (balances[b] * 80) / 100;
+
+        vm.prank(alice);
+        router.swapSingleTokenExactOut(
+            pool,
+            tokens[a],
+            tokens[b],
+            amountBOut,
+            MAX_UINT256,
+            MAX_UINT256,
+            false,
+            bytes("")
+        );
+
+        (, , uint256[] memory postSwapBalances, ) = vault.getPoolTokenInfo(pool);
+        assertGt(postSwapBalances[b], 0, "Token B should not be fully drained");
+        assertFalse(ReClammPool(pool).isPoolWithinTargetRange(), "Pool should be out of range");
+
+        // Snapshot stored pool state for the analytical formula.
+        ReClammPoolDynamicData memory dynData = ReClammPool(pool).getReClammPoolDynamicData();
+
+        skip(1 seconds);
+
+        (uint256 minPriceBefore, uint256 maxPriceBefore) = ReClammPool(pool).computeCurrentPriceRange();
+
+        skip(1 days);
+
+        (uint256 minPriceAfter, uint256 maxPriceAfter) = ReClammPool(pool).computeCurrentPriceRange();
+
+        // After draining B, the pool is above center (isPoolAboveCenter = true). The overvalued VB is B
+        // (the scarce side whose virtual balance decays). Prices (B/A) move downward.
+        // With Ro > 0 the actual movement is strictly faster than the VB-only prediction.
+        uint256 expectedMinPrice = minPriceBefore.divDown(uint256(2e18).powDown(exponent));
+        uint256 expectedMaxPrice = maxPriceBefore.divDown(uint256(2e18).powDown(exponent));
+
+        // With default parameters and an 80% drain, prices drop ~21% more than the VB-only prediction
+        // (0.39x vs 0.50x per day). Larger than the high-price test because Rb/Vb > Ra/Va in this pool.
+        assertLt(minPriceAfter, expectedMinPrice, "Min price should move faster than 1/2^exponent when Ro > 0");
+        assertLt(maxPriceAfter, expectedMaxPrice, "Max price should move faster than 1/2^exponent when Ro > 0");
+
+        // Quantify the excess. Same decomposition as the high-price test (see comment there):
+        //   price factor = lambda x (Vu_before/Vu_after)
+        // The Vu ratio (excess) is the reciprocal of the below-center form because price moves the
+        // opposite direction. Ru cancels, leaving:
+        //   excess = [((Q0-1)*lambda*Vo - Ro) / ((Q0-1)*Vo - Ro)] x [(Vo + Ro) / (lambda*Vo + Ro)]
+        // Same first-order bound: excess ~ 1 - rho*Q0*(1-lambda)/lambda (< 1 when Ro > 0).
+        {
+            uint256 Vo = dynData.lastVirtualBalances[b];
+            uint256 Ro = dynData.balancesLiveScaled18[b];
+            uint256 Q0 = mathMock.sqrtScaled18(
+                mathMock.computePriceRatio(
+                    dynData.balancesLiveScaled18,
+                    dynData.lastVirtualBalances[a],
+                    dynData.lastVirtualBalances[b]
+                )
+            );
+            uint256 lambda = dynData.dailyPriceShiftBase.powDown(86400 * FixedPoint.ONE);
+
+            uint256 D = Q0 - FixedPoint.ONE;
+            uint256 lambdaVo = lambda.mulDown(Vo);
+
+            // excess = [((Q0-1)*lambda*Vo - Ro) / ((Q0-1)*Vo - Ro)] x [(Vo + Ro) / (lambda*Vo + Ro)]
+            uint256 analyticalExcess = (lambdaVo.mulDown(D) - Ro).divDown(Vo.mulDown(D) - Ro).mulDown(Vo + Ro).divDown(
+                lambdaVo + Ro
+            );
+
+            uint256 predictedFactor = lambda.mulDown(analyticalExcess);
+
+            assertApproxEqRel(
+                minPriceAfter.divDown(minPriceBefore),
+                predictedFactor,
+                1e14,
+                "Min price factor should match analytical formula"
+            );
+            assertApproxEqRel(
+                maxPriceAfter.divDown(maxPriceBefore),
+                predictedFactor,
+                1e14,
+                "Max price factor should match analytical formula"
+            );
+        }
     }
 
     function testPriceRangeShiftStop__Fuzz(uint256 margin, uint256 priceShiftExponent, uint256 longDelay) public {

@@ -753,4 +753,17 @@ contract ReClammPoolInitTest is BaseReClammTest {
 
         vm.revertToState(snapshotId);
     }
+
+    /**
+     * @dev Confirms that after a successful initialization, the pool is within its target range. This validates the
+     * defense-in-depth centeredness check in onBeforeInitialize: if it passes, the pool must start in range. The
+     * init-time check applies to WITH_RATE pools where rates can shift between construction and initialization;
+     * for non-rate pools the factory check (validateTargetPrice) is sufficient.
+     */
+    function testPoolIsWithinTargetRangeAfterInit() public view {
+        assertTrue(
+            ReClammPool(pool).isPoolWithinTargetRange(),
+            "Pool should be within target range after initialization"
+        );
+    }
 }

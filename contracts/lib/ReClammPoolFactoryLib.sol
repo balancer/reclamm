@@ -2,12 +2,15 @@
 
 pragma solidity ^0.8.24;
 
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+
 import { TokenConfig, TokenType } from "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultErrors.sol";
 
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 
 import { IReClammPool, ReClammPoolParams } from "../interfaces/IReClammPool.sol";
+import { ReClammMath } from "./ReClammMath.sol";
 
 /**
  * @notice ReClammPool initialization parameters.
@@ -52,13 +55,23 @@ library ReClammPoolFactoryLib {
     // restricting any legitimate deployment.
     uint256 internal constant MAX_PRICE_RATIO = 20e18; // FP(20)
 
+    // Maximum centeredness margin. The margin defines a sub-range of the total price range; the pool is "in target
+    // range" only when its centeredness meets or exceeds this threshold. At 100%, the pool would always have to be
+    // exactly centered, which is impossible since any swap moves it. Capping at 90% leaves a thin but non-zero working
+    // margin, while still allowing operators who want very tight in-range definitions.
+    uint256 internal constant MAX_CENTEREDNESS_MARGIN = 90e16; // 90%
+
+    // The daily price shift exponent controls how fast the price range shifts toward the market price when the pool
+    // is outside the target range. At 100% (i.e., FP 1), the range shifts at approximately 2x per day. The exact
+    // rate is state-dependent: it equals 2^exponent per day when the out-of-range side holds no real balance, and
+    // is faster otherwise. This constant defines the maximum allowed exponent.
+    uint256 internal constant MAX_DAILY_PRICE_SHIFT_EXPONENT = 50e16; // 50%
+
     // solhint-enable private-vars-leading-underscore
 
     function validateTokenConfig(TokenConfig[] memory tokens, ReClammPriceParams memory priceParams) internal pure {
         // The ReClammPool only supports 2 tokens.
-        if (tokens.length > 2) {
-            revert IVaultErrors.MaxTokens();
-        }
+        require(tokens.length <= 2, IVaultErrors.MaxTokens());
 
         if (priceParams.tokenAPriceIncludesRate && tokens[0].tokenType != TokenType.WITH_RATE) {
             revert IVaultErrors.InvalidTokenType();
@@ -68,19 +81,25 @@ library ReClammPoolFactoryLib {
         }
     }
 
-    function validatePriceParams(ReClammPoolParams memory params) internal pure {
+    function validatePoolParams(ReClammPoolParams memory params) internal pure {
+        validateDailyPriceShiftExponent(params.dailyPriceShiftExponent);
+
+        validateCenterednessMargin(params.centerednessMargin);
+
         if (
             params.initialMinPrice == 0 ||
             params.initialMaxPrice == 0 ||
             params.initialTargetPrice == 0 ||
             params.initialTargetPrice < params.initialMinPrice ||
-            params.initialTargetPrice > params.initialMaxPrice ||
+            params.initialTargetPrice >= params.initialMaxPrice ||
             params.initialMinPrice >= params.initialMaxPrice
         ) {
             // If any of these prices were 0, pool initialization would revert with a numerical error.
             // For good measure, we also ensure the target is within the range.
             revert IReClammPool.InvalidInitialPrice();
         }
+
+        validateTargetPrice(params);
 
         uint256 initialPriceRatio = params.initialMaxPrice.divDown(params.initialMinPrice);
 
@@ -89,5 +108,62 @@ library ReClammPoolFactoryLib {
         } else if (initialPriceRatio > MAX_PRICE_RATIO) {
             revert IReClammPool.PriceRatioAboveMax(initialPriceRatio);
         }
+    }
+
+    /**
+     * @notice Validates that a centeredness margin does not exceed the maximum.
+     * @dev A value of 0 is a valid configuration: the target range target range becomes the full price range, so the
+     * pool is always considered in range.
+     *
+     * @param centerednessMargin The centeredness margin to validate
+     */
+    function validateCenterednessMargin(uint256 centerednessMargin) internal pure {
+        // solhint-disable-next-line custom-errors
+        require(centerednessMargin <= MAX_CENTEREDNESS_MARGIN, IReClammPool.InvalidCenterednessMargin());
+    }
+
+    /// @notice Reverts if initial target price is outside the target range defined by the centeredness margin.
+    function validateTargetPrice(ReClammPoolParams memory params) internal pure {
+        if (params.centerednessMargin == 0) {
+            // With a 0 margin, any target price within the min-max range is valid; return early.
+            return;
+        }
+
+        uint256 sqrtMinPrice = ReClammMath.sqrtScaled18(params.initialMinPrice);
+        uint256 sqrtMaxPrice = ReClammMath.sqrtScaled18(params.initialMaxPrice);
+        uint256 sqrtTargetPrice = ReClammMath.sqrtScaled18(params.initialTargetPrice);
+
+        uint256 numerator = sqrtTargetPrice.mulDown(sqrtTargetPrice - sqrtMinPrice);
+        uint256 denominator = sqrtMinPrice.mulDown(sqrtMaxPrice - sqrtTargetPrice);
+
+        if (numerator == 0 || denominator == 0) {
+            // Reaching here means the target is so close to min or max that sqrt rounding collapses the distance to
+            // zero, which would produce a division by zero below. The pool is out of range regardless of the
+            // centeredness margin.
+            revert IReClammPool.InvalidInitialTargetPrice();
+        }
+
+        uint256 x1 = numerator.divDown(denominator);
+        uint256 x2 = denominator.divDown(numerator);
+        uint256 centeredness = Math.min(x1, x2);
+
+        if (centeredness < params.centerednessMargin) {
+            revert IReClammPool.InvalidInitialTargetPrice();
+        }
+    }
+
+    // Validates that a daily price shift exponent is either zero (disabled) or above the integer-division threshold
+    // that would silently truncate to zero. Also enforces the upper bound.
+    function validateDailyPriceShiftExponent(uint256 dailyPriceShiftExponent) internal pure {
+        require(
+            dailyPriceShiftExponent == 0 ||
+                dailyPriceShiftExponent >= ReClammMath.PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT,
+            IReClammPool.DailyPriceShiftExponentTooLow()
+        );
+
+        require(
+            dailyPriceShiftExponent <= MAX_DAILY_PRICE_SHIFT_EXPONENT,
+            IReClammPool.DailyPriceShiftExponentTooHigh()
+        );
     }
 }

@@ -31,9 +31,12 @@ library ReClammMath {
     error AmountOutGreaterThanBalance();
 
     // When a pool is outside the target range, we start adjusting the price range by altering the virtual balances,
-    // which affects the price. At a DailyPriceShiftExponent of 100%, we want to be able to change the price by a factor
-    // of two: either doubling or halving it over the course of a day (86,400 seconds). The virtual balances must
-    // change at the same rate. Therefore, if we want to double it in a day:
+    // which affects the price. The DailyPriceShiftExponent controls how fast the price range shifts toward the
+    // market price. Internally, it is calibrated against the overvalued virtual balance: at 100%, that VB doubles
+    // (or halves) over the course of a day (86,400 seconds). The undervalued virtual balance is then derived from
+    // the invariant geometry, so the actual movement of minPrice and maxPrice is state-dependent: it equals
+    // 2^exponent per day when the out-of-range side holds no real balance, and is faster otherwise.
+    // The derivation below solves for the per-second decay factor that doubles the VB in one day:
     //
     // 1. `V_next = 2*V_current`
     // 2. In the equation `V_next = V_current * (1 - tau)^(n+1)`, isolate tau.
@@ -43,7 +46,8 @@ library ReClammMath {
     //
     // This constant shall be used to scale the dailyPriceShiftExponent, which is a percentage, to the actual value of
     // tau that will be used in the formula.
-    uint256 private constant _PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT = 124649;
+    // solhint-disable-next-line private-vars-leading-underscore
+    uint256 internal constant PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT = 124649;
 
     // We need to use a random number to calculate the initial virtual and real balances. This number will be scaled
     // later, during initialization, according to the actual liquidity added. Choosing a large number will maintain
@@ -58,7 +62,7 @@ library ReClammMath {
      * @param dailyPriceShiftBase Internal time constant used to update virtual balances (1 - tau)
      * @param lastTimestamp The timestamp of the last user interaction with the pool
      * @param centerednessMargin A symmetrical measure of how closely an unbalanced pool can approach the limits of the
-     * price range before it is considered outside the target range
+     * price range while remaining in the target range; the pool is in range when centeredness >= margin
      * @param priceRatioState A struct containing start and end price ratios and a time interval
      * @param rounding Rounding direction to consider when computing the invariant
      * @return invariant The invariant of the pool
@@ -167,10 +171,8 @@ library ReClammMath {
             ((balancesScaled18[tokenOutIndex] + virtualBalanceTokenOut) * amountInScaled18) /
             (balancesScaled18[tokenInIndex] + virtualBalanceTokenIn + amountInScaled18);
 
-        if (amountOutScaled18 > balancesScaled18[tokenOutIndex]) {
-            // Amount out cannot be greater than the real balance of the token in the pool.
-            revert AmountOutGreaterThanBalance();
-        }
+        // Amount out cannot be greater than the real balance of the token in the pool.
+        require(amountOutScaled18 <= balancesScaled18[tokenOutIndex], AmountOutGreaterThanBalance());
     }
 
     /**
@@ -217,10 +219,8 @@ library ReClammMath {
         // |   Vi = Virtual balance token in                  |
         // +--------------------------------------------------+
 
-        if (amountOutScaled18 > balancesScaled18[tokenOutIndex]) {
-            // Amount out cannot be greater than the real balance of the token in the pool.
-            revert AmountOutGreaterThanBalance();
-        }
+        // Amount out cannot be greater than the real balance of the token in the pool.
+        require(amountOutScaled18 <= balancesScaled18[tokenOutIndex], AmountOutGreaterThanBalance());
 
         (uint256 virtualBalanceTokenIn, uint256 virtualBalanceTokenOut) = tokenInIndex == a
             ? (virtualBalanceA, virtualBalanceB)
@@ -320,7 +320,7 @@ library ReClammMath {
      * @param lastVirtualBalanceB The last virtual balance of token B
      * @param dailyPriceShiftBase Internal time constant used to update virtual balances (1 - tau)
      * @param lastTimestamp The timestamp of the last user interaction with the pool
-     * @param centerednessMargin A limit of the pool centeredness that defines if pool is outside the target range
+     * @param centerednessMargin Threshold defining the target range; the pool is in range when centeredness >= margin
      * @param storedPriceRatioState A struct containing start and end price ratios and a time interval
      * @return currentVirtualBalanceA The current virtual balance of token A
      * @return currentVirtualBalanceB The current virtual balance of token B
@@ -337,8 +337,21 @@ library ReClammMath {
     ) internal view returns (uint256 currentVirtualBalanceA, uint256 currentVirtualBalanceB, bool changed) {
         uint32 currentTimestamp = block.timestamp.toUint32();
 
-        // If the last timestamp is the same as the current timestamp, virtual balances were already reviewed in the
-        // current block.
+        // Per-block VB freeze: once any interaction in a block triggers VB recomputation and stores the result, all
+        // subsequent interactions in the same block reuse the stored values. This is intentional. Without it, multiple
+        // interactions within one block could each trigger recomputation at different effective durations, creating a
+        // within-block manipulation surface. The consequence is that the first mover in each block (e.g., a MEV bot)
+        // captures the VB shift that accumulated since the previous block. When the pool is out of range, this is the
+        // per-block increment of the re-centering mechanism: the first trade in each block executes against the
+        // updated curve, providing the economic incentive for arbitrageurs to push the pool back toward range. At
+        // typical operational configurations (daily shift exponent < 5%), the per-block VB change is much smaller than
+        // the minimum round-trip swap fee (2 x 0.001%), making this economically neutral.
+        //
+        // Note: this freeze covers only the time-based VB evolution handled here (price-ratio updates and out-of-range
+        // decay). Proportional add and remove operations also scale VBs via the `onBeforeAddLiquidity` and
+        // `onBeforeRemoveLiquidity` hooks (up on add, down on remove), independently of this computation, and occur
+        // exactly once per operation regardless of block timing. That scaling preserves the Va/Vb ratio, and therefore
+        // also the centeredness and price ratio.
         if (lastTimestamp == currentTimestamp) {
             return (lastVirtualBalanceA, lastVirtualBalanceB, false);
         }
@@ -408,6 +421,15 @@ library ReClammMath {
      *
      * Substitute [3] in [2]. Then, isolate one of the V's. Finally, replace the isolated V in [1]. We get a quadratic
      * equation that will be solved in this function.
+     *
+     * Because centeredness is computed from the current live balances and the last stored virtual balances, any
+     * swap that occurs during an active price ratio update will change the centeredness that gets preserved. This
+     * creates MEV around governance-initiated price ratio updates: a searcher can swap before the update settles
+     * to skew centeredness, then reverse after the widened ratio locks in the skewed state. The extractable value
+     * scales with both pool depth and widening magnitude. For the worst case (a 2x widening, the maximum allowed
+     * daily rate), a swap fee of at least ~2% is needed to neutralize the round trip. Smaller widenings require
+     * proportionally lower fees. Governance should prefer gradual updates (smaller ratio changes over longer
+     * durations) to limit the extractable value per update step.
      *
      * @param currentFourthRootPriceRatio The current fourth root of the price ratio of the pool
      * @param balancesScaled18 Current pool balances, sorted in token registration order
@@ -529,19 +551,31 @@ library ReClammMath {
         // Cap the duration (time between operations) at 30 days, to ensure `powDown` does not overflow.
         uint256 duration = Math.min(currentTimestamp - lastTimestamp, 30 days);
 
-        virtualBalanceOvervalued = virtualBalanceOvervalued.mulDown(
+        // Vo should always be greater than 0 to prevent divisions by 0 in calculations downstream.
+        // Using `mulUp` ensures that no matter how small Vo is at this point, the update will be > 0.
+        virtualBalanceOvervalued = virtualBalanceOvervalued.mulUp(
             dailyPriceShiftBase.powDown(duration * FixedPoint.ONE)
         );
 
         // Ensure that Vo does not go below the minimum allowed value (corresponding to centeredness == 1).
+        // We need to use `divUp` here to ensure that Vu_denominator is positive (see comment below).
         virtualBalanceOvervalued = Math.max(
             virtualBalanceOvervalued,
-            balancesScaledOvervalued.divDown(sqrtScaled18(sqrtPriceRatio) - FixedPoint.ONE)
+            balancesScaledOvervalued.divUp(sqrtScaled18(sqrtPriceRatio) - FixedPoint.ONE)
         );
 
+        // For Ro != 0:
+        // Vo is at least Ro / (sqrt(Qo) - 1) because of the clamp applied above.
+        // The denominator for Vu is (Qo - 1) * Vo - Ro.
+        // Replacing for the minimum Vo, we get Vu_denominator_min = (Qo - 1) / (sqrt(Qo) - 1) * Ro - Ro.'
+        // Since Qo > 1 and sqrt(Qo) < Qo, then (Qo - 1) / (sqrt(Qo) - 1) > 1, and Vu_denominator_min positive on paper.
+        // In order to ensure that Vu_denominator is positive in practice, we use `mulUp`.
+        // For Ro == 0:
+        // Vo should be at least 1 wei based on the clamp applied above. Then, the denominator should be at least 1
+        // by using `mulUp`.
         virtualBalanceUndervalued =
             (balancesScaledUndervalued * (virtualBalanceOvervalued + balancesScaledOvervalued)) /
-            ((sqrtPriceRatio - FixedPoint.ONE).mulDown(virtualBalanceOvervalued) - balancesScaledOvervalued);
+            ((sqrtPriceRatio - FixedPoint.ONE).mulUp(virtualBalanceOvervalued) - balancesScaledOvervalued);
 
         (newVirtualBalanceA, newVirtualBalanceB) = isPoolAboveCenter
             ? (virtualBalanceUndervalued, virtualBalanceOvervalued)
@@ -555,7 +589,7 @@ library ReClammMath {
      * @param virtualBalanceA The last virtual balances of token A
      * @param virtualBalanceB The last virtual balances of token B
      * @param centerednessMargin A symmetrical measure of how closely an unbalanced pool can approach the limits of the
-     * price range before it is considered out of range
+     * price range while remaining in the target range; the pool is in range when centeredness >= margin
      * @return isWithinTargetRange Whether the pool is within the target price range
      */
     function isPoolWithinTargetRange(
@@ -596,16 +630,13 @@ library ReClammMath {
         uint256 denominator = virtualBalanceA * balancesScaled18[b];
 
         // The centeredness is defined between 0 and 1. If the numerator is greater than the denominator, we compute
-        // the inverse ratio.
-        if (numerator <= denominator) {
-            poolCenteredness = numerator.divDown(denominator);
-            isPoolAboveCenter = false;
-        } else {
-            poolCenteredness = denominator.divDown(numerator);
-            isPoolAboveCenter = true;
-        }
+        // the inverse ratio. Uses Math.mulDiv instead of divDown to avoid intermediate overflow when
+        // balancesScaled18[i] * virtualBalance[j] * 1e18 would exceed uint256.
+        isPoolAboveCenter = numerator > denominator;
 
-        return (poolCenteredness, isPoolAboveCenter);
+        poolCenteredness = isPoolAboveCenter
+            ? Math.mulDiv(denominator, FixedPoint.ONE, numerator)
+            : Math.mulDiv(numerator, FixedPoint.ONE, denominator);
     }
 
     /**
@@ -666,8 +697,9 @@ library ReClammMath {
 
     /**
      * @notice Compute the price ratio of the pool by dividing the maximum price by the minimum price.
-     * @dev The price ratio is calculated as maxPrice/minPrice, where maxPrice and minPrice are obtained
-     * from computePriceRange.
+     * @dev The price ratio is calculated as maxPrice/minPrice, simplifying the formula algebraically to prevent
+     * overflow issues along the way. The final expression depends on balances and virtual balances directly, as
+     * opposed to the invariant or other intermediate results such as the maximum price or the minimum price itself.
      *
      * @param balancesScaled18 Current pool balances, sorted in token registration order
      * @param virtualBalanceA Virtual balance of token A
@@ -679,10 +711,18 @@ library ReClammMath {
         uint256 virtualBalanceA,
         uint256 virtualBalanceB
     ) internal pure returns (uint256 priceRatio) {
-        (uint256 minPrice, uint256 maxPrice) = computePriceRange(balancesScaled18, virtualBalanceA, virtualBalanceB);
+        // See computePriceRange for the derivation of P_max and P_min:
+        // - P_max(a) = invariant / Va^2
+        // - P_min(a) = Vb^2 / invariant
+        // Then, P_max(a) / P_min(a) = invariant^2 / (Va^2 * Vb^2), and since invariant = (Ra + Va)(Rb + Vb),
+        // we can substitute it and simplify the equation to get:
+        // P_max(a) / P_min(a) = [(1 + Ra/Va) * (1 + Rb/Vb)]^2
 
-        // Round down for consistency with initialization (computeTheoreticalPriceRatioAndBalances).
-        return maxPrice.divDown(minPrice);
+        // Compute inner terms first, and then multiply by itself.
+        uint256 sqrtPriceRatio = (FixedPoint.ONE + balancesScaled18[a].divDown(virtualBalanceA)).mulDown(
+            FixedPoint.ONE + balancesScaled18[b].divDown(virtualBalanceB)
+        );
+        return sqrtPriceRatio.mulDown(sqrtPriceRatio);
     }
 
     /**
@@ -714,13 +754,19 @@ library ReClammMath {
         // We don't have Ra_max, but: invariant = (Ra_max + Va) * Vb
         // Then, (Va + Ra_max) = invariant / Vb, and:
         // P_min(a) = Vb^2 / invariant
+        // minPrice can technically underflow for low virtual balances and a high invariant. But this should only
+        // happen for price ratios that are outside the normal operating range of the pool.
         minPrice = (virtualBalanceB * virtualBalanceB) / currentInvariant;
 
         // Similarly, P_max(a) = (Rb_max + Vb) / Va
         // We don't have Rb_max, but: invariant = (Rb_max + Vb) * Va
         // Then, (Rb_max + Vb) = invariant / Va, and:
         // P_max(a) = invariant / Va^2
-        maxPrice = currentInvariant.divDown(virtualBalanceA.mulDown(virtualBalanceA));
+        // On the other hand, by definition:
+        // P_max(a) = priceRatio * P_min(a)
+        // We compute it via the second form to avoid `mulDown(Va, Va)`, which underflows whenever Va < 1e9.
+        // `computePriceRatio` uses an algebraic rearrangement that is robust at any positive virtual balance.
+        maxPrice = computePriceRatio(balancesScaled18, virtualBalanceA, virtualBalanceB).mulDown(minPrice);
     }
 
     /**
@@ -729,7 +775,7 @@ library ReClammMath {
      * @return dailyPriceShiftBase Internal time constant used to update virtual balances (1 - tau)
      */
     function toDailyPriceShiftBase(uint256 dailyPriceShiftExponent) internal pure returns (uint256) {
-        return FixedPoint.ONE - dailyPriceShiftExponent / _PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT;
+        return FixedPoint.ONE - dailyPriceShiftExponent / PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT;
     }
 
     /**
@@ -739,7 +785,7 @@ library ReClammMath {
      * @return dailyPriceShiftExponent The daily price shift exponent as an 18-decimal FP percentage
      */
     function toDailyPriceShiftExponent(uint256 dailyPriceShiftBase) internal pure returns (uint256) {
-        return (FixedPoint.ONE - dailyPriceShiftBase) * _PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT;
+        return (FixedPoint.ONE - dailyPriceShiftBase) * PRICE_SHIFT_EXPONENT_INTERNAL_ADJUSTMENT;
     }
 
     /**
