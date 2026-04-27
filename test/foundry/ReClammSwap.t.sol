@@ -258,14 +258,16 @@ contract ReClammSwapTest is BaseReClammTest {
         uint256 currentFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
         newFourthRootPriceRatio = bound(newFourthRootPriceRatio, 1.1e18, 2e18);
 
-        if (newFourthRootPriceRatio > currentFourthRootPriceRatio) {
-            vm.assume(newFourthRootPriceRatio - currentFourthRootPriceRatio >= 2);
-        } else {
-            vm.assume(currentFourthRootPriceRatio - newFourthRootPriceRatio >= 2);
-        }
-
+        uint256 currentPriceRatio = currentFourthRootPriceRatio.mulDown(currentFourthRootPriceRatio);
+        currentPriceRatio = currentPriceRatio.mulDown(currentPriceRatio);
         uint256 newPriceRatio = newFourthRootPriceRatio.mulDown(newFourthRootPriceRatio);
         newPriceRatio = newPriceRatio.mulDown(newPriceRatio);
+
+        if (newPriceRatio > currentPriceRatio) {
+            vm.assume(newPriceRatio - currentPriceRatio >= _MIN_PRICE_RATIO_DELTA);
+        } else {
+            vm.assume(currentPriceRatio - newPriceRatio >= _MIN_PRICE_RATIO_DELTA);
+        }
 
         vm.prank(admin);
         ReClammPool(pool).startPriceRatioUpdate(newPriceRatio, block.timestamp, block.timestamp + 5 days);
@@ -417,6 +419,9 @@ contract ReClammLongIdleDrainTest is BaseReClammTest {
     }
 
     function testLongIdleDrainStaysUsable() public {
+        vm.prank(admin);
+        ReClammPool(pool).setDailyPriceShiftExponent(50e16);
+
         (, , uint256[] memory balancesBeforeDrain, ) = vault.getPoolTokenInfo(pool);
 
         // Identify token A (the one we will drain, sorted index 0) and token B (sorted index 1).
@@ -436,7 +441,7 @@ contract ReClammLongIdleDrainTest is BaseReClammTest {
         );
 
         // Long idle period that drives the lazy virtual balance update down toward the historical 1e9 floor.
-        vm.warp(block.timestamp + 11 days + 22 hours);
+        vm.warp(block.timestamp + 25 days);
 
         // First small swap. Under the old math this committed a degraded virtual balance to storage; under
         // the new math the result is well-defined and the swap succeeds.
@@ -476,10 +481,10 @@ contract ReClammLongIdleDrainTest is BaseReClammTest {
 contract ReClammPriceRatioWideningRoundTripTest is BaseReClammTest {
     using FixedPoint for *;
 
-    // Use a duration slightly above 1 day so the 2x widening stays just under the maximum allowed daily
-    // rate. At exactly 1 day the rate lands right on the boundary and rounding in divUp/powUp can push
+    // Use a duration slightly above 2 day so the 2x widening stays just under the maximum allowed daily
+    // rate. At exactly 2 day the rate lands right on the boundary and rounding in divUp/powUp can push
     // the computed rate a hair above the max, causing PriceRatioUpdateTooFast.
-    uint256 private constant _UPDATE_DURATION = 1 days + 1 minutes;
+    uint256 private constant _UPDATE_DURATION = 2 days + 1 minutes;
 
     function setUp() public override {
         // Match the audit's witness: min/max/target = 1000/4000/2000.

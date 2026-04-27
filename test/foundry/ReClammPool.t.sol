@@ -506,8 +506,8 @@ contract ReClammPoolTest is BaseReClammTest {
     /**
      * @notice Proves that the exponential daily-rate formula allows a 7× price ratio update over 3 days, while
      * the old linear formula would have incorrectly rejected it.
-     * @dev Linear rate: (14/2) × (1/3) ≈ 2.333 > 2 — would fail.
-     * Exponential rate: (14/2)^(1/3) = 7^(1/3) ≈ 1.913 < 2 — passes.
+     * @dev Linear rate: (20/2) × (1/7) ≈ 1.428 > 2^(1/2) = 1.414.. — would fail.
+     * Exponential rate: (20/2)^(1/7) = 10^(1/7) ≈ 1.389 < 1.414 — passes.
      */
     function testDailyPriceRatioUpdateRateExponentialVsLinear() public view {
         uint256 maxDailyPriceRatioUpdateRate = IReClammPool(pool)
@@ -515,17 +515,17 @@ contract ReClammPoolTest is BaseReClammTest {
             .maxDailyPriceRatioUpdateRate;
 
         // The old linear formula: (max/min) × (1 day / duration).
-        // With startPriceRatio=2e18, endPriceRatio=14e18, duration=3 days this gives 7/3 ≈ 2.333.
-        uint256 linearRate = FixedPoint.divUp(14e18 * 1 days, 2e18 * 3 days);
+        // With startPriceRatio=2e18, endPriceRatio=20e18, duration=7 days this gives 10/7 ≈ 1.428.
+        uint256 linearRate = FixedPoint.divUp(20e18 * 1 days, 2e18 * 7 days);
         assertGt(linearRate, maxDailyPriceRatioUpdateRate, "linear rate should exceed the limit");
 
         // The new exponential formula: (max/min)^(1 day / duration).
-        // With startPriceRatio=2e18, endPriceRatio=14e18, duration=3 days this gives 7^(1/3) ≈ 1.913.
-        uint256 exponentialRate = ReClammPoolMock(pool).computeDailyPriceRatioUpdateRate(2e18, 14e18, 3 days);
+        // With startPriceRatio=2e18, endPriceRatio=20e18, duration=7 days this gives 10^(1/7) ≈ 1.389.
+        uint256 exponentialRate = ReClammPoolMock(pool).computeDailyPriceRatioUpdateRate(2e18, 20e18, 7 days);
         assertLe(exponentialRate, maxDailyPriceRatioUpdateRate, "exponential rate should be within the limit");
 
-        // 7^(1/3) ≈ 1.91293e18, tolerance of 1e14 (0.01% precision).
-        assertApproxEqAbs(exponentialRate, 1.91293e18, 1e14, "exponential rate should be ~7^(1/3)");
+        // 10^(1/7) ≈ 1.38949, tolerance of 1e14 (0.01% precision).
+        assertApproxEqAbs(exponentialRate, 1.38949e18, 1e14, "exponential rate should be ~10^(1/7)");
     }
 
     function testSetPriceRatioTooLow() public {
@@ -1234,7 +1234,7 @@ contract ReClammPoolTest is BaseReClammTest {
             name: "ReClamm Pool",
             symbol: "FAIL_POOL",
             version: "1",
-            dailyPriceShiftExponent: 1e18,
+            dailyPriceShiftExponent: _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
             centerednessMargin: 0.2e18,
             initialMinPrice: 0,
             initialMaxPrice: 2000e18,
@@ -1252,7 +1252,7 @@ contract ReClammPoolTest is BaseReClammTest {
             name: "ReClamm Pool",
             symbol: "FAIL_POOL",
             version: "1",
-            dailyPriceShiftExponent: 1e18,
+            dailyPriceShiftExponent: _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
             centerednessMargin: 0.2e18,
             initialMinPrice: 1750e18,
             initialMaxPrice: 2000e18,
@@ -1270,7 +1270,7 @@ contract ReClammPoolTest is BaseReClammTest {
             name: "ReClamm Pool",
             symbol: "FAIL_POOL",
             version: "1",
-            dailyPriceShiftExponent: 1e18,
+            dailyPriceShiftExponent: _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
             centerednessMargin: 0.2e18,
             initialMinPrice: 1000e18,
             initialMaxPrice: 0,
@@ -1288,7 +1288,7 @@ contract ReClammPoolTest is BaseReClammTest {
             name: "ReClamm Pool",
             symbol: "FAIL_POOL",
             version: "1",
-            dailyPriceShiftExponent: 1e18,
+            dailyPriceShiftExponent: _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
             centerednessMargin: 0.2e18,
             initialMinPrice: 1000e18,
             initialMaxPrice: 2000e18,
@@ -1306,7 +1306,7 @@ contract ReClammPoolTest is BaseReClammTest {
             name: "ReClamm Pool",
             symbol: "FAIL_POOL",
             version: "1",
-            dailyPriceShiftExponent: 1e18,
+            dailyPriceShiftExponent: _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
             centerednessMargin: 0.2e18,
             initialMinPrice: 1000e18,
             initialMaxPrice: 2000e18,
@@ -1421,7 +1421,7 @@ contract ReClammPoolTest is BaseReClammTest {
             name: "ReClamm Pool",
             symbol: "FAIL_POOL",
             version: "1",
-            dailyPriceShiftExponent: 1e18,
+            dailyPriceShiftExponent: _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
             centerednessMargin: 0.2e18,
             initialMinPrice: minPrice,
             initialMaxPrice: maxPrice,
