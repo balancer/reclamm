@@ -183,7 +183,7 @@ contract ReClammPoolTest is BaseReClammTest {
     function testGetLastTimestamp() public {
         // Call any function that updates the last timestamp.
         vm.prank(admin);
-        ReClammPool(pool).setDailyPriceShiftExponent(20e16);
+        ReClammPool(pool).setDailyPriceShiftExponent(_DEFAULT_CENTEREDNESS_MARGIN / 2);
 
         uint256 lastTimestampBeforeWarp = ReClammPool(pool).getLastTimestamp();
         assertEq(lastTimestampBeforeWarp, block.timestamp, "Invalid lastTimestamp before warp");
@@ -194,7 +194,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         // Call any function that updates the last timestamp.
         vm.prank(admin);
-        ReClammPool(pool).setDailyPriceShiftExponent(30e16);
+        ReClammPool(pool).setDailyPriceShiftExponent(_DEFAULT_CENTEREDNESS_MARGIN);
 
         uint256 lastTimestampAfterSetDailyPriceShiftExponent = ReClammPool(pool).getLastTimestamp();
         assertEq(
@@ -215,7 +215,7 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function testGetDailyPriceShiftExponentToBase() public {
-        uint256 dailyPriceRateExponent = 30e16;
+        uint256 dailyPriceRateExponent = _DEFAULT_CENTEREDNESS_MARGIN / 2;
         vm.prank(admin);
         uint256 actualDailyPriceShiftExponentReturned = ReClammPool(pool).setDailyPriceShiftExponent(
             dailyPriceRateExponent
@@ -269,7 +269,7 @@ contract ReClammPoolTest is BaseReClammTest {
         uint256 newFourthRootPriceRatio = oldFourthRootPriceRatio.mulDown(90e16);
         uint256 newPriceRatio = _pow4(newFourthRootPriceRatio);
         uint256 newPriceRatioUpdateStartTime = block.timestamp;
-        uint256 newPriceRatioUpdateEndTime = block.timestamp + 1 days;
+        uint256 newPriceRatioUpdateEndTime = block.timestamp + 10 days;
 
         vm.prank(admin);
         ReClammPool(pool).startPriceRatioUpdate(
@@ -304,7 +304,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
     function testGetReClammPoolDynamicData() public {
         // Modify values using setters
-        uint256 newDailyPriceShiftExponent = 80e16;
+        uint256 newDailyPriceShiftExponent = _DEFAULT_CENTEREDNESS_MARGIN / 2;
         uint256 endPriceRatio = 16e18;
         uint256 endFourthRootPriceRatio = 2e18;
         uint256 newStaticSwapFeePercentage = 5e16;
@@ -313,7 +313,7 @@ contract ReClammPoolTest is BaseReClammTest {
             startFourthRootPriceRatio: ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96(),
             endFourthRootPriceRatio: endFourthRootPriceRatio.toUint96(),
             priceRatioUpdateStartTime: block.timestamp.toUint32(),
-            priceRatioUpdateEndTime: (block.timestamp + 3 days).toUint32()
+            priceRatioUpdateEndTime: (block.timestamp + 10 days).toUint32()
         });
 
         (uint256[] memory currentVirtualBalances, ) = _computeCurrentVirtualBalances(pool);
@@ -506,8 +506,8 @@ contract ReClammPoolTest is BaseReClammTest {
     /**
      * @notice Proves that the exponential daily-rate formula allows a 7× price ratio update over 3 days, while
      * the old linear formula would have incorrectly rejected it.
-     * @dev Linear rate: (14/2) × (1/3) ≈ 2.333 > 2 — would fail.
-     * Exponential rate: (14/2)^(1/3) = 7^(1/3) ≈ 1.913 < 2 — passes.
+     * @dev Linear rate: (20/2) × (1/7) ≈ 1.428 > 2^(1/2) = 1.414.. — would fail.
+     * Exponential rate: (20/2)^(1/7) = 10^(1/7) ≈ 1.389 < 1.414 — passes.
      */
     function testDailyPriceRatioUpdateRateExponentialVsLinear() public view {
         uint256 maxDailyPriceRatioUpdateRate = IReClammPool(pool)
@@ -515,17 +515,17 @@ contract ReClammPoolTest is BaseReClammTest {
             .maxDailyPriceRatioUpdateRate;
 
         // The old linear formula: (max/min) × (1 day / duration).
-        // With startPriceRatio=2e18, endPriceRatio=14e18, duration=3 days this gives 7/3 ≈ 2.333.
-        uint256 linearRate = FixedPoint.divUp(14e18 * 1 days, 2e18 * 3 days);
+        // With startPriceRatio=2e18, endPriceRatio=20e18, duration=7 days this gives 10/7 ≈ 1.428.
+        uint256 linearRate = FixedPoint.divUp(20e18 * 1 days, 2e18 * 7 days);
         assertGt(linearRate, maxDailyPriceRatioUpdateRate, "linear rate should exceed the limit");
 
         // The new exponential formula: (max/min)^(1 day / duration).
-        // With startPriceRatio=2e18, endPriceRatio=14e18, duration=3 days this gives 7^(1/3) ≈ 1.913.
-        uint256 exponentialRate = ReClammPoolMock(pool).computeDailyPriceRatioUpdateRate(2e18, 14e18, 3 days);
+        // With startPriceRatio=2e18, endPriceRatio=20e18, duration=7 days this gives 10^(1/7) ≈ 1.389.
+        uint256 exponentialRate = ReClammPoolMock(pool).computeDailyPriceRatioUpdateRate(2e18, 20e18, 7 days);
         assertLe(exponentialRate, maxDailyPriceRatioUpdateRate, "exponential rate should be within the limit");
 
-        // 7^(1/3) ≈ 1.91293e18, tolerance of 1e14 (0.01% precision).
-        assertApproxEqAbs(exponentialRate, 1.91293e18, 1e14, "exponential rate should be ~7^(1/3)");
+        // 10^(1/7) ≈ 1.38949, tolerance of 1e14 (0.01% precision).
+        assertApproxEqAbs(exponentialRate, 1.38949e18, 1e14, "exponential rate should be ~10^(1/7)");
     }
 
     function testSetPriceRatioTooLow() public {
@@ -553,7 +553,7 @@ contract ReClammPoolTest is BaseReClammTest {
         uint96 endFourthRootPriceRatio = 2e18;
         uint32 timeOffset = 1 hours;
         uint32 priceRatioUpdateStartTime = uint32(block.timestamp) - timeOffset;
-        uint32 duration = 3 days;
+        uint32 duration = 10 days;
         uint32 priceRatioUpdateEndTime = uint32(block.timestamp) + duration;
 
         uint96 startFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
@@ -624,7 +624,7 @@ contract ReClammPoolTest is BaseReClammTest {
         uint96 endFourthRootPriceRatio = 2e18;
         uint32 timeOffset = 1 hours;
         uint32 priceRatioUpdateStartTime = uint32(block.timestamp) - timeOffset;
-        uint32 duration = 3 days;
+        uint32 duration = 10 days;
         uint32 priceRatioUpdateEndTime = uint32(block.timestamp) + duration;
 
         uint96 startFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
@@ -687,7 +687,7 @@ contract ReClammPoolTest is BaseReClammTest {
         endFourthRootPriceRatio = 2.1e18;
         timeOffset = 1 hours;
         priceRatioUpdateStartTime = uint32(block.timestamp) - timeOffset;
-        duration = 6 days;
+        duration = 10 days;
         priceRatioUpdateEndTime = uint32(block.timestamp) + duration;
 
         startFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
@@ -775,7 +775,7 @@ contract ReClammPoolTest is BaseReClammTest {
         uint96 endFourthRootPriceRatio = 2e18;
         uint32 timeOffset = 1 hours;
         uint32 priceRatioUpdateStartTime = uint32(block.timestamp) - timeOffset;
-        uint32 duration = 3 days;
+        uint32 duration = 10 days;
         uint32 priceRatioUpdateEndTime = uint32(block.timestamp) + duration;
 
         uint96 startFourthRootPriceRatio = ReClammPool(pool).computeCurrentFourthRootPriceRatio().toUint96();
@@ -875,7 +875,7 @@ contract ReClammPoolTest is BaseReClammTest {
     function testSetDailyPriceShiftExponentVaultUnlocked() public {
         vault.forceUnlock();
 
-        uint256 newDailyPriceShiftExponent = 80e16;
+        uint256 newDailyPriceShiftExponent = _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT / 2;
         vm.prank(admin);
         vm.expectRevert(IReClammPool.VaultIsNotLocked.selector);
         ReClammPool(pool).setDailyPriceShiftExponent(newDailyPriceShiftExponent);
@@ -884,14 +884,14 @@ contract ReClammPoolTest is BaseReClammTest {
     function testSetDailyPriceShiftExponentPoolNotInitialized() public {
         vault.manualSetInitializedPool(pool, false);
 
-        uint256 newDailyPriceShiftExponent = 80e16;
+        uint256 newDailyPriceShiftExponent = _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT / 2;
         vm.prank(admin);
         vm.expectRevert(IReClammPool.PoolNotInitialized.selector);
         ReClammPool(pool).setDailyPriceShiftExponent(newDailyPriceShiftExponent);
     }
 
     function testSetDailyPriceShiftExponent() public {
-        uint256 newDailyPriceShiftExponent = 80e16;
+        uint256 newDailyPriceShiftExponent = _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT / 2;
 
         uint256 dailyPriceShiftBase = ReClammMath.toDailyPriceShiftBase(newDailyPriceShiftExponent);
         uint256 actualNewDailyPriceShiftExponent = ReClammMath.toDailyPriceShiftExponent(dailyPriceShiftBase);
@@ -917,7 +917,7 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function testSetDailyPriceShiftExponentPermissioned() public {
-        uint256 newDailyPriceShiftExponent = 80e16;
+        uint256 newDailyPriceShiftExponent = _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT / 2;
         vm.prank(alice);
         vm.expectRevert(IAuthentication.SenderNotAllowed.selector);
         ReClammPool(pool).setDailyPriceShiftExponent(newDailyPriceShiftExponent);
@@ -942,7 +942,7 @@ contract ReClammPoolTest is BaseReClammTest {
         // USDC virtual balance does not move.
         assertEq(virtualBalancesBefore[usdcIdx], lastVirtualBalancesBeforeSet[usdcIdx], "USDC virtual balance changed");
 
-        uint256 newDailyPriceShiftExponent = 80e16;
+        uint256 newDailyPriceShiftExponent = _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT / 2;
         uint128 dailyPriceShiftBase = ReClammMath.toDailyPriceShiftBase(newDailyPriceShiftExponent).toUint128();
         uint256 actualNewDailyPriceShiftExponent = ReClammMath.toDailyPriceShiftExponent(dailyPriceShiftBase);
 
@@ -1234,7 +1234,7 @@ contract ReClammPoolTest is BaseReClammTest {
             name: "ReClamm Pool",
             symbol: "FAIL_POOL",
             version: "1",
-            dailyPriceShiftExponent: 1e18,
+            dailyPriceShiftExponent: _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
             centerednessMargin: 0.2e18,
             initialMinPrice: 0,
             initialMaxPrice: 2000e18,
@@ -1252,7 +1252,7 @@ contract ReClammPoolTest is BaseReClammTest {
             name: "ReClamm Pool",
             symbol: "FAIL_POOL",
             version: "1",
-            dailyPriceShiftExponent: 1e18,
+            dailyPriceShiftExponent: _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
             centerednessMargin: 0.2e18,
             initialMinPrice: 1750e18,
             initialMaxPrice: 2000e18,
@@ -1270,7 +1270,7 @@ contract ReClammPoolTest is BaseReClammTest {
             name: "ReClamm Pool",
             symbol: "FAIL_POOL",
             version: "1",
-            dailyPriceShiftExponent: 1e18,
+            dailyPriceShiftExponent: _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
             centerednessMargin: 0.2e18,
             initialMinPrice: 1000e18,
             initialMaxPrice: 0,
@@ -1288,7 +1288,7 @@ contract ReClammPoolTest is BaseReClammTest {
             name: "ReClamm Pool",
             symbol: "FAIL_POOL",
             version: "1",
-            dailyPriceShiftExponent: 1e18,
+            dailyPriceShiftExponent: _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
             centerednessMargin: 0.2e18,
             initialMinPrice: 1000e18,
             initialMaxPrice: 2000e18,
@@ -1306,7 +1306,7 @@ contract ReClammPoolTest is BaseReClammTest {
             name: "ReClamm Pool",
             symbol: "FAIL_POOL",
             version: "1",
-            dailyPriceShiftExponent: 1e18,
+            dailyPriceShiftExponent: _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
             centerednessMargin: 0.2e18,
             initialMinPrice: 1000e18,
             initialMaxPrice: 2000e18,
@@ -1421,7 +1421,7 @@ contract ReClammPoolTest is BaseReClammTest {
             name: "ReClamm Pool",
             symbol: "FAIL_POOL",
             version: "1",
-            dailyPriceShiftExponent: 1e18,
+            dailyPriceShiftExponent: _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
             centerednessMargin: 0.2e18,
             initialMinPrice: minPrice,
             initialMaxPrice: maxPrice,
@@ -2201,8 +2201,8 @@ contract ReClammPoolTest is BaseReClammTest {
         margin = bound(margin, 1e16, _MAX_CENTEREDNESS_MARGIN);
 
         vm.startPrank(admin);
-        ReClammPool(pool).setDailyPriceShiftExponent(100e16);
         ReClammPoolMock(pool).manualSetCenterednessMargin(margin);
+        ReClammPool(pool).setDailyPriceShiftExponent(_MAX_DAILY_PRICE_SHIFT_EXPONENT);
         vm.stopPrank();
 
         // Swap all of token B for token A using the router, getting almost all of the balance of B.
@@ -2213,7 +2213,7 @@ contract ReClammPoolTest is BaseReClammTest {
             pool,
             tokens[a],
             tokens[b],
-            balances[b] - 1e18, // Swap almost all of B
+            balances[b] - 1e18, // Swap a big chunk of token balances to get closer to the edge
             MAX_UINT256,
             MAX_UINT256,
             false,

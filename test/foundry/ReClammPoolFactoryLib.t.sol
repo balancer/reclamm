@@ -15,7 +15,7 @@ contract ReClammPoolFactoryLibTest is Test {
     uint256 internal constant _MIN_PRICE_RATIO = 1.0001e18;
     uint256 internal constant _MAX_PRICE_RATIO = 20e18;
     uint256 internal constant _MAX_CENTEREDNESS_MARGIN = 90e16;
-    uint256 internal constant _MAX_DAILY_PRICE_SHIFT_EXPONENT = 100e16;
+    uint256 internal constant _MAX_DAILY_PRICE_SHIFT_EXPONENT = 50e16;
 
     // Valid defaults used to build a passing `ReClammPoolParams` that individual tests then
     // mutate to exercise a specific branch.

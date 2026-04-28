@@ -53,8 +53,8 @@ describe('ReClammPool', function () {
   const MAX_PRICE = fp(2);
   const TARGET_PRICE = fp(1.41);
 
-  // 100%. Price interval can double or reduce by half each day.
-  const PRICE_SHIFT_DAILY_RATE = fp(1);
+  // 20% (at 100%, price interval can double or reduce by half each day).
+  const PRICE_SHIFT_DAILY_RATE = fp(0.2);
   // 50%. If pool centeredness is less than margin, price interval will track the market price.
   const CENTEREDNESS_MARGIN = fp(0.5);
 
@@ -363,10 +363,10 @@ describe('ReClammPool', function () {
 
       await advanceTime(6 * HOUR);
 
-      // Since price shift daily is 100%, prices will double each day. It's exponential, so we expect that
-      // after 6 hours the new prices are oldPrice * 2^(1/4).
-      const expectedMinPriceOOR = fpMulDown(minPriceAfterBigSwap, fourthRoot(fp(2)));
-      const expectedMaxPriceOOR = fpMulDown(maxPriceAfterBigSwap, fourthRoot(fp(2)));
+      // Since price shift daily is 20%, prices will increase by 20% each day. It's exponential, so we expect that
+      // after 6 hours the new prices are oldPrice * 1.2^(1/4).
+      const expectedMinPriceOOR = fpMulDown(minPriceAfterBigSwap, fourthRoot(fp(1.2)));
+      const expectedMaxPriceOOR = fpMulDown(maxPriceAfterBigSwap, fourthRoot(fp(1.2)));
 
       // Pool is OOR, so min and max prices moved. However, the price ratio should be the same.
       const { minPrice: minPriceOOR, maxPrice: maxPriceOOR } = await checkPoolPrices(
@@ -430,9 +430,9 @@ describe('ReClammPool', function () {
       const expectedMaxPriceIRAfterConcentration = fpMulDown(centerednessPrice, sqrtPriceRatioAfterConcentration);
 
       // Also, the prices are shifting since the pool is OOR. The prices should have moved by the same factor
-      // 2ˆ(1/4) = 1.189207, applied to the previous min and max prices.
-      const expectedMinPriceOORAfterConcentration = fpMulDown(expectedMinPriceIRAfterConcentration, fp(1.189207));
-      const expectedMaxPriceOORAfterConcentration = fpMulDown(expectedMaxPriceIRAfterConcentration, fp(1.189207));
+      // 1.2ˆ(1/4) ≈ 1.046635, applied to the previous min and max prices.
+      const expectedMinPriceOORAfterConcentration = fpMulDown(expectedMinPriceIRAfterConcentration, fp(1.046635));
+      const expectedMaxPriceOORAfterConcentration = fpMulDown(expectedMaxPriceIRAfterConcentration, fp(1.046635));
       const { minPrice: minPriceAfterPriceShift, maxPrice: maxPriceAfterPriceShift } = await checkPoolPrices(
         pool,
         expectedPriceRatioAfterConcentration,
@@ -524,10 +524,10 @@ describe('ReClammPool', function () {
 
       await advanceTime(6 * HOUR);
 
-      // Since price shift daily is 100%, prices will halve each day. It's exponential, so we expect that
-      // after 6 hours the new prices are oldPrice / 2^(1/4).
-      const expectedMinPriceOOR = fpDivDown(minPriceAfterBigSwap, fourthRoot(fp(2)));
-      const expectedMaxPriceOOR = fpDivDown(maxPriceAfterBigSwap, fourthRoot(fp(2)));
+      // Since price shift daily is 20%, prices will decrease by ~17% each day. It's exponential, so we expect that
+      // after 6 hours the new prices are oldPrice / 1.2^(1/4).
+      const expectedMinPriceOOR = fpDivDown(minPriceAfterBigSwap, fourthRoot(fp(1.2)));
+      const expectedMaxPriceOOR = fpDivDown(maxPriceAfterBigSwap, fourthRoot(fp(1.2)));
 
       // Pool is OOR, so min and max prices moved. However, the price ratio should be the same.
       const { minPrice: minPriceOOR, maxPrice: maxPriceOOR } = await checkPoolPrices(
@@ -543,7 +543,7 @@ describe('ReClammPool', function () {
       // Concentrating liquidity
       const updateStartTimestamp = (await currentTimestamp()) + 1n;
       const updateEndTimestamp = updateStartTimestamp + 1n * BigInt(DAY) + 1n;
-      const endFourthRootPriceRatio = fpDivDown(initialFourthRootPriceRatio, fp(1.1));
+      const endFourthRootPriceRatio = fpDivDown(initialFourthRootPriceRatio, fp(1.03));
       await pool
         .connect(bob)
         .startPriceRatioUpdate(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
@@ -587,9 +587,9 @@ describe('ReClammPool', function () {
       const expectedMaxPriceIRAfterConcentration = fpMulDown(centerednessPrice, sqrtPriceRatioAfterConcentration);
 
       // Also, the prices are shifting since the pool is OOR. The prices should have moved by the same factor
-      // 2ˆ(1/4), applied to the previous min and max prices.
-      const expectedMinPriceOORAfterConcentration = fpDivDown(expectedMinPriceIRAfterConcentration, fourthRoot(fp(2)));
-      const expectedMaxPriceOORAfterConcentration = fpDivDown(expectedMaxPriceIRAfterConcentration, fourthRoot(fp(2)));
+      // 1.2ˆ(1/4), applied to the previous min and max prices.
+      const expectedMinPriceOORAfterConcentration = fpDivDown(expectedMinPriceIRAfterConcentration, fourthRoot(fp(1.2)));
+      const expectedMaxPriceOORAfterConcentration = fpDivDown(expectedMaxPriceIRAfterConcentration, fourthRoot(fp(1.2)));
       const { minPrice: minPriceAfterPriceShift, maxPrice: maxPriceAfterPriceShift } = await checkPoolPrices(
         pool,
         expectedPriceRatioAfterConcentration,
@@ -680,10 +680,10 @@ describe('ReClammPool', function () {
 
       await advanceTime(6 * HOUR);
 
-      // Since price shift daily is 100%, prices will double each day. It's exponential, so we expect that
-      // after 6 hours the new prices are oldPrice * 2^(1/4).
-      const expectedMinPriceOOR = fpMulDown(minPriceAfterBigSwap, fourthRoot(fp(2)));
-      const expectedMaxPriceOOR = fpMulDown(maxPriceAfterBigSwap, fourthRoot(fp(2)));
+      // Since price shift daily is 20%, prices will increase by 20% each day. It's exponential, so we expect that
+      // after 6 hours the new prices are oldPrice * 1.2^(1/4).
+      const expectedMinPriceOOR = fpMulDown(minPriceAfterBigSwap, fourthRoot(fp(1.2)));
+      const expectedMaxPriceOOR = fpMulDown(maxPriceAfterBigSwap, fourthRoot(fp(1.2)));
 
       // Pool is OOR, so min and max prices moved. However, the price ratio should be the same.
       const { minPrice: minPriceOOR, maxPrice: maxPriceOOR } = await checkPoolPrices(
@@ -703,7 +703,7 @@ describe('ReClammPool', function () {
       const startFourthRootPriceRatio = await pool.computeCurrentFourthRootPriceRatio();
       const updateStartTimestamp = (await currentTimestamp()) + 1n;
       const updateEndTimestamp = updateStartTimestamp + 1n * BigInt(DAY) + 1n;
-      const endFourthRootPriceRatio = fpMulDown(initialFourthRootPriceRatio, fp(1.1));
+      const endFourthRootPriceRatio = fpMulDown(initialFourthRootPriceRatio, fp(1.03));
       await pool
         .connect(bob)
         .startPriceRatioUpdate(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
@@ -747,9 +747,9 @@ describe('ReClammPool', function () {
       const expectedMaxPriceIRAfterConcentration = fpMulDown(centerednessPrice, sqrtPriceRatioAfterConcentration);
 
       // Also, the prices are shifting since the pool is OOR. The prices should have moved by the same factor
-      // 2ˆ(1/4) = 1.189207, applied to the previous min and max prices.
-      const expectedMinPriceOORAfterConcentration = fpMulDown(expectedMinPriceIRAfterConcentration, fp(1.189207));
-      const expectedMaxPriceOORAfterConcentration = fpMulDown(expectedMaxPriceIRAfterConcentration, fp(1.189207));
+      // 1.2ˆ(1/4) ≈ 1.046635, applied to the previous min and max prices.
+      const expectedMinPriceOORAfterConcentration = fpMulDown(expectedMinPriceIRAfterConcentration, fp(1.046635));
+      const expectedMaxPriceOORAfterConcentration = fpMulDown(expectedMaxPriceIRAfterConcentration, fp(1.046635));
       const { minPrice: minPriceAfterPriceShift, maxPrice: maxPriceAfterPriceShift } = await checkPoolPrices(
         pool,
         expectedPriceRatioAfterConcentration,
@@ -840,10 +840,10 @@ describe('ReClammPool', function () {
 
       await advanceTime(6 * HOUR);
 
-      // Since price shift daily is 100%, prices will halve each day. It's exponential, so we expect that
-      // after 6 hours the new prices are oldPrice / 2^(1/4).
-      const expectedMinPriceOOR = fpDivDown(minPriceAfterBigSwap, fourthRoot(fp(2)));
-      const expectedMaxPriceOOR = fpDivDown(maxPriceAfterBigSwap, fourthRoot(fp(2)));
+      // Since price shift daily is 20%, prices will decrease by ~17% each day. It's exponential, so we expect that
+      // after 6 hours the new prices are oldPrice / 1.2^(1/4).
+      const expectedMinPriceOOR = fpDivDown(minPriceAfterBigSwap, fourthRoot(fp(1.2)));
+      const expectedMaxPriceOOR = fpDivDown(maxPriceAfterBigSwap, fourthRoot(fp(1.2)));
 
       // Pool is OOR, so min and max prices moved. However, the price ratio should be the same.
       const { minPrice: minPriceOOR, maxPrice: maxPriceOOR } = await checkPoolPrices(
@@ -859,7 +859,7 @@ describe('ReClammPool', function () {
       // Deconcentrating liquidity
       const updateStartTimestamp = (await currentTimestamp()) + 1n;
       const updateEndTimestamp = updateStartTimestamp + 1n * BigInt(DAY) + 1n;
-      const endFourthRootPriceRatio = fpMulDown(initialFourthRootPriceRatio, fp(1.1));
+      const endFourthRootPriceRatio = fpMulDown(initialFourthRootPriceRatio, fp(1.03));
       await pool
         .connect(bob)
         .startPriceRatioUpdate(pow4(endFourthRootPriceRatio), updateStartTimestamp, updateEndTimestamp);
@@ -903,9 +903,9 @@ describe('ReClammPool', function () {
       const expectedMaxPriceIRAfterConcentration = fpMulDown(centerednessPrice, sqrtPriceRatioAfterConcentration);
 
       // Also, the prices are shifting since the pool is OOR. The prices should have moved by the same factor
-      // 2ˆ(1/4), applied to the previous min and max prices.
-      const expectedMinPriceOORAfterConcentration = fpDivDown(expectedMinPriceIRAfterConcentration, fourthRoot(fp(2)));
-      const expectedMaxPriceOORAfterConcentration = fpDivDown(expectedMaxPriceIRAfterConcentration, fourthRoot(fp(2)));
+      // 1.2ˆ(1/4), applied to the previous min and max prices.
+      const expectedMinPriceOORAfterConcentration = fpDivDown(expectedMinPriceIRAfterConcentration, fourthRoot(fp(1.2)));
+      const expectedMaxPriceOORAfterConcentration = fpDivDown(expectedMaxPriceIRAfterConcentration, fourthRoot(fp(1.2)));
       const { minPrice: minPriceAfterPriceShift, maxPrice: maxPriceAfterPriceShift } = await checkPoolPrices(
         pool,
         expectedPriceRatioAfterConcentration,

@@ -41,6 +41,9 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
         string factoryVersion;
     }
 
+    uint256 internal constant _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT = 5e16; // 5%
+    uint64 internal constant _DEFAULT_CENTEREDNESS_MARGIN = 20e16; // 20%
+
     string private artifactsRootDir = "artifacts/";
     DefaultDeployParams private defaultParams;
 
@@ -57,8 +60,8 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
             defaultTargetPrice: 1e18,
             defaultTokenAPriceIncludesRate: false,
             defaultTokenBPriceIncludesRate: false,
-            defaultDailyPriceShiftExponent: 100e16, // 100%
-            defaultCenterednessMargin: 10e16, // 10%
+            defaultDailyPriceShiftExponent: _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT,
+            defaultCenterednessMargin: _DEFAULT_CENTEREDNESS_MARGIN,
             poolVersion: "ReClamm Pool v1",
             factoryVersion: "ReClamm Pool Factory v1"
         });

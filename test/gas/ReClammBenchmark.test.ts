@@ -64,7 +64,7 @@ class ReClammBenchmark extends Benchmark {
       roleAccounts,
       fp(0.1), // 10% swap fee percentage
       priceParams,
-      fp(1), // 100% price shift daily rate
+      fp(0.2), // 20% price shift daily rate
       fp(0.2), // 20% centeredness margin
       salt
     );
@@ -94,7 +94,7 @@ class ReClammBenchmark extends Benchmark {
         const pool: ReClammPool = await deployedAt('ReClammPool', await poolInfo.pool.getAddress());
 
         const startTimestamp = await currentTimestamp();
-        const endTimestamp = startTimestamp + BigInt(DAY * 2);
+        const endTimestamp = startTimestamp + BigInt(DAY * 4);
 
         await pool.connect(swapFeeManager).startPriceRatioUpdate(
           fp(2), // Price Ratio of 16 (2^4)
@@ -345,7 +345,7 @@ class ReClammBenchmark extends Benchmark {
         const pool: ReClammPool = await deployedAt('ReClammPool', await poolInfo.pool.getAddress());
 
         const startTimestamp = await currentTimestamp();
-        const endTimestamp = startTimestamp + BigInt(DAY * 2);
+        const endTimestamp = startTimestamp + BigInt(DAY * 4);
 
         await pool.connect(swapFeeManager).startPriceRatioUpdate(
           fp(2), // Price Ratio of 16 (2^4)

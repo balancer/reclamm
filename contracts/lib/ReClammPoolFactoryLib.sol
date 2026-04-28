@@ -65,7 +65,7 @@ library ReClammPoolFactoryLib {
     // is outside the target range. At 100% (i.e., FP 1), the range shifts at approximately 2x per day. The exact
     // rate is state-dependent: it equals 2^exponent per day when the out-of-range side holds no real balance, and
     // is faster otherwise. This constant defines the maximum allowed exponent.
-    uint256 internal constant MAX_DAILY_PRICE_SHIFT_EXPONENT = 100e16; // 100%
+    uint256 internal constant MAX_DAILY_PRICE_SHIFT_EXPONENT = 50e16; // 50%
 
     // solhint-enable private-vars-leading-underscore
 
