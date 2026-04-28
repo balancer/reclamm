@@ -183,7 +183,7 @@ contract ReClammPoolTest is BaseReClammTest {
     function testGetLastTimestamp() public {
         // Call any function that updates the last timestamp.
         vm.prank(admin);
-        ReClammPool(pool).setDailyPriceShiftExponent(15e16);
+        ReClammPool(pool).setDailyPriceShiftExponent(_DEFAULT_CENTEREDNESS_MARGIN / 2);
 
         uint256 lastTimestampBeforeWarp = ReClammPool(pool).getLastTimestamp();
         assertEq(lastTimestampBeforeWarp, block.timestamp, "Invalid lastTimestamp before warp");
@@ -194,7 +194,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
         // Call any function that updates the last timestamp.
         vm.prank(admin);
-        ReClammPool(pool).setDailyPriceShiftExponent(20e16);
+        ReClammPool(pool).setDailyPriceShiftExponent(_DEFAULT_CENTEREDNESS_MARGIN);
 
         uint256 lastTimestampAfterSetDailyPriceShiftExponent = ReClammPool(pool).getLastTimestamp();
         assertEq(
@@ -215,7 +215,7 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function testGetDailyPriceShiftExponentToBase() public {
-        uint256 dailyPriceRateExponent = 15e16;
+        uint256 dailyPriceRateExponent = _DEFAULT_CENTEREDNESS_MARGIN / 2;
         vm.prank(admin);
         uint256 actualDailyPriceShiftExponentReturned = ReClammPool(pool).setDailyPriceShiftExponent(
             dailyPriceRateExponent
@@ -304,7 +304,7 @@ contract ReClammPoolTest is BaseReClammTest {
 
     function testGetReClammPoolDynamicData() public {
         // Modify values using setters
-        uint256 newDailyPriceShiftExponent = 15e16;
+        uint256 newDailyPriceShiftExponent = _DEFAULT_CENTEREDNESS_MARGIN / 2;
         uint256 endPriceRatio = 16e18;
         uint256 endFourthRootPriceRatio = 2e18;
         uint256 newStaticSwapFeePercentage = 5e16;
