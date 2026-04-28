@@ -41,7 +41,7 @@ contract ReClammPoolContractsDeployer is BaseContractsDeployer {
         string factoryVersion;
     }
 
-    uint256 internal constant _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT = 20e16; // 20%
+    uint256 internal constant _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT = 5e16; // 5%
     uint64 internal constant _DEFAULT_CENTEREDNESS_MARGIN = 20e16; // 20%
 
     string private artifactsRootDir = "artifacts/";
