@@ -420,7 +420,7 @@ contract ReClammLongIdleDrainTest is BaseReClammTest {
 
     function testLongIdleDrainStaysUsable() public {
         vm.prank(admin);
-        ReClammPool(pool).setDailyPriceShiftExponent(50e16);
+        ReClammPool(pool).setDailyPriceShiftExponent(_MAX_DAILY_PRICE_SHIFT_EXPONENT);
 
         (, , uint256[] memory balancesBeforeDrain, ) = vault.getPoolTokenInfo(pool);
 

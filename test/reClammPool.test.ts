@@ -53,7 +53,7 @@ describe('ReClammPool', function () {
   const MAX_PRICE = fp(2);
   const TARGET_PRICE = fp(1.41);
 
-  // 100%. Price interval can double or reduce by half each day.
+  // 20% (at 100%, price interval can double or reduce by half each day).
   const PRICE_SHIFT_DAILY_RATE = fp(0.2);
   // 50%. If pool centeredness is less than margin, price interval will track the market price.
   const CENTEREDNESS_MARGIN = fp(0.5);

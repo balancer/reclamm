@@ -875,7 +875,7 @@ contract ReClammPoolTest is BaseReClammTest {
     function testSetDailyPriceShiftExponentVaultUnlocked() public {
         vault.forceUnlock();
 
-        uint256 newDailyPriceShiftExponent = 80e16;
+        uint256 newDailyPriceShiftExponent = _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT / 2;
         vm.prank(admin);
         vm.expectRevert(IReClammPool.VaultIsNotLocked.selector);
         ReClammPool(pool).setDailyPriceShiftExponent(newDailyPriceShiftExponent);
@@ -884,14 +884,14 @@ contract ReClammPoolTest is BaseReClammTest {
     function testSetDailyPriceShiftExponentPoolNotInitialized() public {
         vault.manualSetInitializedPool(pool, false);
 
-        uint256 newDailyPriceShiftExponent = 80e16;
+        uint256 newDailyPriceShiftExponent = _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT / 2;
         vm.prank(admin);
         vm.expectRevert(IReClammPool.PoolNotInitialized.selector);
         ReClammPool(pool).setDailyPriceShiftExponent(newDailyPriceShiftExponent);
     }
 
     function testSetDailyPriceShiftExponent() public {
-        uint256 newDailyPriceShiftExponent = 15e16;
+        uint256 newDailyPriceShiftExponent = _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT / 2;
 
         uint256 dailyPriceShiftBase = ReClammMath.toDailyPriceShiftBase(newDailyPriceShiftExponent);
         uint256 actualNewDailyPriceShiftExponent = ReClammMath.toDailyPriceShiftExponent(dailyPriceShiftBase);
@@ -917,7 +917,7 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function testSetDailyPriceShiftExponentPermissioned() public {
-        uint256 newDailyPriceShiftExponent = 15e16;
+        uint256 newDailyPriceShiftExponent = _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT / 2;
         vm.prank(alice);
         vm.expectRevert(IAuthentication.SenderNotAllowed.selector);
         ReClammPool(pool).setDailyPriceShiftExponent(newDailyPriceShiftExponent);
@@ -942,7 +942,7 @@ contract ReClammPoolTest is BaseReClammTest {
         // USDC virtual balance does not move.
         assertEq(virtualBalancesBefore[usdcIdx], lastVirtualBalancesBeforeSet[usdcIdx], "USDC virtual balance changed");
 
-        uint256 newDailyPriceShiftExponent = 15e16;
+        uint256 newDailyPriceShiftExponent = _DEFAULT_DAILY_PRICE_SHIFT_EXPONENT / 2;
         uint128 dailyPriceShiftBase = ReClammMath.toDailyPriceShiftBase(newDailyPriceShiftExponent).toUint128();
         uint256 actualNewDailyPriceShiftExponent = ReClammMath.toDailyPriceShiftExponent(dailyPriceShiftBase);
 
@@ -2198,8 +2198,11 @@ contract ReClammPoolTest is BaseReClammTest {
     }
 
     function testPriceRangeShiftStopAt100__Fuzz(uint256 margin) public {
+        margin = bound(margin, 1e16, _MAX_CENTEREDNESS_MARGIN);
+
         vm.startPrank(admin);
-        ReClammPool(pool).setDailyPriceShiftExponent(20e16);
+        ReClammPoolMock(pool).manualSetCenterednessMargin(margin);
+        ReClammPool(pool).setDailyPriceShiftExponent(_MAX_DAILY_PRICE_SHIFT_EXPONENT);
         vm.stopPrank();
 
         // Swap all of token B for token A using the router, getting almost all of the balance of B.
@@ -2210,7 +2213,7 @@ contract ReClammPoolTest is BaseReClammTest {
             pool,
             tokens[a],
             tokens[b],
-            balances[b] / 2, // Swap a big chunk of token balances to get closer to the edge
+            balances[b] - 1e18, // Swap a big chunk of token balances to get closer to the edge
             MAX_UINT256,
             MAX_UINT256,
             false,
@@ -2220,13 +2223,7 @@ contract ReClammPoolTest is BaseReClammTest {
         (, , , uint256[] memory balancesScaled18AfterSwap) = vault.getPoolTokenInfo(pool);
 
         (uint256 poolCenterednessAfterSwap, ) = ReClammPool(pool).computeCurrentPoolCenteredness();
-        assertApproxEqAbs(poolCenterednessAfterSwap, 52e16, 1e16, "Pool centeredness after swap is not close to 52%");
-
-        // Get the pool out of range after the swap
-        margin = bound(margin, poolCenterednessAfterSwap + 1e16, _MAX_CENTEREDNESS_MARGIN);
-        vm.startPrank(admin);
-        ReClammPoolMock(pool).manualSetCenterednessMargin(margin);
-        vm.stopPrank();
+        assertApproxEqAbs(poolCenterednessAfterSwap, 0, 0.5e16, "Pool centeredness after swap is not close to 0%");
         assertFalse(ReClammPool(pool).isPoolWithinTargetRange(), "Pool is still within target range after swap");
 
         // We're way past the margin right now, but we should not go past 100%.
