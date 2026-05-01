@@ -31,6 +31,9 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
 
     string private _poolVersion;
 
+    /// @notice Thrown if the provided helper was not deployed with the same Vault as the factory.
+    error WrongHelperDeployment();
+
     constructor(
         IVault vault,
         ReClammPoolHelper helper,
@@ -38,6 +41,8 @@ contract ReClammPoolFactory is IPoolVersion, BasePoolFactory, Version {
         string memory factoryVersion,
         string memory poolVersion
     ) BasePoolFactory(vault, pauseWindowDuration, type(ReClammPool).creationCode) Version(factoryVersion) {
+        require(address(helper.vault()) == address(getVault()), WrongHelperDeployment());
+
         reClammPoolHelper = helper;
         _poolVersion = poolVersion;
     }
