@@ -240,19 +240,13 @@ contract ReClammPoolHelper {
         uint256 spotPrice = (balancesScaled18[b] + virtualBalanceB).divDown(balancesScaled18[a] + virtualBalanceA);
         _comparePrice(spotPrice, targetPrice);
 
-        uint256 currentInvariant = ReClammMath.computeInvariant(
+        // Compare current min and max prices with initialization values.
+        (uint256 currentMinPrice, uint256 currentMaxPrice) = ReClammMath.computePriceRange(
             balancesScaled18,
             virtualBalanceA,
-            virtualBalanceB,
-            Rounding.ROUND_DOWN
+            virtualBalanceB
         );
-
-        // Compare current min price with initialization min price.
-        uint256 currentMinPrice = (virtualBalanceB * virtualBalanceB) / currentInvariant;
         _comparePrice(currentMinPrice, minPrice);
-
-        // Compare current max price with initialization max price.
-        uint256 currentMaxPrice = _computeMaxPrice(currentInvariant, virtualBalanceA);
         _comparePrice(currentMaxPrice, maxPrice);
     }
 
@@ -263,10 +257,6 @@ contract ReClammPoolHelper {
         if (currentPrice < priceLowerBound || currentPrice > priceUpperBound) {
             revert IReClammPool.WrongInitializationPrices();
         }
-    }
-
-    function _computeMaxPrice(uint256 currentInvariant, uint256 virtualBalanceA) internal pure returns (uint256) {
-        return currentInvariant.divDown(virtualBalanceA.mulDown(virtualBalanceA));
     }
 
     /**
