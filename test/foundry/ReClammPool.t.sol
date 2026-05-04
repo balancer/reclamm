@@ -506,8 +506,8 @@ contract ReClammPoolTest is BaseReClammTest {
     /**
      * @notice Proves that the exponential daily-rate formula allows a 7× price ratio update over 3 days, while
      * the old linear formula would have incorrectly rejected it.
-     * @dev Linear rate: (20/2) × (1/7) ≈ 1.428 > 2^(1/2) = 1.414.. — would fail.
-     * Exponential rate: (20/2)^(1/7) = 10^(1/7) ≈ 1.389 < 1.414 — passes.
+     * @dev Linear rate: (20/2) × (1/7) ≈ 1.428 > 2^(1/2) = 1.414..; would fail.
+     * Exponential rate: (20/2)^(1/7) = 10^(1/7) ≈ 1.389 < 1.414; passes.
      */
     function testDailyPriceRatioUpdateRateExponentialVsLinear() public view {
         uint256 maxDailyPriceRatioUpdateRate = IReClammPool(pool)

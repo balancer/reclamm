@@ -89,7 +89,7 @@ contract ReClammPoolFactoryLibTest is Test {
                         validateTokenConfig
     ********************************************************/
 
-    // Branch: `tokens.length > 2` — reverts with `MaxTokens`.
+    // Branch: `tokens.length > 2`, reverts with `MaxTokens`.
     /// forge-config: default.allow_internal_expect_revert = true
     function testValidateTokenConfigTooManyTokensReverts() public {
         TokenConfig[] memory tokens = new TokenConfig[](3);
@@ -108,7 +108,7 @@ contract ReClammPoolFactoryLibTest is Test {
         ReClammPoolFactoryLib.validateTokenConfig(tokens, priceParams);
     }
 
-    // Branch: `tokenAPriceIncludesRate && tokens[0].tokenType != WITH_RATE` — both sides true.
+    // Branch: `tokenAPriceIncludesRate && tokens[0].tokenType != WITH_RATE`, both sides true.
     /// forge-config: default.allow_internal_expect_revert = true
     function testValidateTokenConfigTokenAStandardWithRateFlagReverts() public {
         TokenConfig[] memory tokens = _buildTokens(TokenType.STANDARD, TokenType.WITH_RATE);
@@ -138,7 +138,7 @@ contract ReClammPoolFactoryLibTest is Test {
         ReClammPoolFactoryLib.validateTokenConfig(tokens, priceParams);
     }
 
-    // Branch: `tokenBPriceIncludesRate && tokens[1].tokenType != WITH_RATE` — both sides true.
+    // Branch: `tokenBPriceIncludesRate && tokens[1].tokenType != WITH_RATE`, both sides true.
     // Token A is WITH_RATE here so the token A branch is not what's firing.
     /// forge-config: default.allow_internal_expect_revert = true
     function testValidateTokenConfigTokenBStandardWithRateFlagReverts() public {
@@ -201,7 +201,7 @@ contract ReClammPoolFactoryLibTest is Test {
         ReClammPoolFactoryLib.validatePoolParams(params);
     }
 
-    // Boundary: `dailyPriceShiftExponent == 0` is allowed — there is no minimum.
+    // Boundary: `dailyPriceShiftExponent == 0` is allowed; there is no minimum.
     /// forge-config: default.allow_internal_expect_revert = true
     function testValidatePoolParamsDailyPriceShiftExponentZeroSucceeds() public pure {
         ReClammPoolParams memory params = _buildParams();
@@ -229,7 +229,7 @@ contract ReClammPoolFactoryLibTest is Test {
         ReClammPoolFactoryLib.validatePoolParams(params);
     }
 
-    // Boundary: `centerednessMargin == 0` is allowed — there is no minimum.
+    // Boundary: `centerednessMargin == 0` is allowed; there is no minimum.
     /// forge-config: default.allow_internal_expect_revert = true
     function testValidatePoolParamsCenterednessMarginZeroSucceeds() public pure {
         ReClammPoolParams memory params = _buildParams();
@@ -238,7 +238,7 @@ contract ReClammPoolFactoryLibTest is Test {
         ReClammPoolFactoryLib.validatePoolParams(params);
     }
 
-    // Sub-condition: `initialMinPrice == 0`. Isolated — with max/target unchanged, no other
+    // Sub-condition: `initialMinPrice == 0`. Isolated; with max/target unchanged, no other
     // sub-condition in the OR fires (target is not < 0, target is not >= 4e18, min is not >= max).
     /// forge-config: default.allow_internal_expect_revert = true
     function testValidatePoolParamsInitialMinPriceZeroReverts() public {
@@ -272,7 +272,7 @@ contract ReClammPoolFactoryLibTest is Test {
         ReClammPoolFactoryLib.validatePoolParams(params);
     }
 
-    // Sub-condition: `initialTargetPrice < initialMinPrice`. Isolated — min/max are non-zero,
+    // Sub-condition: `initialTargetPrice < initialMinPrice`. Isolated; min/max are non-zero,
     // target is within (0, max) and min < max, so only this sub-condition fires.
     /// forge-config: default.allow_internal_expect_revert = true
     function testValidatePoolParamsTargetBelowMinReverts() public {
@@ -285,7 +285,7 @@ contract ReClammPoolFactoryLibTest is Test {
         ReClammPoolFactoryLib.validatePoolParams(params);
     }
 
-    // Sub-condition: `initialTargetPrice >= initialMaxPrice` — equality case. Isolated —
+    // Sub-condition: `initialTargetPrice >= initialMaxPrice`, equality case. Isolated;
     // min < max and target >= min, so only this sub-condition fires.
     /// forge-config: default.allow_internal_expect_revert = true
     function testValidatePoolParamsTargetEqualsMaxReverts() public {
@@ -298,7 +298,7 @@ contract ReClammPoolFactoryLibTest is Test {
         ReClammPoolFactoryLib.validatePoolParams(params);
     }
 
-    // Sub-condition: `initialTargetPrice >= initialMaxPrice` — strictly greater case. Isolated —
+    // Sub-condition: `initialTargetPrice >= initialMaxPrice`, strictly greater case. Isolated;
     // min < max and target >= min, so only this sub-condition fires.
     /// forge-config: default.allow_internal_expect_revert = true
     function testValidatePoolParamsTargetAboveMaxReverts() public {
@@ -311,7 +311,7 @@ contract ReClammPoolFactoryLibTest is Test {
         ReClammPoolFactoryLib.validatePoolParams(params);
     }
 
-    // Sub-condition: `initialMinPrice >= initialMaxPrice` — equality case. `min == max` forces
+    // Sub-condition: `initialMinPrice >= initialMaxPrice`, equality case. `min == max` forces
     // either `target < min` or `target >= max` to also be true (no valid `target` exists
     // in an empty interval); the revert reason is the same for every sub-condition.
     /// forge-config: default.allow_internal_expect_revert = true
@@ -325,7 +325,7 @@ contract ReClammPoolFactoryLibTest is Test {
         ReClammPoolFactoryLib.validatePoolParams(params);
     }
 
-    // Sub-condition: `initialMinPrice >= initialMaxPrice` — strictly greater case. Same note as
+    // Sub-condition: `initialMinPrice >= initialMaxPrice`, strictly greater case. Same note as
     // the equality case: `min > max` also makes `target < min` or `target >= max` true.
     /// forge-config: default.allow_internal_expect_revert = true
     function testValidatePoolParamsMinGreaterThanMaxReverts() public {
