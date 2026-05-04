@@ -430,7 +430,7 @@ describe('ReClammPool', function () {
       const expectedMaxPriceIRAfterConcentration = fpMulDown(centerednessPrice, sqrtPriceRatioAfterConcentration);
 
       // Also, the prices are shifting since the pool is OOR. The prices should have moved by the same factor
-      // 1.2ˆ(1/4) ≈ 1.046635, applied to the previous min and max prices.
+      // 1.2^(1/4) ≈ 1.046635, applied to the previous min and max prices.
       const expectedMinPriceOORAfterConcentration = fpMulDown(expectedMinPriceIRAfterConcentration, fp(1.046635));
       const expectedMaxPriceOORAfterConcentration = fpMulDown(expectedMaxPriceIRAfterConcentration, fp(1.046635));
       const { minPrice: minPriceAfterPriceShift, maxPrice: maxPriceAfterPriceShift } = await checkPoolPrices(
@@ -587,7 +587,7 @@ describe('ReClammPool', function () {
       const expectedMaxPriceIRAfterConcentration = fpMulDown(centerednessPrice, sqrtPriceRatioAfterConcentration);
 
       // Also, the prices are shifting since the pool is OOR. The prices should have moved by the same factor
-      // 1.2ˆ(1/4), applied to the previous min and max prices.
+      // 1.2^(1/4), applied to the previous min and max prices.
       const expectedMinPriceOORAfterConcentration = fpDivDown(expectedMinPriceIRAfterConcentration, fourthRoot(fp(1.2)));
       const expectedMaxPriceOORAfterConcentration = fpDivDown(expectedMaxPriceIRAfterConcentration, fourthRoot(fp(1.2)));
       const { minPrice: minPriceAfterPriceShift, maxPrice: maxPriceAfterPriceShift } = await checkPoolPrices(
@@ -747,7 +747,7 @@ describe('ReClammPool', function () {
       const expectedMaxPriceIRAfterConcentration = fpMulDown(centerednessPrice, sqrtPriceRatioAfterConcentration);
 
       // Also, the prices are shifting since the pool is OOR. The prices should have moved by the same factor
-      // 1.2ˆ(1/4) ≈ 1.046635, applied to the previous min and max prices.
+      // 1.2^(1/4) ≈ 1.046635, applied to the previous min and max prices.
       const expectedMinPriceOORAfterConcentration = fpMulDown(expectedMinPriceIRAfterConcentration, fp(1.046635));
       const expectedMaxPriceOORAfterConcentration = fpMulDown(expectedMaxPriceIRAfterConcentration, fp(1.046635));
       const { minPrice: minPriceAfterPriceShift, maxPrice: maxPriceAfterPriceShift } = await checkPoolPrices(
@@ -903,7 +903,7 @@ describe('ReClammPool', function () {
       const expectedMaxPriceIRAfterConcentration = fpMulDown(centerednessPrice, sqrtPriceRatioAfterConcentration);
 
       // Also, the prices are shifting since the pool is OOR. The prices should have moved by the same factor
-      // 1.2ˆ(1/4), applied to the previous min and max prices.
+      // 1.2^(1/4), applied to the previous min and max prices.
       const expectedMinPriceOORAfterConcentration = fpDivDown(expectedMinPriceIRAfterConcentration, fourthRoot(fp(1.2)));
       const expectedMaxPriceOORAfterConcentration = fpDivDown(expectedMaxPriceIRAfterConcentration, fourthRoot(fp(1.2)));
       const { minPrice: minPriceAfterPriceShift, maxPrice: maxPriceAfterPriceShift } = await checkPoolPrices(
