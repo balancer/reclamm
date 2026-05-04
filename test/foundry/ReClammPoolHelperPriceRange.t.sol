@@ -233,61 +233,6 @@ contract ReClammPoolHelperPriceRangeTest is BaseReClammTest {
         helperMock.checkInitializationPrices(balancesScaled18, currentMinPrice, currentMaxPrice, spotPrice, va, vb);
     }
 
-    // Tolerance-band Edge Cases
-
-    /**
-     * @dev Build a self-consistent `(balances, Va, Vb)` tuple, read the prices the helper actually computes, then
-     * perturb the initialization prices to land just inside or just outside each side of the 0.01% tolerance band.
-     *
-     * `_comparePrice` rejects when `currentPrice < initPrice * (1 - tol)` or
-     * `currentPrice > initPrice * (1 + tol)`. So:
-     *   - Just inside upper bound: `initPrice = currentPrice / (1 + tol) + 1`.
-     *   - Just outside upper bound: `initPrice = currentPrice / (1 + tol) - 1e6`.
-     *   - Just inside lower bound: `initPrice = currentPrice / (1 - tol) - 1`.
-     *   - Just outside lower bound: `initPrice = currentPrice / (1 - tol) + 1e6`.
-     */
-    function _refState()
-        internal
-        pure
-        returns (
-            uint256[] memory balancesScaled18,
-            uint256 virtualBalanceA,
-            uint256 virtualBalanceB,
-            uint256 currentMinPrice,
-            uint256 currentMaxPrice,
-            uint256 spotPrice
-        )
-    {
-        balancesScaled18 = new uint256[](2);
-        balancesScaled18[a] = _REF_BALANCE_A;
-        balancesScaled18[b] = _REF_BALANCE_B;
-        virtualBalanceA = _REF_VIRTUAL_A;
-        virtualBalanceB = _REF_VIRTUAL_B;
-
-        (currentMinPrice, currentMaxPrice) = ReClammMath.computePriceRange(
-            balancesScaled18,
-            virtualBalanceA,
-            virtualBalanceB
-        );
-        spotPrice = (balancesScaled18[b] + virtualBalanceB).divDown(balancesScaled18[a] + virtualBalanceA);
-    }
-
-    function _justInsideUpper(uint256 currentPrice) internal pure returns (uint256) {
-        return currentPrice.divDown(FixedPoint.ONE + _BALANCE_RATIO_AND_PRICE_TOLERANCE) + 1;
-    }
-
-    function _justOutsideUpper(uint256 currentPrice) internal pure returns (uint256) {
-        return currentPrice.divDown(FixedPoint.ONE + _BALANCE_RATIO_AND_PRICE_TOLERANCE) - 1e6;
-    }
-
-    function _justInsideLower(uint256 currentPrice) internal pure returns (uint256) {
-        return currentPrice.divUp(FixedPoint.ONE - _BALANCE_RATIO_AND_PRICE_TOLERANCE) - 1;
-    }
-
-    function _justOutsideLower(uint256 currentPrice) internal pure returns (uint256) {
-        return currentPrice.divUp(FixedPoint.ONE - _BALANCE_RATIO_AND_PRICE_TOLERANCE) + 1e6;
-    }
-
     // ---- spotPrice (compared against initTargetPrice)
 
     function testAcceptsSpotPriceJustInsideUpperBound() public view {
@@ -555,5 +500,60 @@ contract ReClammPoolHelperPriceRangeTest is BaseReClammTest {
         // otherwise revert on division by Va == 0.
         vm.expectRevert(IReClammPool.WrongInitializationPrices.selector);
         helperMock.checkInitializationPrices(balancesScaled18, 1e18, 1e18, 1e18, 0, 1e18);
+    }
+
+    // Support tolerance-band Edge Cases
+
+    /**
+     * @dev Build a self-consistent `(balances, Va, Vb)` tuple, read the prices the helper actually computes, then
+     * perturb the initialization prices to land just inside or just outside each side of the 0.01% tolerance band.
+     *
+     * `_comparePrice` rejects when `currentPrice < initPrice * (1 - tol)` or
+     * `currentPrice > initPrice * (1 + tol)`. So:
+     *   - Just inside upper bound: `initPrice = currentPrice / (1 + tol) + 1`.
+     *   - Just outside upper bound: `initPrice = currentPrice / (1 + tol) - 1e6`.
+     *   - Just inside lower bound: `initPrice = currentPrice / (1 - tol) - 1`.
+     *   - Just outside lower bound: `initPrice = currentPrice / (1 - tol) + 1e6`.
+     */
+    function _refState()
+        internal
+        pure
+        returns (
+            uint256[] memory balancesScaled18,
+            uint256 virtualBalanceA,
+            uint256 virtualBalanceB,
+            uint256 currentMinPrice,
+            uint256 currentMaxPrice,
+            uint256 spotPrice
+        )
+    {
+        balancesScaled18 = new uint256[](2);
+        balancesScaled18[a] = _REF_BALANCE_A;
+        balancesScaled18[b] = _REF_BALANCE_B;
+        virtualBalanceA = _REF_VIRTUAL_A;
+        virtualBalanceB = _REF_VIRTUAL_B;
+
+        (currentMinPrice, currentMaxPrice) = ReClammMath.computePriceRange(
+            balancesScaled18,
+            virtualBalanceA,
+            virtualBalanceB
+        );
+        spotPrice = (balancesScaled18[b] + virtualBalanceB).divDown(balancesScaled18[a] + virtualBalanceA);
+    }
+
+    function _justInsideUpper(uint256 currentPrice) internal pure returns (uint256) {
+        return currentPrice.divDown(FixedPoint.ONE + _BALANCE_RATIO_AND_PRICE_TOLERANCE) + 1;
+    }
+
+    function _justOutsideUpper(uint256 currentPrice) internal pure returns (uint256) {
+        return currentPrice.divDown(FixedPoint.ONE + _BALANCE_RATIO_AND_PRICE_TOLERANCE) - 1e6;
+    }
+
+    function _justInsideLower(uint256 currentPrice) internal pure returns (uint256) {
+        return currentPrice.divUp(FixedPoint.ONE - _BALANCE_RATIO_AND_PRICE_TOLERANCE) - 1;
+    }
+
+    function _justOutsideLower(uint256 currentPrice) internal pure returns (uint256) {
+        return currentPrice.divUp(FixedPoint.ONE - _BALANCE_RATIO_AND_PRICE_TOLERANCE) + 1e6;
     }
 }
