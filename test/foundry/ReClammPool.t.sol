@@ -251,7 +251,7 @@ contract ReClammPoolTest is BaseReClammTest {
             1e6,
             "Invalid default startFourthRootPriceRatio"
         );
-        // Error tolerance of 1 million wei (price ratio is computed using the pool balances and may have a small error).
+        // Error tolerance of 1m wei (price ratio is computed using the pool balances and may have a small error).
         assertApproxEqAbs(
             priceRatioState.endFourthRootPriceRatio,
             _initialFourthRootPriceRatio,
