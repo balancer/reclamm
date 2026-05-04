@@ -25,7 +25,6 @@ uint256 constant b = 1;
 library ReClammMath {
     using FixedPoint for uint256;
     using SafeCast for *;
-    using ReClammMath for bool;
 
     /// @notice The swap result is greater than the real balance of the token (i.e., the balance would drop below zero).
     error AmountOutGreaterThanBalance();
@@ -123,7 +122,7 @@ library ReClammMath {
     /**
      * @notice Compute the `amountOut` of tokenOut in a swap, given the current balances and virtual balances.
      * @param balancesScaled18 Current pool balances, sorted in token registration order
-     * @param virtualBalanceAе The last virtual balance of token A
+     * @param virtualBalanceA The last virtual balance of token A
      * @param virtualBalanceB The last virtual balance of token B
      * @param tokenInIndex Index of the token being swapped in
      * @param tokenOutIndex Index of the token being swapped out
