@@ -283,8 +283,12 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
             revert PoolAlreadyInitialized();
         }
 
+        // Fetch rates once and pass them to the helper so that the virtual balance computation and the helper's
+        // balance-ratio / price tolerance checks use the same rate values within this call.
+        (, uint256[] memory tokenRates) = _vault.getPoolTokenRates(address(this));
+
         (uint256 virtualBalanceA, uint256 virtualBalanceB, uint256 priceRatio) = _helper
-            .computeInitialVirtualBalancesAndRatio(balancesScaled18);
+            .computeInitialVirtualBalancesAndRatio(balancesScaled18, tokenRates[a], tokenRates[b]);
 
         // Defense-in-depth check: the factory's validateTargetPrice uses a closed-form sqrt-based approximation of
         // centeredness from the configured prices. This check uses the actual computed virtual balances and rate-
@@ -295,7 +299,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         }
 
         _setLastVirtualBalances(virtualBalanceA, virtualBalanceB);
-        _startPriceRatioUpdate(priceRatio, block.timestamp, block.timestamp);
+        // The pool is not yet initialized when this runs, so the `startPriceRatio` argument is unused inside
+        // `_startPriceRatioUpdate`.
+        _startPriceRatioUpdate(priceRatio, block.timestamp, block.timestamp, 0);
         // Set dynamic parameters.
         _setDailyPriceShiftExponent(_INITIAL_DAILY_PRICE_SHIFT_EXPONENT);
         _setCenterednessMargin(_INITIAL_CENTEREDNESS_MARGIN);
@@ -641,12 +647,22 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         // We've already validated that end time >= start time at this point.
         require(updateDuration >= _MIN_PRICE_RATIO_UPDATE_DURATION, PriceRatioUpdateDurationTooShort());
 
-        _updateVirtualBalances();
+        uint256[] memory balancesScaled18 = _updateVirtualBalances();
 
-        uint256 startPriceRatio = _startPriceRatioUpdate(
+        // Compute the starting price ratio from the just-fetched balances and freshly-stored virtual balances.
+        // This avoids a second Vault rate fetch within the same transaction and keeps the starting ratio consistent
+        // with the inputs that drove the virtual-balance update.
+        uint256 startPriceRatio = ReClammMath.computePriceRatio(
+            balancesScaled18,
+            _lastVirtualBalanceA,
+            _lastVirtualBalanceB
+        );
+
+        _startPriceRatioUpdate(
             endPriceRatio,
             actualPriceRatioUpdateStartTime,
-            priceRatioUpdateEndTime
+            priceRatioUpdateEndTime,
+            startPriceRatio
         );
 
         uint256 priceRatioDelta;
@@ -668,16 +684,21 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
     /// @inheritdoc IReClammPool
     function stopPriceRatioUpdate() external onlyWhenInitialized onlySwapFeeManagerOrGovernance(address(this)) {
-        _updateVirtualBalances();
+        uint256[] memory balancesScaled18 = _updateVirtualBalances();
 
         PriceRatioState memory priceRatioState = _priceRatioState;
         if (priceRatioState.priceRatioUpdateEndTime < block.timestamp) {
             revert PriceRatioNotUpdating();
         }
 
-        uint256 currentPriceRatio = _computeCurrentPriceRatio();
+        // Compute the current price ratio inline, avoiding a second Vault rate fetch.
+        uint256 currentPriceRatio = ReClammMath.computePriceRatio(
+            balancesScaled18,
+            _lastVirtualBalanceA,
+            _lastVirtualBalanceB
+        );
 
-        _startPriceRatioUpdate(currentPriceRatio, block.timestamp, block.timestamp);
+        _startPriceRatioUpdate(currentPriceRatio, block.timestamp, block.timestamp, currentPriceRatio);
     }
 
     /// @inheritdoc IReClammPool
@@ -751,8 +772,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
     function _startPriceRatioUpdate(
         uint256 endPriceRatio,
         uint256 priceRatioUpdateStartTime,
-        uint256 priceRatioUpdateEndTime
-    ) internal returns (uint256 startPriceRatio) {
+        uint256 priceRatioUpdateEndTime,
+        uint256 startPriceRatio
+    ) internal {
         if (priceRatioUpdateStartTime > priceRatioUpdateEndTime || priceRatioUpdateStartTime < block.timestamp) {
             revert InvalidStartTime();
         }
@@ -763,11 +785,11 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         uint256 startFourthRootPriceRatio;
         if (_vault.isPoolInitialized(address(this))) {
-            startPriceRatio = _computeCurrentPriceRatio();
+            // The caller pre-computed `startPriceRatio`. We use it directly to avoid a second Vault rate fetch, which
+            // keeps the captured starting ratio consistent with the balances that drove the virtual-balance update.
             startFourthRootPriceRatio = ReClammMath.fourthRootScaled18(startPriceRatio);
         } else {
             startFourthRootPriceRatio = endFourthRootPriceRatio;
-            startPriceRatio = endPriceRatio;
         }
 
         priceRatioState.startFourthRootPriceRatio = startFourthRootPriceRatio.toUint96();

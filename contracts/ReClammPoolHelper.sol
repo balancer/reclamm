@@ -117,14 +117,23 @@ contract ReClammPoolHelper {
 
     /**
      * @notice Compute the initialization amounts, given a reference token and amount.
-     * @dev Must be called by the pool; this function should not be called directly.
+     * @dev Must be called by the pool; this function should not be called directly. The pool pre-fetches token rates and
+     * passes them in so the helper's balance-ratio and price tolerance checks use the same rate values throughout the
+     * initialization call.
+     *
+     * @param balancesScaled18 Initial pool balances (decimal scaling and rates already applied)
+     * @param rateA Rate of token A (in 18-decimal FP); pass `FixedPoint.ONE` for tokens without a rate
+     * @param rateB Rate of token B (in 18-decimal FP); pass `FixedPoint.ONE` for tokens without a rate
      */
     function computeInitialVirtualBalancesAndRatio(
-        uint256[] calldata balancesScaled18
+        uint256[] calldata balancesScaled18,
+        uint256 rateA,
+        uint256 rateB
     ) external view returns (uint256, uint256, uint256) {
         IReClammPool pool = IReClammPool(msg.sender);
         InitializeLocals memory locals;
-        (locals.rateA, locals.rateB) = _getTokenRates(address(pool));
+        locals.rateA = rateA;
+        locals.rateB = rateB;
 
         (
             locals.minPriceScaled18,
