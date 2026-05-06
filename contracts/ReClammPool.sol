@@ -299,8 +299,8 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         }
 
         _setLastVirtualBalances(virtualBalanceA, virtualBalanceB);
-        // The pool is not yet initialized when this runs, so the `startPriceRatio` argument is unused inside
-        // `_startPriceRatioUpdate`.
+        // The pool is not yet initialized when this runs, so `_startPriceRatioUpdate` reads the start fourth root from
+        // `priceRatio` (the not-initialized branch). Pass 0 for the unused `precomputedStartPriceRatio`.
         _startPriceRatioUpdate(priceRatio, block.timestamp, block.timestamp, 0);
         // Set dynamic parameters.
         _setDailyPriceShiftExponent(_INITIAL_DAILY_PRICE_SHIFT_EXPONENT);
@@ -649,9 +649,9 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         uint256[] memory balancesScaled18 = _updateVirtualBalances();
 
-        // Compute the starting price ratio from the just-fetched balances and freshly-stored virtual balances.
-        // This avoids a second Vault rate fetch within the same transaction and keeps the starting ratio consistent
-        // with the inputs that drove the virtual-balance update.
+        // Compute the starting price ratio from the just-fetched balances and freshly-stored virtual balances. This
+        // avoids a second Vault rate fetch within the same transaction and keeps the starting ratio consistent with
+        // the inputs that drove the virtual-balance update.
         uint256 startPriceRatio = ReClammMath.computePriceRatio(
             balancesScaled18,
             _lastVirtualBalanceA,
@@ -769,11 +769,19 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
         _vault.emitAuxiliaryEvent("VirtualBalancesUpdated", abi.encode(virtualBalanceA, virtualBalanceB));
     }
 
+    /**
+     * @dev `precomputedStartPriceRatio` is read only when the pool is already initialized. The runtime callers
+     * (`startPriceRatioUpdate`, `stopPriceRatioUpdate`) compute it from the just-fetched balances and the
+     * freshly-stored virtual balances, so the captured starting ratio stays consistent with the inputs that drove the
+     * virtual-balance update without a second Vault rate fetch. Init callers (`onBeforeInitialize`,
+     * `ReClammPoolMock.reInitialize`) pass 0 because the not-initialized branch sources the start fourth root from
+     * `endPriceRatio` instead.
+     */
     function _startPriceRatioUpdate(
         uint256 endPriceRatio,
         uint256 priceRatioUpdateStartTime,
         uint256 priceRatioUpdateEndTime,
-        uint256 startPriceRatio
+        uint256 precomputedStartPriceRatio
     ) internal {
         if (priceRatioUpdateStartTime > priceRatioUpdateEndTime || priceRatioUpdateStartTime < block.timestamp) {
             revert InvalidStartTime();
@@ -785,9 +793,7 @@ contract ReClammPool is IReClammPool, BalancerPoolToken, PoolInfo, BasePoolAuthe
 
         uint256 startFourthRootPriceRatio;
         if (_vault.isPoolInitialized(address(this))) {
-            // The caller pre-computed `startPriceRatio`. We use it directly to avoid a second Vault rate fetch, which
-            // keeps the captured starting ratio consistent with the balances that drove the virtual-balance update.
-            startFourthRootPriceRatio = ReClammMath.fourthRootScaled18(startPriceRatio);
+            startFourthRootPriceRatio = ReClammMath.fourthRootScaled18(precomputedStartPriceRatio);
         } else {
             startFourthRootPriceRatio = endFourthRootPriceRatio;
         }
