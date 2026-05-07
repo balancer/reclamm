@@ -74,7 +74,7 @@ contract ReClammPoolPriceRatioUpdateTest is BaseReClammTest {
         // Move partway through the update so the price ratio is mid-interpolation.
         vm.warp(block.timestamp + 3 days);
 
-        // Snapshot the moment-of-stop ratio + VBs.
+        // Snapshot the price ratio and VBs at the time it was stopped.
         uint256 currentFourthRoot = ReClammPool(pool).computeCurrentFourthRootPriceRatio();
         (uint256 currentVbA, uint256 currentVbB, ) = ReClammPool(pool).computeCurrentVirtualBalances();
 
@@ -89,7 +89,7 @@ contract ReClammPoolPriceRatioUpdateTest is BaseReClammTest {
         assertEq(uint256(state.priceRatioUpdateStartTime), block.timestamp, "stopped start time");
         assertEq(uint256(state.priceRatioUpdateEndTime), block.timestamp, "stopped end time");
 
-        // `_lastTimestamp` advances; stored VBs reflect the interpolated state captured at the moment of stop.
+        // `_lastTimestamp` advances; stored VBs reflect the interpolated state at the time it was stopped.
         assertEq(uint256(ReClammPool(pool).getLastTimestamp()), block.timestamp, "_lastTimestamp");
         (uint256 storedVbA, uint256 storedVbB) = ReClammPool(pool).getLastVirtualBalances();
         assertEq(storedVbA, currentVbA, "_lastVirtualBalanceA");
@@ -101,7 +101,7 @@ contract ReClammPoolPriceRatioUpdateTest is BaseReClammTest {
      * @dev The call must invoke `getRate()` on each token's rate provider exactly once. The captured
      * `startFourthRootPriceRatio` must equal the value that `computeCurrentFourthRootPriceRatio` returns immediately
      * before the call: `_updateVirtualBalances` reads balances once, then the price ratio is computed inline from the
-     * freshly stored virtual balances rather than from a second read.
+     * virtual balances `_updateVirtualBalances` wrote, rather than from a second read.
      */
     function testStartPriceRatioUpdatePerformsSingleRateFetch() public {
         vm.warp(block.timestamp + 1 days);
