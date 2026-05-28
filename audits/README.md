@@ -11,3 +11,4 @@ This directory the reports of audits performed on Balancer smart contracts by di
 | --------------------------------- | ------------- | ---------------------------------------------------- |
 | ReClamm Pool                      | Certora       | [`2025-04-15`](./certora/2025-04-15.pdf)             |
 | ReClamm Pool                      | Certora       | [`2025-06-02`](./certora/2025-06-02.pdf)             |
+| ReClamm Pool (V3)                 | Certora       | [`2026-04-23`](./certora/2026-04-23.pdf)             |
