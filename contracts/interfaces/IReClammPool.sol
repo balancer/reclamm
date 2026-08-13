@@ -84,10 +84,19 @@ struct ReClammPoolImmutableData {
  * and `setCenterednessMargin` do not recompute VBs from real balances; they only adjust their respective parameter.
  * The only reliable recalibration path is `startPriceRatioUpdate` with a target that forces VB recomputation.
  *
- * Note: disabling Recovery Mode on a ReClamm pool after withdrawals have occurred is not recommended. The inflated
- * virtual balances cannot be fully corrected without a price ratio update, and the pool's swap curve will not price
- * accurately until that recalibration is performed. Governance should treat Recovery Mode as one-way for this pool
- * type.
+ * Note: once Recovery Mode withdrawals have occurred, the pool must not be returned to normal swap-enabled operation.
+ * Those withdrawals bypass the pool hooks that would normally scale the virtual balances with the real balances, so the
+ * virtual balances are left too large for the remaining liquidity. The pool cannot be safely resumed without
+ * recalibrating the price ratio. Treat Recovery Mode as one-way for this pool type, and migrate rather than resume.
+ *
+ * The unsafe action is restoring swaps, not clearing the Recovery Mode flag. Recovery Mode does not disable swaps;
+ * pausing does. An unpaused pool in Recovery Mode is therefore already exposed, and a paused pool that has processed
+ * Recovery Mode withdrawals becomes exposed as soon as it is unpaused, regardless of whether Recovery Mode remains
+ * enabled. Enabling Recovery Mode without pausing may be safe for stateless pool types, but it is not safe here.
+ *
+ * This is also not solely a governance concern. The pool's `pauseManager`, set at deployment, may be able to pause and
+ * unpause the pool independently of governance. A pool with no pause manager, or one deployed as unpausable, cannot be
+ * taken out of operation this way, so unpausable configurations are discouraged for this pool type.
  *
  * Base Pool:
  * @param balancesLiveScaled18 Token balances after paying yield fees, applying decimal scaling and rates
@@ -578,9 +587,9 @@ interface IReClammPool is IBasePool {
      *
      * where `swap_fee_pct` is the pool's swap fee as a percentage and `shift_rate_pct` is this exponent expressed as a
      * percentage (e.g., 5 for 5%). The reference point (T_ref = 47s, fee_ref = 0.001%, shift_ref = 5%) is the
-     * empirically observed first-profitable timestamp from `ReClammRoundTripDesignRiskTest` at the pool's minimum swap
-     * fee and a representative production shift rate. Rearranging, the minimum swap fee that preserves a 47-second
-     * breakeven at a given shift rate:
+     * first-profitable timestamp measured during the April 2026 Cantina review, at the pool's minimum swap fee and a
+     * representative production shift rate. Rearranging, the minimum swap fee that preserves a 47-second breakeven at
+     * a given shift rate:
      *
      *   min_safe_fee = fee_ref * (shift_rate_pct / shift_ref)
      *                = 0.001% * (shift_rate_pct / 5%)
@@ -591,6 +600,16 @@ interface IReClammPool is IBasePool {
      * faster, not slower, making this a conservative bound in practice. This constraint cannot be enforced on-chain,
      * because the shift rate and swap fee are governed independently. Operators should verify the swap fee is adequate
      * whenever the shift rate is adjusted upward.
+     *
+     * The relationship carries no `centerednessMargin` term and does not need one: the measured breakeven ranges from
+     * roughly 37 to 49 seconds against the formula's 47, across margins from 5% to 90%, and lower margins are safer
+     * still, because crossing them requires a push large enough that the curve itself defeats the round trip. At the
+     * top of that range (85-90%) the breakeven is nearer 37 seconds, so treat the reference as slightly optimistic
+     * there.
+     *
+     * Note the scope of this bound. The swap fee constrains a round trip because the round trip pays it twice, going
+     * out of range and coming back. It is not a general bound on out-of-range repricing, and it does not constrain a
+     * path that reaches the centeredness margin by some means other than a swap.
      *
      * In any case, trusted execution contexts are always preferable when calling permissioned functions from multisigs
      * (i.e. sign and execute right after the last signature, without giving away the execution to a frontrunner).
