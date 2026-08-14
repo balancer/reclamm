@@ -20,6 +20,20 @@ import { ReClammMath } from "./ReClammMath.sol";
  * should be false. If the price is given in terms of the underlying, we do need to apply the rate when computing
  * the initialization balances.
  *
+ * Not every rate provider is a good fit, and nothing here enforces the choice. The rate is read once during
+ * initialization and built into the virtual balances; it is not re-applied afterwards, so the pool's quoted price moves
+ * apart from the true underlying price as the rate changes. What matters is how fast the rate moves between trades
+ * rather than how large it is: an identical relative step produces an identical effect at a rate of 1 or of 100. So a
+ * rate that accrues slowly and in one direction is the suitable case, and one that is volatile, that can jump, or that
+ * an outside party can move is not.
+ *
+ * A rate that anyone can move is the case to check most carefully, because a rate change also shifts the pool's
+ * centeredness with no swap taking place, and can therefore push the pool out of its target range on its own. An
+ * ERC4626 wrapper, for example, takes a transfer from anyone, and its assets per share rise in proportion. The cost of
+ * doing that should exceed what the pool holds of the rate-bearing token: it scales with everything backing the
+ * wrapper, while the gain scales with the pool's own balance, so a pool holding a small share of a deeply backed
+ * wrapper is well protected, while one holding a large share of a thinly backed wrapper is not.
+ *
  * @param initialMinPrice The initial minimum price of token A in terms of token B as an 18-decimal FP value
  * @param initialMaxPrice The initial maximum price of token A in terms of token B as an 18-decimal FP value
  * @param initialTargetPrice The initial target price of token A in terms of token B as an 18-decimal FP value
@@ -147,6 +161,10 @@ library ReClammPoolFactoryLib {
         uint256 x2 = denominator.divDown(numerator);
         uint256 centeredness = Math.min(x1, x2);
 
+        // Clearing the margin is the minimum this check enforces, not a recommendation for where to sit. A target price
+        // near an edge of the range passes with a centeredness barely above the margin, and any small price or rate
+        // movement then puts the pool out of range. Placing the target near the geometric center of the range starts
+        // the pool at a centeredness close to 1 and leaves that headroom.
         if (centeredness < params.centerednessMargin) {
             revert IReClammPool.InvalidInitialTargetPrice();
         }
